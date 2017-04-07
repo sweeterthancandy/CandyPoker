@@ -31,6 +31,7 @@
 #include <boost/array.hpp>
 #include <boost/range/algorithm.hpp>
 #include <boost/tuple/tuple.hpp>
+#include <boost/format.hpp>
 
 
 
@@ -355,7 +356,7 @@ namespace detail{
                                               traits_.rank(a),traits_.rank(b),
                                               traits_.rank(c),traits_.rank(d),
                                               traits_.rank(e));
-                        PRINT(m);
+                        //PRINT(m);
                         return m_[m];
                 }
                 std::uint32_t map(bool f, long a, long b, long c, long d, long e)const{
@@ -381,12 +382,14 @@ struct eval{
                 return this->operator()(cards[0], cards[1], cards[2], cards[3], cards[4] );
         }
         std::uint32_t operator()(long a, long b, long c, long d, long e)const{
+                #if 0
                 std::cout
                         << traits_.rank_to_string(a)
                         << traits_.rank_to_string(b) 
                         << traits_.rank_to_string(c) 
                         << traits_.rank_to_string(d) 
                         << traits_.rank_to_string(e) << "\n";
+                #endif
                 return impl_.eval(a,b,c,d,e);
         }
         std::uint32_t operator()(long a, long b, long c, long d, long e, long f)const{
@@ -423,11 +426,18 @@ struct an_result_t{
         size_t draw;
 
         friend std::ostream& operator<<(std::ostream& ostr, an_result_t const& self){
+                auto sigma{ static_cast<double>(self.wins + self.lose + self.draw )};
+                #if 0
                 return ostr 
                         << "{ wins=" << self.wins 
                         << ", lose=" << self.lose 
                         << ", draw=" << self.draw 
                         << "}\n";
+                #endif
+                return ostr  << boost::format("{ wins=%d(%.2f), lose=%d(%.2f), draw=%d(%.2f) }\n")
+                        % self.wins % ( self.wins / sigma )
+                        % self.lose % ( self.lose / sigma )
+                        % self.draw % ( self.draw / sigma );
         }
 };
 
@@ -448,6 +458,57 @@ struct driver{
                 auto villian_2{ traits_.make(right.substr(2,4)) };
 
                 std::set<long> known { hero_1, hero_2, villian_1, villian_2 };
+
+                for(long c0 = 52; c0 != 0; ){
+                        --c0;
+                        if( known.count(c0) )
+                                continue;
+                
+                        for(long c1 = c0; c1 != 0; ){
+                                --c1;
+                                if( c1 == c0 )
+                                        continue;
+                                if( known.count(c1) )
+                                        continue;
+
+                                for(long c2 = c1; c2 != 0; ){
+                                        --c2;
+                                        if( c2 == c1 )
+                                                continue;
+                                        if( known.count(c2) )
+                                                continue;
+                                
+                                        for(long c3 = c2; c3 != 0; ){
+                                                --c3;
+                                                if( c3 == c2 )
+                                                        continue;
+                                                if( known.count(c3) )
+                                                        continue;
+                                        
+                                                for(long c4 = c3; c4 != 0; ){
+                                                        --c4;
+                                                        if( c4 == c3 )
+                                                                continue;
+                                                        if( known.count(c4) )
+                                                                continue;
+
+                                                        auto h{ eval_(hero_1   , hero_2   , c0, c1, c2, c3, c4 ) };
+                                                        auto v{ eval_(villian_1, villian_2, c0, c1, c2, c3, c4 ) };
+
+                                                        if( h < v ) {
+                                                                ++ret.wins;
+                                                        } else if ( v < h ) {
+                                                                ++ret.lose;
+                                                        } else {
+                                                                ++ret.draw;
+                                                        }
+
+                                                }
+                                        }
+                                }
+                        }
+                }
+                
 
 
                 return ret;

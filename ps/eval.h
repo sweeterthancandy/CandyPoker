@@ -4,6 +4,7 @@
 #include "card_traits.h"
 #include "generate.h"
 
+namespace ps{
 
 namespace detail{
         struct eval_impl{
@@ -103,5 +104,7 @@ private:
         detail::eval_impl impl_;
         card_traits traits_;
 };
+
+} // namespace ps
 
 #endif // #ifndef PS_EVAL_H

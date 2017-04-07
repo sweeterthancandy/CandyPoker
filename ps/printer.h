@@ -1,3 +1,8 @@
+#ifndef PS_PRINTER_H
+#define PS_PRINTER_H
+
+namespace ps{
+
 struct printer{
         printer():order_{1}{}
 
@@ -30,3 +35,7 @@ private:
         size_t count_;
         card_traits traits_;
 };
+
+} // namespace ps
+
+#endif // PS_PRINTER_H

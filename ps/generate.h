@@ -1,6 +1,8 @@
 #ifndef PS_GENERATE_H
 #define PS_GENERATE_H
 
+namespace ps{
+
 template<class Traits, class V>
 void generate(V& v){
         static long _2( 0);
@@ -167,5 +169,7 @@ void generate(V& v){
         }
         v.end();
 }
+
+} // namespace ps
 
 #endif // PS_GENERATE_H

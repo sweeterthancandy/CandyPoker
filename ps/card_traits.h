@@ -4,6 +4,8 @@
 #include <string>
 #include <cassert>
 
+namespace ps{
+
 struct card_traits{
         long make(std::string const& h)const{
                 assert(h.size()==2 && "preconditon failed");
@@ -82,5 +84,7 @@ struct card_traits{
                 return rank_to_string(rank(c)) + suit_to_string(suit(c));
         }
 };
+
+} //  namespace ps
 
 #endif // PS_CARD_TRAITS_H

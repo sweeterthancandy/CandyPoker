@@ -8,6 +8,8 @@
 
 #include <boost/format.hpp>
 
+namespace ps{
+
 struct an_result_t{
         size_t wins;
         size_t lose;
@@ -90,15 +92,11 @@ struct driver{
                                                         } else {
                                                                 ++ret.draw;
                                                         }
-
                                                 }
                                         }
                                 }
                         }
                 }
-                
-
-
                 return ret;
         }
 private:
@@ -106,5 +104,6 @@ private:
         card_traits traits_;
 };
 
+} // namespace ps
 
 #endif // PS_DRIVER_H

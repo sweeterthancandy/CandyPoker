@@ -12,30 +12,70 @@
 
 #pragma warning( disable:4530 )
 
-template<class V>
-void generate(V v){
-  long _L( 1); // psudo low ace
-  long _2( 2);
-  long _3( 3);
-  long _4( 4);
-  long _5( 5);
-  long _6( 6);
-  long _7( 7);
-  long _8( 8);
-  long _9( 9);
-  long _T(10);
-  long _J(11);
-  long _Q(12);
-  long _K(13);
-  long _A(14);
+#include <boost/preprocessor.hpp>
+
+#define PRINT_SEQ_detail(r, d, i, e) do{ std::cout << ( i ? ", " : "" ) << BOOST_PP_STRINGIZE(e) << " = " << (e); }while(0);
+#define PRINT_SEQ(SEQ) do{ BOOST_PP_SEQ_FOR_EACH_I( PRINT_SEQ_detail, ~, SEQ) std::cout << "\n"; }while(0)
+#define PRINT(X) PRINT_SEQ((X))
+#define PRINT_TEST( EXPR ) do{ bool ret(EXPR); std::cout << std::setw(50) << std::left << #EXPR << std::setw(0) << ( ret ? " OK" : " FAILED" ) << "\n"; }while(0);
+
+#include <cassert>
+#include <cstdint>
+#include <vector>
+#include <iostream>
+#include <iomanip>
+#include <string>
+#include <sstream>
+
+#include <boost/array.hpp>
+#include <boost/range/algorithm.hpp>
+#include <boost/tuple/tuple.hpp>
+
+
+
+template<class Traits, class V>
+void generate(V& v){
+  static long _L( 0); // psudo low ace
+  static long _2( 1);
+  static long _3( 2);
+  static long _4( 3);
+  static long _5( 4);
+  static long _6( 5);
+  static long _7( 6);
+  static long _8( 7);
+  static long _9( 8);
+  static long _T( 9);
+  static long _J(10);
+  static long _Q(11);
+  static long _K(12);
+  static long _A(13);
+
+  Traits traits;
+
+  boost::array<long, 14> m = { 
+    traits.map_rank('A'),
+    traits.map_rank('2'),
+    traits.map_rank('3'),
+    traits.map_rank('4'),
+    traits.map_rank('5'),
+    traits.map_rank('6'),
+    traits.map_rank('7'),
+    traits.map_rank('8'),
+    traits.map_rank('9'),
+    traits.map_rank('T'),
+    traits.map_rank('J'),
+    traits.map_rank('Q'),
+    traits.map_rank('K'),
+    traits.map_rank('A')
+  };
 
   v.begin("Royal Flush");
-  v.next(true, _A, _K, _Q, _J, _T );
+  v.next(true, m[_A], m[_K], m[_Q], m[_J], m[_T] );
   v.end();
   v.begin("Straight Flush");
   for( long a(_K+1); a != _5 ;){
     --a;
-    v.next(true, a, a-1, a-2, a-3, a-4);
+    v.next(true, m[a], m[a-1], m[a-2], m[a-3], m[a-4]);
   }
   v.end();
   v.begin("Quads");
@@ -45,7 +85,7 @@ void generate(V v){
       --b;
       if( a == b )
         continue;
-      v.next(false, a, a, a, a, b);
+      v.next(false, m[a], m[a], m[a], m[a], m[b]);
     }
   }
   v.end();
@@ -57,7 +97,7 @@ void generate(V v){
       --b;
       if( a == b )
         continue;
-      v.next(false, a, a, a, b, b);
+      v.next(false, m[a], m[a], m[a], m[b], m[b]);
     }
   }
   v.end();
@@ -74,7 +114,7 @@ void generate(V v){
             --e;
             if( a - e == 4 )
               continue;
-            v.next(true, a, b, c, d, e);
+            v.next(true, m[a], m[b], m[c], m[d], m[e]);
           }
         }
       }
@@ -92,7 +132,7 @@ void generate(V v){
         --c;
         if( a == c)
           continue;
-        v.next(false,a,a,a,b,c);
+        v.next(false, m[a], m[a], m[a], m[b], m[c]);
       }
     }
   }
@@ -106,7 +146,7 @@ void generate(V v){
         --c;
         if( c == a || c == b )
           continue;
-        v.next(false,a,a,b,b,c);
+        v.next(false, m[a], m[a], m[b], m[b], m[c]);
       }
     }
   }
@@ -126,7 +166,7 @@ void generate(V v){
           --d;
           if( a == d )
             continue;
-          v.next(false, a, a, b, c, d);
+          v.next(false, m[a], m[a], m[b], m[c], m[d]);
         }
       }
     }
@@ -145,7 +185,7 @@ void generate(V v){
             --e;
             if( a - e == 4 )
               continue;
-            v.next(false, a, b, c, d, e);
+            v.next(false, m[a], m[b], m[c], m[d], m[e]);
           }
         }
       }
@@ -179,9 +219,6 @@ private:
 
 #endif
 
-#include <iostream>
-#include <string>
-#include <sstream>
 
 struct printer{
   void next( bool f, long a, long b, long c, long d, long e){
@@ -224,34 +261,210 @@ private:
   size_t count_;
 };
 
+struct card_traits{
+  long make(std::string const& h)const{
+    assert(h.size()==2 && "preconditon failed");
+    return make(h[0], h[1]);
+  }
+  long make(char r, char s)const{
+    return map_suit(s)*13 + map_rank(r);
+  }
+  long suit(long c)const{
+    return c / 13;
+  }
+  long rank(long c)const{
+    return c % 13;
+  }
+  long map_suit(char s)const{
+    switch(s){
+    case 'h': case 'H': return 0;
+    case 'd': case 'D': return 1;
+    case 'c': case 'C': return 2;
+    case 's': case 'S': return 3;
+    default:
+      assert( 0 && "precondtion failed");
+      return -1;
+    }
+  }
+  long map_rank(char s)const{
+    switch(s){
+      case '2': return 0;
+      case '3': return 1;
+      case '4': return 2;
+      case '5': return 3;
+      case '6': return 4;
+      case '7': return 5;
+      case '8': return 6;
+      case '9': return 7;
+      case 'T': case 't': return 8;
+      case 'J': case 'j': return 9;
+      case 'Q': case 'q': return 10;
+      case 'K': case 'k': return 11;
+      case 'A': case 'a': return 12;
+      default: return -1;
+    }
+  }
+};
+
+struct deck{
+  deck(){
+    for(long i=0;i!=52;++i)
+      cards_.push_back(i);
+  }
+  long deal(){
+    long c = cards_.back();
+    return c;
+  }
+private:
+  std::vector<long> cards_;
+};
+
 
 namespace detail{
   struct eval_impl{
-    eval_impl():count_(0){}
+    eval_impl():count_(1){
+      fm_.resize( 37 * 37 * 37 * 37 * 31 +1 );
+      rm_.resize( 37 * 37 * 37 * 37 * 31 +1 );
+    }
     void next( bool f, long a, long b, long c, long d, long e){
       std::uint32_t m = map(a,b,c,d,e);
       if( f )
         fm_[m] = count_;
       else
         rm_[m] = count_;
+      //PRINT_SEQ((m)(count_));
       ++count_;
     }
-    void begin(std::string const& name){}
-    void end(){}
-    std::uint32_t eval(long a, long b, long c, long d, long e){
+    void begin(std::string const& name){
+      name_ = name;
     }
-    std::uint32_t map(long a, long b, long c, long d, long e){
-      //                                  2 3 4 5  6  7  8  9  T  J  Q  K  A
-      std::array<std::uint32_t> p = {0,37,2,3,5,7,11,13,17,19,13,27,29,31,37};
-      return p[a] + p[b] + p[c] + p[d] + p[e];
+    void end(){}
+    std::uint32_t eval(long a, long b, long c, long d, long e)const{
+      std::uint32_t m = map(a,b,c,d,e);
+      if( traits_.suit(a) == 
+          traits_.suit(b) ==
+          traits_.suit(c) ==
+          traits_.suit(d) ==
+          traits_.suit(e) ){
+        return fm_[m];
+      } else{
+        return rm_[m];
+      }
+    }
+    std::uint32_t map(long a, long b, long c, long d, long e)const{
+      //                                   2 3 4 5  6  7  8  9  T  J  Q  K  A
+      boost::array<std::uint32_t, 13> p = {2,3,5,7,11,13,17,19,13,27,29,31,37};
+      return p[ traits_.rank(a)] * p[traits_.rank(b)] * p[traits_.rank(c)] * p[traits_.rank(d)] * p[traits_.rank(e)];
     }
   private:
+    std::string name_;
     size_t count_;
     std::vector<std::uint32_t> fm_;
-    std::vector<std::uint32_t> nm_;
+    std::vector<std::uint32_t> rm_;
+    card_traits traits_;
   };
+}
+struct eval{
+  eval(){
+    generate<card_traits>(impl_);
+  }
+  std::uint32_t eval_5(std::vector<long> const& cards)const{
+    assert( cards.size() == 5 && "precondition failed");
+    return this->operator()(cards[0], cards[1], cards[2], cards[3], cards[4] );
+  }
+  std::uint32_t operator()(long a, long b, long c, long d, long e)const{
+    return impl_.eval(a,b,c,d,e);
+  }
+  std::uint32_t operator()(long a, long b, long c, long d, long e, long f)const{
+    std::vector<std::uint32_t> aux;
+    aux.push_back( (*this)(  b,c,d,e,f));
+    aux.push_back( (*this)(a,  c,d,e,f));
+    aux.push_back( (*this)(a,b,  d,e,f));
+    aux.push_back( (*this)(a,b,c,  e,f));
+    aux.push_back( (*this)(a,b,c,d,  f));
+    aux.push_back( (*this)(a,b,c,d,e  ));
+    boost::sort(aux);
+    return aux.front();
+  }
+  std::uint32_t operator()(long a, long b, long c, long d, long e, long f, long g)const{
+    std::vector<std::uint32_t> aux;
+    aux.push_back( (*this)(  b,c,d,e,f,g));
+    aux.push_back( (*this)(a,  c,d,e,f,g));
+    aux.push_back( (*this)(a,b,  d,e,f,g));
+    aux.push_back( (*this)(a,b,c,  e,f,g));
+    aux.push_back( (*this)(a,b,c,d,  f,g));
+    aux.push_back( (*this)(a,b,c,d,e,  g));
+    aux.push_back( (*this)(a,b,c,d,e,f  ));
+    boost::sort(aux);
+    return aux.front();
+  }
+private:
+  detail::eval_impl impl_;
+};
+
+struct driver{
+  std::uint32_t eval_5(std::string const& str)const{
+    assert( str.size() == 10 && "precondition failed");
+    std::vector<long> hand;
+    for(size_t i=0;i!=10;i+=2){
+      hand.push_back(traits_.make(str[i], str[i+1]) );
+    }
+    return eval_.eval_5(hand);
+  }
+private:
+  eval eval_;
+  card_traits traits_;
+};
+
+struct an_result_t{
+  size_t wins;
+  size_t lose;
+  size_t draw;
+};
+
+void traits_test(){
+  const char* cards [] = {
+    "As", "2s", "3s", "4s", "5s", "6s", "7s", "8s", "9s", "Ts", "js", "qs", "Ks",
+    "AD", "2D", "3D", "4D", "5D", "6D", "7D", "8D", "9D", "TD", "jD", "qD", "KD",
+    "Ac", "2c", "3c", "4c", "5c", "6c", "7c", "8c", "9c", "Tc", "jc", "qc", "Kc",
+    "Ah", "2h", "3h", "4h", "5h", "6h", "7h", "8h", "9h", "Th", "jh", "qh", "Kh" };
+
+  card_traits t;
+  for(long i=0;i!=sizeof(cards)/sizeof(void*);++i){
+    long c = t.make(cards[i]);
+    std::cout << cards[i] << " -> " << c << " " << t.rank(c) << " - " << t.suit(c) << "\n";
+  }
+  PRINT( t.make("Ac") );
+  PRINT( t.make("5s") );
+  PRINT( t.rank(t.make("Ah")) );
+  PRINT( t.rank(t.make("Ac")) );
+  PRINT( t.suit(t.make("Ah")) );
+  PRINT( t.suit(t.make("Ac")) );
+}
+
+void eval_test(){
+  driver d;
+
+  PRINT( d.eval_5("AhKhQhJhTh") );
+  PRINT( d.eval_5("AsKsQsJsTs") );
+  PRINT( d.eval_5("AcKcQcJcTc") );
+  PRINT( d.eval_5("AhAcAcAd2c") );
+  PRINT( d.eval_5("AhAcAcAd2d") );
+}
+
+#if 0
+struct driver{
+  an_result_t pf(long a, long b, long x, long y){
+    an_result_t ret;
+    for(long = c0 
+  }
+private:
+  eval eval_;
+};
+#endif
+
 
 int main(){
-  printer p;
-  generate(p);
+  traits_test();
+  eval_test();
 }

@@ -77,6 +77,7 @@ void generate(V& v){
                 --a;
                 v.next(true, m[a], m[a-1], m[a-2], m[a-3], m[a-4]);
         }
+        v.next(true, m[_5], m[_4], m[_3], m[_2], m[_A] );
         v.end();
         v.begin("Quads");
         for( long a(_A+1); a != _2 ;){
@@ -120,6 +121,13 @@ void generate(V& v){
                         }
                 }
         }
+        v.end();
+        v.begin("Straight");
+        for( long a(_A+1); a != _6 ;){
+                --a;
+                v.next(false, m[a], m[a-1], m[a-2], m[a-3], m[a-4]);
+        }
+        v.next(false, m[_5], m[_4], m[_3], m[_2], m[_A] );
         v.end();
         v.begin("Trips");
         for( long a(_A+1); a != _2 ;){
@@ -241,7 +249,7 @@ struct card_traits{
                 }
         }
         std::string suit_to_string(long s)const{
-                switch(suit(s)){
+                switch(s){
                 case 0: return "H";
                 case 1: return "D";
                 case 2: return "C";
@@ -252,7 +260,7 @@ struct card_traits{
                 }
         }
         std::string rank_to_string(long r)const{
-                switch(rank(r)){
+                switch(r){
                 case  0: return "2";
                 case  1: return "3";
                 case  2: return "4";
@@ -393,25 +401,27 @@ struct eval{
                 return impl_.eval(a,b,c,d,e);
         }
         std::uint32_t operator()(long a, long b, long c, long d, long e, long f)const{
-                std::vector<std::uint32_t> aux;
-                aux.push_back( (*this)(  b,c,d,e,f));
-                aux.push_back( (*this)(a,  c,d,e,f));
-                aux.push_back( (*this)(a,b,  d,e,f));
-                aux.push_back( (*this)(a,b,c,  e,f));
-                aux.push_back( (*this)(a,b,c,d,  f));
-                aux.push_back( (*this)(a,b,c,d,e  ));
+                std::array<std::uint32_t, 6> aux { 
+                        (*this)(  b,c,d,e,f),
+                        (*this)(a,  c,d,e,f),
+                        (*this)(a,b,  d,e,f),
+                        (*this)(a,b,c,  e,f),
+                        (*this)(a,b,c,d,  f),
+                        (*this)(a,b,c,d,e  )
+                };
                 boost::sort(aux);
                 return aux.front();
         }
         std::uint32_t operator()(long a, long b, long c, long d, long e, long f, long g)const{
-                std::vector<std::uint32_t> aux;
-                aux.push_back( (*this)(  b,c,d,e,f,g));
-                aux.push_back( (*this)(a,  c,d,e,f,g));
-                aux.push_back( (*this)(a,b,  d,e,f,g));
-                aux.push_back( (*this)(a,b,c,  e,f,g));
-                aux.push_back( (*this)(a,b,c,d,  f,g));
-                aux.push_back( (*this)(a,b,c,d,e,  g));
-                aux.push_back( (*this)(a,b,c,d,e,f  ));
+                std::array<std::uint32_t, 7> aux = {
+                        (*this)(  b,c,d,e,f,g),
+                        (*this)(a,  c,d,e,f,g),
+                        (*this)(a,b,  d,e,f,g),
+                        (*this)(a,b,c,  e,f,g),
+                        (*this)(a,b,c,d,  f,g),
+                        (*this)(a,b,c,d,e,  g),
+                        (*this)(a,b,c,d,e,f  )
+                };
                 boost::sort(aux);
                 return aux.front();
         }

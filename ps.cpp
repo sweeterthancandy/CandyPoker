@@ -24,6 +24,7 @@
 #include <vector>
 #include <iostream>
 #include <iomanip>
+#include <set>
 #include <string>
 #include <sstream>
 
@@ -35,25 +36,23 @@
 
 template<class Traits, class V>
 void generate(V& v){
-        static long _L( 0); // psudo low ace
-        static long _2( 1);
-        static long _3( 2);
-        static long _4( 3);
-        static long _5( 4);
-        static long _6( 5);
-        static long _7( 6);
-        static long _8( 7);
-        static long _9( 8);
-        static long _T( 9);
-        static long _J(10);
-        static long _Q(11);
-        static long _K(12);
-        static long _A(13);
+        static long _2( 0);
+        static long _3( 1);
+        static long _4( 2);
+        static long _5( 3);
+        static long _6( 4);
+        static long _7( 5);
+        static long _8( 6);
+        static long _9( 7);
+        static long _T( 8);
+        static long _J( 9);
+        static long _Q(10);
+        static long _K(11);
+        static long _A(12);
 
         Traits traits;
 
-        boost::array<long, 14> m = { 
-                traits.map_rank('A'),
+        boost::array<long, 13> m = { 
                 traits.map_rank('2'),
                 traits.map_rank('3'),
                 traits.map_rank('4'),
@@ -73,7 +72,7 @@ void generate(V& v){
         v.next(true, m[_A], m[_K], m[_Q], m[_J], m[_T] );
         v.end();
         v.begin("Straight Flush");
-        for( long a(_K+1); a != _5 ;){
+        for( long a(_K+1); a != _6 ;){
                 --a;
                 v.next(true, m[a], m[a-1], m[a-2], m[a-3], m[a-4]);
         }
@@ -194,30 +193,6 @@ void generate(V& v){
         v.end();
 }
 
-#if 0
-struct rank_map{
-  void operator()(
-};
-
-struct eval{
-  using val_type = std::uint32_t;
-  using card_type = std::uint8_t;
-
-  void operator()(std::array<card_type, 5> const& vec)const{
-  auto h{ m_(vec) };
-    if( is_flush_( vec ) ){
-      return flush_vec_[h];
-    }
-    return rank_vec_[h];
-  }
-private:
-  detail::flush_map fm_;
-  detail::rank_map rm_;
-  std::vector<val_type> rank_vec_;
-  std::vector<val_type> flush_vec_;
-};
-
-#endif
 
 
 
@@ -227,13 +202,13 @@ struct card_traits{
                 return make(h[0], h[1]);
         }
         long make(char r, char s)const{
-                return map_suit(s)*13 + map_rank(r);
+                return map_suit(s) + map_rank(r)*4;
         }
         long suit(long c)const{
-                return c / 13;
+                return c % 4;
         }
         long rank(long c)const{
-                return c % 13;
+                return c / 4;
         }
         long map_suit(char s)const{
                 switch(s){
@@ -376,7 +351,10 @@ namespace detail{
                             traits_.suit(a) == traits_.suit(c) &&
                             traits_.suit(a) == traits_.suit(d) &&
                             traits_.suit(a) == traits_.suit(e)};
-                        std::uint32_t m = map(f,a,b,c,d,e);
+                        std::uint32_t m = map(f,
+                                              traits_.rank(a),traits_.rank(b),
+                                              traits_.rank(c),traits_.rank(d),
+                                              traits_.rank(e));
                         PRINT(m);
                         return m_[m];
                 }
@@ -384,8 +362,8 @@ namespace detail{
                         //                                   2 3 4 5  6  7  8  9  T  J  Q  K  A
                         boost::array<std::uint32_t, 13> p = {2,3,5,7,11,13,17,19,23,27,29,31,37};
                         return ( f ? 2 : 1 ) * 
-                                p[traits_.rank(a)] * p[traits_.rank(b)] * 
-                                p[traits_.rank(c)] * p[traits_.rank(d)] * p[traits_.rank(e)];
+                                p[a] * p[b] * 
+                                p[c] * p[d] * p[e];
                 }
         private:
                 size_t order_;
@@ -439,6 +417,20 @@ private:
         card_traits traits_;
 };
 
+struct an_result_t{
+        size_t wins;
+        size_t lose;
+        size_t draw;
+
+        friend std::ostream& operator<<(std::ostream& ostr, an_result_t const& self){
+                return ostr 
+                        << "{ wins=" << self.wins 
+                        << ", lose=" << self.lose 
+                        << ", draw=" << self.draw 
+                        << "}\n";
+        }
+};
+
 struct driver{
         std::uint32_t eval_5(std::string const& str)const{
                 assert( str.size() == 10 && "precondition failed");
@@ -448,16 +440,23 @@ struct driver{
                 }
                 return eval_.eval_5(hand);
         }
+        an_result_t calc(std::string const& right, std::string const& left)const{
+                an_result_t ret = {0,0,0};
+                auto hero_1{ traits_.make(left.substr(0,2)) };
+                auto hero_2{ traits_.make(left.substr(2,4)) };
+                auto villian_1{ traits_.make(right.substr(0,2)) };
+                auto villian_2{ traits_.make(right.substr(2,4)) };
+
+                std::set<long> known { hero_1, hero_2, villian_1, villian_2 };
+
+
+                return ret;
+        }
 private:
         eval eval_;
         card_traits traits_;
 };
 
-struct an_result_t{
-        size_t wins;
-        size_t lose;
-        size_t draw;
-};
 
 void traits_test(){
         const char* cards [] = {
@@ -487,6 +486,8 @@ void eval_test(){
         PRINT( d.eval_5("AcKcQcJcTc") );
         PRINT( d.eval_5("AhAcAcAd2c") );
         PRINT( d.eval_5("AhAcAcAd2d") );
+
+        std::cout << d.calc("AcKs", "2s2d");
 }
 
 
@@ -500,4 +501,5 @@ int main(){
         generate_test();
         traits_test();
         eval_test();
+
 }

@@ -37,6 +37,9 @@ void eval_test(){
         //std::cout << d.calc("AcKs", "2s2d", "3d4c4d") << "\n";
         //std::cout << d.calc("AcKs", "2s2d", "3d4c") << "\n";
         //std::cout << d.calc("AcKs", "2s2d", "3d") << "\n";
+        std::cout << d.calc("AcKs", "2s2d", "7d9dJs") << "\n";
+        std::cout << d.calc("AcKs", "2s2d", "7d9d") << "\n";
+        std::cout << d.calc("AcKs", "2s2d", "7d") << "\n";
         std::cout << d.calc("AcKs", "2s2d") << "\n";
 }
 

@@ -8,6 +8,8 @@
 
 #include <boost/format.hpp>
 
+
+#include "detail/print.h"
 #include "detail/void_t.h"
 
 namespace ps{
@@ -60,37 +62,73 @@ struct driver{
                 return eval_.eval_5(hand);
         }
 
-        an_result_t calc(std::string const& right, std::string const& left)const{
+        an_result_t calc(std::string const& right, std::string const& left, std::string const& board_str = std::string{})const{
+                assert( board_str.size() % 2 == 0 && "precondition failed");
                 an_result_t ret = {0,0,0};
                 auto hero_1{ traits_.make(left.substr(0,2)) };
                 auto hero_2{ traits_.make(left.substr(2,4)) };
                 auto villian_1{ traits_.make(right.substr(0,2)) };
                 auto villian_2{ traits_.make(right.substr(2,4)) };
 
+                std::vector<long> board;
+                for(long i{0}; i < board_str.size(); i +=2 ){
+                        board.emplace_back( traits_.make( board_str[i], board_str[i+1] ) );
+                }
+
+                PRINT(board.size());
+
                 std::vector<long> known { hero_1, hero_2, villian_1, villian_2 };
+                boost::copy( board, std::back_inserter(known));
                 boost::sort(known);
 
-                detail::visit_combinations<5>( [&](long a, long b, long c, long d, long e){
-                        for( long i : {a,b,c,d,e} ){
-                                if( boost::binary_search(known, i)){
-                                        return;
-                                }
-                        }
+                auto do_eval = [&](long a, long b, long c, long d, long e){
+                        //std::cout << "do_eval{" << a << "," << b << "," << c << "," << d << "," << e << "}\n";
                         auto h{ eval_(hero_1   , hero_2   , a,b,c,d,e)};
                         auto v{ eval_(villian_1, villian_2, a,b,c,d,e)};
 
                         if( h < v ) {
-                        ++ret.wins;
+                                ++ret.wins;
                         } else if ( v < h ) {
-                        ++ret.lose;
+                                ++ret.lose;
                         } else {
-                        ++ret.draw;
+                                ++ret.draw;
                         }
-                }, 
-                [&](long c){
-                        return ! boost::binary_search(known, c);
-                },
-                51);
+                };
+                auto filter = [&](long c){ return ! boost::binary_search(known, c); };
+
+
+                switch(board.size()){
+                case 0:
+                        detail::visit_combinations<5>( [&](long a, long b, long c, long d, long e){
+                                do_eval(a,b,c,d,e);
+                        }, filter, 51);
+                        break;
+                case 1:
+                        detail::visit_combinations<4>( [&](long a, long b, long c, long d){
+                                do_eval(board[0], a,b,c,d);
+                        }, filter, 51);
+                        break;
+                case 2:
+                        detail::visit_combinations<3>( [&](long a, long b, long c){
+                                do_eval(board[0], board[1], a,b,c);
+                        }, filter, 51);
+                        break;
+                case 3:
+                        detail::visit_combinations<2>( [&](long a, long b){
+                                do_eval(board[0], board[1], board[2], a,b);
+                        }, filter, 51);
+                        break;
+                case 4:
+                        detail::visit_combinations<1>( [&](long a){
+                                do_eval(board[0], board[1], board[2], board[3], a);
+                        }, filter, 51);
+                        break;
+                case 5:
+                        do_eval( board[0], board[1], board[2], board[3], board[4]);
+                        break;
+                default:
+                        BOOST_THROW_EXCEPTION(std::domain_error("bad number of board cards"));
+                }
                 #if 0
                 for(long c0 = 52; c0 != 0; ){
                         --c0;

@@ -8,6 +8,8 @@
 
 #include <boost/format.hpp>
 
+#include "detail/void_t.h"
+
 namespace ps{
 
 struct an_result_t{
@@ -32,6 +34,22 @@ struct an_result_t{
 };
 
 
+namespace detail{
+        template<int N, class V, class F, class... Args>
+        std::enable_if_t<N==0> visit_combinations(V v, F f, long upper, Args&&... args){
+                v(std::forward<Args>(args)...);
+        }
+        template<int N, class V, class F, class... Args>
+        std::enable_if_t<N!=0> visit_combinations(V v, F f, long upper, Args&&... args){
+                for(long iter{upper+1};iter!=0;){
+                        --iter;
+                        if( ! f(iter) )
+                                continue;
+                        visit_combinations<N-1>(v, f, iter-1,std::forward<Args>(args)..., iter);
+                }
+        }
+}
+
 struct driver{
         std::uint32_t eval_5(std::string const& str)const{
                 assert( str.size() == 10 && "precondition failed");
@@ -52,6 +70,28 @@ struct driver{
                 std::vector<long> known { hero_1, hero_2, villian_1, villian_2 };
                 boost::sort(known);
 
+                detail::visit_combinations<5>( [&](long a, long b, long c, long d, long e){
+                        for( long i : {a,b,c,d,e} ){
+                                if( boost::binary_search(known, i)){
+                                        return;
+                                }
+                        }
+                        auto h{ eval_(hero_1   , hero_2   , a,b,c,d,e)};
+                        auto v{ eval_(villian_1, villian_2, a,b,c,d,e)};
+
+                        if( h < v ) {
+                        ++ret.wins;
+                        } else if ( v < h ) {
+                        ++ret.lose;
+                        } else {
+                        ++ret.draw;
+                        }
+                }, 
+                [&](long c){
+                        return ! boost::binary_search(known, c);
+                },
+                51);
+                #if 0
                 for(long c0 = 52; c0 != 0; ){
                         --c0;
                         if( boost::binary_search(known, c0))
@@ -100,6 +140,7 @@ struct driver{
                                 }
                         }
                 }
+                #endif
                 return ret;
         }
 private:

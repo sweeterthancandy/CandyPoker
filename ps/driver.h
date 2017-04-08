@@ -24,12 +24,13 @@ struct an_result_t{
                         << ", draw=" << self.draw 
                         << "}\n";
                 #endif
-                return ostr  << boost::format("{ wins=%d(%.2f), lose=%d(%.2f), draw=%d(%.2f) }\n")
-                        % self.wins % ( self.wins / sigma )
-                        % self.lose % ( self.lose / sigma )
-                        % self.draw % ( self.draw / sigma );
+                return ostr  << boost::format("{ wins=%d(%.2f), lose=%d(%.2f), draw=%d(%.2f) }")
+                        % self.wins % ( self.wins / sigma * 100 )
+                        % self.lose % ( self.lose / sigma * 100 )
+                        % self.draw % ( self.draw / sigma * 100 );
         }
 };
+
 
 struct driver{
         std::uint32_t eval_5(std::string const& str)const{
@@ -40,6 +41,7 @@ struct driver{
                 }
                 return eval_.eval_5(hand);
         }
+
         an_result_t calc(std::string const& right, std::string const& left)const{
                 an_result_t ret = {0,0,0};
                 auto hero_1{ traits_.make(left.substr(0,2)) };
@@ -47,39 +49,40 @@ struct driver{
                 auto villian_1{ traits_.make(right.substr(0,2)) };
                 auto villian_2{ traits_.make(right.substr(2,4)) };
 
-                std::set<long> known { hero_1, hero_2, villian_1, villian_2 };
+                std::vector<long> known { hero_1, hero_2, villian_1, villian_2 };
+                boost::sort(known);
 
                 for(long c0 = 52; c0 != 0; ){
                         --c0;
-                        if( known.count(c0) )
+                        if( boost::binary_search(known, c0))
                                 continue;
                 
                         for(long c1 = c0; c1 != 0; ){
                                 --c1;
                                 if( c1 == c0 )
                                         continue;
-                                if( known.count(c1) )
+                                if( boost::binary_search(known, c1))
                                         continue;
 
                                 for(long c2 = c1; c2 != 0; ){
                                         --c2;
                                         if( c2 == c1 )
                                                 continue;
-                                        if( known.count(c2) )
+                                        if( boost::binary_search(known, c2))
                                                 continue;
                                 
                                         for(long c3 = c2; c3 != 0; ){
                                                 --c3;
                                                 if( c3 == c2 )
                                                         continue;
-                                                if( known.count(c3) )
+                                                if( boost::binary_search(known, c3))
                                                         continue;
                                         
                                                 for(long c4 = c3; c4 != 0; ){
                                                         --c4;
                                                         if( c4 == c3 )
                                                                 continue;
-                                                        if( known.count(c4) )
+                                                        if( boost::binary_search(known, c4))
                                                                 continue;
 
                                                         auto h{ eval_(hero_1   , hero_2   , c0, c1, c2, c3, c4 ) };

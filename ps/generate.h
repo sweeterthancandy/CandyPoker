@@ -83,6 +83,9 @@ void generate(V& v){
                                                 --e;
                                                 if( a - e == 4 )
                                                         continue;
+                                                // don't remap the stright flush
+                                                if( a == _A && b == _5 &&  ( b - e ) == 3 )
+                                                        continue;
                                                 v.next(true, m[a], m[b], m[c], m[d], m[e]);
                                         }
                                 }
@@ -118,7 +121,7 @@ void generate(V& v){
                 --a;
                 for( long b(a); b != _2 ;){
                         --b;
-                        for( long c(_A+1); c != _3 ;){
+                        for( long c(_A+1); c != _2 ;){
                                 --c;
                                 if( c == a || c == b )
                                         continue;
@@ -160,6 +163,8 @@ void generate(V& v){
                                         for( long e(d); e != _2 ;){
                                                 --e;
                                                 if( a - e == 4 )
+                                                        continue;
+                                                if( a == _A && b == _5 &&  ( b - e ) == 3 )
                                                         continue;
                                                 v.next(false, m[a], m[b], m[c], m[d], m[e]);
                                         }

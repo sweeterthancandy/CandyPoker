@@ -21,7 +21,8 @@ namespace detail{
                                 << traits_.rank_to_string(e)
                                 << "  ~  " << m
                                 << "  => " << order_
-                                << "\n";
+                                << std::endl;
+                        assert( m_[m] == 0 && "not injective");
                         m_[m] = order_;
                         ++order_;
                 }
@@ -39,6 +40,18 @@ namespace detail{
                                               traits_.rank(c),traits_.rank(d),
                                               traits_.rank(e));
                         //PRINT(m);
+                        if( m_[m] == 0 ){
+                                std::cout << ( f ? "f " : "  " )
+                                        << traits_.to_string(a)
+                                        << traits_.to_string(b) 
+                                        << traits_.to_string(c) 
+                                        << traits_.to_string(d) 
+                                        << traits_.to_string(e)
+                                        << "  ~  " << m
+                                        << "\n";
+                        }
+
+                        assert( m_[m] && "unmapped value");
                         return m_[m];
                 }
                 std::uint32_t map(bool f, long a, long b, long c, long d, long e)const{

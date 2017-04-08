@@ -51,10 +51,10 @@ struct card_traits{
         }
         std::string suit_to_string(long s)const{
                 switch(s){
-                case 0: return "H";
-                case 1: return "D";
-                case 2: return "C";
-                case 3: return "S";
+                case 0: return "h";
+                case 1: return "d";
+                case 2: return "c";
+                case 3: return "s";
                 default:
                         assert(0 && "precondition failed");
                         return "_";
@@ -80,7 +80,7 @@ struct card_traits{
                         return "_";
                 }
         }
-        std::string to_string(long c){
+        std::string to_string(long c)const{
                 return rank_to_string(rank(c)) + suit_to_string(suit(c));
         }
 };

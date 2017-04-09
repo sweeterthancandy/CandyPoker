@@ -1,27 +1,9 @@
 #include "ps/ps.h"
 #include "ps/detail/print.h"
+#include "ps/equity_calc.h"
 
 using namespace ps;
 namespace{
-void traits_test(){
-        const char* cards [] = {
-                "As", "2s", "3s", "4s", "5s", "6s", "7s", "8s", "9s", "Ts", "js", "qs", "Ks",
-                "AD", "2D", "3D", "4D", "5D", "6D", "7D", "8D", "9D", "TD", "jD", "qD", "KD",
-                "Ac", "2c", "3c", "4c", "5c", "6c", "7c", "8c", "9c", "Tc", "jc", "qc", "Kc",
-                "Ah", "2h", "3h", "4h", "5h", "6h", "7h", "8h", "9h", "Th", "jh", "qh", "Kh" };
-
-        card_traits t;
-        for(long i=0;i!=sizeof(cards)/sizeof(void*);++i){
-                long c = t.make(cards[i]);
-                std::cout << cards[i] << " -> " << c << " " << t.rank(c) << " - " << t.suit(c) << "\n";
-        }
-        PRINT( t.make("Ac") );
-        PRINT( t.make("5s") );
-        PRINT( t.rank(t.make("Ah")) );
-        PRINT( t.rank(t.make("Ac")) );
-        PRINT( t.suit(t.make("Ah")) );
-        PRINT( t.suit(t.make("Ac")) );
-}
 
 void eval_test(){
         driver d;
@@ -32,16 +14,70 @@ void eval_test(){
         PRINT( d.eval_5("AhAcAcAd2c") );
         PRINT( d.eval_5("AhAcAcAd2d") );
 
-        //std::cout << d.calc("AcKs", "2s2d", "3d4c4dQdQs") << "\n";
-        //std::cout << d.calc("AcKs", "2s2d", "3d4c4dQd") << "\n";
-        //std::cout << d.calc("AcKs", "2s2d", "3d4c4d") << "\n";
-        //std::cout << d.calc("AcKs", "2s2d", "3d4c") << "\n";
-        //std::cout << d.calc("AcKs", "2s2d", "3d") << "\n";
-        std::cout << d.calc("AcKs", "2s2d", "7d9dJs") << "\n";
-        std::cout << d.calc("AcKs", "2s2d", "7d9d") << "\n";
-        std::cout << d.calc("AcKs", "2s2d", "7d") << "\n";
-        std::cout << d.calc("AcKs", "2s2d") << "\n";
 }
+
+void ec_test(){
+        equity_calc ec;
+        card_traits t;
+        std::vector<equity_player> players;
+        std::vector<long> board;
+
+
+
+
+        /*
+        
+        +----+------+-------+------+
+        |Hand|Equity| Wins  | Ties |
+        +----+------+-------+------+
+        |ahkh|50.08%|852,207|10,775|
+        |2s2c|49.92%|849,322|10,775|
+        +----+------+-------+------+
+
+        */
+        players.emplace_back( t.make("Ah"), t.make("Kh") );
+        players.emplace_back( t.make("2d"), t.make("2c") );
+
+        ec.calc( players );
+        for( auto const& p : players){
+                std::cout << p << "\n";
+        } 
+
+        /*
+        +----+------+-------+-----+
+        |Hand|Equity| Wins  |Ties |
+        +----+------+-------+-----+
+        |ahkh|42.12%|574,928|7,155|
+        |2s2c|25.22%|343,287|7,155|
+        |5c6c|32.67%|445,384|7,155|
+        +----+------+-------+-----+
+        */
+        players.clear();
+        std::cout << "---------------------------------------\n";
+        players.emplace_back( t.make("Ah"), t.make("Kh") );
+        players.emplace_back( t.make("2d"), t.make("2c") );
+        players.emplace_back( t.make("5c"), t.make("6c") );
+        ec.calc( players );
+        for( auto const& p : players){
+                std::cout << p << "\n";
+        } 
+        
+        /*
+
+        */
+        players.clear();
+        std::cout << "---------------------------------------\n";
+        players.emplace_back( t.make("Ah"), t.make("Kh") );
+        players.emplace_back( t.make("2s"), t.make("2c") );
+        players.emplace_back( t.make("5c"), t.make("6c") );
+        board = std::vector<long>{t.make( "8d"), t.make("9d"), t.make("js") };
+        ec.calc( players, board);
+        for( auto const& p : players){
+                std::cout << p << "\n";
+        } 
+
+}
+
 
 
 void generate_test(){
@@ -50,8 +86,10 @@ void generate_test(){
 
 }
 }
+
 int main(){
-        generate_test();
-        traits_test();
-        eval_test();
+        //generate_test();
+        //traits_test();
+        //eval_test();
+        ec_test();
 }

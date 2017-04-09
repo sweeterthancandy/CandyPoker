@@ -13,6 +13,7 @@ namespace detail{
                 }
                 void next( bool f, long a, long b, long c, long d, long e){
                         std::uint32_t m = map(f,a,b,c,d,e);
+                        #if 0
                         std::cout << ( f ? "f " : "  " )
                                 << traits_.rank_to_string(a)
                                 << traits_.rank_to_string(b) 
@@ -22,6 +23,7 @@ namespace detail{
                                 << "  ~  " << m
                                 << "  => " << order_
                                 << std::endl;
+                                #endif
                         assert( m_[m] == 0 && "not injective");
                         m_[m] = order_;
                         ++order_;

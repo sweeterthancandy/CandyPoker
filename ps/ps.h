@@ -29,9 +29,8 @@
 
 
 
-#include "card_traits.h"
-#include "driver.h"
-#include "eval.h"
-#include "generate.h"
-#include "printer.h"
+#include "core/card_traits.h"
+#include "core/eval.h"
+#include "core/generate.h"
+#include "core/printer.h"
 

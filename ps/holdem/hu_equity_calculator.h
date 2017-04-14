@@ -1,7 +1,7 @@
 #ifndef PS_HU_EQUITY_CALCULATOR_H
 #define PS_HU_EQUITY_CALCULATOR_H
 
-#include "eval.h"
+#include "ps/core/eval.h"
 
 namespace ps{
 

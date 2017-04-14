@@ -1,14 +1,15 @@
 #ifndef PS_EQUITY_CALC_H
 #define PS_EQUITY_CALC_H
 
-#include "eval.h"
 
 #include <ostream>
 #include <string>
 
-#include "detail/visit_combinations.h"
-
 #include <boost/format.hpp>
+
+#include "ps/core/eval.h"
+#include "ps/detail/visit_combinations.h"
+
 
 namespace ps{
 

@@ -1,7 +1,7 @@
 #include "ps/ps.h"
 #include "ps/detail/print.h"
-#include "ps/equity_calc.h"
-#include "ps/hu_equity_calculator.h"
+#include "ps/holdem/equity_calc.h"
+#include "ps/holdem/hu_equity_calculator.h"
 
 using namespace ps;
 

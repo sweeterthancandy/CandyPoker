@@ -4,6 +4,8 @@
 #include <string>
 #include <cassert>
 
+#include "ps/detail/print.h"
+
 namespace ps{
 
 /*
@@ -13,6 +15,10 @@ namespace ps{
  
  */
 struct card_traits{
+	using card_type = long;
+	using suit_type = long;
+	using rank_type = long;
+
         long make(std::string const& h)const{
                 assert(h.size()==2 && "preconditon failed");
                 return make(h[0], h[1]);
@@ -20,6 +26,9 @@ struct card_traits{
         long make(char r, char s)const{
                 return map_suit(s) + map_rank(r)*4;
         }
+	long make(long r, long s){
+		return s + r * 4;
+	}
         long suit(long c)const{
                 return c % 4;
         }
@@ -86,7 +95,7 @@ struct card_traits{
                         return "_";
                 }
         }
-        std::string to_string(long c)const{
+	std::string to_string(card_type c)const{
                 return rank_to_string(rank(c)) + suit_to_string(suit(c));
         }
 };

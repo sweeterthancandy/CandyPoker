@@ -6,6 +6,12 @@
 
 namespace ps{
 
+/*
+   This is meant to make the regresentation of the cards wrapped
+   around an interface
+
+ 
+ */
 struct card_traits{
         long make(std::string const& h)const{
                 assert(h.size()==2 && "preconditon failed");

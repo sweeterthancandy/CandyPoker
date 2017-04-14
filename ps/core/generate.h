@@ -1,6 +1,8 @@
 #ifndef PS_GENERATE_H
 #define PS_GENERATE_H
 
+#include <array>
+
 namespace ps{
 
 template<class Traits, class V>
@@ -21,7 +23,7 @@ void generate(V& v){
 
         Traits traits;
 
-        boost::array<long, 13> m = { 
+        std::array<long, 13> m = { 
                 traits.map_rank('2'),
                 traits.map_rank('3'),
                 traits.map_rank('4'),

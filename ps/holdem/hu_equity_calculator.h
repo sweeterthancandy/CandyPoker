@@ -10,8 +10,10 @@ namespace ps{
                 std::vector<long> push_strat( 52 * 51 / 2 , 1);  // push everything
                 std::vector<long> fold_strat( 52 * 51 / 2 , 1);  // call everything
                 #endif
+                #if 0
                 hu_equity_calc ec;
                 PRINT( ec("AhKh", "js9c") );
+                #endif
         }
 
 } // namespace ps

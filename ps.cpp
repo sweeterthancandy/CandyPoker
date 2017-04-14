@@ -6,5 +6,5 @@
 using namespace ps;
 
 int main(){
-        hu_solver_test();
+        //hu_solver_test();
 }

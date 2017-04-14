@@ -1,6 +1,8 @@
 #ifndef PS_EVAL_H
 #define PS_EVAL_H
 
+#include <boost/range/algorithm.hpp>
+
 #include "card_traits.h"
 #include "generate.h"
 
@@ -58,7 +60,7 @@ namespace detail{
                 }
                 std::uint32_t map(bool f, long a, long b, long c, long d, long e)const{
                         //                                   2 3 4 5  6  7  8  9  T  J  Q  K  A
-                        boost::array<std::uint32_t, 13> p = {2,3,5,7,11,13,17,19,23,27,29,31,37};
+                        std::array<std::uint32_t, 13> p = {2,3,5,7,11,13,17,19,23,27,29,31,37};
                         return ( f ? 2 : 1 ) * 
                                 p[a] * p[b] * 
                                 p[c] * p[d] * p[e];

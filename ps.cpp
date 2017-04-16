@@ -4,18 +4,31 @@
 using namespace ps;
 
 int main(){
-        #if 0
-        std::cout << "hello\n";
+        /*
+                +----+------+-----------+---------+
+                |Hand|Equity|   Wins    |  Ties   |
+                +----+------+-----------+---------+
+                | 55 |29.36%|115,460,928|1,331,496|
+                |ako |38.25%|150,538,824|1,331,496|
+                |89s |32.40%|127,445,904|1,331,496|
+                +----+------+-----------+---------+
 
+        */
+
+        ps::simulation_calc sc;
         simulation_context_maker maker;
-        simulation_calc sc;
 
         maker.begin_player();
         maker.add("55");
         maker.end_player();
+        
 
         maker.begin_player();
-        maker.add("AK");
+        maker.add("AKo");
+        maker.end_player();
+        
+        maker.begin_player();
+        maker.add("89s");
         maker.end_player();
 
         maker.debug();
@@ -24,35 +37,5 @@ int main(){
 
 
         sc.run(ctx);
-
-
-
-        for( auto const& p : ctx.get_players()){
-                std::cout << p << "\n";
-        }
-        #endif
-
-        using namespace ps::decl;
-
-        PRINT_SEQ((_2)(_A)(_Ah));
-        PRINT_SEQ((suit_decl::get(0))(rank_decl::get(1)));
-        PRINT_SEQ((card_decl::get(0)));
-        PRINT_SEQ((card_decl::get(2)));
-        PRINT_SEQ((card_decl::get(3)));
-        PRINT_SEQ((card_decl::get(4)));
-        PRINT_SEQ((holdem_hand_decl::get(4)));
-        PRINT_SEQ((holdem_hand_decl::get(200)));
-        PRINT_SEQ((holdem_hand_decl::get(52*23)));
         
-        PRINT_SEQ((suit_decl::get("h"))(rank_decl::get("A")));
-        PRINT_SEQ((suit_decl::get("d"))(rank_decl::get("2")));
-
-        PRINT_SEQ((card_decl::get("2d")));
-        PRINT_SEQ((card_decl::get("2s")));
-        PRINT_SEQ((card_decl::get("2d")));
-        PRINT_SEQ((card_decl::get("2c")));
-
-
-
-        //hu_solver_test();
 }

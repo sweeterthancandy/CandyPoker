@@ -158,6 +158,11 @@ namespace ps{
 
         };
 
+        enum class suit_category{
+                any_suit,
+                suited,
+                unsuited
+        };
                 
 
         struct simulation_context_maker{
@@ -170,15 +175,28 @@ namespace ps{
                         stack_.pop_back();
                 }
                 void add(std::string const& range){
-                        static std::regex XX_rgx{R"(^[AaKkQqJjTt[:digit:]]{2}$)"};
+                        static std::regex XX_rgx{R"(^[AaKkQqJjTt[:digit:]]{2}([SsOo])?$)"};
                         std::smatch m;
+
+
+
                         if( std::regex_search( range, m, XX_rgx ) ){
                                 std::string aux{m[0]};
                                 for( char& c: aux)
                                         c = tolower(c);
                                 auto r = ct_.map_rank(aux[0]);
                                 auto s = ct_.map_rank(aux[1]);
+                                suit_category suit{suit_category::any_suit};
+                                        
+                                
+                                if( aux.size() == 3){
+                                        switch(aux[2]){
+                                        case 'S': case's': suit = suit_category::suited; break;
+                                        case 'O': case'o': suit = suit_category::unsuited; break;
+                                        }
+                                }
                                 if( r == s){
+                                        assert( suit == AnySuit && "bad format");
                                         // pair
                                         detail::visit_combinations<2>( [&](long a, long b){
                                                 PRINT_SEQ((a)(b));
@@ -190,13 +208,37 @@ namespace ps{
 
                                 } else{
                                         // non pair
-                                        for( auto a : {0,1,2,3} ){
-                                                for( auto b : {0,1,2,3} ){
+                                        switch(suit){
+                                        case suit_category::any_suit:
+                                                for( auto a : {0,1,2,3} ){
+                                                        for( auto b : {0,1,2,3} ){
+                                                                stack_.back().get_range().set( 
+                                                                        hm_.make( 
+                                                                                ct_.make(r, a),
+                                                                                ct_.make(s, b)));
+                                                        }
+                                                }
+                                                break;
+                                        case suit_category::unsuited:
+                                                for( auto a : {0,1,2,3} ){
+                                                        for( auto b : {0,1,2,3} ){
+                                                                if( a == b )
+                                                                        continue;
+                                                                stack_.back().get_range().set( 
+                                                                        hm_.make( 
+                                                                                ct_.make(r, a),
+                                                                                ct_.make(s, b)));
+                                                        }
+                                                }
+                                                break;
+                                        case suit_category::suited:
+                                                for( auto a : {0,1,2,3} ){
                                                         stack_.back().get_range().set( 
                                                                 hm_.make( 
                                                                         ct_.make(r, a),
-                                                                        ct_.make(s, b)));
+                                                                        ct_.make(s, a)));
                                                 }
+                                                break;
                                         }
                                 }
                         } else{
@@ -291,6 +333,7 @@ namespace ps{
 
                                 bnu::matrix<int> B( item.get_hands().size(), 4 );
                                 bnu::matrix<int> C( 2,4,0);
+                                PRINT(item.get_hash());
                                 for( size_t i{0}; i!= ectx.get_players().size(); ++i){
                                         auto const& p{ectx.get_players()[i]};
                                         B(i, 0) = p.wins();

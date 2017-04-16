@@ -13,6 +13,12 @@ int main(){
                 |89s |32.40%|127,445,904|1,331,496|
                 +----+------+-----------+---------+
 
+                +----+------+----------+-------+
+                |Hand|Equity|   Wins   | Ties  |
+                +----+------+----------+-------+
+                |Ako |45.38%|55,669,464|562,284|
+                | 55 |54.62%|67,054,140|562,284|
+                +----+------+----------+-------+
         */
 
         ps::simulation_calc sc;
@@ -27,9 +33,11 @@ int main(){
         maker.add("AKo");
         maker.end_player();
         
+        #if 1
         maker.begin_player();
         maker.add("89s");
         maker.end_player();
+        #endif
 
         maker.debug();
 

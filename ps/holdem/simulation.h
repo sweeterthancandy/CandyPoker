@@ -50,12 +50,13 @@ namespace ps{
          *
          */
         struct simulation_impl_item{
-                explicit simulation_impl_item(id_type h0, id_type h1)
-                        : hands{h0, h1}
-                        , dist(2,2,0)
+                template<class... IntType>
+                explicit simulation_impl_item(IntType... h)
+                        : hands{h...}
+                        , dist(sizeof...(h),sizeof...(h),0)
                 {
-                        dist(0,0) = 1;
-                        dist(1,1) = 1;
+                        for(size_t i{0};i!=sizeof...(h);++i)
+                                dist(i,i) = 1;
                 }
                 void debug()const{ std::cout << *this << "\n"; }
                 std::vector<id_type> const& get_hands()const{ return hands; }
@@ -199,7 +200,6 @@ namespace ps{
                                         assert( suit == AnySuit && "bad format");
                                         // pair
                                         detail::visit_combinations<2>( [&](long a, long b){
-                                                PRINT_SEQ((a)(b));
                                                 stack_.back().get_range().set( 
                                                         hm_.make( 
                                                                 ct_.make(r, a),
@@ -253,29 +253,31 @@ namespace ps{
                 }
 
                 auto compile(){
-                        assert( decl_.size() == 2 && "not supported");
                         
                         simulation_context sim;
 
-                        auto diter{decl_.begin()};
-                        
-                        auto const& p0{*diter++};
-                        auto const& p1{*diter++};
+                        std::vector<decltype( decl_.begin()->get_range().to_vector()) > r;
 
-                        auto r0{p0.get_range().to_vector()};
-                        auto r1{p1.get_range().to_vector()};
-
-                        PRINT_SEQ((r0.size())(r1.size()));
+                        for( auto const& p : decl_ ){
+                                r.emplace_back( p.get_range().to_vector() );
+                        }
 
                         boost::copy( decl_, std::back_inserter(sim.players_));
 
                         switch( decl_.size()){
                         case 2:
                                 detail::visit_exclusive_combinations<2>(
-                                        [&](long a, long b){
-                                        sim.items_.emplace_back( r0[a], r1[b] );
+                                        [&](auto a, auto b){
+                                        sim.items_.emplace_back( r[0][a], r[1][b] );
                                         //std::cout << ht_.to_string(r0[a]) << " vs " << ht_.to_string(r1[b]) << "\n";
-                                }, detail::true_, std::vector<size_t>{r0.size()-1, r1.size()-1} );
+                                }, detail::true_, std::vector<size_t>{r[0].size()-1, r[1].size()-1} );
+                                break;
+                        case 3:
+                                detail::visit_exclusive_combinations<3>(
+                                        [&](auto a, auto b, auto c){
+                                        sim.items_.emplace_back( r[0][a], r[1][b], r[2][c]);
+                                        //std::cout << ht_.to_string(r0[a]) << " vs " << ht_.to_string(r1[b]) << "\n";
+                                }, detail::true_, std::vector<size_t>{r[0].size()-1, r[1].size()-1, r[2].size()-1});
                                 break;
                         default:
                                 BOOST_THROW_EXCEPTION(std::domain_error("bad size "));
@@ -332,7 +334,7 @@ namespace ps{
                                 eq_.run(ectx);
 
                                 bnu::matrix<int> B( item.get_hands().size(), 4 );
-                                bnu::matrix<int> C( 2,4,0);
+                                bnu::matrix<int> C( players.size(),4,0);
                                 PRINT(item.get_hash());
                                 for( size_t i{0}; i!= ectx.get_players().size(); ++i){
                                         auto const& p{ectx.get_players()[i]};

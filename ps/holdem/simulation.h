@@ -269,25 +269,21 @@ namespace ps{
                                 detail::visit_exclusive_combinations<2>(
                                         [&](auto a, auto b){
                                         sim.items_.emplace_back( r[0][a], r[1][b] );
-                                        //std::cout << ht_.to_string(r0[a]) << " vs " << ht_.to_string(r1[b]) << "\n";
                                 }, detail::true_, std::vector<size_t>{r[0].size()-1, r[1].size()-1} );
                                 break;
                         case 3:
                                 detail::visit_exclusive_combinations<3>(
                                         [&](auto a, auto b, auto c){
                                         sim.items_.emplace_back( r[0][a], r[1][b], r[2][c]);
-                                        //std::cout << ht_.to_string(r0[a]) << " vs " << ht_.to_string(r1[b]) << "\n";
                                 }, detail::true_, std::vector<size_t>{r[0].size()-1, r[1].size()-1, r[2].size()-1});
                                 break;
                         default:
                                 BOOST_THROW_EXCEPTION(std::domain_error("bad size "));
                         }
 
-                        #if 1
-                        sim.debug();
+                        //sim.debug();
                         sim.optimize();
-                        sim.debug();
-                        #endif
+                        //sim.debug();
                         
                         for( auto const& item : sim.get_simulation_items() ){
                                 sim.total_weight += item.weight;
@@ -335,14 +331,12 @@ namespace ps{
 
                                 bnu::matrix<int> B( item.get_hands().size(), 4 );
                                 bnu::matrix<int> C( players.size(),4,0);
-                                PRINT(item.get_hash());
                                 for( size_t i{0}; i!= ectx.get_players().size(); ++i){
                                         auto const& p{ectx.get_players()[i]};
                                         B(i, 0) = p.wins();
                                         B(i, 1) = p.draws();
                                         B(i, 2) = p.sigma();
                                         B(i, 3) = p.equity() * p.sigma();
-                                        PRINT(B(i,3));
                                 }
 
 
@@ -351,7 +345,6 @@ namespace ps{
 
                                 sigma += C;
 
-                                PRINT(item.weight);
                                 total_weight += item.weight;
                         }
                                 
@@ -360,9 +353,6 @@ namespace ps{
                                 players[i].draw_   = sigma(i,1);
                                 players[i].sigma_  = sigma(i,2);
                                 players[i].equity_ = static_cast<double>(sigma(i,3)) / sigma(i,2);
-
-                                PRINT_SEQ((sigma(i,3))(sigma(i,2)));
-                                PRINT( players[i] );
                         }
 
 

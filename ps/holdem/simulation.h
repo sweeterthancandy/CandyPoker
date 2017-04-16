@@ -16,6 +16,7 @@
 #include "ps/holdem/equity_calc.h"
 #include "ps/holdem/holdem_range.h"
 #include "ps/holdem/holdem_traits.h"
+#include "ps/holdem/hasher.h"
 #include "ps/core/cards.h"
 
 namespace ps{
@@ -49,90 +50,33 @@ namespace ps{
          *
          */
         struct simulation_impl_item{
-                using hand_type = holdem_int_traits::hand_type;
-
-                simulation_impl_item(hand_type h0, hand_type h1)
+                explicit simulation_impl_item(id_type h0, id_type h1)
                         : hands{h0, h1}
                         , dist(2,2,0)
                 {
                         dist(0,0) = 1;
                         dist(1,1) = 1;
                 }
-
-                auto get_hash()const{
+                void debug()const{ std::cout << *this << "\n"; }
+                std::vector<id_type> const& get_hands()const{ return hands; }
+                bnu::matrix<int>& get_distribution(){ return dist; }
+                bnu::matrix<int> const& get_distribution()const{ return dist; }
+                std::string const& get_hash()const{
                         if( hash.empty() ){
-                                using std::get;
-
-                                for( auto const& h : hands ){
-                                        hash += ht_.to_string(h);
-                                }
-
-                                auto ts(hash);
-
-                                std::vector<std::tuple<char, size_t, char> > aux;
-                                enum{
-                                        Ele_Suit,
-                                        Ele_Count,
-                                        Ele_Hash
-                                };
-
-                                for( auto i{0}; i != hash.size();i+=2){
-                                        char s{ hash[i+1] };
-                                        auto iter = std::find_if( aux.begin(), aux.end(),
-                                                               [&](auto const& _){ return s == std::get<Ele_Suit>(_); });
-                                        if( iter == aux.end() ){
-                                                aux.emplace_back( s, 1, '_' );
-                                        } else {
-                                                ++get<Ele_Count>(*iter);
-                                        }
-                                }
-
-                                size_t mapped{0};
-                                for( size_t target = 4 + 1; target !=0; ){
-                                        --target;
-
-                                        for( auto& v : aux ){
-                                                if( get<Ele_Count>(v) == target ){
-                                                        get<Ele_Hash>(v) = boost::lexical_cast<char>(mapped++);
-                                                }
-                                        }
-                                }
-
-                                for( auto i{0}; i != hash.size();i+=2){
-                                        char s{ hash[i+1] };
-                                        auto iter = std::find_if( aux.begin(), aux.end(),
-                                                               [&](auto const& _){ return s == std::get<Ele_Suit>(_); });
-                                        hash[i+1] = get<Ele_Hash>(*iter);
-                                }
-
-
-                                // maybe swap pocket pairs
-                                assert( hash.size() % 4 == 0 );
-                                for( auto i{0}; i != hash.size();i+=4){
-                                        if( hash[i] == hash[i+2]  ){
-                                                if( hash[i+1] > hash[i+3] ){
-                                                        std::swap(hash[i+1], hash[i+3]);
-                                                }
-                                        }
-                                }
+                                hash = suit_hash( hands);
                         }
-
                         return hash;
                 }
-                void debug()const{
-                        get_hash();
-                        std::cout << ht_.to_string(hands[0]) 
-                                << " vs " 
-                                << ht_.to_string(hands[1])
-                                << " - " << get_hash() 
-                                << " - " << dist
-                                << "\n";
-
+                friend std::ostream& operator<<(std::ostream& ostr, simulation_impl_item const& self){
+                        for(size_t i{0};i != self.hands.size();++i){
+                                if( i != 0)
+                                        ostr << " VS ";
+                                ostr << holdem_hand_decl::get(self.hands[i]);
+                        }
+                        return ostr;
                 }
-                
-                holdem_int_traits ht_;
-
-                std::vector<hand_type> hands;
+        private:
+                std::vector<id_type> hands;
                 bnu::matrix<int>    dist;
 
                 mutable std::string    hash;
@@ -141,7 +85,6 @@ namespace ps{
         struct simulation_player{
 
                 simulation_player():wins_{0}, draw_{0}, sigma_{0}, equity_{0}{}
-                
                 
                 holdem_range& get_range(){ return range_; }
                 holdem_range const& get_range()const{ return range_; }
@@ -178,6 +121,7 @@ namespace ps{
 
                 std::vector<simulation_impl_item> const& get_simulation_items()const{ return items_; }
                 std::vector<simulation_player>    & get_players(){ return players_; }
+                simulation_player const&            get_player(size_t idx)const{ return players_[idx]; }
         private:
 
                 friend struct simulation_context_maker;
@@ -195,7 +139,7 @@ namespace ps{
 
                         for( auto const& item : items_){
                                 if( next.size() && next.back().get_hash() == item.get_hash()){
-                                        next.back().dist += item.dist;
+                                        next.back().get_distribution() += item.get_distribution();
                                         continue;
                                 }
                                 next.emplace_back( item );
@@ -328,12 +272,12 @@ namespace ps{
 
                         for( auto const& item : ctx.get_simulation_items() ){
                                 ps::equity_context ectx;
-                                for( auto const& h : item.hands ){
+                                for( auto const& h : item.get_hands() ){
                                         ectx.add_player( ht_.to_string(h) );
                                 }
                                 eq_.run(ectx);
 
-                                bnu::matrix<int> B( item.hands.size(), 4 );
+                                bnu::matrix<int> B( item.get_hands().size(), 4 );
                                 bnu::matrix<int> C( 2,4,0);
                                 for( size_t i{0}; i!= ectx.get_players().size(); ++i){
                                         auto const& p{ectx.get_players()[i]};
@@ -345,7 +289,7 @@ namespace ps{
                                 }
 
 
-                                axpy_prod(item.dist, B, C, false);
+                                axpy_prod(item.get_distribution(), B, C, false);
 
 
                                 sigma += C;

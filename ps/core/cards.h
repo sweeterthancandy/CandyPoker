@@ -8,7 +8,12 @@
 
 namespace ps{
 
-        template<class T, class Key = unsigned>
+        using id_type = unsigned;
+
+        // random access, means
+        //      {id=0, key=4}, {id=2,key=5} needs
+        //      {4,-1,5} etc
+        template<class T, class Key = id_type>
         struct decl_factory{
                 template<class... Args>
                 explicit decl_factory(Args&&... args)
@@ -17,6 +22,7 @@ namespace ps{
                         std::sort( vec_.begin(), vec_.end() );
                 }
                 T const& get(Key k)const{
+                        assert( k < vec_.size() && "key doesn't exist");
                         return vec_[k];
                 }
         private:
@@ -25,7 +31,7 @@ namespace ps{
 
 
         struct suit_decl{
-                suit_decl(unsigned id, char sym, std::string const& name)
+                suit_decl(id_type id, char sym, std::string const& name)
                         : id_{id}, sym_{sym}, name_{name}
                 {}
                 auto id()const{ return id_; }
@@ -33,18 +39,19 @@ namespace ps{
                 friend std::ostream& operator<<(std::ostream& ostr, suit_decl const& self){
                         return ostr << self.to_string();
                 }
-                bool operator<(suit_decl const& that){
+                bool operator<(suit_decl const& that)const{
                         return id_ < that.id_;
                 }
-                inline static suit_decl const& get(unsigned id);
+                inline static suit_decl const& get(id_type id);
+                inline static suit_decl const& get(std::string const& s);
         private:
-                unsigned id_;
+                id_type id_;
                 char sym_;
                 std::string name_;
         };
         
         struct rank_decl{
-                rank_decl(unsigned id, char sym)
+                rank_decl(id_type id, char sym)
                         : id_{id}, sym_{sym}
                 {}
                 auto id()const{ return id_; }
@@ -52,12 +59,13 @@ namespace ps{
                 friend std::ostream& operator<<(std::ostream& ostr, rank_decl const& self){
                         return ostr << self.to_string();
                 }
-                bool operator<(rank_decl const& that){
+                bool operator<(rank_decl const& that)const{
                         return id_ < that.id_;
                 }
-                inline static rank_decl const& get(unsigned id);
+                inline static rank_decl const& get(id_type id);
+                inline static rank_decl const& get(std::string const& s);
         private:
-                unsigned id_;
+                id_type id_;
                 char sym_;
         };
 
@@ -76,23 +84,28 @@ namespace ps{
                 friend std::ostream& operator<<(std::ostream& ostr, card_decl const& self){
                         return ostr << self.to_string();
                 }
-                bool operator<(card_decl const& that){
+                bool operator<(card_decl const& that)const{
                         return id_ < that.id_;
                 }
-                inline static card_decl const& get(unsigned id);
+                inline static card_decl const& get(id_type id);
+                inline static card_decl const& get(std::string const& s){
+                        assert( s.size() == 2 && "precondition failed");
+                        return get( rank_decl::get(s.substr(0,1)).id() * 4 +
+                                    suit_decl::get(s.substr(1,1)).id()   );
+                }
         private:
-                unsigned id_;
+                id_type id_;
                 suit_decl suit_;
                 rank_decl rank_;
         };
 
         struct holdem_hand_decl{
+                // a must be the biggest
                 holdem_hand_decl( card_decl const& a, card_decl const& b):
                         id_{ a.id() * 52 + b.id() },
                         first_{a},
                         second_{b}
                 {
-                        assert( b < a && "precondition failed");
                 }
                 auto id()const{ return id_; }
                 std::string to_string()const{
@@ -102,17 +115,27 @@ namespace ps{
                 friend std::ostream& operator<<(std::ostream& ostr, holdem_hand_decl const& self){
                         return ostr << self.to_string();
                 }
-                bool operator<(holdem_hand_decl const& that){
+                bool operator<(holdem_hand_decl const& that)const{
                         return id_ < that.id_;
                 }
-                inline static holdem_hand_decl const& get(unsigned id);
+                decltype(auto) first()const{ return first_; }
+                decltype(auto) second()const{ return second_; }
+                inline static holdem_hand_decl const& get(id_type id);
+                inline static holdem_hand_decl const& get(std::string const& s){
+                        assert( s.size() == 4 && "precondition failed");
+                        auto x = card_decl::get(s.substr(0,2)).id();
+                        auto y = card_decl::get(s.substr(2,2)).id();
+                        if( x < y )
+                                std::swap(x,y);
+                        return get( x * 52 + y );
+                }
         private:
-                unsigned id_;
+                id_type id_;
                 card_decl first_;
                 card_decl second_;
 
         };
-        
+
         namespace decl{
                 static suit_decl _h{0, 'h', "heart"  };
                 static suit_decl _d{1, 'd', "diamond"};
@@ -193,21 +216,54 @@ namespace ps{
 
         }
                 
-        suit_decl const& suit_decl::get(unsigned id){
+        suit_decl const& suit_decl::get(id_type id){
                 using namespace decl;
                 static decl_factory<suit_decl> fac{_h, _d, _c, _s};
                 return fac.get(id);
         }
+        suit_decl const& suit_decl::get(std::string const& s){
+                assert(s.size()==1 && "preconditon failed");
+                using namespace decl;
+                switch(s.front()){
+                        case 'h': case 'H': return _h;
+                        case 'd': case 'D': return _d;
+                        case 'c': case 'C': return _c;
+                        case 's': case 'S': return _s;
+                        default:
+                                BOOST_THROW_EXCEPTION(std::domain_error("not a suit (" + s + ")"));
+                }
+        }
         
-        rank_decl const& rank_decl::get(unsigned id){
+        rank_decl const& rank_decl::get(id_type id){
                 using namespace decl;
                 static decl_factory<rank_decl> fac{_2,_3,_4,_5,_6,
                                                    _7,_9,_9,_T,_J,
                                                    _Q,_K,_A};
                 return fac.get(id);
         }
+        rank_decl const& rank_decl::get(std::string const& s){
+                assert(s.size()==1 && "preconditon failed");
+                using namespace decl;
+                switch(s.front()){
+                        case '2': return _2;
+                        case '3': return _3;
+                        case '4': return _4;
+                        case '5': return _5;
+                        case '6': return _6;
+                        case '7': return _7;
+                        case '8': return _8;
+                        case '9': return _9;
+                        case 'T': case 't': return _T;
+                        case 'J': case 'j': return _J;
+                        case 'Q': case 'q': return _Q;
+                        case 'K': case 'k': return _K;
+                        case 'A': case 'a': return _A;
+                        default:
+                                BOOST_THROW_EXCEPTION(std::domain_error("not a rank (" + s + ")"));
+                }
+        }
         
-        card_decl const& card_decl::get(unsigned id){
+        card_decl const& card_decl::get(id_type id){
                 using namespace decl;
                 static decl_factory<card_decl> fac{
                         _Ah, _Kh, _Qh, _Jh, _Th, _9h, _8h, _7h, _6h, _5h, _4h, _3h, _2h,
@@ -218,13 +274,13 @@ namespace ps{
                 return fac.get(id);
         }
         
-        holdem_hand_decl const& holdem_hand_decl::get(unsigned id){
+        holdem_hand_decl const& holdem_hand_decl::get(id_type id){
                 static decl_factory<holdem_hand_decl> fac{
                         [](){
                                 std::vector< holdem_hand_decl> aux;
-                                for( char a{52};a!=1;){
+                                for( char a{52};a!=0;){
                                         --a;
-                                        for( char b{a};b!=0;){
+                                        for( char b{52};b!=0;){
                                                 --b;
                                                 aux.emplace_back( card_decl::get(a), card_decl::get(b));
                                         }

@@ -9,6 +9,7 @@
 #include "ps/core/eval.h"
 #include "ps/detail/visit_combinations.h"
 #include "ps/holdem/holdem_traits.h"
+#include "ps/core/cards.h"
 
 
 namespace ps{
@@ -27,8 +28,7 @@ namespace ps{
         // Ako,KK+ vs 89s+,TT+,AQo+
 
         struct equity_player{
-                using hand_type = holdem_traits::hand_type;
-                equity_player(hand_type const& hand)
+                equity_player(id_type hand)
                         :hand_(hand),
                         wins_{0},draw_{0},sigma_{0},equity_{0.0}
                 {}
@@ -45,12 +45,13 @@ namespace ps{
                 auto draws()const{ return draw_; }
                 auto sigma()const{ return sigma_; }
                 auto equity()const{ return equity_ / sigma_; }
+
+                auto get_hand()const{ return hand_; }
         private:
                 // these 2 classes a deeply coupled
                 friend class equity_calc;
 
-                hand_type hand_;
-
+                id_type hand_;
 
                 size_t wins_;
                 size_t draw_;
@@ -59,16 +60,15 @@ namespace ps{
         };
         
         struct equity_context{
-                using set_type = holdem_traits::set_type;
 
-                template<class... Args>
-                equity_context& add_player(Args&&... args){
-                        players_.emplace_back( hm_.make(std::forward<Args>(args)...) );
+
+                equity_context& add_player(std::string const& s){
+                        players_.emplace_back( holdem_hand_decl::get(s).id() );
                         return *this;
                 }
-                template<class... Args>
-                equity_context& add_board(Args&&... args){
-                        boost::copy( hm_.make_set(std::forward<Args>(args)...), std::back_inserter(board_) );
+                equity_context& add_board(std::string const& s){
+                        for( size_t i=0; i!= s.size();i+=2)
+                                board_.emplace_back( card_decl::get(s.substr(i,2)).id() );
                         return *this;
                 }
                 std::vector<equity_player>& get_players(){ return players_; }
@@ -77,8 +77,9 @@ namespace ps{
         private:
                 holdem_hand_maker hm_;
 
-                set_type board_;
-                set_type dead_;
+                std::vector<id_type> board_;
+                std::vector<id_type> dead_;
+
                 std::vector<equity_player> players_;
         };
 
@@ -88,20 +89,22 @@ namespace ps{
 
                         std::vector<long> known;
                         for( auto const& p : ctx.get_players() ){
-                                known.emplace_back(p.hand_[0]);
-                                known.emplace_back(p.hand_[1]);
+                                known.emplace_back( holdem_hand_decl::get(p.get_hand()).first().id() );
+                                known.emplace_back( holdem_hand_decl::get(p.get_hand()).second().id() );
                         }
                         boost::copy( ctx.get_board(), std::back_inserter(known));
                         boost::copy( ctx.get_dead(), std::back_inserter(known));
                         boost::sort(known);
                         auto filter = [&](long c){ return ! boost::binary_search(known, c); };
                 
-                        auto do_eval = [&](long a, long b, long c, long d, long e){
+                        auto do_eval = [&](id_type a, id_type b, id_type c, id_type d, id_type e){
                                 std::vector<std::pair<std::uint32_t, equity_player* > > ranked;
                                 std::vector<equity_player*> winners;
                                 for( auto& p : ctx.get_players() ){
+                                        auto x{ holdem_hand_decl::get(p.get_hand()).first().id() };
+                                        auto y{ holdem_hand_decl::get(p.get_hand()).second().id() };
                                         ++p.sigma_;
-                                        ranked.emplace_back( std::make_pair(eval_(p.hand_[0], p.hand_[1], a,b,c,d,e), &p));
+                                        ranked.emplace_back( std::make_pair(eval_(x,y,a,b,c,d,e), &p));
                                 }
                                 boost::sort( ranked, [](auto const& l, auto const& r){ return l.first < r.first; });
 

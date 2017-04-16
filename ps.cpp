@@ -43,6 +43,14 @@ int main(){
         PRINT_SEQ((holdem_hand_decl::get(4)));
         PRINT_SEQ((holdem_hand_decl::get(200)));
         PRINT_SEQ((holdem_hand_decl::get(52*23)));
+        
+        PRINT_SEQ((suit_decl::get("h"))(rank_decl::get("A")));
+        PRINT_SEQ((suit_decl::get("d"))(rank_decl::get("2")));
+
+        PRINT_SEQ((card_decl::get("2d")));
+        PRINT_SEQ((card_decl::get("2s")));
+        PRINT_SEQ((card_decl::get("2d")));
+        PRINT_SEQ((card_decl::get("2c")));
 
 
 

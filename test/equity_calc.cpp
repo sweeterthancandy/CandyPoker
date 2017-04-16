@@ -142,21 +142,27 @@ TEST_F( equity_calc_, _5h6h_8sAh_2c2d_AcKc_8d9d_ThQh ){
 
         ASSERT_EQ( iter, end );
 
-        EXPECT_EQ( 90'581 , _5h6h.wins());
+        EXPECT_EQ( 90'581  , _5h6h.wins());
+        EXPECT_EQ( 906     , _5h6h.draws());
         EXPECT_NEAR( 0.1379, _5h6h.equity(), 1e-3);
         
-        EXPECT_EQ( 31'473 , _8sAh.wins());
+        EXPECT_EQ( 31'473  , _8sAh.wins());
+        EXPECT_EQ( 14'737  , _8sAh.draws());
         EXPECT_NEAR( 0.0586, _8sAh.equity(), 1e-3);
 
         EXPECT_EQ( 110'423 , _2c2d.wins());
+        EXPECT_EQ(     906 , _2c2d.draws());
         EXPECT_NEAR( 0.1680, _2c2d.equity(), 1e-3);
 
         EXPECT_EQ( 164'648 , _AcKc.wins());
+        EXPECT_EQ(   6'841 , _AcKc.draws());
         EXPECT_NEAR( 0.2550, _AcKc.equity(), 1e-3);
 
         EXPECT_EQ( 112'342 , _8d9d.wins());
+        EXPECT_EQ(   8'802 , _8d9d.draws());
         EXPECT_NEAR( 0.1770, _8d9d.equity(), 1e-3);
 
         EXPECT_EQ( 133'804 , _ThQh.wins());
+        EXPECT_EQ(     906 , _ThQh.draws());
         EXPECT_NEAR( 0.2036, _ThQh.equity(), 1e-3);
 }

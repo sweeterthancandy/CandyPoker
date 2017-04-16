@@ -104,3 +104,59 @@ TEST_F( equity_calc_, _AhKs_2s2c_5c6c__with_board){
         EXPECT_EQ( 16   , _5c6c.draws());
         EXPECT_NEAR( 0.3503, _5c6c.equity(), 1e-3);
 }
+
+/*
+ Hand   Equity  Wins    Ties
+ 5h6h   13.79%  90,581  906
+ 8sAh   5.86%   31,473  14,737
+ 2c2d   16.80%  110,423 906
+ AcKc   25.50%  164,648 6,841
+ 8d9d   17.70%  112,342 8,802
+ ThQh   20.36%  133,804 906
+ */
+
+TEST_F( equity_calc_, _5h6h_8sAh_2c2d_AcKc_8d9d_ThQh ){
+
+        ps::equity_context ctx;
+
+        ctx.add_player("5h6h");
+        ctx.add_player("8sAh");
+        ctx.add_player("2c2d");
+        ctx.add_player("AcKc");
+        ctx.add_player("8d9d");
+        ctx.add_player("ThQh");
+
+        eq.run( ctx );
+
+        EXPECT_EQ( 6, ctx.get_players().size() );
+
+        auto iter = std::begin(ctx.get_players());
+        auto end =  std::end(  ctx.get_players());
+
+        auto _5h6h = *iter++;
+        auto _8sAh = *iter++;
+        auto _2c2d = *iter++;
+        auto _AcKc = *iter++;
+        auto _8d9d = *iter++;
+        auto _ThQh = *iter++;
+
+        ASSERT_EQ( iter, end );
+
+        EXPECT_EQ( 90'581 , _5h6h.wins());
+        EXPECT_NEAR( 0.1379, _5h6h.equity(), 1e-3);
+        
+        EXPECT_EQ( 31'473 , _8sAh.wins());
+        EXPECT_NEAR( 0.0586, _8sAh.equity(), 1e-3);
+
+        EXPECT_EQ( 110'423 , _2c2d.wins());
+        EXPECT_NEAR( 0.1680, _2c2d.equity(), 1e-3);
+
+        EXPECT_EQ( 164'648 , _AcKc.wins());
+        EXPECT_NEAR( 0.2550, _AcKc.equity(), 1e-3);
+
+        EXPECT_EQ( 112'342 , _8d9d.wins());
+        EXPECT_NEAR( 0.1770, _8d9d.equity(), 1e-3);
+
+        EXPECT_EQ( 133'804 , _ThQh.wins());
+        EXPECT_NEAR( 0.2036, _ThQh.equity(), 1e-3);
+}

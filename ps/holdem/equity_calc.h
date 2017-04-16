@@ -10,6 +10,8 @@
 #include "ps/detail/visit_combinations.h"
 #include "ps/core/cards.h"
 
+#include "ps/core/player_statistics.h"
+
 
 namespace ps{
 
@@ -84,37 +86,67 @@ namespace ps{
 
         struct equity_calc{
                 void run( equity_context& ctx){
-
-                        std::vector<long> known;
-                        for( auto const& p : ctx.get_players() ){
-                                known.emplace_back( p.get_hand().first().id() );
-                                known.emplace_back( p.get_hand().second().id() );
+                        switch( ctx.get_players().size()){
+                        case 2: do_run<2>( ctx ); break;
+                        case 3: do_run<3>( ctx ); break;
+                        case 4: do_run<4>( ctx ); break;
+                        case 5: do_run<5>( ctx ); break;
+                        case 6: do_run<6>( ctx ); break;
+                        case 7: do_run<7>( ctx ); break;
+                        case 8: do_run<8>( ctx ); break;
+                        case 9: do_run<9>( ctx ); break;
+                        default: BOOST_THROW_EXCEPTION(std::domain_error("bad number of players"));
                         }
+                }
+        private:
+                template<size_t Num_Players>
+                void do_run(equity_context& ctx){
+
+
+                        std::vector<id_type> known;
+
+                        // cache the cards
+                        std::array<id_type, Num_Players> x;
+                        std::array<id_type, Num_Players> y;
+
+                        size_t sigma{0};
+                        std::array<size_t,Num_Players> wins;
+                        std::array<size_t,Num_Players> draws;
+                        std::array<double,Num_Players> equity;
+
+                        for( size_t i{0}; i!= Num_Players;++i){
+                                auto const& p{ ctx.get_players()[i]};
+                                x[i] = p.get_hand().first().id();
+                                y[i] = p.get_hand().second().id(); 
+                                wins[i] = 0;
+                                draws[i] = 0;
+                                equity[i] = 0.0;
+                        }
+
+                        boost::copy( x, std::back_inserter(known));
+                        boost::copy( y, std::back_inserter(known));
                         boost::copy( ctx.get_board(), std::back_inserter(known));
                         boost::copy( ctx.get_dead(), std::back_inserter(known));
                         boost::sort(known);
                         auto filter = [&](long c){ return ! boost::binary_search(known, c); };
                 
                         auto do_eval = [&](id_type a, id_type b, id_type c, id_type d, id_type e){
-                                std::vector<std::pair<std::uint32_t, equity_player* > > ranked;
-                                std::vector<equity_player*> winners;
-                                for( auto& p : ctx.get_players() ){
-                                        auto x{ p.get_hand().first().id() };
-                                        auto y{ p.get_hand().second().id() };
-                                        ++p.sigma_;
-                                        ranked.emplace_back( std::make_pair(eval_(x,y,a,b,c,d,e), &p));
+                                std::array<std::pair<std::uint32_t, size_t >, Num_Players > ranked;
+                                ++sigma;
+                                for(size_t i{0};i!=Num_Players;++i){
+                                        ranked[i] = std::make_pair(eval_(x[i],y[i],a,b,c,d,e), i);
                                 }
                                 boost::sort( ranked, [](auto const& l, auto const& r){ return l.first < r.first; });
-
-                                auto iter{ boost::find_if( ranked, [&](auto const& _){ return _.first != ranked.front().first; } ) }; 
-                                ranked.resize( iter - ranked.begin());
-                                if( ranked.size() == 1 ){
-                                        ++ranked.front().second->wins_;
-                                        ranked.front().second->equity_ += 1.0;
+                                auto winning_rank{ ranked.front().first };
+                                auto iter{ boost::find_if( ranked, [&](auto const& _){ return _.first != winning_rank; } ) }; 
+                                auto num_winners{ std::distance( ranked.begin(), iter) };
+                                if( num_winners == 1 ){
+                                        ++wins[ranked.front().second];
+                                        equity[ranked.front().second] += 1.0;
                                 } else{
-                                        for( auto& r : ranked ){
-                                                ++r.second->draw_;
-                                                r.second->equity_ += 1.0 / ranked.size();
+                                        for( auto j{ ranked.begin() }; j!=iter;++j){
+                                                ++draws[j->second];
+                                                equity[j->second] += 1.0 / num_winners;
                                         }
                                 }
                         };
@@ -153,6 +185,13 @@ namespace ps{
                                 break;
                         default:
                                 BOOST_THROW_EXCEPTION(std::domain_error("bad number of board cards"));
+                        }
+
+                        for(size_t i{0};i!=Num_Players;++i){
+                                ctx.get_players()[i].wins_   = wins[i];
+                                ctx.get_players()[i].draw_   = draws[i];
+                                ctx.get_players()[i].equity_ = equity[i];
+                                ctx.get_players()[i].sigma_  = sigma;
                         }
                 }
         private:

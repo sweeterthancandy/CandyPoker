@@ -10,6 +10,11 @@ namespace ps{
 
         using id_type = unsigned;
 
+        using suit_id = id_type;
+        using rank_id = id_type;
+        using card_id = id_type;
+        using holdem_id = id_type;
+
         // random access, means
         //      {id=0, key=4}, {id=2,key=5} needs
         //      {4,-1,5} etc

@@ -37,9 +37,10 @@ TEST_F( simulation, _){
         EXPECT_EQ( 88'311'564 , _55.wins());
         EXPECT_EQ(    758'292 , _55.draws());
         EXPECT_EQ( 164'381'184, _55.sigma());
+        EXPECT_NEAR( 0.5395,    _55.equity(), 1e-3);
         
         EXPECT_EQ( 75'311'328, _AK.wins());
         EXPECT_EQ(    758'292 , _AK.draws());
         EXPECT_EQ( 164'381'184, _AK.sigma());
-
+        EXPECT_NEAR( 0.4605,    _AK.equity(), 1e-3);
 }

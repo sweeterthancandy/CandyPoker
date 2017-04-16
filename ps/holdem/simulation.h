@@ -75,6 +75,7 @@ namespace ps{
                         }
                         return ostr;
                 }
+                size_t weight      = 1;
         private:
                 std::vector<id_type> hands;
                 bnu::matrix<int>    dist;
@@ -91,16 +92,16 @@ namespace ps{
                 auto wins()const{ return wins_; }
                 auto draws()const{ return draw_; }
                 auto sigma()const{ return sigma_; }
-                auto equity()const{ return equity_ / sigma_; }
+                auto equity()const{ return equity_; }
 
                 
                 friend std::ostream& operator<<(std::ostream& ostr, simulation_player const& self){
                         auto pct{ 1.0 / self.sigma_ * 100 };
-                        return ostr  << boost::format("{ sigma=%d, wins=%d(%.2f), draw=%d(%.2f), equity=%.2f(%.2f) }")
+                        return ostr  << boost::format("{ sigma=%d, wins=%d(%.2f), draw=%d(%.2f), equity=%.4f(%.2f) }")
                                 % self.sigma_
                                 % self.wins_ % ( self.wins_ * pct)
                                 % self.draw_ % ( self.draw_ * pct)
-                                % self.equity_ % ( self.equity_ * pct);
+                                % self.equity_ % ( self.equity_ * 100);
                 }
         private:
                 friend class simulation_calc;
@@ -122,6 +123,7 @@ namespace ps{
                 std::vector<simulation_impl_item> const& get_simulation_items()const{ return items_; }
                 std::vector<simulation_player>    & get_players(){ return players_; }
                 simulation_player const&            get_player(size_t idx)const{ return players_[idx]; }
+                size_t total_weight = 0;
         private:
 
                 friend struct simulation_context_maker;
@@ -140,6 +142,7 @@ namespace ps{
                         for( auto const& item : items_){
                                 if( next.size() && next.back().get_hash() == item.get_hash()){
                                         next.back().get_distribution() += item.get_distribution();
+                                        next.back().weight += item.weight;
                                         continue;
                                 }
                                 next.emplace_back( item );
@@ -236,9 +239,16 @@ namespace ps{
                                 BOOST_THROW_EXCEPTION(std::domain_error("bad size "));
                         }
 
+                        #if 1
                         sim.debug();
                         sim.optimize();
                         sim.debug();
+                        #endif
+                        
+                        for( auto const& item : sim.get_simulation_items() ){
+                                sim.total_weight += item.weight;
+                        }
+
 
                         return std::move(sim);
 
@@ -269,6 +279,8 @@ namespace ps{
 
                         }
                         #endif
+                        int equity_factor{10'000};
+                        int total_weight{0};
 
                         for( auto const& item : ctx.get_simulation_items() ){
                                 ps::equity_context ectx;
@@ -284,8 +296,8 @@ namespace ps{
                                         B(i, 0) = p.wins();
                                         B(i, 1) = p.draws();
                                         B(i, 2) = p.sigma();
-
-                                        //equity[i] += p.equity();
+                                        B(i, 3) = p.equity() * p.sigma();
+                                        PRINT(B(i,3));
                                 }
 
 
@@ -293,12 +305,19 @@ namespace ps{
 
 
                                 sigma += C;
+
+                                PRINT(item.weight);
+                                total_weight += item.weight;
                         }
                                 
                         for( size_t i{0}; i!= players.size(); ++i){
                                 players[i].wins_   = sigma(i,0);
                                 players[i].draw_   = sigma(i,1);
                                 players[i].sigma_  = sigma(i,2);
+                                players[i].equity_ = static_cast<double>(sigma(i,3)) / sigma(i,2);
+
+                                PRINT_SEQ((sigma(i,3))(sigma(i,2)));
+                                PRINT( players[i] );
                         }
 
 

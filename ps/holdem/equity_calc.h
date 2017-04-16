@@ -8,7 +8,6 @@
 
 #include "ps/core/eval.h"
 #include "ps/detail/visit_combinations.h"
-#include "ps/holdem/holdem_traits.h"
 #include "ps/core/cards.h"
 
 
@@ -29,7 +28,7 @@ namespace ps{
 
         struct equity_player{
                 equity_player(id_type hand)
-                        :hand_(hand),
+                        :hand_{holdem_hand_decl::get(hand)},
                         wins_{0},draw_{0},sigma_{0},equity_{0.0}
                 {}
 
@@ -51,7 +50,7 @@ namespace ps{
                 // these 2 classes a deeply coupled
                 friend class equity_calc;
 
-                id_type hand_;
+                holdem_hand_decl const& hand_;
 
                 size_t wins_;
                 size_t draw_;
@@ -75,7 +74,6 @@ namespace ps{
                 decltype(auto) get_board(){ return board_; }
                 decltype(auto) get_dead(){ return dead_; }
         private:
-                holdem_hand_maker hm_;
 
                 std::vector<id_type> board_;
                 std::vector<id_type> dead_;
@@ -89,8 +87,8 @@ namespace ps{
 
                         std::vector<long> known;
                         for( auto const& p : ctx.get_players() ){
-                                known.emplace_back( holdem_hand_decl::get(p.get_hand()).first().id() );
-                                known.emplace_back( holdem_hand_decl::get(p.get_hand()).second().id() );
+                                known.emplace_back( p.get_hand().first().id() );
+                                known.emplace_back( p.get_hand().second().id() );
                         }
                         boost::copy( ctx.get_board(), std::back_inserter(known));
                         boost::copy( ctx.get_dead(), std::back_inserter(known));
@@ -101,8 +99,8 @@ namespace ps{
                                 std::vector<std::pair<std::uint32_t, equity_player* > > ranked;
                                 std::vector<equity_player*> winners;
                                 for( auto& p : ctx.get_players() ){
-                                        auto x{ holdem_hand_decl::get(p.get_hand()).first().id() };
-                                        auto y{ holdem_hand_decl::get(p.get_hand()).second().id() };
+                                        auto x{ p.get_hand().first().id() };
+                                        auto y{ p.get_hand().second().id() };
                                         ++p.sigma_;
                                         ranked.emplace_back( std::make_pair(eval_(x,y,a,b,c,d,e), &p));
                                 }
@@ -126,27 +124,27 @@ namespace ps{
 
                         switch(ctx.get_board().size()){
                         case 0:
-                                detail::visit_combinations<5>( [&](long a, long b, long c, long d, long e){
+                                detail::visit_combinations<5>( [&](id_type a, id_type b, id_type c, id_type d, id_type e){
                                         do_eval(a,b,c,d,e);
                                 }, filter, 51);
                                 break;
                         case 1:
-                                detail::visit_combinations<4>( [&](long a, long b, long c, long d){
+                                detail::visit_combinations<4>( [&](id_type a, id_type b, id_type c, id_type d){
                                         do_eval(board[0], a,b,c,d);
                                 }, filter, 51);
                                 break;
                         case 2:
-                                detail::visit_combinations<3>( [&](long a, long b, long c){
+                                detail::visit_combinations<3>( [&](id_type a, id_type b, id_type c){
                                         do_eval(board[0], board[1], a,b,c);
                                 }, filter, 51);
                                 break;
                         case 3:
-                                detail::visit_combinations<2>( [&](long a, long b){
+                                detail::visit_combinations<2>( [&](id_type a, id_type b){
                                         do_eval(board[0], board[1], board[2], a,b);
                                 }, filter, 51);
                                 break;
                         case 4:
-                                detail::visit_combinations<1>( [&](long a){
+                                detail::visit_combinations<1>( [&](id_type a){
                                         do_eval(board[0], board[1], board[2], board[3], a);
                                 }, filter, 51);
                                 break;

@@ -15,6 +15,8 @@
 #include "ps/detail/print.h"
 #include "ps/holdem/equity_calc.h"
 #include "ps/holdem/holdem_range.h"
+#include "ps/holdem/holdem_traits.h"
+#include "ps/core/cards.h"
 
 namespace ps{
 

@@ -40,6 +40,9 @@ int main(){
         PRINT_SEQ((card_decl::get(2)));
         PRINT_SEQ((card_decl::get(3)));
         PRINT_SEQ((card_decl::get(4)));
+        PRINT_SEQ((holdem_hand_decl::get(4)));
+        PRINT_SEQ((holdem_hand_decl::get(200)));
+        PRINT_SEQ((holdem_hand_decl::get(52*23)));
 
 
 

@@ -8,7 +8,7 @@
 
 namespace ps{
 
-        template<class T, class Key = char>
+        template<class T, class Key = unsigned>
         struct decl_factory{
                 template<class... Args>
                 explicit decl_factory(Args&&... args)
@@ -25,10 +25,10 @@ namespace ps{
 
 
         struct suit_decl{
-                suit_decl(char id, char sym, std::string const& name)
+                suit_decl(unsigned id, char sym, std::string const& name)
                         : id_{id}, sym_{sym}, name_{name}
                 {}
-                char id()const{ return id_; }
+                auto id()const{ return id_; }
                 std::string to_string()const{ return std::string{sym_}; }
                 friend std::ostream& operator<<(std::ostream& ostr, suit_decl const& self){
                         return ostr << self.to_string();
@@ -36,18 +36,18 @@ namespace ps{
                 bool operator<(suit_decl const& that){
                         return id_ < that.id_;
                 }
-                inline static suit_decl const& get(char id);
+                inline static suit_decl const& get(unsigned id);
         private:
-                char id_;
+                unsigned id_;
                 char sym_;
                 std::string name_;
         };
         
         struct rank_decl{
-                rank_decl(char id, char sym)
+                rank_decl(unsigned id, char sym)
                         : id_{id}, sym_{sym}
                 {}
-                char id()const{ return id_; }
+                auto id()const{ return id_; }
                 std::string to_string()const{ return std::string{sym_}; }
                 friend std::ostream& operator<<(std::ostream& ostr, rank_decl const& self){
                         return ostr << self.to_string();
@@ -55,17 +55,18 @@ namespace ps{
                 bool operator<(rank_decl const& that){
                         return id_ < that.id_;
                 }
-                inline static rank_decl const& get(char id);
+                inline static rank_decl const& get(unsigned id);
         private:
-                char id_;
+                unsigned id_;
                 char sym_;
         };
 
         struct card_decl{
-                card_decl( suit_decl s, rank_decl r):
-                        suit_{s}, rank_{r}
-                , id_{static_cast<char>(suit_.id() + rank_.id() * 4)}
+                card_decl( suit_decl const& s, rank_decl const& r):
+                        id_{s.id() + r.id() * 4}
+                        ,suit_{s}, rank_{r}
                 {}
+                auto id()const{ return id_; }
                 std::string to_string()const{
                         return rank_.to_string() + 
                                suit_.to_string();
@@ -78,11 +79,38 @@ namespace ps{
                 bool operator<(card_decl const& that){
                         return id_ < that.id_;
                 }
-                inline static card_decl const& get(char id);
+                inline static card_decl const& get(unsigned id);
         private:
+                unsigned id_;
                 suit_decl suit_;
                 rank_decl rank_;
-                char id_;
+        };
+
+        struct holdem_hand_decl{
+                holdem_hand_decl( card_decl const& a, card_decl const& b):
+                        id_{ a.id() * 52 + b.id() },
+                        first_{a},
+                        second_{b}
+                {
+                        assert( b < a && "precondition failed");
+                }
+                auto id()const{ return id_; }
+                std::string to_string()const{
+                        return first_.to_string() + 
+                               second_.to_string();
+                }
+                friend std::ostream& operator<<(std::ostream& ostr, holdem_hand_decl const& self){
+                        return ostr << self.to_string();
+                }
+                bool operator<(holdem_hand_decl const& that){
+                        return id_ < that.id_;
+                }
+                inline static holdem_hand_decl const& get(unsigned id);
+        private:
+                unsigned id_;
+                card_decl first_;
+                card_decl second_;
+
         };
         
         namespace decl{
@@ -165,13 +193,13 @@ namespace ps{
 
         }
                 
-        suit_decl const& suit_decl::get(char id){
+        suit_decl const& suit_decl::get(unsigned id){
                 using namespace decl;
                 static decl_factory<suit_decl> fac{_h, _d, _c, _s};
                 return fac.get(id);
         }
         
-        rank_decl const& rank_decl::get(char id){
+        rank_decl const& rank_decl::get(unsigned id){
                 using namespace decl;
                 static decl_factory<rank_decl> fac{_2,_3,_4,_5,_6,
                                                    _7,_9,_9,_T,_J,
@@ -179,7 +207,7 @@ namespace ps{
                 return fac.get(id);
         }
         
-        card_decl const& card_decl::get(char id){
+        card_decl const& card_decl::get(unsigned id){
                 using namespace decl;
                 static decl_factory<card_decl> fac{
                         _Ah, _Kh, _Qh, _Jh, _Th, _9h, _8h, _7h, _6h, _5h, _4h, _3h, _2h,
@@ -189,6 +217,24 @@ namespace ps{
                 };
                 return fac.get(id);
         }
+        
+        holdem_hand_decl const& holdem_hand_decl::get(unsigned id){
+                static decl_factory<holdem_hand_decl> fac{
+                        [](){
+                                std::vector< holdem_hand_decl> aux;
+                                for( char a{52};a!=1;){
+                                        --a;
+                                        for( char b{a};b!=0;){
+                                                --b;
+                                                aux.emplace_back( card_decl::get(a), card_decl::get(b));
+                                        }
+                                }
+                                return std::move(aux);
+                        }()
+                };
+                return fac.get(id);
+        }
+                
 
                 
 

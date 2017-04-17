@@ -133,7 +133,25 @@ namespace ps{
         }
 
         struct symbolic_computation{
+
+                struct transform_schedular;
+                
+                enum kind{
+                        Begin_Terminals,
+                                Kind_Symbolic_Primitive,
+                        End_Terminals,
+                        Begin_NonTerminals,
+                                Kind_Symbolic_Range,
+                                Kind_Symbolic_Primitive_Range,
+                                Kind_Symbolic_Player_Perm,
+                        End_NonTerminals
+                };
+
+                explicit symbolic_computation(kind k):kind_{k}{}
+
                 using handle = std::shared_ptr<symbolic_computation>;
+
+
 
                 virtual ~symbolic_computation()=default;
 
@@ -144,10 +162,156 @@ namespace ps{
                         print_impl(ctx);
                 }
                 virtual void print_impl(detail::print_context& ctx)const=0;
+
+
+
+                auto get_kind()const{ return kind_; }
+                auto is_terminal()const{
+                        return 
+                                Begin_Terminals < get_kind() && get_kind() < End_Terminals;
+                }
+                auto is_non_terminal()const{
+                        return ! is_terminal();
+                }
+        private:
+                kind kind_;
         };
+
+        /*
+         * Idea here is to have non-termianls derive from this, to allow
+         * graph enumeration for transform and optimizations
+         *
+         */
+        struct symbolic_non_terminal : symbolic_computation{
+
+                using iterator= std::list<handle>::iterator;
+
+                explicit symbolic_non_terminal(kind k):symbolic_computation{k}{}
+
+                auto begin(){ return children_.begin(); }
+                auto end(){ return children_.end(); }
+                auto begin()const{ return children_.begin(); }
+                auto end()const{ return children_.end(); }
+                std::list<handle> const& get_children()const{ return children_; }
+                std::list<handle>& get_children(){ return children_; }
+                void push_child( handle ptr){ children_.push_back(ptr); }
+
+                void erase_child(iterator iter){
+                        children_.erase(iter);
+                }
+
+
+        private:
+                std::list<handle> children_;
+        };
+
+        struct symbolic_computation::transform_schedular{
+
+                using transform_t = std::function<bool(handle&)>;
+
+                enum TransformKind{
+                        TransformKind_BottomUp,
+                        TransformKind_TopDown,
+                        TransformKind_OnlyTerminals
+                };
+
+                enum {
+                        Element_Kind,
+                        Element_Transform
+                };
+
+                void decl( TransformKind kind, transform_t transform){
+                        decl_.emplace_back( kind, std::move(transform));
+                }
+
+                bool execute( handle& root)const{
+                        bool result{false};
+
+                        enum class opcode{
+                                yeild_or_apply,
+                                apply
+                        };
+
+                        for( auto const& t  : decl_){
+                                auto& transform{ std::get<Element_Transform>(t)};
+                                std::vector<std::pair<opcode, handle*>> stack;
+                                stack.emplace_back(opcode::yeild_or_apply, &root);
+                                for(;stack.size();){
+                                        auto p{stack.back()};
+                                        stack.pop_back();
+                                        
+                                        switch(p.first){
+                                        case opcode::yeild_or_apply:
+                                                if( (*p.second)->is_non_terminal()){
+                                                        stack.emplace_back( opcode::apply, p.second );
+                                                        auto c{ reinterpret_cast<symbolic_non_terminal*>(p.second->get()) };
+                                                        for( auto iter{c->begin()}, end{c->end()}; iter!=end;++iter){
+                                                                stack.emplace_back( opcode::yeild_or_apply, &*iter );
+                                                        }
+                                                        break;
+                                                }
+                                                // fallthought
+                                        case opcode::apply:{
+                                                bool ret{ transform( *p.second )};
+                                                result = result || ret;
+                                        }
+                                                break;
+                                        }
+                                }
+                        }
+                        return result;
+                }
+
+        private:
+                std::vector< std::tuple< TransformKind, transform_t> > decl_;
+        };
+
+
+        struct symbolic_player_perm : symbolic_non_terminal{
+                explicit symbolic_player_perm(std::vector<int> const& player_perm,
+                                              std::vector<int> const& suit_perm,
+                                              handle child)
+                        :symbolic_non_terminal(Kind_Symbolic_Player_Perm),
+                                player_perm_{player_perm},suit_perm_{suit_perm},child_{child}
+                {}
+                void print_impl(detail::print_context& ctx)const override{
+                        auto to_string = [](auto vec){
+                                std::stringstream sstr;
+                                sstr << "{";
+                                boost::copy( vec, std::ostream_iterator<int>(sstr,","));
+                                std::string s{sstr.str()};
+                                s.pop_back();
+                                s += "}";
+                                return std::move(s);
+                        };
+                        ctx.put() << "symbolic_player_perm("
+                                << to_string(player_perm_) << "," 
+                                << to_string(suit_perm_) << ")\n";
+                        ctx.push();
+                        child_->print_impl(ctx);
+                        ctx.pop();
+                }
+        private:
+                std::vector<int> player_perm_;
+                std::vector<int> suit_perm_;
+                handle child_;
+        };
+
+
+        #if 0
+        struct lowest_hash_transform{
+                bool apply( symbolic_computation::handle& handle){
+                        return true;
+                }
+        };
+        #endif
         
         struct symbolic_primitive : symbolic_computation{
-                symbolic_primitive(std::vector<frontend::hand> const& hands):hands_{hands}{}
+                symbolic_primitive(std::vector<frontend::hand> const& hands)
+                        :symbolic_computation(Kind_Symbolic_Primitive),
+                        hands_{hands}
+                {
+                }
                 
                 void print_impl(detail::print_context& ctx)const override{
                         std::stringstream sstr;
@@ -157,13 +321,15 @@ namespace ps{
                         }
                         ctx.put() << sstr.str() << "\n";
                 }
+                decltype(auto) get_hands()const{ return hands_; }
         private:
                 std::vector<frontend::hand> hands_;
         };
 
-        struct symbolic_primitive_range : symbolic_computation{
+        struct symbolic_primitive_range : symbolic_non_terminal{
                 symbolic_primitive_range(std::vector<frontend::primitive_t> const& prims)
-                        :prims_{prims}
+                        :symbolic_non_terminal(Kind_Symbolic_Primitive_Range),
+                        prims_{prims}
                 {
                         std::vector<size_t> size_vec;
                         std::vector<std::vector<holdem_id> > aux;
@@ -177,9 +343,11 @@ namespace ps{
                         case 2:
                                 detail::visit_exclusive_combinations<2>(
                                         [&](auto a, auto b){
-                                        children_.emplace_back(
-                                               std::make_shared<symbolic_primitive>( std::vector<frontend::hand>{frontend::hand{aux[0][a]},
-                                                                                                                {frontend::hand{aux[1][b]}}}));
+                                        push_child(
+                                               std::make_shared<symbolic_primitive>(
+                                                       std::vector<frontend::hand>{
+                                                                frontend::hand{aux[0][a]},
+                                                                frontend::hand{aux[1][b]}}));
                                 }, detail::true_, size_vec);
                                 break;
                         default:
@@ -189,25 +357,25 @@ namespace ps{
 
                 }
                 void print_impl(detail::print_context& ctx)const override{
-                        ctx.put() << "children.size() = " << children_.size() << "\n";
+                        ctx.put() << "children.size() = " << get_children().size() << "\n";
                         for(size_t i{0};i!=prims_.size();++i){
                                 ctx.put() << "prim " << i << " : " << prims_[i] << "\n";
                         }
                         ctx.push();
-                        for( auto const& c : children_ ){
+                        for( auto const& c : get_children() ){
                                 c->print_impl(ctx);
                         }
                         ctx.pop();
                 }
         private:
                 std::vector<frontend::primitive_t> prims_;
-                std::vector<handle> children_;
         };
 
         
 
-        struct symbolic_range : symbolic_computation{
-                symbolic_range(std::vector<frontend::range> const& players):
+        struct symbolic_range : symbolic_non_terminal{
+                symbolic_range(std::vector<frontend::range> const& players)
+                        :symbolic_non_terminal(Kind_Symbolic_Range),
                         players_{players}
                 {
                         std::vector<size_t> size_vec;
@@ -222,7 +390,7 @@ namespace ps{
                         case 2:
                                 detail::visit_exclusive_combinations<2>(
                                         [&](auto a, auto b){
-                                        children_.emplace_back(
+                                        push_child(
                                                std::make_shared<symbolic_primitive_range>( std::vector<frontend::primitive_t>{prims[0][a], prims[1][b] }));
                                 }, detail::true_, size_vec);
                                 break;
@@ -231,12 +399,12 @@ namespace ps{
                         }
                 }
                 void print_impl(detail::print_context& ctx)const override{
-                        ctx.put() << "children.size() = " << children_.size() << "\n";
+                        ctx.put() << "children.size() = " << get_children().size() << "\n";
                         for(size_t i{0};i!=players_.size();++i){
                                 ctx.put() << "player " << i << " : " << players_[i] << "\n";
                         }
                         ctx.push();
-                        for( auto const& c : children_ ){
+                        for( auto const& c : get_children() ){
                                 c->print_impl(ctx);
                         }
                         ctx.pop();
@@ -244,49 +412,9 @@ namespace ps{
         private:
                 std::vector<frontend::range> players_;
 
-                std::vector<handle> children_;
         };
 
 
-
-        #if 0
-        struct computation_result{
-        };
-        
-        struct computation_result_view{
-        };
-
-        struct computation_item{
-                virtual ~computation_item()=default;
-        };
-
-        struct primitive_computation{
-                explicit primitive_computation(std::vector<primitive_t> const& prim){
-                }
-        };
-
-        struct computation{
-        };
-
-        struct computation_builder{
-                computation make(std::vector<frontend::range> const& players){
-                        switch(players.size()){
-                        case 2: return do_make<2>(players);
-                        case 3: return do_make<3>(players);
-                        default: assert( 0 && "not implemented");
-                        }
-                }
-        private:
-                template<size_t N>
-                computation do_make(std::vector<frontend::range> const& players){
-                        std::vector<frontend::primitive_range> players_aux;
-                        for( auto const& rng : players){
-                                players_aux.emplace_back( expand( rng ).to_primitive_range() );
-                        }
-                }
-
-        };
-        #endif
 
 
 }
@@ -303,10 +431,84 @@ int main(){
         range villian;
         villian += _55-_77;
 
-        auto star = std::make_shared<symbolic_range>( std::vector<frontend::range>{hero, villian} );
+        symbolic_computation::handle star = std::make_shared<symbolic_range>( std::vector<frontend::range>{hero, villian} );
 
         star->print();
-        
+
+        symbolic_computation::transform_schedular sch;
+        sch.decl( symbolic_computation::transform_schedular::TransformKind_BottomUp,
+                  [](symbolic_computation::handle& ptr){
+                        
+                        if( ptr->get_kind() != symbolic_computation::Kind_Symbolic_Primitive )
+                                return false;
+                        std::vector<
+                                std::tuple<
+                                        std::string, std::vector<int>,
+                                        std::vector<int>, std::vector<frontend::hand> 
+                                >
+                        > aux;
+
+                        std::vector<int> player_perms{0,1};
+                        std::vector<int> suit_perms{0,1,2,3};
+
+                        auto hands{ reinterpret_cast<symbolic_primitive*>(ptr.get())->get_hands()};
+
+                        for( ;boost::next_permutation( player_perms);){
+                                for(;boost::next_permutation( suit_perms);){
+                                        std::string hash;
+                                        std::vector<frontend::hand> mapped_hands;
+
+                                        
+                                        for( int pidx : player_perms ){
+                                                auto h { holdem_hand_decl::get(hands[pidx].get()) };
+
+                                                mapped_hands.emplace_back(
+                                                        holdem_hand_decl::make_id(
+                                                                h.first().rank(),
+                                                                suit_perms[h.first().suit()],
+                                                                h.second().rank(),
+                                                                suit_perms[h.second().suit()]));
+
+                                                auto mapped { holdem_hand_decl::get(
+                                                        mapped_hands.back().get() )};
+
+                                                hash += mapped.to_string();
+                                        }
+                                        PRINT(hash);
+                                        aux.emplace_back(std::move(hash),
+                                                         player_perms,
+                                                         suit_perms,
+                                                         std::move(mapped_hands));
+                                }
+                        }
+                        auto from{ std::get<0>(aux.front())};
+                        boost::sort(aux, [](auto const& left, auto const& right){
+                                return std::get<0>(left) < std::get<0>(right);
+                        });
+                        auto to{std::get<0>(aux.front())};
+
+                        PRINT_SEQ((from)(to));
+                        if( from == to ){
+                                return false;
+                        }
+                        ptr = std::make_shared<symbolic_player_perm>( 
+                                std::get<1>(aux.front()),
+                                std::get<2>(aux.front()),
+                                std::make_shared<symbolic_primitive>(
+                                        std::get<3>(aux.front())
+                                )
+                        );
+                        return true;
+                  });
+        #if 0
+        sch.decl( symbolic_computation::transform_schedular::TransformKind_BottomUp,
+                  [](symbolic_computation::handle& ptr){
+                        ptr->print();                  
+                        return false;
+                });
+        #endif
+        sch.execute(star);
+        star->print();
 
         
 }

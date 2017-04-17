@@ -2,6 +2,7 @@
 #define PS_HOLDEM_FRONTEND_H
 
 #include <boost/variant.hpp>
+#include <boost/variant/multivisitors.hpp>
 #include <boost/format.hpp>
 
 
@@ -204,7 +205,34 @@ namespace ps{
                         struct interval_expander : boost::static_visitor<>{
                                 explicit interval_expander(std::vector<sub_range_t>& vec):vec_{&vec}{}
 
+                                void operator()(pocket_pair const& first, pocket_pair const& last)const{
+                                        rank_id x{ std::min ( first.get(), last.get() ) };
+                                        rank_id y{ std::max ( first.get(), last.get() ) };
+                                        for( rank_id r{x}; r <= y; ++r){
+                                                vec_->emplace_back( pocket_pair{r} );
+                                        }
+                                }
+                                template<class T,
+                                        class = std::enable_if_t<  boost::mpl::contains<boost::mpl::vector<offsuit, suited, any_suit>, std::decay_t<T> >::value>
+                                >
+                                void operator()(T const& first, T const& last)const{
+                                        // A5s -> A2s
+                                        auto first_x{ first.first() };
+                                        auto first_y{ first.second() };
+                                        auto last_x{ last.first() };
+                                        auto last_y{ last.second() };
+                                        if( first_x != last_x )
+                                                BOOST_THROW_EXCEPTION(std::domain_error("bad range "));
+                                        for( rank_id r{std::min(first_y, last_y)}; r <= std::max(first_y, last_y); ++r){
+                                                if( r == first_x ) continue;
+                                                vec_->emplace_back( T{first_x,r} );
+                                        }
 
+                                }
+                                template<class T, class U>
+                                void operator()(T const first, U const& second)const{
+                                        BOOST_THROW_EXCEPTION( std::domain_error("can't have hetrogenous interval"));
+                                }
                         private:
                                 std::vector<sub_range_t>* vec_;
                         };
@@ -233,6 +261,7 @@ namespace ps{
                                         boost::apply_visitor( plus_, sub.get() );
                                 }
                                 void operator()(interval const& sub)const{
+                                        boost::apply_visitor( interval_, sub.first(), sub.last() );
                                 }
                                 void operator()(primitive_t const& sub)const{
                                         vec_->emplace_back(sub);

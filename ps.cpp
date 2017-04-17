@@ -143,23 +143,8 @@ int main(){
         using namespace ps::frontend;
 
         range rng;
-        #if 0
-        rng += _TT++;
-        rng += _88;
-        rng += _AJo++;
-        rng += _98s;
-        #endif
-        rng += _JTs;
-        rng += _23s;
-        rng += _32s;
-        rng += _56s;
-        rng += _65s;
-        rng += _67s;
-        rng += _76s;
-        rng += _89s;
-        rng += _98s;
-        rng += _9Ts;
-        rng += _T9s;
+        rng += _KTs++;
+        rng += _A5s-_A2s;
         PRINT(rng);
         PRINT(expand(rng));
 

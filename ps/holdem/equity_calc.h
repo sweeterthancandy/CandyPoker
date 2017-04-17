@@ -9,6 +9,7 @@
 #include "ps/core/eval.h"
 #include "ps/detail/visit_combinations.h"
 #include "ps/core/cards.h"
+#include "ps/holdem/frontend.h"
 
 #include "ps/core/player_statistics.h"
 
@@ -62,7 +63,10 @@ namespace ps{
         
         struct equity_context{
 
-
+		equity_context& add_player( frontend::hand hand){
+                        players_.emplace_back( hand.get() );
+                        return *this;
+		}
                 equity_context& add_player(std::string const& s){
                         players_.emplace_back( holdem_hand_decl::get(s).id() );
                         return *this;

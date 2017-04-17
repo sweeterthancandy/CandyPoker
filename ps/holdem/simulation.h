@@ -335,7 +335,7 @@ namespace ps{
                                 }
 
 
-                                axpy_prod(item.get_distribution(), B, C, false);
+                               axpy_prod(item.get_distribution(), B, C, false);
 
 
                                 sigma += C;

@@ -498,7 +498,7 @@ namespace ps{
                         explicit underlying_work(std::vector<frontend::hand> const& hands)
                                 : hands_{hands}
                                 , factor_(hands_.size(), hands_.size(), 0)
-                                , result_(hands_.size(), hands_.size(), 0)
+                                , result_(hands_.size(), 4, 0)
                         {}
 
 
@@ -513,15 +513,45 @@ namespace ps{
                                         ostr << self.hands_[i];
                                 }
                                 return ostr << " * " << self.factor_
+                                        << " = " << self.result_
                                         << " # " << symbolic_primitive::make_hash(self.hands_);
+                        }
+                        auto get(){
+                                ps::equity_context ctx;
+                                ps::equity_calc eq;
+
+                                for( auto h : hands_ ){
+                                        ctx.add_player(h);
+                                }
+                                eq.run( ctx );
+
+                                size_t idx{0};
+
+                                bnu::matrix<int> A( hands_.size(), 4 );
+                                for( size_t i{0}; i!= ctx.get_players().size(); ++i){
+                                        auto const& p{ctx.get_players()[i]};
+                                        A(i, 0) = p.wins();
+                                        A(i, 1) = p.draws();
+                                        A(i, 2) = p.sigma();
+                                }
+                                axpy_prod(factor_, A, result_, false);
+                                return result_;
+                        }
+
+                        void debug(){
+                                eval();
+                                PRINT(*this);
+
                         }
                 private:
                         std::vector<frontend::hand> hands_;
                         bnu::matrix<int> factor_;
+                        bnu::matrix<int> term_;
                         bnu::matrix<int> result_;
                 };
 
                 struct work_scheduler{
+                        explicit work_scheduler(size_t num_players):num_players_{num_players}{}
                         void decl( std::vector<int> const& perm, std::vector<frontend::hand>const& hands){
                                 auto hash{ symbolic_primitive::make_hash(hands) };
                                 if( work_.count(hash) == 0 ){
@@ -530,12 +560,20 @@ namespace ps{
                                 auto iter = work_.find(hash);
                                 iter->second.append_permutation_matrix(perm);
                         }
-                        void debug()const{
-                                for( auto const& w: work_ ){
-                                        std::cout << w.second << "\n";
+                        void debug(){
+                                for( auto & w: work_ ){
+                                        w.second.debug();
                                 }
                         }
+                        bnu::matrix<int> compute(){
+                                bnu::matrix<int> result{num_players_, 4, 0};
+                                for( auto & w: work_ ){
+                                        result += w.second.get();
+                                }
+                                return result;
+                        }
                 private:
+                        size_t num_players_; 
                         std::map<std::string, underlying_work> work_;
                 };
         }
@@ -667,12 +705,11 @@ int main(){
         range other_villian;
         other_villian += _89s;
 
-        //symbolic_computation::handle star = std::make_shared<symbolic_range>( std::vector<frontend::range>{villian, hero, other_villian} );
-        symbolic_computation::handle star = std::make_shared<symbolic_range>( std::vector<frontend::range>{villian, hero} );
+        symbolic_computation::handle star = std::make_shared<symbolic_range>( std::vector<frontend::range>{villian, hero, other_villian} );
 
         star->print();
         
-        ps::numeric::work_scheduler work;
+        ps::numeric::work_scheduler work{3};
 
         symbolic_computation::transform_schedular sch;
 
@@ -687,7 +724,7 @@ int main(){
 
         star->print();
 
-        work.debug();
+        PRINT(work.compute());
 
 
         

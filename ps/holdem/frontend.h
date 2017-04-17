@@ -688,6 +688,7 @@ namespace ps{
                         };
                 }
 
+                inline
                 range parse(std::string const& str){
                         static detail::parser<decltype(str.begin())> p;
                         return p.parse(str.begin(), str.end());

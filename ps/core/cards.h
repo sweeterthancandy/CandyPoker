@@ -49,6 +49,7 @@ namespace ps{
                 }
                 inline static suit_decl const& get(id_type id);
                 inline static suit_decl const& get(std::string const& s);
+                operator id_type()const{ return id_; }
         private:
                 id_type id_;
                 char sym_;
@@ -69,6 +70,8 @@ namespace ps{
                 }
                 inline static rank_decl const& get(id_type id);
                 inline static rank_decl const& get(std::string const& s);
+                inline static rank_decl const& get(char c){ return get(std::string{c}); }
+                operator id_type()const{ return id_; }
         private:
                 id_type id_;
                 char sym_;
@@ -98,6 +101,7 @@ namespace ps{
                         return get( rank_decl::get(s.substr(0,1)).id() * 4 +
                                     suit_decl::get(s.substr(1,1)).id()   );
                 }
+                operator id_type()const{ return id_; }
         private:
                 id_type id_;
                 suit_decl suit_;

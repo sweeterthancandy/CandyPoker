@@ -239,23 +239,6 @@ namespace ps{
                         
                         struct expander : boost::static_visitor<>{
                                 explicit expander(std::vector<sub_range_t>& vec):vec_{&vec},plus_{vec},interval_{vec}{}
-                                #if 0
-                                void operator()(hand const& prim)const{
-                                        vec_->emplace_back(prim);
-                                }
-                                void operator()(pocket_pair const& prim)const{
-                                        vec_->emplace_back(prim);
-                                }
-                                void operator()(offsuit const& prim)const{
-                                        vec_->emplace_back(prim);
-                                }
-                                void operator()(suited const& prim)const{
-                                        vec_->emplace_back(prim);
-                                }
-                                void operator()(any_suit const& prim)const{
-                                        vec_->emplace_back(prim);
-                                }
-                                #endif
 
                                 void operator()(plus const& sub)const{
                                         boost::apply_visitor( plus_, sub.get() );
@@ -272,6 +255,16 @@ namespace ps{
                                 std::vector<sub_range_t>* vec_;
                                 plus_expander plus_;
                                 interval_expander interval_;
+                        };
+
+                        struct sorter : boost::static_visitor<bool>{
+                                template<class T >
+                                bool operator()(T const& first, T const& last)const{
+                                        return false;
+                                }
+                                template<class T, class U>
+                                void operator()(T const first, U const& second)const{
+                                }
                         };
 
                 }
@@ -300,6 +293,7 @@ namespace ps{
                                 range result;
                                 detail::expander aux{result.subs_};
                                 boost::for_each( self.subs_, boost::apply_visitor(aux) );
+                                //boost::sort( self.subs_, detail::sorter() );
                                 return std::move(result);
                         }
                 private:

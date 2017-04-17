@@ -145,6 +145,8 @@ int main(){
         range rng;
         rng += _KTs++;
         rng += _A5s-_A2s;
+        rng += _99 - _TT;
+        rng += _JJ - _77;
         PRINT(rng);
         PRINT(expand(rng));
 

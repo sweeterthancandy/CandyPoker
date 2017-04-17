@@ -310,6 +310,12 @@ namespace ps{
                 };
                 return fac.get(id);
         }
+
+        enum class suit_category{
+                any_suit,
+                suited,
+                offsuit
+        };
                 
 
                 

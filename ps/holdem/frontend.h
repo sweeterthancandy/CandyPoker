@@ -66,21 +66,23 @@ namespace ps{
                         auto i_am_a_duck__to_hand_vector()const{
                                 using namespace decl;
                                 std::vector<holdem_id> result;
-                                for( auto a : {_c, _d, _s, _h } ){
-                                        for( auto b : {_c, _d, _s, _h } ){
-                                                if( a == b ) continue;
+                                for( auto i=4;i!=1;){
+                                        --i;
+                                        for( auto j=i;j!=0;){
+                                                --j;
                                                 result.emplace_back( holdem_hand_decl::make_id( 
-                                                        x_, a,
-                                                        x_, b) );
+                                                        x_, i,
+                                                        x_, j) );
                                         }
                                 }
+                                PRINT_SEQ(("pp")(result.size()));
                                 return std::move(result);
                         }
                 private:
                         rank_id x_;
                 };
 
-                template<class Tag, int Order_Decl>
+                template<suit_category Suit_Category, int Order_Decl>
                 struct basic_rank_tuple{
                         explicit basic_rank_tuple(rank_id x, rank_id y):x_{x},y_{y}{}
                         auto first()const{ return x_; }
@@ -97,19 +99,51 @@ namespace ps{
                         }
                         static int order(){ return Order_Decl; }
                         friend std::ostream& operator<<(std::ostream& ostr, basic_rank_tuple const& self){
-                                return ostr << boost::format("basic_rank_tuple<%i>{%s, %s}") % Order_Decl % rank_decl::get(self.first()) % rank_decl::get(self.second());
+                                const char* name = [](){
+                                        switch(Suit_Category){
+                                        case suit_category::any_suit:
+                                                return "any_suit";
+                                        case suit_category::suited:
+                                                return "suited";
+                                        case suit_category::offsuit:
+                                                return "offsuit";
+                                        }
+                                }();
+                                return ostr << boost::format("%s{%s, %s}") % name % rank_decl::get(self.first()) % rank_decl::get(self.second());
                         }
                         auto i_am_a_duck__to_hand_vector()const{
                                 using namespace decl;
                                 std::vector<holdem_id> result;
                                 assert( x_ != y_ && "invariant failed");
-                                for( auto a : {_c, _d, _s, _h } ){
-                                        for( auto b : {_c, _d, _s, _h } ){
+                                switch(Suit_Category){
+                                case suit_category::any_suit:
+                                        for( auto a : {_c, _d, _s, _h } ){
+                                                for( auto b : {_c, _d, _s, _h } ){
+                                                        result.emplace_back( holdem_hand_decl::make_id( 
+                                                                x_, a,
+                                                                y_, b) );
+                                                }
+                                        }
+                                        break;
+                                case suit_category::suited:
+                                        for( auto a : {_c, _d, _s, _h } ){
                                                 result.emplace_back( holdem_hand_decl::make_id( 
                                                         x_, a,
-                                                        y_, b) );
+                                                        y_, a) );
                                         }
+                                        break;
+                                case suit_category::offsuit:
+                                        for( auto a : {_c, _d, _s, _h } ){
+                                                for( auto b : {_c, _d, _s, _h } ){
+                                                        if( a == b ) continue;
+                                                        result.emplace_back( holdem_hand_decl::make_id( 
+                                                                x_, a,
+                                                                y_, b) );
+                                                }
+                                        }
+                                        break;
                                 }
+                                PRINT_SEQ(("alt")(result.size()));
                                 return std::move(result);
                         }
                 private:
@@ -117,10 +151,10 @@ namespace ps{
                         rank_id y_;
                 };
 
-                using any_suit    = basic_rank_tuple<struct tag_any_suit,2>;
+                using any_suit    = basic_rank_tuple<suit_category::any_suit,2>;
 
-                using offsuit     = basic_rank_tuple<struct tag_offsuit,3>;
-                using suited      = basic_rank_tuple<struct tag_suited,4>;
+                using offsuit     = basic_rank_tuple<suit_category::offsuit,3>;
+                using suited      = basic_rank_tuple<suit_category::suited,4>;
 
                 using primitive_tl = boost::mpl::vector<hand, pocket_pair, offsuit, suited, any_suit>;
 

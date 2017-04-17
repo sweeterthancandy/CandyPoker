@@ -159,11 +159,6 @@ namespace ps{
 
         };
 
-        enum class suit_category{
-                any_suit,
-                suited,
-                unsuited
-        };
                 
 
         struct simulation_context_maker{
@@ -193,7 +188,7 @@ namespace ps{
                                 if( aux.size() == 3){
                                         switch(aux[2]){
                                         case 'S': case's': suit = suit_category::suited; break;
-                                        case 'O': case'o': suit = suit_category::unsuited; break;
+                                        case 'O': case'o': suit = suit_category::offsuit; break;
                                         }
                                 }
                                 if( r == s){
@@ -219,7 +214,7 @@ namespace ps{
                                                         }
                                                 }
                                                 break;
-                                        case suit_category::unsuited:
+                                        case suit_category::offsuit:
                                                 for( auto a : {0,1,2,3} ){
                                                         for( auto b : {0,1,2,3} ){
                                                                 if( a == b )

@@ -150,9 +150,12 @@ namespace ps{
                 symbolic_primitive(std::vector<frontend::hand> const& hands):hands_{hands}{}
                 
                 void print_impl(detail::print_context& ctx)const override{
+                        std::stringstream sstr;
                         for(size_t i{0};i!=hands_.size();++i){
-                                ctx.put() << hands_[i] << "\n";
+                                if( i != 0 ) sstr << " vs ";
+                                sstr << hands_[i];
                         }
+                        ctx.put() << sstr.str() << "\n";
                 }
         private:
                 std::vector<frontend::hand> hands_;
@@ -186,6 +189,7 @@ namespace ps{
 
                 }
                 void print_impl(detail::print_context& ctx)const override{
+                        ctx.put() << "children.size() = " << children_.size() << "\n";
                         for(size_t i{0};i!=prims_.size();++i){
                                 ctx.put() << "prim " << i << " : " << prims_[i] << "\n";
                         }
@@ -227,6 +231,7 @@ namespace ps{
                         }
                 }
                 void print_impl(detail::print_context& ctx)const override{
+                        ctx.put() << "children.size() = " << children_.size() << "\n";
                         for(size_t i{0};i!=players_.size();++i){
                                 ctx.put() << "player " << i << " : " << players_[i] << "\n";
                         }

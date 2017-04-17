@@ -343,11 +343,19 @@ namespace ps{
                         case 2:
                                 detail::visit_exclusive_combinations<2>(
                                         [&](auto a, auto b){
-                                        push_child(
-                                               std::make_shared<symbolic_primitive>(
-                                                       std::vector<frontend::hand>{
-                                                                frontend::hand{aux[0][a]},
-                                                                frontend::hand{aux[1][b]}}));
+                                        
+                                        // make sure disjoint
+
+                                        if( holdem_hand_decl::get(aux[0][a])
+                                            .disjoint( holdem_hand_decl::get(aux[1][b]) ) )
+                                        {
+
+                                                push_child(
+                                                       std::make_shared<symbolic_primitive>(
+                                                               std::vector<frontend::hand>{
+                                                                        frontend::hand{aux[0][a]},
+                                                                        frontend::hand{aux[1][b]}}));
+                                        }
                                 }, detail::true_, size_vec);
                                 break;
                         default:
@@ -415,6 +423,75 @@ namespace ps{
         };
 
 
+        namespace transforms{
+
+                struct to_lowest_permutation{
+                        bool operator()(symbolic_computation::handle& ptr)const{
+                                if( ptr->get_kind() != symbolic_computation::Kind_Symbolic_Primitive )
+                                        return false;
+                                std::vector<
+                                        std::tuple<
+                                                std::string, std::vector<int>,
+                                                std::vector<int>, std::vector<frontend::hand> 
+                                        >
+                                > aux;
+
+                                std::vector<int> player_perms{0,1};
+                                std::vector<int> suit_perms{0,1,2,3};
+
+                                auto hands{ reinterpret_cast<symbolic_primitive*>(ptr.get())->get_hands()};
+
+                                for( ;;){
+                                        for(;;){
+                                                std::string hash;
+                                                std::vector<frontend::hand> mapped_hands;
+
+                                                
+                                                for( int pidx : player_perms ){
+                                                        auto h { holdem_hand_decl::get(hands[pidx].get()) };
+
+                                                        mapped_hands.emplace_back(
+                                                                holdem_hand_decl::make_id(
+                                                                        h.first().rank(),
+                                                                        suit_perms[h.first().suit()],
+                                                                        h.second().rank(),
+                                                                        suit_perms[h.second().suit()]));
+
+                                                        auto mapped { holdem_hand_decl::get(
+                                                                mapped_hands.back().get() )};
+
+                                                        hash += mapped.to_string();
+                                                }
+                                                aux.emplace_back(std::move(hash),
+                                                                 player_perms,
+                                                                 suit_perms,
+                                                                 std::move(mapped_hands));
+                                                if( ! boost::next_permutation( suit_perms) )
+                                                        break;
+                                        }
+                                        if( !boost::next_permutation( player_perms))
+                                                break;
+                                }
+                                auto from{ std::get<0>(aux.front())};
+                                boost::sort(aux, [](auto const& left, auto const& right){
+                                        return std::get<0>(left) < std::get<0>(right);
+                                });
+                                auto to{std::get<0>(aux.front())};
+
+                                if( from == to ){
+                                        return false;
+                                }
+                                ptr = std::make_shared<symbolic_player_perm>( 
+                                        std::get<1>(aux.front()),
+                                        std::get<2>(aux.front()),
+                                        std::make_shared<symbolic_primitive>(
+                                                std::get<3>(aux.front())
+                                        )
+                                );
+                                return true;
+                        }
+                };
+        }
 
 
 }
@@ -426,80 +503,20 @@ int main(){
         using namespace ps::frontend;
 
         range hero;
-        hero += _AKo++;
+        hero += _AA;
 
         range villian;
-        villian += _55-_77;
+        villian += _AA;
 
-        symbolic_computation::handle star = std::make_shared<symbolic_range>( std::vector<frontend::range>{hero, villian} );
+        symbolic_computation::handle star = std::make_shared<symbolic_range>( std::vector<frontend::range>{villian, hero} );
 
         star->print();
 
         symbolic_computation::transform_schedular sch;
+        #if 1
         sch.decl( symbolic_computation::transform_schedular::TransformKind_BottomUp,
-                  [](symbolic_computation::handle& ptr){
-                        
-                        if( ptr->get_kind() != symbolic_computation::Kind_Symbolic_Primitive )
-                                return false;
-                        std::vector<
-                                std::tuple<
-                                        std::string, std::vector<int>,
-                                        std::vector<int>, std::vector<frontend::hand> 
-                                >
-                        > aux;
-
-                        std::vector<int> player_perms{0,1};
-                        std::vector<int> suit_perms{0,1,2,3};
-
-                        auto hands{ reinterpret_cast<symbolic_primitive*>(ptr.get())->get_hands()};
-
-                        for( ;boost::next_permutation( player_perms);){
-                                for(;boost::next_permutation( suit_perms);){
-                                        std::string hash;
-                                        std::vector<frontend::hand> mapped_hands;
-
-                                        
-                                        for( int pidx : player_perms ){
-                                                auto h { holdem_hand_decl::get(hands[pidx].get()) };
-
-                                                mapped_hands.emplace_back(
-                                                        holdem_hand_decl::make_id(
-                                                                h.first().rank(),
-                                                                suit_perms[h.first().suit()],
-                                                                h.second().rank(),
-                                                                suit_perms[h.second().suit()]));
-
-                                                auto mapped { holdem_hand_decl::get(
-                                                        mapped_hands.back().get() )};
-
-                                                hash += mapped.to_string();
-                                        }
-                                        PRINT(hash);
-                                        aux.emplace_back(std::move(hash),
-                                                         player_perms,
-                                                         suit_perms,
-                                                         std::move(mapped_hands));
-                                }
-                        }
-                        auto from{ std::get<0>(aux.front())};
-                        boost::sort(aux, [](auto const& left, auto const& right){
-                                return std::get<0>(left) < std::get<0>(right);
-                        });
-                        auto to{std::get<0>(aux.front())};
-
-                        PRINT_SEQ((from)(to));
-                        if( from == to ){
-                                return false;
-                        }
-                        ptr = std::make_shared<symbolic_player_perm>( 
-                                std::get<1>(aux.front()),
-                                std::get<2>(aux.front()),
-                                std::make_shared<symbolic_primitive>(
-                                        std::get<3>(aux.front())
-                                )
-                        );
-                        return true;
-                  });
+                  transforms::to_lowest_permutation() );
+                  #endif
         #if 0
         sch.decl( symbolic_computation::transform_schedular::TransformKind_BottomUp,
                   [](symbolic_computation::handle& ptr){

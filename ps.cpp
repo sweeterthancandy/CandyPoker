@@ -116,6 +116,9 @@
 
 namespace ps{
 
+        namespace numeric{
+        }
+
         namespace detail{
                 struct print_context{
                         std::ostream* stream;
@@ -321,6 +324,7 @@ namespace ps{
                                 c->print_impl(ctx);
                         ctx.pop();
                 }
+                decltype(auto) get_player_perm()const{ return player_perm_; }
         private:
                 std::vector<int> player_perm_;
         };
@@ -345,8 +349,18 @@ namespace ps{
 
                 static std::string make_hash( std::vector<frontend::hand> const& hands){
                         std::string hash;
-                        for( auto h : hands )
-                                hash += holdem_hand_decl::get(h.get()).to_string();
+                        for( auto h : hands ){
+                                // XXX hash :(
+                                /* nned to avoid 5c5dAhKc
+                                                 5c5dAhKd
+                                */
+                                std::string atom{holdem_hand_decl::get(h.get()).to_string()};
+                                std::string alt_atom{ atom.substr(2,2) + atom.substr(0,2)};
+                                if( atom < alt_atom )
+                                        hash += atom;
+                                else
+                                        hash += alt_atom;
+                        }
                         return std::move(hash);
                 }
                 std::string const& get_hash()const{ return hash_; }
@@ -476,6 +490,55 @@ namespace ps{
                 std::vector<frontend::range> players_;
 
         };
+                
+        namespace numeric{
+
+                struct underlying_work{
+
+                        explicit underlying_work(std::vector<frontend::hand> const& hands)
+                                : hands_{hands}
+                                , factor_(hands_.size(), hands_.size(), 0)
+                                , result_(hands_.size(), hands_.size(), 0)
+                        {}
+
+
+                        void append_permutation_matrix(std::vector<int> const& perm){
+                                for(size_t i=0;i!=perm.size();++i){
+                                        ++factor_(i, perm[i]);
+                                }
+                        }
+                        friend std::ostream& operator<<(std::ostream& ostr, underlying_work const& self){
+                                for(size_t i{0};i!=self.hands_.size();++i){
+                                        if( i != 0 ) ostr << " vs ";
+                                        ostr << self.hands_[i];
+                                }
+                                return ostr << " * " << self.factor_
+                                        << " # " << symbolic_primitive::make_hash(self.hands_);
+                        }
+                private:
+                        std::vector<frontend::hand> hands_;
+                        bnu::matrix<int> factor_;
+                        bnu::matrix<int> result_;
+                };
+
+                struct work_scheduler{
+                        void decl( std::vector<int> const& perm, std::vector<frontend::hand>const& hands){
+                                auto hash{ symbolic_primitive::make_hash(hands) };
+                                if( work_.count(hash) == 0 ){
+                                        work_.insert(std::make_pair(hash, underlying_work{hands} ) );
+                                }
+                                auto iter = work_.find(hash);
+                                iter->second.append_permutation_matrix(perm);
+                        }
+                        void debug()const{
+                                for( auto const& w: work_ ){
+                                        std::cout << w.second << "\n";
+                                }
+                        }
+                private:
+                        std::map<std::string, underlying_work> work_;
+                };
+        }
 
 
         namespace transforms{
@@ -533,6 +596,8 @@ namespace ps{
                                 });
                                 auto to{std::get<0>(aux.front())};
 
+                                PRINT_SEQ((from)(to));
+
 
                                 ptr = std::make_shared<symbolic_player_perm>( 
                                         std::get<1>(aux.front()),
@@ -560,6 +625,29 @@ namespace ps{
                                 return true;
                         }
                 };
+
+
+
+
+                struct work_generator{
+                        explicit work_generator(numeric::work_scheduler& sched):sched_{&sched}{}
+                        bool operator()(symbolic_computation::handle& ptr)const{
+                                if( ptr->get_kind() != symbolic_computation::Kind_Symbolic_Player_Perm )
+                                        return false;
+                                auto aux_ptr{ reinterpret_cast<symbolic_player_perm*>(ptr.get()) };
+                                assert( aux_ptr->get_children().size() == 1 && "unexpected");
+                                auto child_ptr = aux_ptr->get_children().front();
+                                auto aux_child_ptr{ reinterpret_cast<symbolic_primitive*>(child_ptr.get())};
+
+                                sched_->decl(
+                                        aux_ptr->get_player_perm(),
+                                        aux_child_ptr->get_hands());
+                                return false;
+                        }
+                private:
+                        numeric::work_scheduler* sched_;
+                };
+
         }
 
 
@@ -571,27 +659,35 @@ int main(){
         using namespace ps::frontend;
 
         range hero;
-        hero += _AA;
+        hero += _AKo;
 
         range villian;
-        villian += _AA;
+        villian += _55;
 
         range other_villian;
         other_villian += _89s;
 
-        symbolic_computation::handle star = std::make_shared<symbolic_range>( std::vector<frontend::range>{villian, hero, other_villian} );
+        //symbolic_computation::handle star = std::make_shared<symbolic_range>( std::vector<frontend::range>{villian, hero, other_villian} );
+        symbolic_computation::handle star = std::make_shared<symbolic_range>( std::vector<frontend::range>{villian, hero} );
 
         star->print();
+        
+        ps::numeric::work_scheduler work;
 
         symbolic_computation::transform_schedular sch;
+
 
         sch.decl( symbolic_computation::transform_schedular::TransformKind_BottomUp,
                   transforms::to_lowest_permutation() );
         sch.decl( symbolic_computation::transform_schedular::TransformKind_BottomUp,
                   transforms::remove_suit_perms() );
+        sch.decl( symbolic_computation::transform_schedular::TransformKind_BottomUp,
+                  transforms::work_generator(work) );
         sch.execute(star);
 
         star->print();
+
+        work.debug();
 
 
         

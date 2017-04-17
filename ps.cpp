@@ -26,7 +26,7 @@ void eval_2(ps::frontend::range const& p0,
                   transforms::work_generator(work) );
         sch.execute(star);
 
-        ps::numeric::matrix_type ret;
+        ps::numeric::result_type ret{2};
         {
                 boost::timer::auto_cpu_timer at;
                 ret = work.compute();

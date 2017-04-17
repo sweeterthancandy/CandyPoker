@@ -9,27 +9,31 @@ namespace ps{
                 
                 struct result_type{
                         explicit result_type(size_t n):
-                                nat_mat(n,3,0),
-                                real_mat(n,1,0)
+                                nat_mat(n,4,0),
+                                real_mat(n,1,0.0)
                         {}
                         friend std::ostream& operator<<(std::ostream& ostr, result_type const& self){
                                 return ostr << "nat_mat = " << self.nat_mat << ", real = " << self.real_mat;
                         }
 
-                private:
+                        result_type& operator+=(result_type const& that){
+                                nat_mat += that.nat_mat;
+                                real_mat += that.real_mat;
+                                return *this;
+                        }
+
+                        using nat_matrix_type = bnu::matrix<std::uint64_t>;
+                        using real_matrix_type = bnu::matrix<long double>;
                         
                         bnu::matrix<std::uint64_t> nat_mat;
                         bnu::matrix<long double>   real_mat;
                 };
-
-                using matrix_type = bnu::matrix<std::uint64_t>;
 
                 struct underlying_work{
 
                         explicit underlying_work(std::vector<frontend::hand> const& hands)
                                 : hands_{hands}
                                 , factor_(hands_.size(), hands_.size(), 0)
-                                , result_(hands_.size(), 4, 0)
                         {}
 
 
@@ -44,7 +48,6 @@ namespace ps{
                                         ostr << self.hands_[i];
                                 }
                                 return ostr << " * " << self.factor_
-                                        << " = " << self.result_
                                         << " # " << symbolic_primitive::make_hash(self.hands_);
                         }
                         auto get(){
@@ -58,18 +61,21 @@ namespace ps{
 
                                 size_t idx{0};
 
-                                matrix_type A( hands_.size(), 4 );
+                                result_type::nat_matrix_type A( hands_.size(), 4 );
+                                result_type::real_matrix_type R( hands_.size(), 1);
                                 for( size_t i{0}; i!= ctx.get_players().size(); ++i){
                                         auto const& p{ctx.get_players()[i]};
                                         A(i, 0) = p.wins();
                                         A(i, 1) = p.draws();
                                         A(i, 2) = p.sigma();
-                                        A(i, 3) = p.equity() * p.sigma() * 1000;
+
+                                        R(i, 0) = p.equity() * p.sigma();
                                 }
-                                axpy_prod(factor_, A, result_, false);
+                                result_type ret( hands_.size() );
+                                axpy_prod(factor_, A, ret.nat_mat, false);
+                                axpy_prod(factor_, R, ret.real_mat, false);
 
-
-                                return result_;
+                                return ret;
                         }
 
                         void debug(){
@@ -78,9 +84,8 @@ namespace ps{
                         }
                 private:
                         std::vector<frontend::hand> hands_;
-                        matrix_type factor_;
-                        matrix_type term_;
-                        matrix_type result_;
+                        result_type::nat_matrix_type factor_;
+                        result_type::nat_matrix_type term_;
                 };
 
                 struct work_scheduler{
@@ -98,16 +103,16 @@ namespace ps{
                                         w.second.debug();
                                 }
                         }
-                        matrix_type compute(){
+                        auto compute(){
                                 std::vector<std::function<void()> > work;
-                                matrix_type result{num_players_, 4, 0};
+                                result_type ret( num_players_);
                                 std::mutex mtx;
                                 std::vector<std::thread> workers;
                                 for( auto& w: children_ ){
                                         auto _ = [&]()mutable{
                                                 auto tmp{ w.second.get() };
                                                 mtx.lock();
-                                                result += tmp;
+                                                ret += tmp;
                                                 mtx.unlock();
                                         };
                                         work.emplace_back(_);
@@ -132,9 +137,9 @@ namespace ps{
                                         t.join();
                                 }
                                 for( size_t i{0}; i!= num_players_; ++i){
-                                        result(i,3) = result(i,3) / result(i,2);
+                                        ret.real_mat(i,0) /= ret.nat_mat(i,2);
                                 }
-                                return result;
+                                return ret;
                         }
                 private:
                         size_t num_players_; 

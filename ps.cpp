@@ -2,8 +2,6 @@
 #include "ps/core/cards.h"
 #include "ps/holdem/frontend.h"
 
-namespace ps{
-
         /*
         
         The idea here is what when computing range
@@ -116,12 +114,150 @@ namespace ps{
 
          */
 
-        #if 0
-        struct computation_result{
+namespace ps{
+
+        namespace detail{
+                struct print_context{
+                        std::ostream* stream;
+                        std::vector<size_t> indent;
+
+                        void push(){
+                                indent.push_back( indent.back()+1);
+                        }
+                        void pop(){
+                                indent.pop_back();
+                        }
+
+                        std::ostream& put(){ return *stream << std::string(indent.back()*2, ' '); }
+                };
+        }
+
+        struct symbolic_computation{
+                using handle = std::shared_ptr<symbolic_computation>;
+
+                virtual ~symbolic_computation()=default;
+
+                void print(std::ostream& ostr = std::cout)const{
+                        detail::print_context ctx;
+                        ctx.indent.emplace_back(0);
+                        ctx.stream = &ostr;
+                        print_impl(ctx);
+                }
+                virtual void print_impl(detail::print_context& ctx)const=0;
+        };
+        
+        struct symbolic_primitive : symbolic_computation{
+                symbolic_primitive(std::vector<frontend::hand> const& hands):hands_{hands}{}
+                
+                void print_impl(detail::print_context& ctx)const override{
+                        for(size_t i{0};i!=hands_.size();++i){
+                                ctx.put() << hands_[i] << "\n";
+                        }
+                }
+        private:
+                std::vector<frontend::hand> hands_;
+        };
+
+        struct symbolic_primitive_range : symbolic_computation{
+                symbolic_primitive_range(std::vector<frontend::primitive_t> const& prims)
+                        :prims_{prims}
+                {
+                        std::vector<size_t> size_vec;
+                        std::vector<std::vector<holdem_id> > aux;
+
+                        for( auto const& p : prims_){
+                                aux.emplace_back( to_hand_vector(p));
+                                size_vec.push_back( aux.back().size()-1);
+                        }
+                        
+                        switch(prims_.size()){
+                        case 2:
+                                detail::visit_exclusive_combinations<2>(
+                                        [&](auto a, auto b){
+                                        children_.emplace_back(
+                                               std::make_shared<symbolic_primitive>( std::vector<frontend::hand>{frontend::hand{aux[0][a]},
+                                                                                                                {frontend::hand{aux[1][b]}}}));
+                                }, detail::true_, size_vec);
+                                break;
+                        default:
+                                assert( 0 && " not implemented");
+                        }
+
+
+                }
+                void print_impl(detail::print_context& ctx)const override{
+                        for(size_t i{0};i!=prims_.size();++i){
+                                ctx.put() << "prim " << i << " : " << prims_[i] << "\n";
+                        }
+                        ctx.push();
+                        for( auto const& c : children_ ){
+                                c->print_impl(ctx);
+                        }
+                        ctx.pop();
+                }
+        private:
+                std::vector<frontend::primitive_t> prims_;
+                std::vector<handle> children_;
+        };
+
+        
+
+        struct symbolic_range : symbolic_computation{
+                symbolic_range(std::vector<frontend::range> const& players):
+                        players_{players}
+                {
+                        std::vector<size_t> size_vec;
+                        std::vector<frontend::primitive_range> prims;
+                        for(auto const& rng : players_){
+                                prims.emplace_back( expand(rng).to_primitive_range());
+                                assert( prims.back().size() != 0 && "precondition failed");
+                                size_vec.emplace_back(prims.back().size()-1);
+                        }
+
+                        switch(players.size()){
+                        case 2:
+                                detail::visit_exclusive_combinations<2>(
+                                        [&](auto a, auto b){
+                                        children_.emplace_back(
+                                               std::make_shared<symbolic_primitive_range>( std::vector<frontend::primitive_t>{prims[0][a], prims[1][b] }));
+                                }, detail::true_, size_vec);
+                                break;
+                        default:
+                                assert( 0 && " not implemented");
+                        }
+                }
+                void print_impl(detail::print_context& ctx)const override{
+                        for(size_t i{0};i!=players_.size();++i){
+                                ctx.put() << "player " << i << " : " << players_[i] << "\n";
+                        }
+                        ctx.push();
+                        for( auto const& c : children_ ){
+                                c->print_impl(ctx);
+                        }
+                        ctx.pop();
+                }
+        private:
+                std::vector<frontend::range> players_;
+
+                std::vector<handle> children_;
         };
 
 
+
+        #if 0
+        struct computation_result{
+        };
+        
+        struct computation_result_view{
+        };
+
         struct computation_item{
+                virtual ~computation_item()=default;
+        };
+
+        struct primitive_computation{
+                explicit primitive_computation(std::vector<primitive_t> const& prim){
+                }
         };
 
         struct computation{
@@ -129,7 +265,21 @@ namespace ps{
 
         struct computation_builder{
                 computation make(std::vector<frontend::range> const& players){
+                        switch(players.size()){
+                        case 2: return do_make<2>(players);
+                        case 3: return do_make<3>(players);
+                        default: assert( 0 && "not implemented");
+                        }
                 }
+        private:
+                template<size_t N>
+                computation do_make(std::vector<frontend::range> const& players){
+                        std::vector<frontend::primitive_range> players_aux;
+                        for( auto const& rng : players){
+                                players_aux.emplace_back( expand( rng ).to_primitive_range() );
+                        }
+                }
+
         };
         #endif
 
@@ -142,15 +292,16 @@ int main(){
 
         using namespace ps::frontend;
 
-        range rng;
-        rng += _KTs++;
-        rng += _A5s-_A2s;
-        rng += _99 - _TT;
-        rng += _JJ - _77;
+        range hero;
+        hero += _AKo++;
 
+        range villian;
+        villian += _55-_77;
 
-        PRINT(rng);
-        PRINT(expand(rng));
+        auto star = std::make_shared<symbolic_range>( std::vector<frontend::range>{hero, villian} );
+
+        star->print();
+        
 
         
 }

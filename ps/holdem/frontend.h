@@ -39,6 +39,11 @@ namespace ps{
                         friend std::ostream& operator<<(std::ostream& ostr, hand const& self){
                                 return ostr << boost::format("hand{%s}") % holdem_hand_decl::get(self.get());
                         }
+
+
+                        auto i_am_a_duck__to_hand_vector()const{
+                                return std::vector<holdem_id>{id_};
+                        }
                 private:
                         holdem_id id_;
                 };
@@ -58,6 +63,19 @@ namespace ps{
                                 return ostr << boost::format("pocker_pair{%s}") % rank_decl::get(self.get());
                         }
                         
+                        auto i_am_a_duck__to_hand_vector()const{
+                                using namespace decl;
+                                std::vector<holdem_id> result;
+                                for( auto a : {_c, _d, _s, _h } ){
+                                        for( auto b : {_c, _d, _s, _h } ){
+                                                if( a == b ) continue;
+                                                result.emplace_back( holdem_hand_decl::make_id( 
+                                                        x_, a,
+                                                        x_, b) );
+                                        }
+                                }
+                                return std::move(result);
+                        }
                 private:
                         rank_id x_;
                 };
@@ -80,6 +98,19 @@ namespace ps{
                         static int order(){ return Order_Decl; }
                         friend std::ostream& operator<<(std::ostream& ostr, basic_rank_tuple const& self){
                                 return ostr << boost::format("basic_rank_tuple<%i>{%s, %s}") % Order_Decl % rank_decl::get(self.first()) % rank_decl::get(self.second());
+                        }
+                        auto i_am_a_duck__to_hand_vector()const{
+                                using namespace decl;
+                                std::vector<holdem_id> result;
+                                assert( x_ != y_ && "invariant failed");
+                                for( auto a : {_c, _d, _s, _h } ){
+                                        for( auto b : {_c, _d, _s, _h } ){
+                                                result.emplace_back( holdem_hand_decl::make_id( 
+                                                        x_, a,
+                                                        y_, b) );
+                                        }
+                                }
+                                return std::move(result);
                         }
                 private:
                         rank_id x_;
@@ -376,7 +407,41 @@ namespace ps{
                                 }
                         };
 
+                        struct to_hand_vector : boost::static_visitor<std::vector<holdem_id> >{
+                                template<class T>
+                                std::vector<holdem_id> operator()(T const& val)const{
+                                        return val.i_am_a_duck__to_hand_vector();
+                                }
+                        };
+
                 }
+
+                struct primitive_range{
+                        explicit primitive_range(std::vector<primitive_t> const& vec):
+                                vec_{vec}
+                        {}
+                        friend std::ostream& operator<<(std::ostream& ostr, primitive_range const& self){
+                                using printer = detail::debug_print;
+                                for(size_t i{0};i!=self.vec_.size();++i){
+                                        if( i != 0)
+                                                ostr << ", ";
+                                        boost::apply_visitor( printer(ostr), self.vec_[i] );
+                                }
+                                return ostr;
+                        }
+                        primitive_range& operator+=(primitive_t const& prim){
+                                vec_.emplace_back(prim);
+                                return *this;
+                        }
+                        primitive_t const& operator[](size_t idx)const{
+                                return vec_[idx];
+                        }
+                        decltype(auto) size()const{ return vec_.size(); }
+                        decltype(auto) begin()const{ return vec_.begin(); }
+                        decltype(auto) end()const{ return vec_.end(); }
+                private:
+                        std::vector<primitive_t> vec_;
+                };
 
                 struct range{
                         friend std::ostream& operator<<(std::ostream& ostr, range const& self){
@@ -433,6 +498,13 @@ namespace ps{
                                 range result;
                                 boost::copy( subs, std::back_inserter(result.subs_));
                                 return std::move(result);
+                        }
+                        auto to_primitive_range()const{
+                                std::vector<primitive_t> vec;
+                                for( auto const& e : subs_){
+                                        vec.emplace_back( boost::apply_visitor(detail::primitive_cast(), e));
+                                }
+                                return primitive_range{std::move(vec)};
                         }
                 private:
                         std::vector<sub_range_t> subs_;
@@ -587,8 +659,29 @@ namespace ps{
                         return p.parse(str.begin(), str.end());
                 }
 
+                template<class T>
+                auto to_hand_vector(T const& val)->decltype( val.i_am_a_duck__to_hand_vector()){
+                        return val.i_am_a_duck__to_hand_vector();
+                }
+                inline
+                auto to_hand_vector(primitive_t const& prim){
+                        return boost::apply_visitor( detail::to_hand_vector(), prim);
+                }
 
 
+                #if 0
+                template<class T,
+                        class = std::enable_if_t<
+                                boost::mpl::contains<
+                                        boost::mpl::vector<hand, pocket_pair, offsuit, suited, any_suit,
+                                                           interval, plus, primitive_t>, std::decay_t<T>>::value>
+                >
+                std::ostream& operator<<(std::ostream& ostr, T const& val){
+                        using printer = detail::debug_print;
+                        boost::apply_visitor( printer(ostr), val);
+                        return ostr;
+                }
+                #endif
         }
 
 

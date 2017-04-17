@@ -6,6 +6,8 @@
 #include <vector>
 #include <algorithm>
 
+#include "ps/detail/void_t.h"
+
 namespace ps{
 
         using id_type = unsigned;
@@ -149,18 +151,36 @@ namespace ps{
                 static id_type make_id( card_id x, card_id y){
                         return  x * 52 + y;
                 }
+                #if 0
                 bool disjoint( holdem_hand_decl const& that)const{
                         std::set<id_type> aux{
                                 first_, second_,
                                 that.first_, that.second_};
                         return aux.size() == 4;
                 }
+                #endif
         private:
                 id_type id_;
                 card_decl first_;
                 card_decl second_;
 
         };
+
+        template<class... Args,
+                 class = void_t<
+                         std::enable_if_t<
+                                std::is_same<std::decay_t<Args>, holdem_hand_decl>::value>...
+                >
+        >
+        inline bool disjoint( Args&&... args){
+                std::array< holdem_hand_decl const*, sizeof...(args)> aux{ &args...};
+                std::set<card_id> s;
+                for( auto ptr : aux ){
+                        s.insert( ptr->first() );
+                        s.insert( ptr->second() );
+                }
+                return s.size() == aux.size()*2;
+        }
 
         namespace decl{
                 static suit_decl _h{0, 'h', "heart"  };

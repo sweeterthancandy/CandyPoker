@@ -325,14 +325,6 @@ namespace ps{
                 std::vector<int> player_perm_;
         };
 
-
-        #if 0
-        struct lowest_hash_transform{
-                bool apply( symbolic_computation::handle& handle){
-                        return true;
-                }
-        };
-        #endif
         
         struct symbolic_primitive : symbolic_computation{
                 symbolic_primitive(std::vector<frontend::hand> const& hands)
@@ -374,15 +366,33 @@ namespace ps{
                                         
                                         // make sure disjoint
 
-                                        if( holdem_hand_decl::get(aux[0][a])
-                                            .disjoint( holdem_hand_decl::get(aux[1][b]) ) )
+                                        if( disjoint( holdem_hand_decl::get(aux[0][a]),
+                                                      holdem_hand_decl::get(aux[1][b]) ) )
                                         {
-
                                                 push_child(
                                                        std::make_shared<symbolic_primitive>(
                                                                std::vector<frontend::hand>{
                                                                         frontend::hand{aux[0][a]},
                                                                         frontend::hand{aux[1][b]}}));
+                                        }
+                                }, detail::true_, size_vec);
+                                break;
+                        case 3:
+                                detail::visit_exclusive_combinations<3>(
+                                        [&](auto a, auto b, auto c){
+                                        
+                                        // make sure disjoint
+
+                                        if( disjoint( holdem_hand_decl::get(aux[0][a]),
+                                                      holdem_hand_decl::get(aux[1][b]),
+                                                      holdem_hand_decl::get(aux[2][c]) ) )
+                                        {
+                                                push_child(
+                                                       std::make_shared<symbolic_primitive>(
+                                                               std::vector<frontend::hand>{
+                                                                        frontend::hand{aux[0][a]},
+                                                                        frontend::hand{aux[1][b]},
+                                                                        frontend::hand{aux[2][c]}}));
                                         }
                                 }, detail::true_, size_vec);
                                 break;
@@ -422,12 +432,20 @@ namespace ps{
                                 size_vec.emplace_back(prims.back().size()-1);
                         }
 
+                        // XXX dispatch for N
                         switch(players.size()){
                         case 2:
                                 detail::visit_exclusive_combinations<2>(
                                         [&](auto a, auto b){
                                         push_child(
                                                std::make_shared<symbolic_primitive_range>( std::vector<frontend::primitive_t>{prims[0][a], prims[1][b] }));
+                                }, detail::true_, size_vec);
+                                break;
+                        case 3:
+                                detail::visit_exclusive_combinations<3>(
+                                        [&](auto a, auto b, auto c){
+                                        push_child(
+                                               std::make_shared<symbolic_primitive_range>( std::vector<frontend::primitive_t>{prims[0][a], prims[1][b], prims[2][c] }));
                                 }, detail::true_, size_vec);
                                 break;
                         default:
@@ -464,10 +482,13 @@ namespace ps{
                                         >
                                 > aux;
 
-                                std::vector<int> player_perms{0,1};
-                                std::vector<int> suit_perms{0,1,2,3};
 
                                 auto hands{ reinterpret_cast<symbolic_primitive*>(ptr.get())->get_hands()};
+                                
+                                std::vector<int> player_perms;
+                                for(int i=0;i!=hands.size();++i)
+                                        player_perms.push_back(i);
+                                std::vector<int> suit_perms{0,1,2,3};
 
                                 for( ;;){
                                         for(;;){
@@ -541,16 +562,18 @@ namespace ps{
 int main(){
 
         using namespace ps;
-
         using namespace ps::frontend;
 
         range hero;
-        hero += _AKo;
+        hero += _AA;
 
         range villian;
-        villian += _55;
+        villian += _AA;
 
-        symbolic_computation::handle star = std::make_shared<symbolic_range>( std::vector<frontend::range>{villian, hero} );
+        range other_villian;
+        other_villian += _89s;
+
+        symbolic_computation::handle star = std::make_shared<symbolic_range>( std::vector<frontend::range>{villian, hero, other_villian} );
 
         star->print();
 

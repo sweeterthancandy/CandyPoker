@@ -9,8 +9,10 @@
 #include <boost/mpl/contains.hpp>
 
 #include "ps/detail/print.h"
+#include "ps/detail/visit_combinations.h"
 
 #include <regex>
+#include <set>
 
 #include "ps/core/cards.h"
 
@@ -26,12 +28,10 @@ namespace ps{
                 };
 
                 struct pocket_pair{
-                        explicit pocket_pair(rank_id x):x_{x},y_{x}{}
-                        auto first()const{ return x_; }
-                        auto second()const{ return y_; }
+                        explicit pocket_pair(rank_id x):x_{x}{}
+                        auto get()const{ return x_; }
                 private:
                         rank_id x_;
-                        rank_id y_;
                 };
 
                 template<class Tag>
@@ -80,7 +80,7 @@ namespace ps{
                                         *ostr_ << boost::format("hand{%s}") % holdem_hand_decl::get(prim.get());
                                 }
                                 void operator()(pocket_pair const& prim)const{
-                                        *ostr_ << boost::format("pocker_pair{%s, %s}") % rank_decl::get(prim.first()) % rank_decl::get(prim.first());
+                                        *ostr_ << boost::format("pocker_pair{%s}") % rank_decl::get(prim.get());
                                 }
                                 void operator()(offsuit const& prim)const{
                                         *ostr_ << boost::format("offsuit{%s, %s}") % rank_decl::get(prim.first()) % rank_decl::get(prim.second());
@@ -117,7 +117,7 @@ namespace ps{
                                         *ostr_ << holdem_hand_decl::get(prim.get());
                                 }
                                 void operator()(pocket_pair const& prim)const{
-                                        *ostr_ << rank_decl::get(prim.first()) << rank_decl::get(prim.first());
+                                        *ostr_ << rank_decl::get(prim.get()) << rank_decl::get(prim.get());
                                 }
                                 void operator()(offsuit const& prim)const{
                                         *ostr_ << rank_decl::get(prim.first()) << rank_decl::get(prim.second()) << "o";
@@ -142,6 +142,35 @@ namespace ps{
                                 }
                         private:
                                 std::ostream* ostr_;
+                        };
+
+                        struct to_set : boost::static_visitor<>{
+                                explicit to_set(std::set<holdem_id>& s):s_{&s}{}
+                                void operator()(hand const& prim)const{
+                                        s_->insert(prim.get());
+                                }
+                                void operator()(pocket_pair const& prim)const{
+                                }
+                                void operator()(offsuit const& prim)const{
+                                }
+                                void operator()(suited const& prim)const{
+                                        for( auto s : { 0,1,2,3} ){
+                                                s_->insert( holdem_hand_decl::make_id(
+                                                        prim.first(), s,
+                                                        prim.second(), s) );
+                                        }
+                                }
+                                void operator()(any_suit const& prim)const{
+                                }
+                                void operator()(plus const& sub)const{
+                                }
+                                void operator()(interval const& sub)const{
+                                }
+                                void operator()(primitive_t const& sub)const{
+                                        boost::apply_visitor(*this, sub);
+                                }
+                        private:
+                                std::set<holdem_id>* s_;
                         };
                 }
 

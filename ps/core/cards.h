@@ -79,7 +79,7 @@ namespace ps{
 
         struct card_decl{
                 card_decl( suit_decl const& s, rank_decl const& r):
-                        id_{s.id() + r.id() * 4}
+                        id_{make_id(s.id(),r.id())}
                         ,suit_{s}, rank_{r}
                 {}
                 auto id()const{ return id_; }
@@ -102,6 +102,9 @@ namespace ps{
                                     suit_decl::get(s.substr(1,1)).id()   );
                 }
                 operator id_type()const{ return id_; }
+                static id_type make_id( suit_id s, rank_id r){
+                        return s + r * 4;
+                }
         private:
                 id_type id_;
                 suit_decl suit_;
@@ -111,7 +114,7 @@ namespace ps{
         struct holdem_hand_decl{
                 // a must be the biggest
                 holdem_hand_decl( card_decl const& a, card_decl const& b):
-                        id_{ a.id() * 52 + b.id() },
+                        id_{ make_id(a.id(), b.id()) },
                         first_{a},
                         second_{b}
                 {
@@ -134,9 +137,17 @@ namespace ps{
                         assert( s.size() == 4 && "precondition failed");
                         auto x = card_decl::get(s.substr(0,2)).id();
                         auto y = card_decl::get(s.substr(2,2)).id();
-                        if( x < y )
-                                std::swap(x,y);
-                        return get( x * 52 + y );
+                        return get(make_id(x,y));
+                }
+                static id_type make_id( rank_id r0, suit_id s0,
+                                        rank_id r1, suit_id s1)
+                {
+                        id_type x{ card_decl::make_id(s0, r0) };
+                        id_type y{ card_decl::make_id(s1, r1) };
+                        return make_id(x,y);
+                }
+                static id_type make_id( card_id x, card_id y){
+                        return  x * 52 + y;
                 }
         private:
                 id_type id_;

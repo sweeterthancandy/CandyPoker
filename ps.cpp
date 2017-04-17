@@ -2,23 +2,19 @@
 #include "ps/holdem/numeric.h"
 #include "ps/holdem/transforms.h"
 
-int main(){
+#include <boost/timer/timer.hpp>
+
+
+void eval_2(ps::frontend::range const& p0,
+            ps::frontend::range const& p1)
+{
 
         using namespace ps;
         using namespace ps::frontend;
 
-        range hero;
-        hero += _AKo;
+        symbolic_computation::handle star = std::make_shared<symbolic_range>( std::vector<frontend::range>{p0, p1} );
 
-        range villian;
-        villian += _55;
-
-        range other_villian;
-        other_villian += _89s;
-
-        symbolic_computation::handle star = std::make_shared<symbolic_range>( std::vector<frontend::range>{villian, hero, other_villian} );
-
-        ps::numeric::work_scheduler work{3};
+        ps::numeric::work_scheduler work{2};
 
         symbolic_computation::transform_schedular sch;
 
@@ -30,7 +26,32 @@ int main(){
                   transforms::work_generator(work) );
         sch.execute(star);
 
+        ps::numeric::matrix_type ret;
+        {
+                boost::timer::auto_cpu_timer at;
+                ret = work.compute();
+        }
+        
 
-        PRINT(work.compute());
+        PRINT(ret);
+}
+
+int main(){
+
+        using namespace ps;
+        using namespace ps::frontend;
+
+        range p0;
+        range p1;
+
+        range villian;
+
+        p0 += _AA-_TT;
+
+        p1 += _77;
+        p1 += _67o;
+
+        eval_2(p0, p1);
+
         
 }

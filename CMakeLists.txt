@@ -8,12 +8,22 @@ set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
 
 find_package(GTest REQUIRED)
 
+
+#set(Boost_USE_STATIC_LIBS        ON) # only find static libs
+#set(Boost_USE_MULTITHREADED      ON)
+#set(Boost_USE_STATIC_RUNTIME    OFF)
+
+find_package(Boost 1.59.0 REQUIRED COMPONENTS system timer)
+
+include_directories(${Boost_INCLUDE_DIRS})
+
 aux_source_directory(test test_sources)
 
 include_directories(.)
 
 add_executable(_ps ps.cpp )
-target_link_libraries(_ps)
+target_link_libraries(_ps pthread )
+target_link_libraries(_ps ${Boost_LIBRARIES})
 
 add_executable(ps_test ${test_sources})
 target_link_libraries(ps_test GTest::GTest GTest::Main)

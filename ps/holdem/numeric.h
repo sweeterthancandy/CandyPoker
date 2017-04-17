@@ -1,9 +1,28 @@
 #ifndef PS_NUMERIC_H
 #define PS_NUMERIC_H
 
+#include <thread>
+#include <mutex>
 
 namespace ps{
         namespace numeric{
+                
+                struct result_type{
+                        explicit result_type(size_t n):
+                                nat_mat(n,3,0),
+                                real_mat(n,1,0)
+                        {}
+                        friend std::ostream& operator<<(std::ostream& ostr, result_type const& self){
+                                return ostr << "nat_mat = " << self.nat_mat << ", real = " << self.real_mat;
+                        }
+
+                private:
+                        
+                        bnu::matrix<std::uint64_t> nat_mat;
+                        bnu::matrix<long double>   real_mat;
+                };
+
+                using matrix_type = bnu::matrix<std::uint64_t>;
 
                 struct underlying_work{
 
@@ -39,54 +58,87 @@ namespace ps{
 
                                 size_t idx{0};
 
-                                bnu::matrix<int> A( hands_.size(), 4 );
+                                matrix_type A( hands_.size(), 4 );
                                 for( size_t i{0}; i!= ctx.get_players().size(); ++i){
                                         auto const& p{ctx.get_players()[i]};
                                         A(i, 0) = p.wins();
                                         A(i, 1) = p.draws();
                                         A(i, 2) = p.sigma();
+                                        A(i, 3) = p.equity() * p.sigma() * 1000;
                                 }
                                 axpy_prod(factor_, A, result_, false);
+
+
                                 return result_;
                         }
 
                         void debug(){
-                                eval();
                                 PRINT(*this);
 
                         }
                 private:
                         std::vector<frontend::hand> hands_;
-                        bnu::matrix<int> factor_;
-                        bnu::matrix<int> term_;
-                        bnu::matrix<int> result_;
+                        matrix_type factor_;
+                        matrix_type term_;
+                        matrix_type result_;
                 };
 
                 struct work_scheduler{
                         explicit work_scheduler(size_t num_players):num_players_{num_players}{}
                         void decl( std::vector<int> const& perm, std::vector<frontend::hand>const& hands){
                                 auto hash{ symbolic_primitive::make_hash(hands) };
-                                if( work_.count(hash) == 0 ){
-                                        work_.insert(std::make_pair(hash, underlying_work{hands} ) );
+                                if( children_.count(hash) == 0 ){
+                                        children_.insert(std::make_pair(hash, underlying_work{hands} ) );
                                 }
-                                auto iter = work_.find(hash);
+                                auto iter = children_.find(hash);
                                 iter->second.append_permutation_matrix(perm);
                         }
                         void debug(){
-                                for( auto & w: work_ ){
+                                for( auto & w: children_ ){
                                         w.second.debug();
                                 }
                         }
-                        bnu::matrix<int> compute(){
-                                bnu::matrix<int> result{num_players_, 4, 0};
-                                for( auto & w: work_ ){
-                                        result += w.second.get();
+                        matrix_type compute(){
+                                std::vector<std::function<void()> > work;
+                                matrix_type result{num_players_, 4, 0};
+                                std::mutex mtx;
+                                std::vector<std::thread> workers;
+                                for( auto& w: children_ ){
+                                        auto _ = [&]()mutable{
+                                                auto tmp{ w.second.get() };
+                                                mtx.lock();
+                                                result += tmp;
+                                                mtx.unlock();
+                                        };
+                                        work.emplace_back(_);
+                                }
+                                for(size_t i=0;i!= std::thread::hardware_concurrency();++i){
+                                        auto _ = [&]()mutable{
+                                                for(;;){
+                                                        mtx.lock();
+                                                        if( work.empty()){
+                                                                mtx.unlock();
+                                                                break;
+                                                        }
+                                                        auto w = work.back();
+                                                        work.pop_back();
+                                                        mtx.unlock();
+                                                        w();
+                                                }
+                                        };
+                                        workers.emplace_back(_);
+                                }
+                                for( auto& t : workers){
+                                        t.join();
+                                }
+                                for( size_t i{0}; i!= num_players_; ++i){
+                                        result(i,3) = result(i,3) / result(i,2);
                                 }
                                 return result;
                         }
                 private:
                         size_t num_players_; 
-                        std::map<std::string, underlying_work> work_;
+                        std::map<std::string, underlying_work> children_;
                 };
         } // numeric
         

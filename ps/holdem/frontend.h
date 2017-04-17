@@ -2,10 +2,13 @@
 #define PS_HOLDEM_FRONTEND_H
 
 #include <boost/variant.hpp>
+#include <boost/format.hpp>
 
 
 #include <boost/mpl/vector.hpp>
 #include <boost/mpl/contains.hpp>
+
+#include "ps/detail/print.h"
 
 #include <regex>
 

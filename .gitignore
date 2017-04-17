@@ -1,7 +1,6 @@
 .gitignore
 CMakeCache.txt
 CMakeFiles/
-CMakeLists.txt
 Makefile
 cmake_install.cmake
 ps_test

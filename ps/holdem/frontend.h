@@ -8,6 +8,8 @@
 #include <boost/mpl/vector.hpp>
 #include <boost/mpl/contains.hpp>
 
+#include <boost/range/algorithm.hpp>
+
 #include "ps/detail/print.h"
 #include "ps/detail/visit_combinations.h"
 
@@ -172,6 +174,77 @@ namespace ps{
                         private:
                                 std::set<holdem_id>* s_;
                         };
+                        
+                        
+                        struct plus_expander : boost::static_visitor<>{
+                                explicit plus_expander(std::vector<sub_range_t>& vec):vec_{&vec}{}
+
+                                void operator()(hand const& prim)const{
+                                        assert( "not implemtned");
+                                }
+                                void operator()(pocket_pair const& prim)const{
+                                        for( rank_id r{prim.get()}; r <= decl::_A; ++r){
+                                                vec_->emplace_back( pocket_pair{r} );
+                                        }
+                                }
+                                template<class T,
+                                        class = std::enable_if_t<  boost::mpl::contains<boost::mpl::vector<offsuit, suited, any_suit>, std::decay_t<T> >::value>
+                                >
+                                void operator()(T const& prim)const{
+                                        rank_id x{ prim.first() };
+                                        rank_id y{ prim.second() };
+                                        assert( x > y && "unexpected");
+                                        for( rank_id r{y}; r < x; ++r){
+                                                vec_->emplace_back( T{x,r} );
+                                        }
+                                }
+                        private:
+                                std::vector<sub_range_t>* vec_;
+                        };
+                        struct interval_expander : boost::static_visitor<>{
+                                explicit interval_expander(std::vector<sub_range_t>& vec):vec_{&vec}{}
+
+
+                        private:
+                                std::vector<sub_range_t>* vec_;
+                        };
+                        
+                        struct expander : boost::static_visitor<>{
+                                explicit expander(std::vector<sub_range_t>& vec):vec_{&vec},plus_{vec},interval_{vec}{}
+                                #if 0
+                                void operator()(hand const& prim)const{
+                                        vec_->emplace_back(prim);
+                                }
+                                void operator()(pocket_pair const& prim)const{
+                                        vec_->emplace_back(prim);
+                                }
+                                void operator()(offsuit const& prim)const{
+                                        vec_->emplace_back(prim);
+                                }
+                                void operator()(suited const& prim)const{
+                                        vec_->emplace_back(prim);
+                                }
+                                void operator()(any_suit const& prim)const{
+                                        vec_->emplace_back(prim);
+                                }
+                                #endif
+
+                                void operator()(plus const& sub)const{
+                                        boost::apply_visitor( plus_, sub.get() );
+                                }
+                                void operator()(interval const& sub)const{
+                                }
+                                void operator()(primitive_t const& sub)const{
+                                        vec_->emplace_back(sub);
+                                }
+
+                                
+                        private:
+                                std::vector<sub_range_t>* vec_;
+                                plus_expander plus_;
+                                interval_expander interval_;
+                        };
+
                 }
 
                 struct range{
@@ -187,6 +260,18 @@ namespace ps{
                         range& operator+=(sub_range_t sub){
                                 subs_.emplace_back(sub);
                                 return *this;
+                        }
+
+                        /*
+                         * This function maps the range structore to a subset,
+                         * so that seach sub range is exclusive, and 
+                         * plus and intervals are mapped to primtives
+                         */
+                        friend range expand(range const& self){
+                                range result;
+                                detail::expander aux{result.subs_};
+                                boost::for_each( self.subs_, boost::apply_visitor(aux) );
+                                return std::move(result);
                         }
                 private:
                         std::vector<sub_range_t> subs_;
@@ -208,24 +293,6 @@ namespace ps{
                 }
                 
 
-                static auto _AA = pocket_pair(::ps::decl::_A);
-                static auto _KK = pocket_pair(::ps::decl::_K);
-                static auto _QQ = pocket_pair(::ps::decl::_Q);
-                static auto _JJ = pocket_pair(::ps::decl::_J);
-                static auto _TT = pocket_pair(::ps::decl::_T);
-                static auto _99 = pocket_pair(::ps::decl::_9);
-                static auto _88 = pocket_pair(::ps::decl::_8);
-                static auto _77 = pocket_pair(::ps::decl::_7);
-                static auto _66 = pocket_pair(::ps::decl::_6);
-                static auto _55 = pocket_pair(::ps::decl::_5);
-                static auto _44 = pocket_pair(::ps::decl::_4);
-                static auto _33 = pocket_pair(::ps::decl::_3);
-                static auto _22 = pocket_pair(::ps::decl::_2);
-
-                static auto _AKo = suited(::ps::decl::_A, ::ps::decl::_K);
-                static auto _AQo = suited(::ps::decl::_A, ::ps::decl::_Q);
-                static auto _AJo = suited(::ps::decl::_A, ::ps::decl::_J);
-                static auto _ATo = suited(::ps::decl::_A, ::ps::decl::_T);
 
                 namespace detail{
                         template<class Iter_Type>
@@ -359,9 +426,13 @@ namespace ps{
                         return p.parse(str.begin(), str.end());
                 }
 
+
+
         }
 
 
 }
+
+#include "ps/holdem/frontend_decl.h"
 
 #endif // PS_HOLDEM_FRONTEND_H

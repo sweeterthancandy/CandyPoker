@@ -1,6 +1,11 @@
 #ifndef PS_HOLDEM_FRONTEND_H
 #define PS_HOLDEM_FRONTEND_H
 
+#include <regex>
+#include <set>
+#include <list>
+#include <algorithm>
+
 #include <boost/variant.hpp>
 #include <boost/variant/multivisitors.hpp>
 #include <boost/format.hpp>
@@ -14,8 +19,6 @@
 #include "ps/detail/print.h"
 #include "ps/detail/visit_combinations.h"
 
-#include <regex>
-#include <set>
 
 #include "ps/core/cards.h"
 
@@ -26,6 +29,16 @@ namespace ps{
                 struct hand{
                         explicit hand(holdem_id id):id_{id}{}
                         auto get()const{ return id_; }
+                        bool operator<(hand const& that)const{
+                                return get() < that.get();
+                        }
+                        bool operator==(hand const& that)const{
+                                return get() == that.get();
+                        }
+                        static int order(){ return 0; }
+                        friend std::ostream& operator<<(std::ostream& ostr, hand const& self){
+                                return ostr << boost::format("hand{%s}") % holdem_hand_decl::get(self.get());
+                        }
                 private:
                         holdem_id id_;
                 };
@@ -33,23 +46,50 @@ namespace ps{
                 struct pocket_pair{
                         explicit pocket_pair(rank_id x):x_{x}{}
                         auto get()const{ return x_; }
+                        
+                        bool operator<(pocket_pair const& that)const{
+                                return get() < that.get();
+                        }
+                        bool operator==(pocket_pair const& that)const{
+                                return get() == that.get();
+                        }
+                        static int order(){ return 1; }
+                        friend std::ostream& operator<<(std::ostream& ostr, pocket_pair const& self){
+                                return ostr << boost::format("pocker_pair{%s}") % rank_decl::get(self.get());
+                        }
+                        
                 private:
                         rank_id x_;
                 };
 
-                template<class Tag>
+                template<class Tag, int Order_Decl>
                 struct basic_rank_tuple{
                         explicit basic_rank_tuple(rank_id x, rank_id y):x_{x},y_{y}{}
                         auto first()const{ return x_; }
                         auto second()const{ return y_; }
+
+                        bool operator<(basic_rank_tuple const& that)const{
+                                if( first() == that.second())
+                                        return second() < that.second();
+                                return first() < that.first();
+                        }
+                        bool operator==(basic_rank_tuple const& that)const{
+                                return first() == that.first() &&
+                                        second() == that.second();
+                        }
+                        static int order(){ return Order_Decl; }
+                        friend std::ostream& operator<<(std::ostream& ostr, basic_rank_tuple const& self){
+                                return ostr << boost::format("basic_rank_tuple<%i>{%s, %s}") % Order_Decl % rank_decl::get(self.first()) % rank_decl::get(self.second());
+                        }
                 private:
                         rank_id x_;
                         rank_id y_;
                 };
 
-                using suited      = basic_rank_tuple<struct tag_suited>;
-                using offsuit     = basic_rank_tuple<struct tag_offsuit>;
-                using any_suit    = basic_rank_tuple<struct tag_any_suit>;
+                using any_suit    = basic_rank_tuple<struct tag_any_suit,2>;
+
+                using offsuit     = basic_rank_tuple<struct tag_offsuit,3>;
+                using suited      = basic_rank_tuple<struct tag_suited,4>;
 
                 using primitive_tl = boost::mpl::vector<hand, pocket_pair, offsuit, suited, any_suit>;
 
@@ -58,6 +98,14 @@ namespace ps{
                 struct plus{
                         explicit plus(primitive_t const& prim):prim_{prim}{}
                         primitive_t const&  get()const{ return prim_; }
+
+                        static int order(){ return 5; }
+                        bool operator<(plus const& that)const{
+                                return false;
+                        }
+                        bool operator==(plus const& that)const{
+                                return false;
+                        }
                 private:
                         primitive_t prim_;
                 };
@@ -67,6 +115,13 @@ namespace ps{
                         {}
                         primitive_t const& first()const{ return first_; }
                         primitive_t const& last()const{ return last_; }
+                        static int order(){ return 6; }
+                        bool operator<(interval const& that)const{
+                                return false;
+                        }
+                        bool operator==(interval const& that)const{
+                                return false;
+                        }
                 private:
                         primitive_t first_;
                         primitive_t last_;
@@ -247,7 +302,26 @@ namespace ps{
                                         boost::apply_visitor( interval_, sub.first(), sub.last() );
                                 }
                                 void operator()(primitive_t const& sub)const{
-                                        vec_->emplace_back(sub);
+                                        // want to expand any_suit
+                                        boost::apply_visitor( *this, sub);
+                                }
+                                
+                                
+                                void operator()(hand const& prim)const{
+                                        vec_->emplace_back(prim);
+                                }
+                                void operator()(pocket_pair const& prim)const{
+                                        vec_->emplace_back(prim);
+                                }
+                                void operator()(offsuit const& prim)const{
+                                        vec_->emplace_back(prim);
+                                }
+                                void operator()(suited const& prim)const{
+                                        vec_->emplace_back(prim);
+                                }
+                                void operator()(any_suit const& prim)const{
+                                        vec_->emplace_back( suited{ prim.first(), prim.second() } );
+                                        vec_->emplace_back( offsuit{ prim.first(), prim.second() } );
                                 }
 
                                 
@@ -257,13 +331,48 @@ namespace ps{
                                 interval_expander interval_;
                         };
 
+                        
                         struct sorter : boost::static_visitor<bool>{
                                 template<class T >
                                 bool operator()(T const& first, T const& last)const{
-                                        return false;
+                                        return first < last;
                                 }
                                 template<class T, class U>
                                 void operator()(T const first, U const& second)const{
+                                        return T::order() < T::order();
+                                }
+                        };
+
+                        struct primitive_cast : boost::static_visitor<primitive_t>{
+                                primitive_t operator()(plus const& )const{
+                                        BOOST_THROW_EXCEPTION(std::domain_error("not a prim"));
+                                }
+                                primitive_t operator()(interval const& )const{
+                                        BOOST_THROW_EXCEPTION(std::domain_error("not a prim"));
+                                }
+                                primitive_t operator()(primitive_t const& prim)const{
+                                        return prim;
+                                }
+
+                                // should really need this
+                                template<class T,
+                                        class = std::enable_if_t<  boost::mpl::contains<boost::mpl::vector<offsuit, suited, any_suit>, std::decay_t<T> >::value>
+                                >
+                                primitive_t operator()(T const& prim)const{
+                                        return prim;
+                                }
+                        };
+
+                        struct prim_equal : boost::static_visitor<bool>{
+                                template<class T >
+                                bool operator()(T const& first, T const& second)const{
+                                        //PRINT_SEQ((true)(first)(second)(first==second));
+                                        return first == second;
+                                }
+                                template<class T, class U>
+                                bool operator()(T const first, U const& second)const{
+                                        //PRINT_SEQ((false)(first)(second));
+                                        return false;
                                 }
                         };
 
@@ -290,10 +399,39 @@ namespace ps{
                          * plus and intervals are mapped to primtives
                          */
                         friend range expand(range const& self){
-                                range result;
-                                detail::expander aux{result.subs_};
+                                std::vector<sub_range_t> vec;
+                                detail::expander aux{vec};
                                 boost::for_each( self.subs_, boost::apply_visitor(aux) );
-                                //boost::sort( self.subs_, detail::sorter() );
+                                if( vec.empty() ){
+                                        return range{};
+                                }
+                                boost::sort( vec, detail::sorter() );
+                                std::list<primitive_t> subs;
+                                for( auto const& e : vec){
+                                        subs.emplace_back( boost::apply_visitor(detail::primitive_cast(), e));
+                                }
+                                // now want to remove duplicates, and also remove
+                                // AhKh when there is AKs or AK etc
+                                
+                                std::vector<decltype(subs.begin())> to_remove;
+                                auto head = subs.begin();
+                                auto iter = head;
+                                ++iter;
+                                auto end = subs.end();
+                                for(; iter != end;){
+                                        if( boost::apply_visitor( detail::prim_equal(), *head, *iter) ){
+                                                to_remove.emplace_back(iter);
+                                                ++iter;
+                                        }else{
+                                                head = iter;
+                                                ++iter;
+                                        }
+                                }
+                                for( auto iter : to_remove )
+                                        subs.erase(iter);
+                                
+                                range result;
+                                boost::copy( subs, std::back_inserter(result.subs_));
                                 return std::move(result);
                         }
                 private:

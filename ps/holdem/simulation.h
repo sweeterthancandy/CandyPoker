@@ -276,9 +276,7 @@ namespace ps{
                                 BOOST_THROW_EXCEPTION(std::domain_error("bad size "));
                         }
 
-                        //sim.debug();
                         sim.optimize();
-                        //sim.debug();
                         
                         for( auto const& item : sim.get_simulation_items() ){
                                 sim.total_weight += item.weight;

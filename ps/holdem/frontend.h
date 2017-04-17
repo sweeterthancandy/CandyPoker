@@ -75,7 +75,6 @@ namespace ps{
                                                         x_, j) );
                                         }
                                 }
-                                PRINT_SEQ(("pp")(result.size()));
                                 return std::move(result);
                         }
                 private:
@@ -143,7 +142,6 @@ namespace ps{
                                         }
                                         break;
                                 }
-                                PRINT_SEQ(("alt")(result.size()));
                                 return std::move(result);
                         }
                 private:
@@ -431,12 +429,10 @@ namespace ps{
                         struct prim_equal : boost::static_visitor<bool>{
                                 template<class T >
                                 bool operator()(T const& first, T const& second)const{
-                                        //PRINT_SEQ((true)(first)(second)(first==second));
                                         return first == second;
                                 }
                                 template<class T, class U>
                                 bool operator()(T const first, U const& second)const{
-                                        //PRINT_SEQ((false)(first)(second));
                                         return false;
                                 }
                         };
@@ -602,7 +598,6 @@ namespace ps{
                                 }
                                 template<class E>
                                 void error_(E const& e){
-                                        PRINT_SEQ((*iter)(std::string(iter,last))(stack_.size()));
                                         BOOST_THROW_EXCEPTION(e);
                                 }
                                 bool parse_sub_range_(){

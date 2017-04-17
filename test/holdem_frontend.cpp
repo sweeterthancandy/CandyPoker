@@ -15,8 +15,6 @@ TEST( frontend, _){
         rng += _TT++;
         rng += _AQo-_ATo;
 
-        PRINT(rng);
-
         parse("ATo");
         parse("AKo");
         parse("ATo-AKo");

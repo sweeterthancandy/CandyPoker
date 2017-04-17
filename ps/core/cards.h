@@ -151,14 +151,6 @@ namespace ps{
                 static id_type make_id( card_id x, card_id y){
                         return  x * 52 + y;
                 }
-                #if 0
-                bool disjoint( holdem_hand_decl const& that)const{
-                        std::set<id_type> aux{
-                                first_, second_,
-                                that.first_, that.second_};
-                        return aux.size() == 4;
-                }
-                #endif
         private:
                 id_type id_;
                 card_decl first_;

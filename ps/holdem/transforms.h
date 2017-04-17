@@ -58,9 +58,6 @@ namespace ps{
                                 });
                                 auto to{std::get<0>(aux.front())};
 
-                                PRINT_SEQ((from)(to));
-
-
                                 ptr = std::make_shared<symbolic_player_perm>( 
                                         std::get<1>(aux.front()),
                                         std::make_shared<symbolic_suit_perm>(

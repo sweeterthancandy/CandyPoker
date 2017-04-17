@@ -359,6 +359,7 @@ namespace ps{
                                 */
                                 std::string atom{holdem_hand_decl::get(h.get()).to_string()};
                                 std::string alt_atom{ atom.substr(2,2) + atom.substr(0,2)};
+                                assert( atom.size() == alt_atom.size() && "expected");
                                 if( atom < alt_atom )
                                         hash += atom;
                                 else

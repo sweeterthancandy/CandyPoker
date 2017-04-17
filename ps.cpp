@@ -329,7 +329,7 @@ namespace ps{
         struct symbolic_primitive : symbolic_computation{
                 symbolic_primitive(std::vector<frontend::hand> const& hands)
                         :symbolic_computation(Kind_Symbolic_Primitive),
-                        hands_{hands}
+                        hands_{hands}, hash_{make_hash(hands_)}
                 {
                 }
                 
@@ -339,11 +339,20 @@ namespace ps{
                                 if( i != 0 ) sstr << " vs ";
                                 sstr << hands_[i];
                         }
-                        ctx.put() << sstr.str() << "\n";
+                        ctx.put() << sstr.str() <<  "  (" << hash_ << ")\n";
                 }
                 decltype(auto) get_hands()const{ return hands_; }
+
+                static std::string make_hash( std::vector<frontend::hand> const& hands){
+                        std::string hash;
+                        for( auto h : hands )
+                                hash += holdem_hand_decl::get(h.get()).to_string();
+                        return std::move(hash);
+                }
+                std::string const& get_hash()const{ return hash_; }
         private:
                 std::vector<frontend::hand> hands_;
+                std::string hash_;
         };
 
         struct symbolic_primitive_range : symbolic_non_terminal{
@@ -506,15 +515,12 @@ namespace ps{
                                                                         h.second().rank(),
                                                                         suit_perms[h.second().suit()]));
 
-                                                        auto mapped { holdem_hand_decl::get(
-                                                                mapped_hands.back().get() )};
-
-                                                        hash += mapped.to_string();
                                                 }
-                                                aux.emplace_back(std::move(hash),
+                                                aux.emplace_back(symbolic_primitive::make_hash(mapped_hands),
                                                                  player_perms,
                                                                  suit_perms,
                                                                  std::move(mapped_hands));
+
                                                 if( ! boost::next_permutation( suit_perms) )
                                                         break;
                                         }

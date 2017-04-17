@@ -144,6 +144,7 @@ namespace ps{
                                 Kind_Symbolic_Range,
                                 Kind_Symbolic_Primitive_Range,
                                 Kind_Symbolic_Player_Perm,
+                                Kind_Symbolic_Suit_Perm,
                         End_NonTerminals
                 };
 
@@ -266,14 +267,14 @@ namespace ps{
                 std::vector< std::tuple< TransformKind, transform_t> > decl_;
         };
 
-
-        struct symbolic_player_perm : symbolic_non_terminal{
-                explicit symbolic_player_perm(std::vector<int> const& player_perm,
-                                              std::vector<int> const& suit_perm,
+        struct symbolic_suit_perm : symbolic_non_terminal{
+                explicit symbolic_suit_perm( std::vector<int> const& suit_perm,
                                               handle child)
-                        :symbolic_non_terminal(Kind_Symbolic_Player_Perm),
-                                player_perm_{player_perm},suit_perm_{suit_perm},child_{child}
-                {}
+                        :symbolic_non_terminal(Kind_Symbolic_Suit_Perm),
+                                suit_perm_{suit_perm}
+                {
+                        push_child(child);
+                }
                 void print_impl(detail::print_context& ctx)const override{
                         auto to_string = [](auto vec){
                                 std::stringstream sstr;
@@ -284,17 +285,44 @@ namespace ps{
                                 s += "}";
                                 return std::move(s);
                         };
-                        ctx.put() << "symbolic_player_perm("
-                                << to_string(player_perm_) << "," 
-                                << to_string(suit_perm_) << ")\n";
+                        ctx.put() << "symbolic_suit_perm(" << to_string(suit_perm_) << ")\n";
+
                         ctx.push();
-                        child_->print_impl(ctx);
+                        for( auto const& c : get_children())
+                                c->print_impl(ctx);
+                        ctx.pop();
+                }
+        private:
+                std::vector<int> suit_perm_;
+        };
+
+        struct symbolic_player_perm : symbolic_non_terminal{
+                explicit symbolic_player_perm(std::vector<int> const& player_perm,
+                                              handle child)
+                        :symbolic_non_terminal(Kind_Symbolic_Player_Perm),
+                                player_perm_{player_perm}
+                {
+                        push_child(child);
+                }
+                void print_impl(detail::print_context& ctx)const override{
+                        auto to_string = [](auto vec){
+                                std::stringstream sstr;
+                                sstr << "{";
+                                boost::copy( vec, std::ostream_iterator<int>(sstr,","));
+                                std::string s{sstr.str()};
+                                s.pop_back();
+                                s += "}";
+                                return std::move(s);
+                        };
+                        ctx.put() << "symbolic_player_perm(" << to_string(player_perm_) << ")\n";
+
+                        ctx.push();
+                        for( auto const& c : get_children())
+                                c->print_impl(ctx);
                         ctx.pop();
                 }
         private:
                 std::vector<int> player_perm_;
-                std::vector<int> suit_perm_;
-                handle child_;
         };
 
 
@@ -478,16 +506,30 @@ namespace ps{
                                 });
                                 auto to{std::get<0>(aux.front())};
 
-                                if( from == to ){
-                                        return false;
-                                }
+
                                 ptr = std::make_shared<symbolic_player_perm>( 
                                         std::get<1>(aux.front()),
-                                        std::get<2>(aux.front()),
-                                        std::make_shared<symbolic_primitive>(
-                                                std::get<3>(aux.front())
+                                        std::make_shared<symbolic_suit_perm>(
+                                                std::get<2>(aux.front()),
+                                                std::make_shared<symbolic_primitive>(
+                                                        std::get<3>(aux.front())
+                                                )
                                         )
                                 );
+                                return true;
+                        }
+                };
+
+
+
+                struct remove_suit_perms{
+                        bool operator()(symbolic_computation::handle& ptr)const{
+                                if( ptr->get_kind() != symbolic_computation::Kind_Symbolic_Suit_Perm )
+                                        return false;
+                                auto aux_ptr{ reinterpret_cast<symbolic_suit_perm*>(ptr.get()) };
+                                assert( aux_ptr->get_children().size() == 1 && "unexpected");
+                                auto child = aux_ptr->get_children().front();
+                                ptr = child;
                                 return true;
                         }
                 };
@@ -503,29 +545,25 @@ int main(){
         using namespace ps::frontend;
 
         range hero;
-        hero += _AA;
+        hero += _AKo;
 
         range villian;
-        villian += _AA;
+        villian += _55;
 
         symbolic_computation::handle star = std::make_shared<symbolic_range>( std::vector<frontend::range>{villian, hero} );
 
         star->print();
 
         symbolic_computation::transform_schedular sch;
-        #if 1
+
         sch.decl( symbolic_computation::transform_schedular::TransformKind_BottomUp,
                   transforms::to_lowest_permutation() );
-                  #endif
-        #if 0
         sch.decl( symbolic_computation::transform_schedular::TransformKind_BottomUp,
-                  [](symbolic_computation::handle& ptr){
-                        ptr->print();                  
-                        return false;
-                });
-        #endif
+                  transforms::remove_suit_perms() );
         sch.execute(star);
+
         star->print();
+
 
         
 }

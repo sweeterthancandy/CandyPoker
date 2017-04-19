@@ -39,19 +39,6 @@ namespace ps{
 			}
 		}
                 
-                template<int N, class V, class F, class Upper, class... Args>
-		std::enable_if_t<N==0> visit_exclusive_combinations_vf(V v, F f, Upper upper, Args&&... args){
-			v(std::forward<Args>(args)...);
-		}
-                template<int N, class V, class F, class Upper, class... Args>
-		std::enable_if_t<N!=0> visit_exclusive_combinations_vf(V v, F f, Upper upper, Args&&... args){
-			for(auto iter{upper[N-1]+1};iter!=0;){
-				--iter;
-				if( ! f(args..., iter) )
-					continue;
-				visit_exclusive_combinations_vf<N-1>(v, f, upper, std::forward<Args>(args)..., iter);
-			}
-		}
 
 
 		

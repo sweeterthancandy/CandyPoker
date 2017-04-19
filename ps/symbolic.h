@@ -118,8 +118,6 @@
 
 namespace ps{
 
-        namespace numeric{
-        }
 
         namespace detail{
                 struct print_context{

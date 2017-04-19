@@ -6,12 +6,10 @@
 
 #include <boost/format.hpp>
 
-#include "ps/core/eval.h"
+#include "ps/eval.h"
 #include "ps/detail/visit_combinations.h"
-#include "ps/core/cards.h"
-#include "ps/holdem/frontend.h"
-
-#include "ps/core/player_statistics.h"
+#include "ps/cards.h"
+#include "ps/frontend.h"
 
 
 namespace ps{

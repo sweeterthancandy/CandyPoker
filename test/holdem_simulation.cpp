@@ -1,7 +1,8 @@
 
 #include <gtest/gtest.h>
 
-#include "ps/holdem/simulation.h"
+#ifdef NOT_DEFINED
+#include "ps/simulation.h"
 
 using namespace ps;
 
@@ -105,3 +106,5 @@ TEST_F( simulation, _3){
         EXPECT_EQ(    1'331'496 , _89s.draws());
         EXPECT_NEAR( 0.3240,    _89s.equity(), 1e-3);
 }
+
+#endif

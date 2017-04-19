@@ -1,6 +1,6 @@
-#include "ps/holdem/symbolic.h"
-#include "ps/holdem/numeric.h"
-#include "ps/holdem/transforms.h"
+#include "ps/symbolic.h"
+#include "ps/numeric.h"
+#include "ps/transforms.h"
 
 #include <boost/timer/timer.hpp>
 

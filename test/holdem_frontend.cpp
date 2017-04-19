@@ -1,6 +1,6 @@
 
 #include <gtest/gtest.h>
-#include "ps/holdem/frontend.h"
+#include "ps/frontend.h"
 #include "ps/detail/print.h"
 
 

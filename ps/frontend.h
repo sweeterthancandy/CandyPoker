@@ -20,7 +20,7 @@
 #include "ps/detail/visit_combinations.h"
 
 
-#include "ps/core/cards.h"
+#include "ps/cards.h"
 
 namespace ps{
 
@@ -717,6 +717,6 @@ namespace ps{
 
 }
 
-#include "ps/holdem/frontend_decl.h"
+#include "ps/frontend_decl.h"
 
 #endif // PS_HOLDEM_FRONTEND_H

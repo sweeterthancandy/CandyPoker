@@ -1,9 +1,8 @@
 #ifndef PS_SYMBOLIC_H
 #define PS_SYMBOLIC_H
 
-#include "ps/holdem/simulation.h"
-#include "ps/core/cards.h"
-#include "ps/holdem/frontend.h"
+#include "ps/cards.h"
+#include "ps/frontend.h"
 
         /*
         

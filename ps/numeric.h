@@ -4,8 +4,16 @@
 #include <thread>
 #include <mutex>
 
+#include <boost/numeric/ublas/matrix.hpp>
+#include <boost/numeric/ublas/operation.hpp>
+#include <boost/numeric/ublas/io.hpp>
+
+#include "ps/equity_calc.h"
+
 namespace ps{
         namespace numeric{
+        
+                namespace bnu = boost::numeric::ublas;
                 
                 struct result_type{
                         explicit result_type(size_t n):

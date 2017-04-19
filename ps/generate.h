@@ -1,11 +1,9 @@
 #ifndef PS_GENERATE_H
 #define PS_GENERATE_H
 
-#include <array>
-
 namespace ps{
 
-template<class Traits, class V>
+template<class V>
 void generate(V& v){
         static long _2( 0);
         static long _3( 1);
@@ -21,33 +19,15 @@ void generate(V& v){
         static long _K(11);
         static long _A(12);
 
-        Traits traits;
-
-        std::array<long, 13> m = { 
-                traits.map_rank('2'),
-                traits.map_rank('3'),
-                traits.map_rank('4'),
-                traits.map_rank('5'),
-                traits.map_rank('6'),
-                traits.map_rank('7'),
-                traits.map_rank('8'),
-                traits.map_rank('9'),
-                traits.map_rank('T'),
-                traits.map_rank('J'),
-                traits.map_rank('Q'),
-                traits.map_rank('K'),
-                traits.map_rank('A')
-        };
-
         v.begin("Royal Flush");
-        v.next(true, m[_A], m[_K], m[_Q], m[_J], m[_T] );
+        v.next(true, _A, _K, _Q, _J, _T );
         v.end();
         v.begin("Straight Flush");
         for( long a(_K+1); a != _6 ;){
                 --a;
-                v.next(true, m[a], m[a-1], m[a-2], m[a-3], m[a-4]);
+                v.next(true, a, a-1, a-2, a-3, a-4);
         }
-        v.next(true, m[_5], m[_4], m[_3], m[_2], m[_A] );
+        v.next(true, _5, _4, _3, _2, _A );
         v.end();
         v.begin("Quads");
         for( long a(_A+1); a != _2 ;){
@@ -56,7 +36,7 @@ void generate(V& v){
                         --b;
                         if( a == b )
                                 continue;
-                        v.next(false, m[a], m[a], m[a], m[a], m[b]);
+                        v.next(false, a, a, a, a, b);
                 }
         }
         v.end();
@@ -68,7 +48,7 @@ void generate(V& v){
                         --b;
                         if( a == b )
                                 continue;
-                        v.next(false, m[a], m[a], m[a], m[b], m[b]);
+                        v.next(false, a, a, a, b, b);
                 }
         }
         v.end();
@@ -88,7 +68,7 @@ void generate(V& v){
                                                 // don't remap the stright flush
                                                 if( a == _A && b == _5 &&  ( b - e ) == 3 )
                                                         continue;
-                                                v.next(true, m[a], m[b], m[c], m[d], m[e]);
+                                                v.next(true, a, b, c, d, e);
                                         }
                                 }
                         }
@@ -98,9 +78,9 @@ void generate(V& v){
         v.begin("Straight");
         for( long a(_A+1); a != _6 ;){
                 --a;
-                v.next(false, m[a], m[a-1], m[a-2], m[a-3], m[a-4]);
+                v.next(false, a, a-1, a-2, a-3, a-4);
         }
-        v.next(false, m[_5], m[_4], m[_3], m[_2], m[_A] );
+        v.next(false, _5, _4, _3, _2, _A );
         v.end();
         v.begin("Trips");
         for( long a(_A+1); a != _2 ;){
@@ -113,7 +93,7 @@ void generate(V& v){
                                 --c;
                                 if( a == c)
                                         continue;
-                                v.next(false, m[a], m[a], m[a], m[b], m[c]);
+                                v.next(false, a, a, a, b, c);
                         }
                 }
         }
@@ -127,7 +107,7 @@ void generate(V& v){
                                 --c;
                                 if( c == a || c == b )
                                         continue;
-                                v.next(false, m[a], m[a], m[b], m[b], m[c]);
+                                v.next(false, a, a, b, b, c);
                         }
                 }
         }
@@ -147,7 +127,7 @@ void generate(V& v){
                                         --d;
                                         if( a == d )
                                                 continue;
-                                        v.next(false, m[a], m[a], m[b], m[c], m[d]);
+                                        v.next(false, a, a, b, c, d);
                                 }
                         }
                 }
@@ -168,7 +148,7 @@ void generate(V& v){
                                                         continue;
                                                 if( a == _A && b == _5 &&  ( b - e ) == 3 )
                                                         continue;
-                                                v.next(false, m[a], m[b], m[c], m[d], m[e]);
+                                                v.next(false, a, b, c, d, e);
                                         }
                                 }
                         }

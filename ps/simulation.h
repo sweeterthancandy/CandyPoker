@@ -11,13 +11,9 @@
 #include <boost/numeric/ublas/operation.hpp>
 #include <boost/numeric/ublas/io.hpp>
 
-#include "ps/ps.h"
 #include "ps/detail/print.h"
-#include "ps/holdem/equity_calc.h"
-#include "ps/holdem/holdem_range.h"
-#include "ps/holdem/holdem_traits.h"
-#include "ps/holdem/hasher.h"
-#include "ps/core/cards.h"
+#include "ps/cards.h"
+#include "ps/equity_calc.h"
 
 namespace ps{
 

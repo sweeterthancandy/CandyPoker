@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "ps/holdem/equity_calc.h"
+#include "ps/equity_calc.h"
 
 using namespace ps;
 

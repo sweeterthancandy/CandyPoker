@@ -5,10 +5,9 @@
 
 #include <boost/range/algorithm.hpp>
 
-#include "card_traits.h"
 #include "generate.h"
 
-#include "ps/core/cards.h"
+#include "ps/cards.h"
 
 namespace ps{
 
@@ -67,7 +66,6 @@ namespace detail{
                 size_t order_;
                 std::string name_;
                 std::vector<std::uint32_t> m_;
-                card_traits traits_;
 
                 std::array<int, 52> flush_device_;
                 std::array<int, 52> rank_device_;
@@ -76,7 +74,7 @@ namespace detail{
 
 struct eval{
         eval(){
-                generate<card_traits>(impl_);
+                generate(impl_);
         }
         std::uint32_t eval_5(std::vector<long> const& cards)const{
                 assert( cards.size() == 5 && "precondition failed");
@@ -112,7 +110,6 @@ struct eval{
         }
 private:
         detail::eval_impl impl_;
-        card_traits traits_;
 };
 
 } // namespace ps

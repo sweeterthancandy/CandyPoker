@@ -1,12 +1,17 @@
 #ifndef PS_CORE_CARDS_H
 #define PS_CORE_CARDS_H
 
+#include <cassert>
+#include <array>
+#include <set>
 #include <string>
 #include <iostream>
 #include <vector>
 #include <algorithm>
 
 #include "ps/detail/void_t.h"
+
+#include <boost/exception/all.hpp>
 
 namespace ps{
 

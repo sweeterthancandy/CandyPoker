@@ -156,6 +156,7 @@ namespace ps{
                 static id_type make_id( card_id x, card_id y){
                         return  x * 52 + y;
                 }
+                operator id_type()const{ return id_; }
         private:
                 id_type id_;
                 card_decl first_;

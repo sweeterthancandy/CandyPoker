@@ -1,3 +1,4 @@
+#if 0
 #include "ps/symbolic.h"
 #include "ps/numeric.h"
 #include "ps/transforms.h"
@@ -59,3 +60,6 @@ int main(){
 
         
 }
+#endif
+
+int main(){}

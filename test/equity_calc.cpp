@@ -7,9 +7,38 @@ using namespace ps;
 
 struct equity_calc_ : testing::Test{
 protected:
+        std::vector<id_type> players;
+        std::vector<id_type> board;
+        std::vector<id_type> dead;
         ps::equity_calc eq;
+        numeric::result_type result;
 };
 
+TEST_F( equity_calc_, _AhKs_2s2c){
+
+        players.push_back( holdem_hand_decl::get("5h6h"));
+        players.push_back( holdem_hand_decl::get("8sAh"));
+        players.push_back( holdem_hand_decl::get("2c2d"));
+        players.push_back( holdem_hand_decl::get("AcKc"));
+        players.push_back( holdem_hand_decl::get("8d9d"));
+        players.push_back( holdem_hand_decl::get("ThQh"));
+
+        result = numeric::result_type{6};
+        
+        PRINT(result);
+        
+        eq.run( players, board, dead, result);
+
+        auto p{ result.proxy() };
+
+        PRINT(result);
+
+        for( auto const& pl : p )
+                PRINT(pl);
+
+}
+
+#if 0
 TEST_F( equity_calc_, _AhKs_2s2c){
         ps::equity_context ctx;
 
@@ -181,3 +210,5 @@ TEST_F( equity_calc_, _5h6h_8sAh_2c2d_AcKc_8d9d_ThQh ){
         EXPECT_EQ(     906 , _ThQh.draws());
         EXPECT_NEAR( 0.2036, _ThQh.equity(), 1e-3);
 }
+#endif
+

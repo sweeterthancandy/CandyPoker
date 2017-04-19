@@ -17,6 +17,7 @@
 namespace ps{
 
 
+        #if 0
         // AkAh vs 2c2c      atomic
         // AA vs T9s         
         //
@@ -111,14 +112,15 @@ namespace ps{
 
                 numeric::result_type result_;
         };
+        #endif
 
 
         struct equity_calc{
                 bool run( std::vector<holdem_id> const& players,
                           std::vector<card_id> const& board,
                           std::vector<card_id> const& dead,
-                          result_type& result)noexcept
-                }
+                          numeric::result_type& result)noexcept
+                {
                         switch( players.size()){
                         case 2: return run_p<2>( players, board, dead, result ); break;
                         case 3: return run_p<3>( players, board, dead, result ); break;
@@ -128,6 +130,7 @@ namespace ps{
                         case 7: return run_p<7>( players, board, dead, result ); break;
                         case 8: return run_p<8>( players, board, dead, result ); break;
                         case 9: return run_p<9>( players, board, dead, result ); break;
+                        default:
                                 return false;
                         }
                 }
@@ -136,7 +139,8 @@ namespace ps{
                 bool run_p( std::vector<holdem_id> const& players,
                             std::vector<card_id> const& board,
                             std::vector<card_id> const& dead,
-                            result_type& result)noexcept{
+                            numeric::result_type& result)noexcept
+                {
                         auto dealt{ board.size() + dead.size() };
                         auto to_deal{ 5- dealt  };
                         switch(to_deal){
@@ -145,15 +149,15 @@ namespace ps{
                         case 3: return run_pd<Num_Players, 3>( players, board, dead, result);
                         case 4: return run_pd<Num_Players, 4>( players, board, dead, result);
                         case 5: return run_pd<Num_Players, 5>( players, board, dead, result);
+                        default:
                                 return false;
-
-                        switch(ctx.get_board().size()){
+                        }
                 }
                 template<size_t Num_Players, size_t Num_Deal>
-                bool run_pq( std::vector<holdem_id> const& players,
+                bool run_pd( std::vector<holdem_id> const& players,
                             std::vector<card_id> const& board,
                             std::vector<card_id> const& dead,
-                            result_type& result)noexcept{
+                            numeric::result_type& result)noexcept{
 
                         std::vector<id_type> known;
 
@@ -167,9 +171,9 @@ namespace ps{
                         std::array<double,Num_Players> equity;
 
                         for( size_t i{0}; i!= Num_Players;++i){
-                                auto const& p{ ctx.get_players()[i]};
-                                x[i]      = players[i].first().id();
-                                y[i]      = players[i].second().id();
+                                auto const& p{ players[i]};
+                                x[i]      = holdem_hand_decl::get(players[i]).first().id();
+                                y[i]      = holdem_hand_decl::get(players[i]).second().id();
                                 wins[i]   = 0;
                                 draws[i]  = 0;
                                 equity[i] = 0.0;
@@ -203,20 +207,16 @@ namespace ps{
                                 }
                         };
 
-
-                        detail::visit_combinations<Num_Deal>( [&](id_type a, id_type b, id_type c, id_type d){
-                                do_eval(board[0], a,b,c,d);
-                        }, filter, 51);
-
-
-                        #if 0
-                        switch(ctx.get_board().size()){
+                        switch(board.size()){
                         case 0:
                                 detail::visit_combinations<5>( [&](id_type a, id_type b, id_type c, id_type d, id_type e){
                                         do_eval(a,b,c,d,e);
                                 }, filter, 51);
                                 break;
                         case 1:
+                                detail::visit_combinations<4>( [&](id_type a, id_type b, id_type c, id_type d){
+                                        do_eval(board[0], a,b,c,d);
+                                }, filter, 51);
                                 break;
                         case 2:
                                 detail::visit_combinations<3>( [&](id_type a, id_type b, id_type c){
@@ -240,21 +240,14 @@ namespace ps{
                                 BOOST_THROW_EXCEPTION(std::domain_error("bad number of board cards"));
                         }
 
-                        #endif
-
                         for(size_t i{0};i!=Num_Players;++i){
-                                ctx.get_players()[i].wins_   = wins[i];
-                                ctx.get_players()[i].draw_   = draws[i];
-                                ctx.get_players()[i].equity_ = equity[i];
-                                ctx.get_players()[i].sigma_  = sigma;
-
                                 using tag = numeric::result_type::Tags;
-                                ctx.get_result().nat_mat(i, tag::NTag_Wins)  = wins[i];
-                                ctx.get_result().nat_mat(i, tag::NTag_Draws) = wins[i];
-                                ctx.get_result().nat_mat(i, tag::NTag_Sigma) = equity[i];
-
-                                ctx.get_result().rel_mat(i, tag::RTag_Equity) = sigma;
+                                result.nat_mat(i, tag::NTag_Wins)   = wins[i];
+                                result.nat_mat(i, tag::NTag_Draws)  = draws[i];
+                                result.nat_mat(i, tag::NTag_Sigma)  = sigma;
+                                result.rel_mat(i, tag::RTag_Equity) = equity[i];
                         }
+                        return true;
                 }
         private:
                 eval eval_;

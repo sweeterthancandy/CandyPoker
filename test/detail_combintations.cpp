@@ -23,7 +23,7 @@ TEST( visit_combinations, _){
         std::cout << "visit_combinations\n";
         detail::visit_combinations<3>(
                 [](auto a, auto b, auto c){
-                PRINT_SEQ((a)(b)(c));
+                //PRINT_SEQ((a)(b)(c));
         }, detail::true_, 4);
 }
 
@@ -56,6 +56,6 @@ TEST( visit_exclusive_combinations, _){
         */
         detail::visit_exclusive_combinations<3>(
                 [](auto a, auto b, auto c){
-                PRINT_SEQ((a)(b)(c));
+                //PRINT_SEQ((a)(b)(c));
         }, detail::true_, std::vector<size_t>{1,3,2});
 }

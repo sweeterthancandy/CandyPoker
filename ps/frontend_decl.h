@@ -61,6 +61,11 @@ namespace ps{
                 PS_make_non_pair_aux( 0, offsuit, o, A, T )
                 #endif
 
+                // specific hands
+
+                static auto _AhKh = hand( ::ps::decl::_A, ::ps::decl::_h,
+                                          ::ps::decl::_K, ::ps::decl::_h );
+
         } // frontend
 } // ps
 

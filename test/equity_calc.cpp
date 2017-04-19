@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include "ps/equity_calc.h"
+#include "ps/frontend.h"
 
 using namespace ps;
 
@@ -34,6 +35,20 @@ TEST_F( equity_calc_, _AhKs_2s2c){
         EXPECT_EQ( 849'322 , _2s2c.wins());
         EXPECT_EQ( 10'775  , _2s2c.draws());
         EXPECT_NEAR( 0.4992, _2s2c.equity(), 1e-3);
+
+        {
+                auto _AhKh = ctx( frontend::_AhKh );
+        
+                EXPECT_EQ( 852'207 , _AhKh.wins());
+                #if 0
+                EXPECT_EQ( 10'775  , _AhKh.draws());
+                EXPECT_NEAR( 0.5008, _AhKh.equity(), 1e-3);
+                
+                EXPECT_EQ( 849'322 , _2s2c.wins());
+                EXPECT_EQ( 10'775  , _2s2c.draws());
+                EXPECT_NEAR( 0.4992, _2s2c.equity(), 1e-3);
+                #endif
+        }
 }
 
 TEST_F( equity_calc_, _AhKs_2s2c_5c6c){

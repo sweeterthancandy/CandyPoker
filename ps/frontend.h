@@ -27,7 +27,15 @@ namespace ps{
         namespace frontend{
 
                 struct hand{
-                        explicit hand(holdem_id id):id_{id}{}
+                        explicit hand(holdem_id id)
+                                :id_{id}
+                        {}
+                        explicit hand(card_id x, card_id y)
+                                :id_{holdem_hand_decl::make_id(x,y)}
+                        {}
+                        explicit hand( rank_id r0, suit_id s0, rank_id r1, suit_id s1)
+                                :id_{holdem_hand_decl::make_id(r0,s0,r1,s1)}
+                        {}
                         auto get()const{ return id_; }
                         bool operator<(hand const& that)const{
                                 return get() < that.get();

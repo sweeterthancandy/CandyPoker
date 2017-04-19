@@ -11,6 +11,8 @@
 #include "ps/cards.h"
 #include "ps/frontend.h"
 
+#include "ps/computation_result.h"
+
 
 namespace ps{
 
@@ -63,47 +65,95 @@ namespace ps{
 
 		equity_context& add_player( frontend::hand hand){
                         players_.emplace_back( hand.get() );
+                        playerss_.emplace_back( hand.get() );
+                        result_ = numeric::result_type{players_.size()};
                         return *this;
 		}
                 equity_context& add_player(std::string const& s){
-                        players_.emplace_back( holdem_hand_decl::get(s).id() );
+                        auto id{ holdem_hand_decl::get(s).id() };
+                        players_.emplace_back(id);
+                        playerss_.emplace_back(id);
+                        result_ = numeric::result_type{players_.size()};
                         return *this;
                 }
+
+
                 equity_context& add_board(std::string const& s){
                         for( size_t i=0; i!= s.size();i+=2)
                                 board_.emplace_back( card_decl::get(s.substr(i,2)).id() );
                         return *this;
                 }
                 std::vector<equity_player>& get_players(){ return players_; }
+
                 decltype(auto) get_board(){ return board_; }
                 decltype(auto) get_dead(){ return dead_; }
+
+                numeric::result_type      & get_result()     { return result_; }
+                numeric::result_type const& get_result()const{ return result_; }
+
+
+
+                auto operator()(frontend::hand hand){
+                        auto iter = std::find(playerss_.begin(),
+                                              playerss_.end(),
+                                              hand.get());
+                        if( iter == playerss_.end())
+                                BOOST_THROW_EXCEPTION(std::domain_error("bad player"));
+                        return result_( std::distance(playerss_.begin(), iter));
+                }
         private:
 
-                std::vector<id_type> board_;
-                std::vector<id_type> dead_;
+                std::vector<holdem_id> playerss_;
+                std::vector<id_type>   board_;
+                std::vector<id_type>   dead_;
 
                 std::vector<equity_player> players_;
+
+                numeric::result_type result_;
         };
 
 
         struct equity_calc{
-                void run( equity_context& ctx){
-                        switch( ctx.get_players().size()){
-                        case 2: do_run<2>( ctx ); break;
-                        case 3: do_run<3>( ctx ); break;
-                        case 4: do_run<4>( ctx ); break;
-                        case 5: do_run<5>( ctx ); break;
-                        case 6: do_run<6>( ctx ); break;
-                        case 7: do_run<7>( ctx ); break;
-                        case 8: do_run<8>( ctx ); break;
-                        case 9: do_run<9>( ctx ); break;
-                        default: BOOST_THROW_EXCEPTION(std::domain_error("bad number of players"));
+                bool run( std::vector<holdem_id> const& players,
+                          std::vector<card_id> const& board,
+                          std::vector<card_id> const& dead,
+                          result_type& result)noexcept
+                }
+                        switch( players.size()){
+                        case 2: return run_p<2>( players, board, dead, result ); break;
+                        case 3: return run_p<3>( players, board, dead, result ); break;
+                        case 4: return run_p<4>( players, board, dead, result ); break;
+                        case 5: return run_p<5>( players, board, dead, result ); break;
+                        case 6: return run_p<6>( players, board, dead, result ); break;
+                        case 7: return run_p<7>( players, board, dead, result ); break;
+                        case 8: return run_p<8>( players, board, dead, result ); break;
+                        case 9: return run_p<9>( players, board, dead, result ); break;
+                                return false;
                         }
                 }
         private:
                 template<size_t Num_Players>
-                void do_run(equity_context& ctx){
+                bool run_p( std::vector<holdem_id> const& players,
+                            std::vector<card_id> const& board,
+                            std::vector<card_id> const& dead,
+                            result_type& result)noexcept{
+                        auto dealt{ board.size() + dead.size() };
+                        auto to_deal{ 5- dealt  };
+                        switch(to_deal){
+                        case 1: return run_pd<Num_Players, 1>( players, board, dead, result);
+                        case 2: return run_pd<Num_Players, 2>( players, board, dead, result);
+                        case 3: return run_pd<Num_Players, 3>( players, board, dead, result);
+                        case 4: return run_pd<Num_Players, 4>( players, board, dead, result);
+                        case 5: return run_pd<Num_Players, 5>( players, board, dead, result);
+                                return false;
 
+                        switch(ctx.get_board().size()){
+                }
+                template<size_t Num_Players, size_t Num_Deal>
+                bool run_pq( std::vector<holdem_id> const& players,
+                            std::vector<card_id> const& board,
+                            std::vector<card_id> const& dead,
+                            result_type& result)noexcept{
 
                         std::vector<id_type> known;
 
@@ -118,17 +168,17 @@ namespace ps{
 
                         for( size_t i{0}; i!= Num_Players;++i){
                                 auto const& p{ ctx.get_players()[i]};
-                                x[i] = p.get_hand().first().id();
-                                y[i] = p.get_hand().second().id(); 
-                                wins[i] = 0;
-                                draws[i] = 0;
+                                x[i]      = players[i].first().id();
+                                y[i]      = players[i].second().id();
+                                wins[i]   = 0;
+                                draws[i]  = 0;
                                 equity[i] = 0.0;
                         }
 
                         boost::copy( x, std::back_inserter(known));
                         boost::copy( y, std::back_inserter(known));
-                        boost::copy( ctx.get_board(), std::back_inserter(known));
-                        boost::copy( ctx.get_dead(), std::back_inserter(known));
+                        boost::copy( board, std::back_inserter(known));
+                        boost::copy( dead , std::back_inserter(known));
                         boost::sort(known);
                         auto filter = [&](long c){ return ! boost::binary_search(known, c); };
                 
@@ -153,9 +203,13 @@ namespace ps{
                                 }
                         };
 
-                        auto const& board{ ctx.get_board() };
+
+                        detail::visit_combinations<Num_Deal>( [&](id_type a, id_type b, id_type c, id_type d){
+                                do_eval(board[0], a,b,c,d);
+                        }, filter, 51);
 
 
+                        #if 0
                         switch(ctx.get_board().size()){
                         case 0:
                                 detail::visit_combinations<5>( [&](id_type a, id_type b, id_type c, id_type d, id_type e){
@@ -163,9 +217,6 @@ namespace ps{
                                 }, filter, 51);
                                 break;
                         case 1:
-                                detail::visit_combinations<4>( [&](id_type a, id_type b, id_type c, id_type d){
-                                        do_eval(board[0], a,b,c,d);
-                                }, filter, 51);
                                 break;
                         case 2:
                                 detail::visit_combinations<3>( [&](id_type a, id_type b, id_type c){
@@ -189,11 +240,20 @@ namespace ps{
                                 BOOST_THROW_EXCEPTION(std::domain_error("bad number of board cards"));
                         }
 
+                        #endif
+
                         for(size_t i{0};i!=Num_Players;++i){
                                 ctx.get_players()[i].wins_   = wins[i];
                                 ctx.get_players()[i].draw_   = draws[i];
                                 ctx.get_players()[i].equity_ = equity[i];
                                 ctx.get_players()[i].sigma_  = sigma;
+
+                                using tag = numeric::result_type::Tags;
+                                ctx.get_result().nat_mat(i, tag::NTag_Wins)  = wins[i];
+                                ctx.get_result().nat_mat(i, tag::NTag_Draws) = wins[i];
+                                ctx.get_result().nat_mat(i, tag::NTag_Sigma) = equity[i];
+
+                                ctx.get_result().rel_mat(i, tag::RTag_Equity) = sigma;
                         }
                 }
         private:

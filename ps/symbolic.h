@@ -1,8 +1,18 @@
 #ifndef PS_SYMBOLIC_H
 #define PS_SYMBOLIC_H
 
+#include <future>
+
+#include <boost/numeric/ublas/matrix.hpp>
+#include <boost/numeric/ublas/operation.hpp>
+#include <boost/numeric/ublas/io.hpp>
+
+
 #include "ps/cards.h"
 #include "ps/frontend.h"
+#include "ps/equity_calc.h"
+                
+namespace bnu = boost::numeric::ublas;
 
         /*
         
@@ -131,9 +141,13 @@ namespace ps{
                                 indent.pop_back();
                         }
 
-                        std::ostream& put(){ return *stream << std::string(indent.back()*2, ' '); }
+                        std::ostream& put(){ return *stream << std::string(indent.back()*4, ' '); }
                 };
         }
+
+        struct calculation_cache{
+                std::map<std::string, bnu::matrix<size_t> > cache;
+        };
 
         struct symbolic_computation{
 
@@ -167,7 +181,7 @@ namespace ps{
                 }
                 virtual void print_impl(detail::print_context& ctx)const=0;
 
-
+                virtual bnu::matrix<size_t> calculate(calculation_cache&)=0;
 
                 auto get_kind()const{ return kind_; }
                 auto is_terminal()const{
@@ -177,6 +191,7 @@ namespace ps{
                 auto is_non_terminal()const{
                         return ! is_terminal();
                 }
+
         private:
                 kind kind_;
         };
@@ -203,6 +218,15 @@ namespace ps{
                 void erase_child(iterator iter){
                         children_.erase(iter);
                 }
+                handle get_only_child(){ 
+                        assert( children_.size() ==1 && "preconditon failed");
+                        return children_.back();
+                }
+                handle const& get_only_child()const{ 
+                        assert( children_.size() ==1 && "preconditon failed");
+                        return children_.back();
+                }
+                
 
 
         private:
@@ -295,6 +319,9 @@ namespace ps{
                                 c->print_impl(ctx);
                         ctx.pop();
                 }
+                bnu::matrix<size_t> calculate(calculation_cache& cache)override{
+                        return get_only_child()->calculate(cache);
+                }
         private:
                 std::vector<int> suit_perm_;
         };
@@ -325,6 +352,19 @@ namespace ps{
                         ctx.pop();
                 }
                 decltype(auto) get_player_perm()const{ return player_perm_; }
+                
+                bnu::matrix<size_t> calculate(calculation_cache& cache)override{
+                        bnu::matrix<size_t> child_result{ get_only_child()->calculate(cache) };
+                        bnu::matrix<size_t> result{ child_result }; // just for size
+
+                        for(size_t j=0;j!= result.size2();++j){
+                                for(size_t i=0;i!= result.size1(); ++i){
+                                        result(i, j) = child_result( player_perm_[i], j );
+                                }
+                        }
+
+                        return result;
+                }
         private:
                 std::vector<int> player_perm_;
         };
@@ -343,7 +383,8 @@ namespace ps{
                                 if( i != 0 ) sstr << " vs ";
                                 sstr << hands_[i];
                         }
-                        ctx.put() << sstr.str() <<  "  (" << hash_ << ")\n";
+                        ctx.put() << sstr.str() << "\n";
+                                //<<  "  (" << hash_ << ")\n";
                 }
                 decltype(auto) get_hands()const{ return hands_; }
 
@@ -365,6 +406,22 @@ namespace ps{
                         return std::move(hash);
                 }
                 std::string const& get_hash()const{ return hash_; }
+                
+                bnu::matrix<size_t> calculate(calculation_cache& cache)override{
+                        auto cache_iter{ cache.cache.find(get_hash()) };
+                        if( cache_iter != cache.cache.end())
+                                return cache_iter->second;
+                        ps::equity_calc eq;
+                        std::vector<id_type> players;
+
+                        for( auto h : hands_ ){
+                                players.push_back(h.get());
+                        }
+                        numeric::result_type ret( hands_.size() );
+                        eq.run( ret, players );
+                        cache.cache[get_hash()] = ret.nat_mat;
+                        return ret.nat_mat;
+                }
         private:
                 std::vector<frontend::hand> hands_;
                 std::string hash_;
@@ -437,6 +494,17 @@ namespace ps{
                         }
                         ctx.pop();
                 }
+                
+                bnu::matrix<size_t> calculate(calculation_cache& cache)override{
+                        auto iter{ begin() };
+                        auto last{ end() };
+                        bnu::matrix<size_t> result { (*iter)->calculate(cache) };
+                        ++iter;
+                        for(;iter!=last;++iter){
+                                result += (*iter)->calculate(cache);
+                        }
+                        return result;
+                }
         private:
                 std::vector<frontend::primitive_t> prims_;
         };
@@ -486,6 +554,16 @@ namespace ps{
                                 c->print_impl(ctx);
                         }
                         ctx.pop();
+                }
+                bnu::matrix<size_t> calculate(calculation_cache& cache)override{
+                        auto iter{ begin() };
+                        auto last{ end() };
+                        bnu::matrix<size_t> result { (*iter)->calculate(cache) };
+                        ++iter;
+                        for(;iter!=last;++iter){
+                                result += (*iter)->calculate(cache);
+                        }
+                        return result;
                 }
         private:
                 std::vector<frontend::range> players_;

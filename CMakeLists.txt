@@ -23,7 +23,8 @@ include_directories(.)
 
 
 aux_source_directory(lib lib_sources)
-add_library(ps_lib SHARED ${lib_sources})
+add_library(ps_lib SHARED ${lib_sources}) 
+target_link_libraries(ps_lib ${Boost_LIBRARIES})
 
 
 add_executable(_ps ps.cpp )

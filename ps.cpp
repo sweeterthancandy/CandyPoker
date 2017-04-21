@@ -3,6 +3,7 @@
 #include "ps/transforms.h"
 
 #include <boost/timer/timer.hpp>
+#include <boost/lexical_cast.hpp>
 
 
 namespace{
@@ -27,7 +28,13 @@ namespace{
                 sch.decl( symbolic_computation::transform_schedular::TransformKind_BottomUp,
                           transforms::work_generator(work) );
                 sch.execute(star);
+                
+                star->print();
 
+                calculation_cache cache;
+                PRINT( star->calculate(cache) );
+
+                #if 0
                 ps::numeric::result_type ret{players.size()};
 
                 {
@@ -36,6 +43,7 @@ namespace{
                 }
 
                 PRINT(ret);
+                #endif
         }
 } // anon
  
@@ -50,13 +58,15 @@ int main(){
 
         range villian;
 
-        p0 += _AA;
+        p0 += _55;
 
         p1 += _AKo;
 
-        p2 += _22;
+        p2 += _89s;
 
-        run_driver(std::vector<frontend::range>{p0, p1});
-        //run_driver(std::vector<frontend::range>{p0, p1, p2});
+        //run_driver(std::vector<frontend::range>{p0, p1});
+        
+        boost::timer::auto_cpu_timer at;
+        run_driver(std::vector<frontend::range>{p0, p1, p2});
         
 }

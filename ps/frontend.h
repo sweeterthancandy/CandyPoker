@@ -26,6 +26,14 @@ namespace ps{
 
         namespace frontend{
 
+                enum PrintWay{
+                        PrintWay_Pretty,
+                        PrintWay_Debug
+                };
+
+                static auto print_way{ PrintWay_Pretty };
+
+
                 struct hand{
                         explicit hand(holdem_id id)
                                 :id_{id}
@@ -45,7 +53,12 @@ namespace ps{
                         }
                         static int order(){ return 0; }
                         friend std::ostream& operator<<(std::ostream& ostr, hand const& self){
-                                return ostr << boost::format("hand{%s}") % holdem_hand_decl::get(self.get());
+                                switch(print_way){
+                                case PrintWay_Pretty:
+                                        return ostr << holdem_hand_decl::get(self.get());
+                                case PrintWay_Debug:
+                                        return ostr << boost::format("hand{%s}") % holdem_hand_decl::get(self.get());
+                                }
                         }
 
 
@@ -68,7 +81,12 @@ namespace ps{
                         }
                         static int order(){ return 1; }
                         friend std::ostream& operator<<(std::ostream& ostr, pocket_pair const& self){
-                                return ostr << boost::format("pocker_pair{%s}") % rank_decl::get(self.get());
+                                switch(print_way){
+                                case PrintWay_Pretty:
+                                        return ostr << rank_decl::get(self.get()); 
+                                case PrintWay_Debug:
+                                        return ostr << boost::format("pocker_pair{%s}") % rank_decl::get(self.get());
+                                }
                         }
                         
                         auto i_am_a_duck__to_hand_vector()const{
@@ -459,7 +477,7 @@ namespace ps{
                                 vec_{vec}
                         {}
                         friend std::ostream& operator<<(std::ostream& ostr, primitive_range const& self){
-                                using printer = detail::debug_print;
+                                using printer = detail::operator_left_shift;
                                 for(size_t i{0};i!=self.vec_.size();++i){
                                         if( i != 0)
                                                 ostr << ", ";
@@ -483,7 +501,7 @@ namespace ps{
 
                 struct range{
                         friend std::ostream& operator<<(std::ostream& ostr, range const& self){
-                                using printer = detail::debug_print;
+                                using printer = detail::operator_left_shift;
                                 for(size_t i{0};i!=self.subs_.size();++i){
                                         if( i != 0)
                                                 ostr << ", ";

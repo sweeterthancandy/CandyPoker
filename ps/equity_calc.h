@@ -14,6 +14,7 @@
 namespace ps{
 
         struct equity_calc{
+
                 bool run( numeric::result_type& result,
                           std::vector<holdem_id> const& players,
                           std::vector<card_id> const& board = std::vector<card_id>{},

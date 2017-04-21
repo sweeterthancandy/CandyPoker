@@ -8,3 +8,4 @@ ret
 rett
 slave.sh
 _ps
+*.so

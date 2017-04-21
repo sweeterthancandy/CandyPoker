@@ -21,12 +21,19 @@ aux_source_directory(test test_sources)
 
 include_directories(.)
 
+
+aux_source_directory(lib lib_sources)
+add_library(ps_lib SHARED ${lib_sources})
+
+
 add_executable(_ps ps.cpp )
 target_link_libraries(_ps pthread )
 target_link_libraries(_ps ${Boost_LIBRARIES})
+target_link_libraries(_ps ps_lib )
 
 add_executable(ps_test ${test_sources})
 target_link_libraries(ps_test GTest::GTest GTest::Main)
+target_link_libraries(ps_test ps_lib )
 
 #add_custom_command( TARGET ps_test POST_BUILD COMMAND echo "./ps_test" >> fifo )
 add_custom_command( TARGET _ps     POST_BUILD COMMAND echo "./_ps" >> fifo )

@@ -14,10 +14,10 @@
 namespace ps{
 
         struct equity_calc{
-                bool run( std::vector<holdem_id> const& players,
-                          std::vector<card_id> const& board,
-                          std::vector<card_id> const& dead,
-                          numeric::result_type& result)noexcept;
+                bool run( numeric::result_type& result,
+                          std::vector<holdem_id> const& players,
+                          std::vector<card_id> const& board = std::vector<card_id>{},
+                          std::vector<card_id> const& dead = std::vector<card_id>{})noexcept;
         private:
                 template<size_t Num_Players>
                 bool run_p( std::vector<holdem_id> const& players,

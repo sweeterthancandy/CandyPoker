@@ -29,7 +29,7 @@ TEST_F( equity_calc_, _AhKs_2s2c){
         
         PRINT(result);
         
-        eq.run( players, board, dead, result);
+        eq.run(result, players, board, dead);
 
         auto p{ result.proxy() };
 

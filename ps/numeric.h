@@ -3,6 +3,7 @@
 
 #include <thread>
 #include <mutex>
+#include <vector>
 
 #include "ps/equity_calc.h"
 
@@ -31,29 +32,19 @@ namespace ps{
                                         << " # " << symbolic_primitive::make_hash(self.hands_);
                         }
                         auto get(){
-                                ps::equity_context ctx;
                                 ps::equity_calc eq;
+                                std::vector<id_type> players;
 
                                 for( auto h : hands_ ){
-                                        ctx.add_player(h);
+                                        players.push_back(h.get());
                                 }
-                                eq.run( ctx );
+                                result_type ret( hands_.size() );
+                                eq.run( ret, players );
 
                                 size_t idx{0};
 
-                                result_type::nat_matrix_type A( hands_.size(), 4 );
-                                result_type::real_matrix_type R( hands_.size(), 1);
-                                for( size_t i{0}; i!= ctx.get_players().size(); ++i){
-                                        auto const& p{ctx.get_players()[i]};
-                                        A(i, 0) = p.wins();
-                                        A(i, 1) = p.draws();
-                                        A(i, 2) = p.sigma();
-
-                                        R(i, 0) = p.equity() * p.sigma();
-                                }
-                                result_type ret( hands_.size() );
-                                axpy_prod(factor_, A, ret.nat_mat, false);
-                                axpy_prod(factor_, R, ret.rel_mat, false);
+                                axpy_prod(factor_, ret.nat_mat, ret.nat_mat, false);
+                                axpy_prod(factor_, ret.rel_mat, ret.rel_mat, false);
 
                                 return ret;
                         }

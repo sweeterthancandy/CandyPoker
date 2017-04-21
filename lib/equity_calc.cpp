@@ -7,10 +7,10 @@
 
 namespace ps{
                 
-bool equity_calc::run( std::vector<holdem_id> const& players,
-          std::vector<card_id> const& board,
-          std::vector<card_id> const& dead,
-          numeric::result_type& result)noexcept
+bool equity_calc::run( numeric::result_type& result,
+                       std::vector<holdem_id> const& players,
+                       std::vector<card_id> const& board,
+                       std::vector<card_id> const& dead)noexcept
 {
         switch( players.size()){
         case 2: return run_p<2>( players, board, dead, result ); break;

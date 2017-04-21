@@ -16,12 +16,14 @@ protected:
 
 TEST_F( equity_calc_, _AhKs_2s2c){
 
-        players.push_back( holdem_hand_decl::get("5h6h"));
-        players.push_back( holdem_hand_decl::get("8sAh"));
-        players.push_back( holdem_hand_decl::get("2c2d"));
-        players.push_back( holdem_hand_decl::get("AcKc"));
-        players.push_back( holdem_hand_decl::get("8d9d"));
-        players.push_back( holdem_hand_decl::get("ThQh"));
+        using namespace ps::literals;
+
+        players.push_back( "5h6h"_h );
+        players.push_back( "8sAh"_h );
+        players.push_back( "2c2d"_h );
+        players.push_back( "AcKc"_h );
+        players.push_back( "8d9d"_h );
+        players.push_back( "ThQh"_h );
 
         result = numeric::result_type{6};
         
@@ -31,10 +33,36 @@ TEST_F( equity_calc_, _AhKs_2s2c){
 
         auto p{ result.proxy() };
 
-        PRINT(result);
+        auto _5h6h = result(0);
+        auto _8sAh = result(1);
+        auto _2c2d = result(2);
+        auto _AcKc = result(3);
+        auto _8d9d = result(4);
+        auto _ThQh = result(5);
 
-        for( auto const& pl : p )
-                PRINT(pl);
+        EXPECT_EQ( 90'581  , _5h6h.wins());
+        EXPECT_EQ( 906     , _5h6h.draws());
+        EXPECT_NEAR( 0.1379, _5h6h.equity(), 1e-3);
+        
+        EXPECT_EQ( 31'473  , _8sAh.wins());
+        EXPECT_EQ( 14'737  , _8sAh.draws());
+        EXPECT_NEAR( 0.0586, _8sAh.equity(), 1e-3);
+
+        EXPECT_EQ( 110'423 , _2c2d.wins());
+        EXPECT_EQ(     906 , _2c2d.draws());
+        EXPECT_NEAR( 0.1680, _2c2d.equity(), 1e-3);
+
+        EXPECT_EQ( 164'648 , _AcKc.wins());
+        EXPECT_EQ(   6'841 , _AcKc.draws());
+        EXPECT_NEAR( 0.2550, _AcKc.equity(), 1e-3);
+
+        EXPECT_EQ( 112'342 , _8d9d.wins());
+        EXPECT_EQ(   8'802 , _8d9d.draws());
+        EXPECT_NEAR( 0.1770, _8d9d.equity(), 1e-3);
+
+        EXPECT_EQ( 133'804 , _ThQh.wins());
+        EXPECT_EQ(     906 , _ThQh.draws());
+        EXPECT_NEAR( 0.2036, _ThQh.equity(), 1e-3);
 
 }
 

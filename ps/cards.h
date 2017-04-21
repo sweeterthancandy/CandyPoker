@@ -342,6 +342,13 @@ namespace ps{
         };
                 
 
+        namespace literals{
+
+                inline
+                id_type operator""_h(const char* s, size_t sz){
+                        return holdem_hand_decl::get(s).id();
+                }
+        }
                 
 
 }

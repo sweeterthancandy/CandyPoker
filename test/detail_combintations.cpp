@@ -20,7 +20,6 @@ TEST( visit_combinations, _){
         a = 3, b = 1, c = 0
         a = 2, b = 1, c = 0
         */
-        std::cout << "visit_combinations\n";
         detail::visit_combinations<3>(
                 [](auto a, auto b, auto c){
                 //PRINT_SEQ((a)(b)(c));

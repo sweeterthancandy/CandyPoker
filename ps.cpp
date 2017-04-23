@@ -16,7 +16,7 @@ namespace{
 
                 symbolic_computation::handle star = std::make_shared<symbolic_range>( players );
 
-                star->print();
+                //star->print();
 
                 symbolic_computation::transform_schedular sch;
 
@@ -24,9 +24,12 @@ namespace{
                           transforms::to_lowest_permutation() );
                 sch.decl( symbolic_computation::transform_schedular::TransformKind_BottomUp,
                           transforms::remove_suit_perms() );
-                sch.execute(star);
+                {
+                        boost::timer::auto_cpu_timer at;
+                        sch.execute(star);
+                }
                 
-                star->print();
+                //star->print();
 
                 calculation_cache cache;
         
@@ -77,6 +80,7 @@ int main(){
         range p1;
         range p2;
         range p3;
+        range p4;
 
         range villian;
 
@@ -89,13 +93,27 @@ int main(){
         p0 += _AKo;
         p1 += _ATs++;
         p2 += _99 - _77;
+        #elif 0
+        p0 += _AKo;
+        p1 += _KQs;
+        p2 += _Q6s- _Q4s;
+        p3 += _ATo++;
+        #elif 1
+        p0 += _AKo;
+        p1 += _KQs;
+        p2 += _Q6s- _Q4s;
+        p3 += _ATo++;
+        p4 += _TT-_77;
         #else
         p0 += _AKs;
         p1 += _QJs;
         p2 += _T9s;
         #endif
-
-        //run_driver(std::vector<frontend::range>{p0, p1});
+        run_driver(std::vector<frontend::range>{p0, p1});
         run_driver(std::vector<frontend::range>{p0, p1, p2});
+        run_driver(std::vector<frontend::range>{p0, p1, p2, p3});
+        #if 0
+        run_driver(std::vector<frontend::range>{p0, p1, p2, p3,p4});
+        #endif
         
 }

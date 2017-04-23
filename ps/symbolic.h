@@ -496,6 +496,29 @@ namespace ps{
                                         }
                                 }, detail::true_, size_vec);
                                 break;
+                        case 5:
+                                detail::visit_exclusive_combinations<5>(
+                                        [&](auto a, auto b, auto c, auto d, auto e){
+                                        
+                                        // make sure disjoint
+
+                                        if( disjoint( holdem_hand_decl::get(aux[0][a]),
+                                                      holdem_hand_decl::get(aux[1][b]),
+                                                      holdem_hand_decl::get(aux[2][c]),
+                                                      holdem_hand_decl::get(aux[3][d]),
+                                                      holdem_hand_decl::get(aux[4][e]) ) )
+                                        {
+                                                push_child(
+                                                       std::make_shared<symbolic_primitive>(
+                                                               std::vector<frontend::hand>{
+                                                                        frontend::hand{aux[0][a]},
+                                                                        frontend::hand{aux[1][b]},
+                                                                        frontend::hand{aux[2][c]},
+                                                                        frontend::hand{aux[3][d]},
+                                                                        frontend::hand{aux[4][e]} }));
+                                        }
+                                }, detail::true_, size_vec);
+                                break;
                         default:
                                 assert( 0 && " not implemented");
                         }
@@ -564,6 +587,13 @@ namespace ps{
                                         [&](auto a, auto b, auto c, auto d){
                                         push_child(
                                                std::make_shared<symbolic_primitive_range>( std::vector<frontend::primitive_t>{prims[0][a], prims[1][b], prims[2][c], prims[3][d] }));
+                                }, detail::true_, size_vec);
+                                break;
+                        case 5:
+                                detail::visit_exclusive_combinations<5>(
+                                        [&](auto a, auto b, auto c, auto d, auto e){
+                                        push_child(
+                                               std::make_shared<symbolic_primitive_range>( std::vector<frontend::primitive_t>{prims[0][a], prims[1][b], prims[2][c], prims[3][d], prims[4][e] }));
                                 }, detail::true_, size_vec);
                                 break;
                         default:

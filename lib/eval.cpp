@@ -240,7 +240,6 @@ private:
 };
 
 eval::eval():impl_{new detail_eval{}}{
-        boost::timer::auto_cpu_timer at;
         impl_->init();
 }
 std::uint32_t eval::eval_5(std::vector<long> const& cards)const{

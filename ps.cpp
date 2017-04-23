@@ -10,32 +10,45 @@
 namespace{
         void run_driver(std::vector<ps::frontend::range> const& players)
         {
+                boost::timer::auto_cpu_timer at;
 
                 using namespace ps;
                 using namespace ps::frontend;
+                using namespace ps::transforms;
 
                 symbolic_computation::handle star = std::make_shared<symbolic_range>( players );
 
                 //star->print();
 
                 symbolic_computation::transform_schedular sch;
+                calculation_context ctx;
+
 
                 sch.decl( symbolic_computation::transform_schedular::TransformKind_BottomUp,
-                          transforms::to_lowest_permutation() );
+                          std::make_shared<to_lowest_permutation>() );
                 sch.decl( symbolic_computation::transform_schedular::TransformKind_BottomUp,
-                          transforms::remove_suit_perms() );
+                          std::make_shared<remove_suit_perms>() );
                 sch.decl( symbolic_computation::transform_schedular::TransformKind_BottomUp,
-                          transforms::consolidate_dup_prim() );
+                          std::make_shared<consolidate_dup_prim>() );
+                sch.decl( symbolic_computation::transform_schedular::TransformKind_BottomUp,
+                          std::make_shared<calc_primitive>(ctx) );
+
                 {
-                        boost::timer::auto_cpu_timer at;
                         sch.execute(star);
                 }
+
+                #if 0
+                {
+                        boost::timer::auto_cpu_timer at;
+                        preempt.execute(star);
+                }
+                #endif
+
+                
                 
                 //star->print();
 
-                calculation_context ctx;
         
-                boost::timer::auto_cpu_timer at;
                 auto ret{ star->calculate(ctx) };
 
                 auto fmtc = [](auto c){
@@ -69,7 +82,7 @@ namespace{
                                 % fmtc(ret(i,9)) % fmtc(ret(i,10)) 
                                 % ( static_cast<double>(ret(i,10) ) / computation_equity_fixed_prec / ret(i,9) * 100 );
                 }
-                PRINT(ret);
+                std::cout << "----------------------------------------------------------\n";
         }
 } // anon
  

@@ -1,10 +1,22 @@
 #ifndef PS_TRANSFORMS_H
 #define PS_TRANSFORMS_H
 
+#include <future>
+
 #include "ps/symbolic.h"
 
 namespace ps{
 
+        struct symbolic_transform{
+
+                using handle = symbolic_computation::handle;
+
+                virtual ~symbolic_transform()=default;
+
+                virtual void begin(){}
+                virtual void end(){}
+                virtual bool apply(handle&)=0;
+        };
 
         struct symbolic_computation::transform_schedular{
 
@@ -21,7 +33,7 @@ namespace ps{
                         Element_Transform
                 };
 
-                void decl( TransformKind kind, transform_t transform){
+                void decl( TransformKind kind, std::shared_ptr<symbolic_transform> transform){
                         decl_.emplace_back( kind, std::move(transform));
                 }
 
@@ -34,9 +46,10 @@ namespace ps{
                         };
 
                         for( auto const& t  : decl_){
-                                auto& transform{ std::get<Element_Transform>(t)};
+                                auto transform{ std::get<Element_Transform>(t)};
                                 std::vector<std::pair<opcode, handle*>> stack;
                                 stack.emplace_back(opcode::yeild_or_apply, &root);
+                                transform->begin();
                                 for(;stack.size();){
                                         auto p{stack.back()};
                                         stack.pop_back();
@@ -53,18 +66,19 @@ namespace ps{
                                                 }
                                                 // fallthought
                                         case opcode::apply:{
-                                                bool ret{ transform( *p.second )};
+                                                bool ret{ transform->apply( *p.second )};
                                                 result = result || ret;
                                         }
                                                 break;
                                         }
                                 }
+                                transform->end();
                         }
                         return result;
                 }
 
         private:
-                std::vector< std::tuple< TransformKind, transform_t> > decl_;
+                std::vector< std::tuple< TransformKind, std::shared_ptr<symbolic_transform> > > decl_;
         };
 
 
@@ -72,8 +86,8 @@ namespace ps{
         namespace transforms{
 
 
-                struct to_lowest_permutation{
-                        bool operator()(symbolic_computation::handle& ptr)const{
+                struct to_lowest_permutation : symbolic_transform{
+                        bool apply(symbolic_computation::handle& ptr)override{
                                 if( ptr->get_kind() != symbolic_computation::Kind_Symbolic_Primitive )
                                         return false;
                                 std::vector<
@@ -140,8 +154,8 @@ namespace ps{
 
 
 
-                struct remove_suit_perms{
-                        bool operator()(symbolic_computation::handle& ptr)const{
+                struct remove_suit_perms : symbolic_transform{
+                        bool apply(symbolic_computation::handle& ptr)override{
                                 if( ptr->get_kind() != symbolic_computation::Kind_Symbolic_Suit_Perm )
                                         return false;
                                 auto aux_ptr{ reinterpret_cast<symbolic_suit_perm*>(ptr.get()) };
@@ -153,8 +167,8 @@ namespace ps{
                 };
                 
                 
-                struct consolidate_dup_prim{
-                        bool operator()(symbolic_computation::handle& ptr){
+                struct consolidate_dup_prim : symbolic_transform{
+                        bool apply(symbolic_computation::handle& ptr)override{
                                 if( ptr->get_kind() != symbolic_computation::Kind_Symbolic_Primitive )
                                         return false;
                                 auto aux_ptr{ reinterpret_cast<symbolic_primitive*>(ptr.get()) };
@@ -177,6 +191,32 @@ namespace ps{
                         size_t hits_ = 0;
                         std::map<std::string, symbolic_computation::handle > m_;
                 };
+                
+                struct calc_primitive : symbolic_transform{
+                        explicit calc_primitive(calculation_context& ctx):ctx_{&ctx}{}
+                        bool apply(symbolic_computation::handle& ptr)override{
+                                if( ptr->get_kind() != symbolic_computation::Kind_Symbolic_Primitive )
+                                        return false;
+
+                                prims_.insert( reinterpret_cast<symbolic_primitive*>(ptr.get()) );
+                                return true;
+                        }
+                        void end()override{
+                                std::vector< std::future<void> > jobs;
+                                for( auto ptr : prims_){
+                                        auto j = [this,ptr](){
+                                                ptr->calculate( *ctx_ );
+                                        };
+                                        jobs.emplace_back( std::async( std::launch::async, j) );
+                                }
+                                for( auto& f : jobs)
+                                        f.get();
+                        }
+                private:
+                        calculation_context* ctx_;
+                        std::set< symbolic_primitive* > prims_;
+                };
+
 
 
 

@@ -109,7 +109,6 @@ struct detail_eval: detail_eval_impl{
                 }, detail::true_, 51);
         }
         ~detail_eval(){
-                PRINT_SEQ((hit_)(sigma_)(hit_*100/sigma_));
         }
 
         std::uint32_t operator()(long a, long b, long c, long d, long e)const{
@@ -150,7 +149,6 @@ struct detail_eval: detail_eval_impl{
                 //return eval_brute(a,b,c,d,e,f);
                 auto f_aux{ flush_device_[a] * flush_device_[b] * flush_device_[c] * flush_device_[d] * flush_device_[e] * flush_device_[f] };
 
-                ++sigma_;
                 if( (f_aux % (2*2*2*2*2)) == 0 ||
                     (f_aux % (3*3*3*3*3)) == 0 ||
                     (f_aux % (5*5*5*5*5)) == 0 ||
@@ -158,7 +156,6 @@ struct detail_eval: detail_eval_impl{
                 {
                         return eval_brute(a,b,c,d,e,f);
                 }
-                ++hit_;
                 auto m = map_rank( rank_device_[a],rank_device_[b], rank_device_[c],rank_device_[d], rank_device_[e], rank_device_[f]);
                 assert( cache_6_[m] && "unmapped value");
 
@@ -178,7 +175,7 @@ struct detail_eval: detail_eval_impl{
 
                 return cache_6_[m];
         }
-        std::uint32_t operator()(long a, long b, long c, long d, long e, long f, long g)const{
+        std::uint32_t eval_brute(long a, long b, long c, long d, long e, long f, long g)const{
                 std::array<std::uint32_t, 7> aux = {
                         (*this)(  b,c,d,e,f,g),
                         (*this)(a,  c,d,e,f,g),
@@ -191,9 +188,54 @@ struct detail_eval: detail_eval_impl{
                 boost::sort(aux);
                 return aux.front();
         }
+        std::uint32_t operator()(long a, long b, long c, long d, long e, long f, long g)const{
+                auto f_aux{ flush_device_[a] * flush_device_[b] * flush_device_[c] * 
+                            flush_device_[d] * flush_device_[e] * flush_device_[f] * 
+                            flush_device_[g] };
+
+                if( (f_aux % (2*2*2*2*2)) == 0 ||
+                    (f_aux % (3*3*3*3*3)) == 0 ||
+                    (f_aux % (5*5*5*5*5)) == 0 ||
+                    (f_aux % (7*7*7*7*7)) == 0 )
+                {
+                        return eval_brute(a,b,c,d,e,f,g);
+                }
+                std::array<int, 7> r = {
+                        rank_device_[a], 
+                        rank_device_[b],
+                        rank_device_[c],
+                        rank_device_[d], 
+                        rank_device_[e],
+                        rank_device_[f],
+                        rank_device_[g]
+                };
+                std::array<std::uint32_t, 7> aux = {
+                        cache_6_[ map_rank(      r[1], r[2], r[3], r[4], r[5], r[6]) ],
+                        cache_6_[ map_rank(r[0]      , r[2], r[3], r[4], r[5], r[6]) ],
+                        cache_6_[ map_rank(r[0], r[1]      , r[3], r[4], r[5], r[6]) ],
+                        cache_6_[ map_rank(r[0], r[1], r[2]      , r[4], r[5], r[6]) ],
+                        cache_6_[ map_rank(r[0], r[1], r[2], r[3]      , r[5], r[6]) ],
+                        cache_6_[ map_rank(r[0], r[1], r[2], r[3], r[4]      , r[6]) ],
+                        cache_6_[ map_rank(r[0], r[1], r[2], r[3], r[4], r[5]      ) ]
+                };
+                boost::sort(aux);
+#if 0
+
+                if( aux.front() != eval_brute(a,b,c,d,e,f,g)){
+                        std::stringstream ss;
+                        ss << card_decl::get(a);
+                        ss << card_decl::get(b);
+                        ss << card_decl::get(c);
+                        ss << card_decl::get(d);
+                        ss << card_decl::get(e);
+                        ss << card_decl::get(f);
+                        ss << card_decl::get(g);
+                        PRINT(ss.str());
+                }
+                #endif
+                return aux.front();
+        }
 private:
-        mutable size_t sigma_ = 0;
-        mutable size_t hit_   = 0;
         std::vector<std::uint32_t> cache_6_;
 };
 

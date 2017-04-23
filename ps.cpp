@@ -83,69 +83,15 @@ namespace{
         }
 } // anon
  
-void test0(){
-
-        using namespace ps;
-        using namespace ps::frontend;
-
-        range p0;
-        range p1;
-        range p2;
-        range p3;
-        range p4;
-
-        range villian;
-
-
-        #if 0
-        p0 += _AKs;
-        p1 += _KQs;
-        p2 += _QJs;
-        #elif 0
-        p0 += _AKo;
-        p1 += _ATs++;
-        p2 += _99 - _77;
-        #elif 0
-        p0 += _AKo;
-        p1 += _KQs;
-        p2 += _Q6s- _Q4s;
-        p3 += _ATo++;
-        #elif 1
-        p0 += _AKo;
-        p1 += _KQs;
-        p2 += _Q6s- _Q4s;
-        p3 += _ATo++;
-        p4 += _TT-_77;
-        #else
-        p0 += _AKs;
-        p1 += _QJs;
-        p2 += _T9s;
-        #endif
-
-        run_driver(std::vector<frontend::range>{p0, p1});
-        std::cout << std::string(100,'-') << std::endl;
-        run_driver(std::vector<frontend::range>{p0, p1, p2});
-        std::cout << std::string(100,'-') << std::endl;
-        run_driver(std::vector<frontend::range>{p0, p1, p2, p3});
-        std::cout << std::string(100,'-') << std::endl;
-        run_driver(std::vector<frontend::range>{p0, p1, p2, p3,p4});
-        std::cout << std::string(100,'-') << std::endl;
-        
-}
-
 void test1(){
         using namespace ps;
         using namespace ps::frontend;
 
-        range p0;
-        range p1;
-        p0 += _AKo - _AQo;
-        p0 += _TT++;
-        p1 += _AKo - _AQo;
-        p1 += _TT++;
+        range p0 = percent(100);
+        range p1 = percent(100);
         run_driver(std::vector<frontend::range>{p0, p1});
 }
 
 int main(){
-        test0();
+        test1();
 }

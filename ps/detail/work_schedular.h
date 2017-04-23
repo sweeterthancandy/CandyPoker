@@ -16,6 +16,7 @@ namespace detail{
                 auto run(){
                         std::mutex mtx;
                         std::vector<std::thread> workers;
+                        size_t done{0};
 
                         auto proto = [&]()mutable{
                                 for(;;){
@@ -28,6 +29,9 @@ namespace detail{
                                         work_.pop_back();
                                         mtx.unlock();
                                         w();
+                                        mtx.lock();
+                                        std::cerr << "Done " << ++done << ", " << work_.size() << " Left\n";
+                                        mtx.unlock();
                                 }
                         };
                         for(size_t i=0;i!= std::thread::hardware_concurrency();++i){

@@ -529,6 +529,16 @@ namespace ps{
                         
                 range expand(range const& self);
 
+                inline
+                range percent(size_t pct){
+                        assert(pct == 100 && "not yet implemented");
+                        range rng;
+                        for(holdem_id x{0};x!=52*51;++x){
+                                rng += hand{x};
+                        }
+                        return std::move(rng);
+                }
+
 
                 template<class T, 
                         class = std::enable_if_t< boost::mpl::contains<primitive_tl, std::decay_t<T> >::value>

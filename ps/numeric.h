@@ -10,6 +10,7 @@
 namespace ps{
         namespace numeric{
 
+		#if 0
                 struct underlying_work{
 
                         explicit underlying_work(std::vector<frontend::hand> const& hands)
@@ -58,6 +59,7 @@ namespace ps{
                         result_type::nat_matrix_type factor_;
                         result_type::nat_matrix_type term_;
                 };
+		#endif 
 
                 struct work_scheduler{
                         explicit work_scheduler(size_t num_players):num_players_{num_players}{}

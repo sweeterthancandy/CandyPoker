@@ -5,6 +5,8 @@
 
 using namespace ps;
 
+#if NOT_DEFINED
+
 struct equity_calc_ : testing::Test{
 protected:
         std::vector<id_type> players;
@@ -65,6 +67,8 @@ TEST_F( equity_calc_, _AhKs_2s2c){
         EXPECT_NEAR( 0.2036, _ThQh.equity(), 1e-3);
 
 }
+
+#endif
 
 #if 0
 TEST_F( equity_calc_, _AhKs_2s2c){
@@ -239,4 +243,5 @@ TEST_F( equity_calc_, _5h6h_8sAh_2c2d_AcKc_8d9d_ThQh ){
         EXPECT_NEAR( 0.2036, _ThQh.equity(), 1e-3);
 }
 #endif
+
 

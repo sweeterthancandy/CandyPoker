@@ -415,20 +415,9 @@ namespace ps{
                         for( auto h : hands_ ){
                                 players.push_back(h.get());
                         }
-                        numeric::result_type ret( hands_.size() );
+                        bnu::matrix<size_t> ret;
                         eq.run( ret, players );
-                        bnu::matrix<size_t> tmp( ret.nat_mat.size1(), 5, 0);
-                        for(size_t j=0;j!= ret.nat_mat.size2();++j){
-                                for(size_t i=0;i!= ret.nat_mat.size1(); ++i){
-                                        tmp(i, j) = ret.nat_mat( i, j );
-                                }
-                        }
-                        for(size_t i=0;i!= ret.nat_mat.size1(); ++i){
-                                tmp(i,4) = ret.rel_mat(i, 0) * equity_fixed_prec;
-                        }
-
-
-                        cache.cache[get_hash()] = tmp;
+                        cache.cache[get_hash()] = ret;
                         return calculate(cache);
                 }
         private:

@@ -1,5 +1,4 @@
 #include "ps/symbolic.h"
-#include "ps/numeric.h"
 #include "ps/transforms.h"
 
 #include <type_traits>
@@ -19,16 +18,12 @@ namespace{
 
                 star->print();
 
-                ps::numeric::work_scheduler work{players.size()};
-
                 symbolic_computation::transform_schedular sch;
 
                 sch.decl( symbolic_computation::transform_schedular::TransformKind_BottomUp,
                           transforms::to_lowest_permutation() );
                 sch.decl( symbolic_computation::transform_schedular::TransformKind_BottomUp,
                           transforms::remove_suit_perms() );
-                sch.decl( symbolic_computation::transform_schedular::TransformKind_BottomUp,
-                          transforms::work_generator(work) );
                 sch.execute(star);
                 
                 star->print();
@@ -49,13 +44,15 @@ namespace{
                         return std::string{ret.rbegin(), ret.rend()};
                 };
 
-                const char* title_fmt{ "%2s %12s %12s %10s %20s %10s\n" };
-                const char* fmt{       "%2s %12s %12s %10s %20s %10.4f\n" };
+                const char* title_fmt{ "%2s %12s %12s %10s %10s %20s %10s\n" };
+                const char* fmt{       "%2s %12s %12s %10s %10s %20s %10.4f\n" };
                 std::cout << boost::format(title_fmt)
-                        % "n" % "wins" % "draws" % "sigma" % "equity" % "equity %";
+                        % "n" % "wins" % "draws2" % "draws3" % "sigma" % "equity" % "equity %";
                 for(size_t i{0};i!=ret.size1();++i){
                         std::cout << boost::format(fmt)
-                                % i % fmtc(ret(i,0)) % fmtc(ret(i,1)) % fmtc(ret(i,2)) % fmtc(ret(i,4)) % ( static_cast<double>(ret(i,4) ) / equity_fixed_prec / ret(i,2) * 100 );
+                                % i % fmtc(ret(i,0)) % fmtc(ret(i,1)) % fmtc(ret(i,2)) 
+                                % fmtc(ret(i,9)) % fmtc(ret(i,10)) 
+                                % ( static_cast<double>(ret(i,10) ) / computation_equity_fixed_prec / ret(i,9) * 100 );
                 }
 
                 #if 0

@@ -351,7 +351,11 @@ namespace ps{
         }
                 
 
-        constexpr size_t equity_fixed_prec = 1'000'000;
+        // 9 * wins
+        // sigma
+        // equity
+        constexpr size_t computation_size = 11;
+        constexpr size_t computation_equity_fixed_prec = 1'000'000;
 
 }
 

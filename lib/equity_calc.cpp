@@ -1,5 +1,7 @@
 #include "ps/equity_calc.h"
 
+#include "ps/cards.h"
+
 
 #include "ps/detail/visit_combinations.h"
 
@@ -7,48 +9,48 @@
 
 namespace ps{
                 
-bool equity_calc::run( numeric::result_type& result,
+bool equity_calc::run( bnu::matrix<size_t>& result,
                        std::vector<holdem_id> const& players,
                        std::vector<card_id> const& board,
                        std::vector<card_id> const& dead)noexcept
 {
         switch( players.size()){
-        case 2: return run_p<2>( players, board, dead, result ); break;
-        case 3: return run_p<3>( players, board, dead, result ); break;
-        case 4: return run_p<4>( players, board, dead, result ); break;
-        case 5: return run_p<5>( players, board, dead, result ); break;
-        case 6: return run_p<6>( players, board, dead, result ); break;
-        case 7: return run_p<7>( players, board, dead, result ); break;
-        case 8: return run_p<8>( players, board, dead, result ); break;
-        case 9: return run_p<9>( players, board, dead, result ); break;
+        case 2: return run_p<2>( result, players, board, dead ); break;
+        case 3: return run_p<3>( result, players, board, dead ); break;
+        case 4: return run_p<4>( result, players, board, dead ); break;
+        case 5: return run_p<5>( result, players, board, dead ); break;
+        case 6: return run_p<6>( result, players, board, dead ); break;
+        case 7: return run_p<7>( result, players, board, dead ); break;
+        case 8: return run_p<8>( result, players, board, dead ); break;
+        case 9: return run_p<9>( result, players, board, dead ); break;
         default:
                 return false;
         }
 }
                 
 template<size_t Num_Players>
-bool equity_calc::run_p( std::vector<holdem_id> const& players,
-            std::vector<card_id> const& board,
-            std::vector<card_id> const& dead,
-            numeric::result_type& result)noexcept
+bool equity_calc::run_p(bnu::matrix<size_t>& result,
+                        std::vector<holdem_id> const& players,
+                        std::vector<card_id> const& board,
+                        std::vector<card_id> const& dead)noexcept
 {
         auto dealt{ board.size() + dead.size() };
         auto to_deal{ 5- dealt  };
         switch(to_deal){
-        case 1: return run_pd<Num_Players, 1>( players, board, dead, result);
-        case 2: return run_pd<Num_Players, 2>( players, board, dead, result);
-        case 3: return run_pd<Num_Players, 3>( players, board, dead, result);
-        case 4: return run_pd<Num_Players, 4>( players, board, dead, result);
-        case 5: return run_pd<Num_Players, 5>( players, board, dead, result);
+        case 1: return run_pd<Num_Players, 1>(result, players, board, dead);
+        case 2: return run_pd<Num_Players, 2>(result, players, board, dead);
+        case 3: return run_pd<Num_Players, 3>(result, players, board, dead);
+        case 4: return run_pd<Num_Players, 4>(result, players, board, dead);
+        case 5: return run_pd<Num_Players, 5>(result, players, board, dead);
         default:
                 return false;
         }
 }
 template<size_t Num_Players, size_t Num_Deal>
-bool equity_calc::run_pd( std::vector<holdem_id> const& players,
-            std::vector<card_id> const& board,
-            std::vector<card_id> const& dead,
-            numeric::result_type& result)noexcept{
+bool equity_calc::run_pd( bnu::matrix<size_t>& result,
+                          std::vector<holdem_id> const& players,
+                          std::vector<card_id> const& board,
+                          std::vector<card_id> const& dead)noexcept{
 
         std::vector<id_type> known;
 
@@ -57,16 +59,20 @@ bool equity_calc::run_pd( std::vector<holdem_id> const& players,
         std::array<id_type, Num_Players> y;
 
         size_t sigma{0};
-        std::array<size_t,Num_Players> wins;
-        std::array<size_t,Num_Players> draws;
+        /* create matrix of draws */
+        std::array<
+                std::array<size_t,9>,
+                Num_Players
+        > win_matrix;
+
         std::array<double,Num_Players> equity;
 
         for( size_t i{0}; i!= Num_Players;++i){
                 auto const& p{ players[i]};
                 x[i]      = holdem_hand_decl::get(players[i]).first().id();
                 y[i]      = holdem_hand_decl::get(players[i]).second().id();
-                wins[i]   = 0;
-                draws[i]  = 0;
+                for( size_t j=0;j!=win_matrix.size();++j)
+                        win_matrix[i][j]  = 0;
                 equity[i] = 0.0;
         }
 
@@ -88,55 +94,10 @@ bool equity_calc::run_pd( std::vector<holdem_id> const& players,
                 auto iter{ boost::find_if( ranked, [&](auto const& _){ return _.first != winning_rank; } ) }; 
                 auto num_winners{ std::distance( ranked.begin(), iter) };
 
-                size_t assert_helper{0};
-                double assert_helper_eq{0.0};
-
-
-                switch(num_winners){
-                case 1:
-                        ++wins[ranked[0].second];
-                        equity[ranked[0].second] += 1.0;
-                        break;
-                case 2:
-                        ++draws[ranked[0].second];
-                        equity[ranked[0].second] += 0.5;
-                        ++draws[ranked[1].second];
-                        equity[ranked[1].second] += 0.5;
-                        break;
-                case 3:
-                        ++draws[ranked[0].second];
-                        equity[ranked[0].second] += 1.0 / 3.0;
-                        ++draws[ranked[1].second];
-                        equity[ranked[1].second] += 1.0 / 3.0;
-                        ++draws[ranked[2].second];
-                        equity[ranked[2].second] += 1.0 / 3.0;
-                        break;
+                for( auto j{ ranked.begin() }; j!=iter;++j){
+                        ++win_matrix[j->second][num_winners - 1];
+                        equity[j->second] += 1.0 / num_winners;
                 }
-
-
-                #if 0
-                if( num_winners == 1 ){
-                        ++wins[ranked.front().second];
-                        equity[ranked.front().second] += 1.0;
-
-                        assert_helper += 1;
-                        assert_helper_eq += 1.0;
-                }
-                
-                else{
-                        for( auto j{ ranked.begin() }; j!=iter;++j){
-                                ++draws[j->second];
-                                equity[j->second] += 1.0 / num_winners;
-
-                                assert_helper += 1;
-                                assert_helper_eq += 1.0 / num_winners;
-                        }
-                }
-
-                if( num_winners != assert_helper || std::fabs( assert_helper_eq - 1.0 ) > 0.01 ){
-                        PRINT_SEQ((assert_helper)(assert_helper_eq));
-                }
-                #endif
         };
 
         switch(board.size()){
@@ -172,12 +133,17 @@ bool equity_calc::run_pd( std::vector<holdem_id> const& players,
                 BOOST_THROW_EXCEPTION(std::domain_error("bad number of board cards"));
         }
 
+        if( result.size1() != Num_Players ||
+            result.size2() != computation_size ){
+                result = bnu::matrix<size_t>{Num_Players, computation_size};
+        }
+
         for(size_t i{0};i!=Num_Players;++i){
-                using tag = numeric::result_type::Tags;
-                result.nat_mat(i, tag::NTag_Wins)   = wins[i];
-                result.nat_mat(i, tag::NTag_Draws)  = draws[i];
-                result.nat_mat(i, tag::NTag_Sigma)  = sigma;
-                result.rel_mat(i, tag::RTag_Equity) = equity[i];
+                for(size_t j=0;j!= win_matrix[i].size();++j){
+                        result(i, j)   = win_matrix[i][j];
+                }
+                result(i,9) = sigma;
+                result(i,10) = equity[i] * computation_equity_fixed_prec;
         }
         return true;
 }

@@ -144,6 +144,7 @@ namespace ps{
         }
 
         struct calculation_cache{
+                equity_calc ec;
                 std::map<std::string, bnu::matrix<size_t> > cache;
         };
 
@@ -409,14 +410,13 @@ namespace ps{
                         auto cache_iter{ cache.cache.find(get_hash()) };
                         if( cache_iter != cache.cache.end())
                                 return cache_iter->second;
-                        ps::equity_calc eq;
                         std::vector<id_type> players;
 
                         for( auto h : hands_ ){
                                 players.push_back(h.get());
                         }
                         bnu::matrix<size_t> ret;
-                        eq.run( ret, players );
+                        cache.ec.run( ret, players );
                         cache.cache[get_hash()] = ret;
                         return calculate(cache);
                 }

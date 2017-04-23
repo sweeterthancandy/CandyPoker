@@ -340,6 +340,7 @@ namespace ps{
                 suited,
                 offsuit
         };
+
                 
 
         namespace literals{
@@ -356,6 +357,7 @@ namespace ps{
         // equity
         constexpr size_t computation_size = 11;
         constexpr size_t computation_equity_fixed_prec = 1'000'000;
+
 
 }
 

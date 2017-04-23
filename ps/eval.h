@@ -3,15 +3,12 @@
 
 #include <array>
 
-#include <boost/range/algorithm.hpp>
-
-#include "generate.h"
 
 #include "ps/cards.h"
 
 namespace ps{
 
-struct detail_eval_impl;
+struct detail_eval;
 
 struct eval{
         eval();
@@ -20,8 +17,9 @@ struct eval{
         std::uint32_t operator()(long a, long b, long c, long d, long e, long f)const;
         std::uint32_t operator()(long a, long b, long c, long d, long e, long f, long g)const;
 private:
-        std::shared_ptr<detail_eval_impl> impl_;
+        std::shared_ptr<detail_eval> impl_;
 };
+
 
 } // namespace ps
 

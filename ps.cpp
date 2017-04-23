@@ -29,6 +29,8 @@ namespace{
                 star->print();
 
                 calculation_cache cache;
+        
+                boost::timer::auto_cpu_timer at;
                 auto ret{ star->calculate(cache) };
 
                 auto fmtc = [](auto c){
@@ -54,17 +56,6 @@ namespace{
                                 % fmtc(ret(i,9)) % fmtc(ret(i,10)) 
                                 % ( static_cast<double>(ret(i,10) ) / computation_equity_fixed_prec / ret(i,9) * 100 );
                 }
-
-                #if 0
-                ps::numeric::result_type ret{players.size()};
-
-                {
-                        boost::timer::auto_cpu_timer at;
-                        ret = work.compute();
-                }
-
-                PRINT(ret);
-                #endif
         }
 } // anon
  
@@ -81,7 +72,7 @@ int main(){
         range villian;
 
 
-        #if 1
+        #if 0
         p1 += _KQs;
         p0 += _QJs;
         p2 += _AKs;
@@ -90,8 +81,7 @@ int main(){
         p1 += _KQs;
         p2 += _QJs;
         #endif
-        
-        boost::timer::auto_cpu_timer at;
+
         //run_driver(std::vector<frontend::range>{p0, p1});
         run_driver(std::vector<frontend::range>{p0, p1, p2});
         

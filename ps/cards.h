@@ -351,6 +351,8 @@ namespace ps{
         }
                 
 
+        constexpr size_t equity_fixed_prec = 1'000'000;
+
 }
 
 #endif // PS_CORE_CARDS_H

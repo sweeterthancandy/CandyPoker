@@ -1,8 +1,6 @@
 #ifndef PS_SYMBOLIC_H
 #define PS_SYMBOLIC_H
 
-#include <future>
-
 #include <boost/numeric/ublas/matrix.hpp>
 #include <boost/numeric/ublas/operation.hpp>
 #include <boost/numeric/ublas/io.hpp>
@@ -419,8 +417,19 @@ namespace ps{
                         }
                         numeric::result_type ret( hands_.size() );
                         eq.run( ret, players );
-                        cache.cache[get_hash()] = ret.nat_mat;
-                        return ret.nat_mat;
+                        bnu::matrix<size_t> tmp( ret.nat_mat.size1(), 5, 0);
+                        for(size_t j=0;j!= ret.nat_mat.size2();++j){
+                                for(size_t i=0;i!= ret.nat_mat.size1(); ++i){
+                                        tmp(i, j) = ret.nat_mat( i, j );
+                                }
+                        }
+                        for(size_t i=0;i!= ret.nat_mat.size1(); ++i){
+                                tmp(i,4) = ret.rel_mat(i, 0) * equity_fixed_prec;
+                        }
+
+
+                        cache.cache[get_hash()] = tmp;
+                        return calculate(cache);
                 }
         private:
                 std::vector<frontend::hand> hands_;
@@ -474,6 +483,27 @@ namespace ps{
                                                                         frontend::hand{aux[0][a]},
                                                                         frontend::hand{aux[1][b]},
                                                                         frontend::hand{aux[2][c]}}));
+                                        }
+                                }, detail::true_, size_vec);
+                                break;
+                        case 4:
+                                detail::visit_exclusive_combinations<4>(
+                                        [&](auto a, auto b, auto c, auto d){
+                                        
+                                        // make sure disjoint
+
+                                        if( disjoint( holdem_hand_decl::get(aux[0][a]),
+                                                      holdem_hand_decl::get(aux[1][b]),
+                                                      holdem_hand_decl::get(aux[2][c]),
+                                                      holdem_hand_decl::get(aux[3][d]) ) )
+                                        {
+                                                push_child(
+                                                       std::make_shared<symbolic_primitive>(
+                                                               std::vector<frontend::hand>{
+                                                                        frontend::hand{aux[0][a]},
+                                                                        frontend::hand{aux[1][b]},
+                                                                        frontend::hand{aux[2][c]},
+                                                                        frontend::hand{aux[3][d]} }));
                                         }
                                 }, detail::true_, size_vec);
                                 break;
@@ -538,6 +568,13 @@ namespace ps{
                                         [&](auto a, auto b, auto c){
                                         push_child(
                                                std::make_shared<symbolic_primitive_range>( std::vector<frontend::primitive_t>{prims[0][a], prims[1][b], prims[2][c] }));
+                                }, detail::true_, size_vec);
+                                break;
+                        case 4:
+                                detail::visit_exclusive_combinations<4>(
+                                        [&](auto a, auto b, auto c, auto d){
+                                        push_child(
+                                               std::make_shared<symbolic_primitive_range>( std::vector<frontend::primitive_t>{prims[0][a], prims[1][b], prims[2][c], prims[3][d] }));
                                 }, detail::true_, size_vec);
                                 break;
                         default:

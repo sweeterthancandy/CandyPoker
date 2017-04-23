@@ -87,15 +87,56 @@ bool equity_calc::run_pd( std::vector<holdem_id> const& players,
                 auto winning_rank{ ranked.front().first };
                 auto iter{ boost::find_if( ranked, [&](auto const& _){ return _.first != winning_rank; } ) }; 
                 auto num_winners{ std::distance( ranked.begin(), iter) };
+
+                size_t assert_helper{0};
+                double assert_helper_eq{0.0};
+
+
+                switch(num_winners){
+                case 1:
+                        ++wins[ranked[0].second];
+                        equity[ranked[0].second] += 1.0;
+                        break;
+                case 2:
+                        ++draws[ranked[0].second];
+                        equity[ranked[0].second] += 0.5;
+                        ++draws[ranked[1].second];
+                        equity[ranked[1].second] += 0.5;
+                        break;
+                case 3:
+                        ++draws[ranked[0].second];
+                        equity[ranked[0].second] += 1.0 / 3.0;
+                        ++draws[ranked[1].second];
+                        equity[ranked[1].second] += 1.0 / 3.0;
+                        ++draws[ranked[2].second];
+                        equity[ranked[2].second] += 1.0 / 3.0;
+                        break;
+                }
+
+
+                #if 0
                 if( num_winners == 1 ){
                         ++wins[ranked.front().second];
                         equity[ranked.front().second] += 1.0;
-                } else{
+
+                        assert_helper += 1;
+                        assert_helper_eq += 1.0;
+                }
+                
+                else{
                         for( auto j{ ranked.begin() }; j!=iter;++j){
                                 ++draws[j->second];
                                 equity[j->second] += 1.0 / num_winners;
+
+                                assert_helper += 1;
+                                assert_helper_eq += 1.0 / num_winners;
                         }
                 }
+
+                if( num_winners != assert_helper || std::fabs( assert_helper_eq - 1.0 ) > 0.01 ){
+                        PRINT_SEQ((assert_helper)(assert_helper_eq));
+                }
+                #endif
         };
 
         switch(board.size()){

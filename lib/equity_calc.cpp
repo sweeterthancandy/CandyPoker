@@ -62,7 +62,7 @@ bool equity_calc::run_pd( bnu::matrix<size_t>& result,
         /* create matrix of draws */
         std::array<
                 std::array<size_t,9>,
-                Num_Players
+                9
         > win_matrix;
 
         std::array<double,Num_Players> equity;
@@ -135,7 +135,7 @@ bool equity_calc::run_pd( bnu::matrix<size_t>& result,
 
         if( result.size1() != Num_Players ||
             result.size2() != computation_size ){
-                result = bnu::matrix<size_t>{Num_Players, computation_size};
+                result = bnu::matrix<size_t>{Num_Players, computation_size, 0};
         }
 
         for(size_t i{0};i!=Num_Players;++i){

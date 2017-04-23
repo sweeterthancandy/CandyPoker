@@ -46,16 +46,25 @@ namespace{
                         return std::string{ret.rbegin(), ret.rend()};
                 };
 
-                const char* title_fmt{ "%2s %12s %12s %10s %10s %20s %10s\n" };
-                const char* fmt{       "%2s %12s %12s %10s %10s %20s %10.4f\n" };
+                const char* title_fmt{ "%10s %16s %16s %12s %12s %10s %10s %20s %10s\n" };
+                const char* fmt{       "%10s %16s %16s %12s %12s %10s %10s %20s %10.4f\n" };
                 std::cout << boost::format(title_fmt)
-                        % "n" % "wins" % "draws2" % "draws3" % "sigma" % "equity" % "equity %";
+                        % "n" % "wins" % "tied" % "|tied|" % "draws2" % "draws3" % "sigma" % "equity" % "equity %";
                 for(size_t i{0};i!=ret.size1();++i){
+                        double tied_weighted{0.0};
+                        size_t tied_abs{0};
+                        for( size_t j=1; j <= 3;++j){
+                                tied_weighted += static_cast<double>(ret(i,j)) / (j+1);
+                                tied_abs += ret(i,j);
+                        }
                         std::cout << boost::format(fmt)
-                                % i % fmtc(ret(i,0)) % fmtc(ret(i,1)) % fmtc(ret(i,2)) 
+                                % players[i] % fmtc(ret(i,0))
+                                % fmtc(tied_abs) % fmtc(static_cast<int>(tied_weighted))
+                                % fmtc(ret(i,1)) % fmtc(ret(i,2)) 
                                 % fmtc(ret(i,9)) % fmtc(ret(i,10)) 
                                 % ( static_cast<double>(ret(i,10) ) / computation_equity_fixed_prec / ret(i,9) * 100 );
                 }
+                PRINT(ret);
         }
 } // anon
  
@@ -73,13 +82,17 @@ int main(){
 
 
         #if 0
-        p1 += _KQs;
-        p0 += _QJs;
-        p2 += _AKs;
-        #else
         p0 += _AKs;
         p1 += _KQs;
         p2 += _QJs;
+        #elif 0
+        p0 += _AKo;
+        p1 += _ATs++;
+        p2 += _99 - _77;
+        #else
+        p0 += _AKs;
+        p1 += _QJs;
+        p2 += _T9s;
         #endif
 
         //run_driver(std::vector<frontend::range>{p0, p1});

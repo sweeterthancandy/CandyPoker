@@ -358,7 +358,7 @@ namespace ps{
 
                         for(size_t j=0;j!= result.size2();++j){
                                 for(size_t i=0;i!= result.size1(); ++i){
-                                        result(i, j) = child_result( player_perm_[i], j );
+                                        result(player_perm_[i], j) = child_result( i, j );
                                 }
                         }
 

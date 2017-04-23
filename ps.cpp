@@ -24,12 +24,8 @@ namespace{
                 calculation_context ctx;
 
 
-                #if 0
                 sch.decl( symbolic_computation::transform_schedular::TransformKind_BottomUp,
                           std::make_shared<permutate_for_the_better>() );
-                  #endif
-                sch.decl( symbolic_computation::transform_schedular::TransformKind_BottomUp,
-                          std::make_shared<to_lowest_permutation>() );
                 sch.decl( symbolic_computation::transform_schedular::TransformKind_BottomUp,
                           std::make_shared<remove_suit_perms>() );
                 sch.decl( symbolic_computation::transform_schedular::TransformKind_BottomUp,
@@ -128,17 +124,12 @@ void test0(){
 
         run_driver(std::vector<frontend::range>{p0, p1});
         std::cout << std::string(100,'-') << std::endl;
-        run_driver(std::vector<frontend::range>{p2, p0, p1});
+        run_driver(std::vector<frontend::range>{p0, p1, p2});
         std::cout << std::string(100,'-') << std::endl;
-        #if 0
         run_driver(std::vector<frontend::range>{p0, p1, p2, p3});
         std::cout << std::string(100,'-') << std::endl;
-        #endif
-        #if 0
         run_driver(std::vector<frontend::range>{p0, p1, p2, p3,p4});
         std::cout << std::string(100,'-') << std::endl;
-        #endif
-
         
 }
 

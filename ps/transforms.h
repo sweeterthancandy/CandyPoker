@@ -5,6 +5,7 @@
 #include <boost/timer/timer.hpp>
 
 #include "ps/detail/print.h"
+#include "ps/detail/work_schedular.h"
 
 #include "ps/symbolic.h"
 
@@ -274,6 +275,7 @@ namespace ps{
                         size_t hits_ = 0;
                         std::map<std::string, symbolic_computation::handle > m_;
                 };
+
                 
                 struct calc_primitive : symbolic_transform{
                         explicit calc_primitive(calculation_context& ctx):symbolic_transform{"calc_primitive"},ctx_{&ctx}{}
@@ -285,15 +287,14 @@ namespace ps{
                                 return true;
                         }
                         void end()override{
-                                std::vector< std::future<void> > jobs;
+                                detail::work_scheduler sch;
                                 for( auto ptr : prims_){
                                         auto j = [this,ptr](){
                                                 ptr->calculate( *ctx_ );
                                         };
-                                        jobs.emplace_back( std::async( std::launch::async, j) );
+                                        sch.decl( std::move(j) );
                                 }
-                                for( auto& f : jobs)
-                                        f.get();
+                                sch.run();
                         }
                 private:
                         calculation_context* ctx_;

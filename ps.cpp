@@ -24,32 +24,25 @@ namespace{
                 calculation_context ctx;
 
 
+                #if 0
+                sch.decl( symbolic_computation::transform_schedular::TransformKind_BottomUp,
+                          std::make_shared<permutate_for_the_better>() );
+                  #endif
                 sch.decl( symbolic_computation::transform_schedular::TransformKind_BottomUp,
                           std::make_shared<to_lowest_permutation>() );
                 sch.decl( symbolic_computation::transform_schedular::TransformKind_BottomUp,
                           std::make_shared<remove_suit_perms>() );
                 sch.decl( symbolic_computation::transform_schedular::TransformKind_BottomUp,
                           std::make_shared<consolidate_dup_prim>() );
-                #if 0
                 sch.decl( symbolic_computation::transform_schedular::TransformKind_BottomUp,
                           std::make_shared<calc_primitive>(ctx) );
-                #endif
 
                 {
                         boost::timer::auto_cpu_timer at("tranforms took %w seconds\n");
                         sch.execute(star);
                 }
-                return;
-                star->print();
+                //star->print();
 
-                #if 0
-                {
-                        boost::timer::auto_cpu_timer at;
-                        preempt.execute(star);
-                }
-                #endif
-
-                
                 
                 //star->print();
 
@@ -135,10 +128,12 @@ void test0(){
 
         run_driver(std::vector<frontend::range>{p0, p1});
         std::cout << std::string(100,'-') << std::endl;
-        run_driver(std::vector<frontend::range>{p0, p1, p2});
+        run_driver(std::vector<frontend::range>{p2, p0, p1});
         std::cout << std::string(100,'-') << std::endl;
+        #if 0
         run_driver(std::vector<frontend::range>{p0, p1, p2, p3});
         std::cout << std::string(100,'-') << std::endl;
+        #endif
         #if 0
         run_driver(std::vector<frontend::range>{p0, p1, p2, p3,p4});
         std::cout << std::string(100,'-') << std::endl;

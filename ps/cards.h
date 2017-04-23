@@ -165,7 +165,7 @@ namespace ps{
         };
 
         template<class... Args,
-                 class = void_t<
+                 class = detail::void_t<
                          std::enable_if_t<
                                 std::is_same<std::decay_t<Args>, holdem_hand_decl>::value>...
                 >

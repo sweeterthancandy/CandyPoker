@@ -30,7 +30,6 @@ namespace ps{
 
         struct symbolic_computation::transform_schedular{
 
-                using transform_t = std::function<bool(handle&)>;
 
                 enum TransformKind{
                         TransformKind_BottomUp,
@@ -42,9 +41,22 @@ namespace ps{
                         Element_Kind,
                         Element_Transform
                 };
+                
+                struct decl_type{
+                        TransformKind                       kind;
+                        std::shared_ptr<symbolic_transform> transform;
+                };
 
-                void decl( TransformKind kind, std::shared_ptr<symbolic_transform> transform){
-                        decl_.emplace_back( kind, std::move(transform));
+                using maker_t = std::function<decl_type()>;
+
+                template<class Transform, class... Args>
+                void decl(Args&&... args){
+                        auto maker = [args...]()mutable{
+                                decl_type d = { TransformKind_BottomUp,
+                                                std::make_shared<Transform>(args...) };
+                                return d;
+                        };
+                        decl_.emplace_back(std::move(maker));
                 }
 
                 bool execute( handle& root)const{
@@ -55,8 +67,9 @@ namespace ps{
                                 apply
                         };
 
-                        for( auto const& t  : decl_){
-                                auto transform{ std::get<Element_Transform>(t)};
+                        for( auto const& make  : decl_){
+                                decl_type dt{ make() };
+                                auto transform{ dt.transform };
                                 boost::timer::auto_cpu_timer at( "    " + transform->get_name() +  " took %w seconds\n");
                                 std::vector<std::pair<opcode, handle*>> stack;
                                 stack.emplace_back(opcode::yeild_or_apply, &root);
@@ -91,7 +104,7 @@ namespace ps{
                 }
 
         private:
-                std::vector< std::tuple< TransformKind, std::shared_ptr<symbolic_transform> > > decl_;
+                std::vector<maker_t> decl_;
         };
 
 

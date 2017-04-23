@@ -500,6 +500,17 @@ namespace ps{
                 };
 
                 struct range{
+                        #if 0
+                        range()=default;
+                        range(range const&)=default;
+                        template<class... Args,
+                                 class = std::enable_if_t< sizeof...(Args)!=0 >,
+                                 class = ::ps::detail::void_t< decltype( sub_range_t{ std::declval<Args>() } )... >
+                        >
+                        range(Args&& ...args){
+                                int _[]={0, ( (*this)+=args,0)...};
+                        }
+                        #endif
                         friend std::ostream& operator<<(std::ostream& ostr, range const& self){
                                 using printer = detail::operator_left_shift;
                                 for(size_t i{0};i!=self.subs_.size();++i){

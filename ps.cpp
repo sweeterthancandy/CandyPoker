@@ -23,15 +23,11 @@ namespace{
                 symbolic_computation::transform_schedular sch;
                 calculation_context ctx;
 
-
-                sch.decl( symbolic_computation::transform_schedular::TransformKind_BottomUp,
-                          std::make_shared<permutate_for_the_better>() );
-                sch.decl( symbolic_computation::transform_schedular::TransformKind_BottomUp,
-                          std::make_shared<remove_suit_perms>() );
-                sch.decl( symbolic_computation::transform_schedular::TransformKind_BottomUp,
-                          std::make_shared<consolidate_dup_prim>() );
-                sch.decl( symbolic_computation::transform_schedular::TransformKind_BottomUp,
-                          std::make_shared<calc_primitive>(ctx) );
+                sch.decl<permutate_for_the_better>();
+                sch.decl<remove_suit_perms>();
+                sch.decl<consolidate_dup_prim>();
+                sch.decl<calc_primitive>(ctx);
+                sch.decl<cache_saver>(ctx);
 
                 {
                         boost::timer::auto_cpu_timer at("tranforms took %w seconds\n");
@@ -87,8 +83,14 @@ void test1(){
         using namespace ps;
         using namespace ps::frontend;
 
+        #if 1
         range p0 = percent(100);
         range p1 = percent(100);
+        #endif
+        range p0;
+        range p1;
+        p0 += _AKo;
+        p1 += _QQ++;
         run_driver(std::vector<frontend::range>{p0, p1});
 }
 

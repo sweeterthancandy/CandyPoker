@@ -30,14 +30,16 @@ namespace{
                           std::make_shared<remove_suit_perms>() );
                 sch.decl( symbolic_computation::transform_schedular::TransformKind_BottomUp,
                           std::make_shared<consolidate_dup_prim>() );
+                #if 0
                 sch.decl( symbolic_computation::transform_schedular::TransformKind_BottomUp,
                           std::make_shared<calc_primitive>(ctx) );
-
+                #endif
 
                 {
                         boost::timer::auto_cpu_timer at("tranforms took %w seconds\n");
                         sch.execute(star);
                 }
+                return;
                 star->print();
 
                 #if 0
@@ -92,7 +94,7 @@ namespace{
         }
 } // anon
  
-void test_0(){
+void test0(){
 
         using namespace ps;
         using namespace ps::frontend;
@@ -137,13 +139,15 @@ void test_0(){
         std::cout << std::string(100,'-') << std::endl;
         run_driver(std::vector<frontend::range>{p0, p1, p2, p3});
         std::cout << std::string(100,'-') << std::endl;
+        #if 0
         run_driver(std::vector<frontend::range>{p0, p1, p2, p3,p4});
         std::cout << std::string(100,'-') << std::endl;
+        #endif
 
         
 }
 
-int main(){
+void test1(){
         using namespace ps;
         using namespace ps::frontend;
 
@@ -154,4 +158,8 @@ int main(){
         p1 += _AKo - _AQo;
         p1 += _TT++;
         run_driver(std::vector<frontend::range>{p0, p1});
+}
+
+int main(){
+        test0();
 }

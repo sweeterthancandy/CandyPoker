@@ -19,6 +19,7 @@ namespace ps{
                 virtual void begin(){}
                 virtual void end(){}
                 virtual bool apply(handle&)=0;
+                virtual void debug(std::ostream& ostr){}
                 virtual std::string get_name(){ return name_; }
         private:
                 std::string name_;
@@ -79,6 +80,7 @@ namespace ps{
                                                 break;
                                         }
                                 }
+                                transform->debug(std::cerr);
                                 transform->end();
                                 std::cout.flush();
                         }
@@ -196,6 +198,9 @@ namespace ps{
                                         m_[hash] = ptr;
                                         return false;
                                 }
+                        }
+                        void debug(std::ostream& ostr)override{
+                                ostr << "{ sigma = " << sigma_ << ", hits = " << hits_ << "}\n";
                         }
                 private:
                         size_t sigma_ = 0;

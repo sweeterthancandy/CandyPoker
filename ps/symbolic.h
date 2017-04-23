@@ -5,6 +5,7 @@
 #include <boost/numeric/ublas/operation.hpp>
 #include <boost/numeric/ublas/io.hpp>
 
+#include <boost/optional.hpp>
 
 #include "ps/cards.h"
 #include "ps/frontend.h"
@@ -143,9 +144,8 @@ namespace ps{
                 };
         }
 
-        struct calculation_cache{
+        struct calculation_context{
                 equity_calc ec;
-                std::map<std::string, bnu::matrix<size_t> > cache;
         };
 
         struct symbolic_computation{
@@ -180,7 +180,7 @@ namespace ps{
                 }
                 virtual void print_impl(detail::print_context& ctx)const=0;
 
-                virtual bnu::matrix<size_t> calculate(calculation_cache&)=0;
+                virtual bnu::matrix<size_t> calculate(calculation_context&)=0;
 
                 auto get_kind()const{ return kind_; }
                 auto is_terminal()const{
@@ -232,66 +232,6 @@ namespace ps{
                 std::list<handle> children_;
         };
 
-        struct symbolic_computation::transform_schedular{
-
-                using transform_t = std::function<bool(handle&)>;
-
-                enum TransformKind{
-                        TransformKind_BottomUp,
-                        TransformKind_TopDown,
-                        TransformKind_OnlyTerminals
-                };
-
-                enum {
-                        Element_Kind,
-                        Element_Transform
-                };
-
-                void decl( TransformKind kind, transform_t transform){
-                        decl_.emplace_back( kind, std::move(transform));
-                }
-
-                bool execute( handle& root)const{
-                        bool result{false};
-
-                        enum class opcode{
-                                yeild_or_apply,
-                                apply
-                        };
-
-                        for( auto const& t  : decl_){
-                                auto& transform{ std::get<Element_Transform>(t)};
-                                std::vector<std::pair<opcode, handle*>> stack;
-                                stack.emplace_back(opcode::yeild_or_apply, &root);
-                                for(;stack.size();){
-                                        auto p{stack.back()};
-                                        stack.pop_back();
-                                        
-                                        switch(p.first){
-                                        case opcode::yeild_or_apply:
-                                                if( (*p.second)->is_non_terminal()){
-                                                        stack.emplace_back( opcode::apply, p.second );
-                                                        auto c{ reinterpret_cast<symbolic_non_terminal*>(p.second->get()) };
-                                                        for( auto iter{c->begin()}, end{c->end()}; iter!=end;++iter){
-                                                                stack.emplace_back( opcode::yeild_or_apply, &*iter );
-                                                        }
-                                                        break;
-                                                }
-                                                // fallthought
-                                        case opcode::apply:{
-                                                bool ret{ transform( *p.second )};
-                                                result = result || ret;
-                                        }
-                                                break;
-                                        }
-                                }
-                        }
-                        return result;
-                }
-
-        private:
-                std::vector< std::tuple< TransformKind, transform_t> > decl_;
-        };
 
         struct symbolic_suit_perm : symbolic_non_terminal{
                 explicit symbolic_suit_perm( std::vector<int> const& suit_perm,
@@ -318,7 +258,7 @@ namespace ps{
                                 c->print_impl(ctx);
                         ctx.pop();
                 }
-                bnu::matrix<size_t> calculate(calculation_cache& cache)override{
+                bnu::matrix<size_t> calculate(calculation_context& cache)override{
                         return get_only_child()->calculate(cache);
                 }
         private:
@@ -352,7 +292,7 @@ namespace ps{
                 }
                 decltype(auto) get_player_perm()const{ return player_perm_; }
                 
-                bnu::matrix<size_t> calculate(calculation_cache& cache)override{
+                bnu::matrix<size_t> calculate(calculation_context& cache)override{
                         bnu::matrix<size_t> child_result{ get_only_child()->calculate(cache) };
                         bnu::matrix<size_t> result{ child_result }; // just for size
 
@@ -406,23 +346,23 @@ namespace ps{
                 }
                 std::string const& get_hash()const{ return hash_; }
                 
-                bnu::matrix<size_t> calculate(calculation_cache& cache)override{
-                        auto cache_iter{ cache.cache.find(get_hash()) };
-                        if( cache_iter != cache.cache.end())
-                                return cache_iter->second;
-                        std::vector<id_type> players;
+                bnu::matrix<size_t> calculate(calculation_context& cache)override{
+                        if( ! cache_ ){
+                                std::vector<id_type> players;
 
-                        for( auto h : hands_ ){
-                                players.push_back(h.get());
+                                for( auto h : hands_ ){
+                                        players.push_back(h.get());
+                                }
+                                bnu::matrix<size_t> ret;
+                                cache.ec.run( ret, players );
+                                cache_ = std::move(ret);
                         }
-                        bnu::matrix<size_t> ret;
-                        cache.ec.run( ret, players );
-                        cache.cache[get_hash()] = ret;
-                        return calculate(cache);
+                        return *cache_;
                 }
         private:
                 std::vector<frontend::hand> hands_;
                 std::string hash_;
+                boost::optional< bnu::matrix<size_t> > cache_;
         };
 
         struct symbolic_primitive_range : symbolic_non_terminal{
@@ -537,7 +477,7 @@ namespace ps{
                         ctx.pop();
                 }
                 
-                bnu::matrix<size_t> calculate(calculation_cache& cache)override{
+                bnu::matrix<size_t> calculate(calculation_context& cache)override{
                         auto iter{ begin() };
                         auto last{ end() };
                         bnu::matrix<size_t> result { (*iter)->calculate(cache) };
@@ -611,7 +551,7 @@ namespace ps{
                         }
                         ctx.pop();
                 }
-                bnu::matrix<size_t> calculate(calculation_cache& cache)override{
+                bnu::matrix<size_t> calculate(calculation_context& cache)override{
                         auto iter{ begin() };
                         auto last{ end() };
                         bnu::matrix<size_t> result { (*iter)->calculate(cache) };

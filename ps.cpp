@@ -24,6 +24,8 @@ namespace{
                           transforms::to_lowest_permutation() );
                 sch.decl( symbolic_computation::transform_schedular::TransformKind_BottomUp,
                           transforms::remove_suit_perms() );
+                sch.decl( symbolic_computation::transform_schedular::TransformKind_BottomUp,
+                          transforms::consolidate_dup_prim() );
                 {
                         boost::timer::auto_cpu_timer at;
                         sch.execute(star);
@@ -31,10 +33,10 @@ namespace{
                 
                 //star->print();
 
-                calculation_cache cache;
+                calculation_context ctx;
         
                 boost::timer::auto_cpu_timer at;
-                auto ret{ star->calculate(cache) };
+                auto ret{ star->calculate(ctx) };
 
                 auto fmtc = [](auto c){
                         static_assert( std::is_integral< std::decay_t<decltype(c)> >::value, "");

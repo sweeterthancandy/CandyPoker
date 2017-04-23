@@ -1,9 +1,76 @@
 #ifndef PS_TRANSFORMS_H
 #define PS_TRANSFORMS_H
 
+#include "ps/symbolic.h"
 
 namespace ps{
+
+
+        struct symbolic_computation::transform_schedular{
+
+                using transform_t = std::function<bool(handle&)>;
+
+                enum TransformKind{
+                        TransformKind_BottomUp,
+                        TransformKind_TopDown,
+                        TransformKind_OnlyTerminals
+                };
+
+                enum {
+                        Element_Kind,
+                        Element_Transform
+                };
+
+                void decl( TransformKind kind, transform_t transform){
+                        decl_.emplace_back( kind, std::move(transform));
+                }
+
+                bool execute( handle& root)const{
+                        bool result{false};
+
+                        enum class opcode{
+                                yeild_or_apply,
+                                apply
+                        };
+
+                        for( auto const& t  : decl_){
+                                auto& transform{ std::get<Element_Transform>(t)};
+                                std::vector<std::pair<opcode, handle*>> stack;
+                                stack.emplace_back(opcode::yeild_or_apply, &root);
+                                for(;stack.size();){
+                                        auto p{stack.back()};
+                                        stack.pop_back();
+                                        
+                                        switch(p.first){
+                                        case opcode::yeild_or_apply:
+                                                if( (*p.second)->is_non_terminal()){
+                                                        stack.emplace_back( opcode::apply, p.second );
+                                                        auto c{ reinterpret_cast<symbolic_non_terminal*>(p.second->get()) };
+                                                        for( auto iter{c->begin()}, end{c->end()}; iter!=end;++iter){
+                                                                stack.emplace_back( opcode::yeild_or_apply, &*iter );
+                                                        }
+                                                        break;
+                                                }
+                                                // fallthought
+                                        case opcode::apply:{
+                                                bool ret{ transform( *p.second )};
+                                                result = result || ret;
+                                        }
+                                                break;
+                                        }
+                                }
+                        }
+                        return result;
+                }
+
+        private:
+                std::vector< std::tuple< TransformKind, transform_t> > decl_;
+        };
+
+
+
         namespace transforms{
+
 
                 struct to_lowest_permutation{
                         bool operator()(symbolic_computation::handle& ptr)const{
@@ -86,6 +153,30 @@ namespace ps{
                 };
                 
                 
+                struct consolidate_dup_prim{
+                        bool operator()(symbolic_computation::handle& ptr){
+                                if( ptr->get_kind() != symbolic_computation::Kind_Symbolic_Primitive )
+                                        return false;
+                                auto aux_ptr{ reinterpret_cast<symbolic_primitive*>(ptr.get()) };
+                                auto hash{ aux_ptr->get_hash() };
+                                auto iter{ m_.find(hash) };
+                                ++sigma_;
+                                if( iter != m_.end() ){
+                                        ++hits_;
+                                        //PRINT_SEQ((sigma_)(hits_));
+                                        ptr = iter->second;
+                                        return true;
+                                } else {
+                                        //PRINT_SEQ((sigma_)(hits_));
+                                        m_[hash] = ptr;
+                                        return false;
+                                }
+                        }
+                private:
+                        size_t sigma_ = 0;
+                        size_t hits_ = 0;
+                        std::map<std::string, symbolic_computation::handle > m_;
+                };
 
 
 

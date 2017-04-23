@@ -225,7 +225,11 @@ namespace ps{
                         assert( children_.size() ==1 && "preconditon failed");
                         return children_.back();
                 }
-                
+                void print_impl(detail::print_context& ctx)const override{
+                        for( auto const& c : get_children() ){
+                                c->print_impl(ctx);
+                        }
+                }
 
 
         private:
@@ -465,6 +469,7 @@ namespace ps{
 
 
                 }
+                #if 0
                 void print_impl(detail::print_context& ctx)const override{
                         ctx.put() << "children.size() = " << get_children().size() << "\n";
                         for(size_t i{0};i!=prims_.size();++i){
@@ -476,6 +481,7 @@ namespace ps{
                         }
                         ctx.pop();
                 }
+                #endif
                 
                 bnu::matrix<size_t> calculate(calculation_context& cache)override{
                         auto iter{ begin() };
@@ -540,6 +546,7 @@ namespace ps{
                                 assert( 0 && " not implemented");
                         }
                 }
+                #if 0
                 void print_impl(detail::print_context& ctx)const override{
                         ctx.put() << "children.size() = " << get_children().size() << "\n";
                         for(size_t i{0};i!=players_.size();++i){
@@ -551,6 +558,7 @@ namespace ps{
                         }
                         ctx.pop();
                 }
+                #endif
                 bnu::matrix<size_t> calculate(calculation_context& cache)override{
                         auto iter{ begin() };
                         auto last{ end() };

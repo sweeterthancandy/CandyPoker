@@ -10,7 +10,7 @@
 namespace{
         void run_driver(std::vector<ps::frontend::range> const& players)
         {
-                boost::timer::auto_cpu_timer at;
+                boost::timer::auto_cpu_timer at("driver took %w seconds\n");
 
                 using namespace ps;
                 using namespace ps::frontend;
@@ -33,9 +33,12 @@ namespace{
                 sch.decl( symbolic_computation::transform_schedular::TransformKind_BottomUp,
                           std::make_shared<calc_primitive>(ctx) );
 
+
                 {
+                        boost::timer::auto_cpu_timer at("tranforms took %w seconds\n");
                         sch.execute(star);
                 }
+                star->print();
 
                 #if 0
                 {
@@ -49,7 +52,11 @@ namespace{
                 //star->print();
 
         
-                auto ret{ star->calculate(ctx) };
+                decltype( star->calculate(ctx)) ret;
+                {
+                        boost::timer::auto_cpu_timer at("calculate took %w seconds\n");
+                        ret = star->calculate(ctx);
+                }
 
                 auto fmtc = [](auto c){
                         static_assert( std::is_integral< std::decay_t<decltype(c)> >::value, "");
@@ -82,11 +89,10 @@ namespace{
                                 % fmtc(ret(i,9)) % fmtc(ret(i,10)) 
                                 % ( static_cast<double>(ret(i,10) ) / computation_equity_fixed_prec / ret(i,9) * 100 );
                 }
-                std::cout << "----------------------------------------------------------\n";
         }
 } // anon
  
-int main(){
+void test_0(){
 
         using namespace ps;
         using namespace ps::frontend;
@@ -124,11 +130,28 @@ int main(){
         p1 += _QJs;
         p2 += _T9s;
         #endif
+
         run_driver(std::vector<frontend::range>{p0, p1});
+        std::cout << std::string(100,'-') << std::endl;
         run_driver(std::vector<frontend::range>{p0, p1, p2});
+        std::cout << std::string(100,'-') << std::endl;
         run_driver(std::vector<frontend::range>{p0, p1, p2, p3});
-        #if 0
+        std::cout << std::string(100,'-') << std::endl;
         run_driver(std::vector<frontend::range>{p0, p1, p2, p3,p4});
-        #endif
+        std::cout << std::string(100,'-') << std::endl;
+
         
+}
+
+int main(){
+        using namespace ps;
+        using namespace ps::frontend;
+
+        range p0;
+        range p1;
+        p0 += _AKo - _AQo;
+        p0 += _TT++;
+        p1 += _AKo - _AQo;
+        p1 += _TT++;
+        run_driver(std::vector<frontend::range>{p0, p1});
 }

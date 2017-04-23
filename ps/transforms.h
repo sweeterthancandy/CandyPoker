@@ -2,12 +2,15 @@
 #define PS_TRANSFORMS_H
 
 #include <future>
+#include <boost/timer/timer.hpp>
 
 #include "ps/symbolic.h"
 
 namespace ps{
 
         struct symbolic_transform{
+
+                explicit symbolic_transform(std::string name):name_{name}{}
 
                 using handle = symbolic_computation::handle;
 
@@ -16,6 +19,9 @@ namespace ps{
                 virtual void begin(){}
                 virtual void end(){}
                 virtual bool apply(handle&)=0;
+                virtual std::string get_name(){ return name_; }
+        private:
+                std::string name_;
         };
 
         struct symbolic_computation::transform_schedular{
@@ -47,6 +53,7 @@ namespace ps{
 
                         for( auto const& t  : decl_){
                                 auto transform{ std::get<Element_Transform>(t)};
+                                boost::timer::auto_cpu_timer at( "    " + transform->get_name() +  " took %w seconds\n");
                                 std::vector<std::pair<opcode, handle*>> stack;
                                 stack.emplace_back(opcode::yeild_or_apply, &root);
                                 transform->begin();
@@ -73,6 +80,7 @@ namespace ps{
                                         }
                                 }
                                 transform->end();
+                                std::cout.flush();
                         }
                         return result;
                 }
@@ -87,6 +95,7 @@ namespace ps{
 
 
                 struct to_lowest_permutation : symbolic_transform{
+                        to_lowest_permutation():symbolic_transform{"to_lowest_permutation"}{}
                         bool apply(symbolic_computation::handle& ptr)override{
                                 if( ptr->get_kind() != symbolic_computation::Kind_Symbolic_Primitive )
                                         return false;
@@ -105,7 +114,7 @@ namespace ps{
                                         player_perms.push_back(i);
                                 std::vector<int> suit_perms{0,1,2,3};
 
-                                for( ;;){
+                                for(;;){
                                         for(;;){
                                                 std::string hash;
                                                 std::vector<frontend::hand> mapped_hands;
@@ -155,6 +164,7 @@ namespace ps{
 
 
                 struct remove_suit_perms : symbolic_transform{
+                        remove_suit_perms():symbolic_transform{"remove_suit_perms"}{}
                         bool apply(symbolic_computation::handle& ptr)override{
                                 if( ptr->get_kind() != symbolic_computation::Kind_Symbolic_Suit_Perm )
                                         return false;
@@ -168,6 +178,7 @@ namespace ps{
                 
                 
                 struct consolidate_dup_prim : symbolic_transform{
+                        consolidate_dup_prim():symbolic_transform{"consolidate_dup_prim"}{}
                         bool apply(symbolic_computation::handle& ptr)override{
                                 if( ptr->get_kind() != symbolic_computation::Kind_Symbolic_Primitive )
                                         return false;
@@ -193,7 +204,7 @@ namespace ps{
                 };
                 
                 struct calc_primitive : symbolic_transform{
-                        explicit calc_primitive(calculation_context& ctx):ctx_{&ctx}{}
+                        explicit calc_primitive(calculation_context& ctx):symbolic_transform{"calc_primitive"},ctx_{&ctx}{}
                         bool apply(symbolic_computation::handle& ptr)override{
                                 if( ptr->get_kind() != symbolic_computation::Kind_Symbolic_Primitive )
                                         return false;

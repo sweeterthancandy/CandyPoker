@@ -210,6 +210,7 @@ namespace ps{
                 auto end(){ return children_.end(); }
                 auto begin()const{ return children_.begin(); }
                 auto end()const{ return children_.end(); }
+                auto size()const{ return children_.size(); }
                 std::list<handle> const& get_children()const{ return children_; }
                 std::list<handle>& get_children(){ return children_; }
                 void push_child( handle ptr){ children_.push_back(ptr); }
@@ -265,6 +266,7 @@ namespace ps{
                 bnu::matrix<size_t> calculate(calculation_context& cache)override{
                         return get_only_child()->calculate(cache);
                 }
+                decltype(auto) get_suit_perm()const{ return suit_perm_; }
         private:
                 std::vector<int> suit_perm_;
         };
@@ -493,6 +495,7 @@ namespace ps{
                         }
                         return result;
                 }
+                std::vector<frontend::primitive_t> const& get_players()const{ return prims_; }
         private:
                 std::vector<frontend::primitive_t> prims_;
         };
@@ -569,6 +572,7 @@ namespace ps{
                         }
                         return result;
                 }
+                std::vector<frontend::range> const& get_players()const{ return players_; }
         private:
                 std::vector<frontend::range> players_;
 

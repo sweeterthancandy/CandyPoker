@@ -30,6 +30,7 @@ namespace transforms{
                 calculation_context* ctx_;
                 std::set< symbolic_primitive* > prims_;
         };
+
 } // transform
 } // ps
 

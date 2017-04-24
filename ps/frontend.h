@@ -83,7 +83,7 @@ namespace ps{
                         friend std::ostream& operator<<(std::ostream& ostr, pocket_pair const& self){
                                 switch(print_way){
                                 case PrintWay_Pretty:
-                                        return ostr << rank_decl::get(self.get()); 
+                                        return ostr << rank_decl::get(self.get()) << rank_decl::get(self.get());
                                 case PrintWay_Debug:
                                         return ostr << boost::format("pocker_pair{%s}") % rank_decl::get(self.get());
                                 }
@@ -124,7 +124,7 @@ namespace ps{
                         }
                         static int order(){ return Order_Decl; }
                         friend std::ostream& operator<<(std::ostream& ostr, basic_rank_tuple const& self){
-                                const char* name = [](){
+                                const char* debug_name = [](){
                                         switch(Suit_Category){
                                         case suit_category::any_suit:
                                                 return "any_suit";
@@ -134,7 +134,22 @@ namespace ps{
                                                 return "offsuit";
                                         }
                                 }();
-                                return ostr << boost::format("%s{%s, %s}") % name % rank_decl::get(self.first()) % rank_decl::get(self.second());
+                                const char* pretty_name = [](){
+                                        switch(Suit_Category){
+                                        case suit_category::any_suit:
+                                                return "";
+                                        case suit_category::suited:
+                                                return "s";
+                                        case suit_category::offsuit:
+                                                return "o";
+                                        }
+                                }();
+                                switch(print_way){
+                                case PrintWay_Pretty:
+                                        return ostr << boost::format("%s%s%s") %rank_decl::get(self.first()) % rank_decl::get(self.second()) % pretty_name;
+                                case PrintWay_Debug:
+                                        return ostr << boost::format("%s{%s, %s}") % debug_name % rank_decl::get(self.first()) % rank_decl::get(self.second());
+                                }
                         }
                         auto i_am_a_duck__to_hand_vector()const{
                                 using namespace decl;

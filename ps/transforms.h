@@ -11,12 +11,13 @@
 #include "ps/symbolic.h"
 #endif
 
+#include "ps/transforms/transform.h"
+
 #include "ps/transforms/calc_primitive.h"
 #include "ps/transforms/consolidate_dup_prim.h"
 #include "ps/transforms/permutate_for_the_better.h"
 #include "ps/transforms/remove_suit_perms.h"
-#include "ps/transforms/transform.h"
-//#include "ps/transforms/tree_printer.h"
+#include "ps/transforms/tree_printer.h"
 
 
 #endif // PS_TRANSFORMS_H

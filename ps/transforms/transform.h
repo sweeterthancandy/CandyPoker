@@ -18,6 +18,9 @@ namespace ps{
                 virtual bool apply(handle&)=0;
                 virtual void debug(std::ostream& ostr){}
                 virtual std::string get_name(){ return name_; }
+                virtual void begin_children(size_t idx){}
+                virtual void end_children(){}
+                virtual void next_child(){}
         private:
                 std::string name_;
         };
@@ -45,16 +48,27 @@ namespace ps{
 
                 template<class Transform, class... Args>
                 void decl(Args&&... args){
-                        auto maker = [args...]()mutable{
-                                decl_type d = { TransformKind_BottomUp,
+                        do_decl_<Transform>(TransformKind_BottomUp, std::forward<Args>(args)...);
+                }
+                template<class Transform, class... Args>
+                void decl_top_down(Args&&... args){
+                        do_decl_<Transform>(TransformKind_TopDown, std::forward<Args>(args)...);
+                }
+        private:
+                template<class Transform, class... Args>
+                void do_decl_(TransformKind kind, Args&&... args){
+                        auto maker = [kind,args...]()mutable{
+                                decl_type d = { kind,
                                                 std::make_shared<Transform>(args...) };
                                 return d;
                         };
                         decl_.emplace_back(std::move(maker));
                 }
+        public:
 
                 bool execute( handle& root)const{
                         bool result{false};
+                        bool r{false};
 
                         enum class opcode{
                                 yeild_or_apply,
@@ -64,39 +78,54 @@ namespace ps{
                         for( auto const& make  : decl_){
                                 decl_type dt{ make() };
                                 auto transform{ dt.transform };
+                                auto kind     { dt.kind };
                                 boost::timer::auto_cpu_timer at( "    " + transform->get_name() +  " took %w seconds\n");
-                                std::vector<std::pair<opcode, handle*>> stack;
-                                stack.emplace_back(opcode::yeild_or_apply, &root);
-                                transform->begin();
-                                for(;stack.size();){
-                                        auto p{stack.back()};
-                                        stack.pop_back();
-                                        
-                                        switch(p.first){
-                                        case opcode::yeild_or_apply:
-                                                if( (*p.second)->is_non_terminal()){
-                                                        stack.emplace_back( opcode::apply, p.second );
-                                                        auto c{ reinterpret_cast<symbolic_non_terminal*>(p.second->get()) };
-                                                        for( auto iter{c->begin()}, end{c->end()}; iter!=end;++iter){
-                                                                stack.emplace_back( opcode::yeild_or_apply, &*iter );
-                                                        }
-                                                        break;
-                                                }
-                                                // fallthought
-                                        case opcode::apply:{
-                                                bool ret{ transform->apply( *p.second )};
-                                                result = result || ret;
-                                        }
-                                                break;
-                                        }
+
+                                switch(kind){
+                                case TransformKind_BottomUp:
+                                        r = execute_bottom_up( transform, root );
+                                        break;
+                                case TransformKind_TopDown:
+                                        r = execute_top_down( transform, root);
                                 }
-                                transform->debug(std::cerr);
-                                transform->end();
-                                std::cout.flush();
+                                result = result || r;
+                        }
+                        return false;
+                }
+        private:
+                bool execute_bottom_up( std::shared_ptr<symbolic_transform>& t, handle& root)const{
+                        bool result{false};
+                        if( root->is_non_terminal() ){
+                                auto c{ reinterpret_cast<symbolic_non_terminal*>(root.get()) };
+                                t->begin_children( c->size() );
+                                for( auto iter{c->begin()}, end{c->end()}; iter!=end;++iter){
+                                        bool s{execute_bottom_up( t, *iter)};
+                                        result = result || s;
+                                        t->next_child();
+                                }
+                                t->end_children();
+                        }
+                        bool r{t->apply( root )};
+                        result = result || r;
+                        return result;
+
+                }
+                bool execute_top_down( std::shared_ptr<symbolic_transform>& t, handle& root)const{
+                        bool result{false};
+                        bool r{t->apply( root )};
+                        result = result || r;
+                        if( root->is_non_terminal() ){
+                                auto c{ reinterpret_cast<symbolic_non_terminal*>(root.get()) };
+                                t->begin_children( c->size() );
+                                for( auto iter{c->begin()}, end{c->end()}; iter!=end;++iter){
+                                        bool s{execute_top_down( t, *iter)};
+                                        result = result || s;
+                                        t->next_child();
+                                }
+                                t->end_children();
                         }
                         return result;
                 }
-
         private:
                 std::vector<maker_t> decl_;
         };

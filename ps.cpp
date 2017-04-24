@@ -27,7 +27,6 @@ namespace{
                 sch.decl<remove_suit_perms>();
                 sch.decl<consolidate_dup_prim>();
                 sch.decl<calc_primitive>(ctx);
-                sch.decl<cache_saver>(ctx);
 
                 {
                         boost::timer::auto_cpu_timer at("tranforms took %w seconds\n");
@@ -39,7 +38,8 @@ namespace{
                 //star->print();
 
         
-                decltype( star->calculate(ctx)) ret;
+                decltype(star->calculate(ctx)) ret;
+
                 {
                         boost::timer::auto_cpu_timer at("calculate took %w seconds\n");
                         ret = star->calculate(ctx);
@@ -83,10 +83,6 @@ void test1(){
         using namespace ps;
         using namespace ps::frontend;
 
-        #if 1
-        range p0 = percent(100);
-        range p1 = percent(100);
-        #endif
         range p0;
         range p1;
         p0 += _AKo;

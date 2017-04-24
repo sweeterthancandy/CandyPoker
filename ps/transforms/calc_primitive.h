@@ -25,6 +25,18 @@ namespace transforms{
                                 sch.decl( std::move(j) );
                         }
                         sch.run();
+
+                        // pretty print
+                        for( auto ptr : prims_){
+                                auto ret{ ptr->calculate(*ctx_)  };
+                                std::cout << ptr->to_string() << " | ";
+                                for(size_t i=0; i != ptr->get_hands().size(); ++i){
+                                        auto eq{
+                                                static_cast<double>(ret(i,10) ) / computation_equity_fixed_prec / ret(i,9) * 100 };
+                                        std::cout << boost::format("%8.4f | ") % eq;
+                                }
+                                std::cout << "\n";
+                        }
                 }
         private:
                 calculation_context* ctx_;

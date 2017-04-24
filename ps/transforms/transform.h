@@ -81,6 +81,7 @@ namespace ps{
                                 auto kind     { dt.kind };
                                 boost::timer::auto_cpu_timer at( "    " + transform->get_name() +  " took %w seconds\n");
 
+                                transform->begin();
                                 switch(kind){
                                 case TransformKind_BottomUp:
                                         r = execute_bottom_up( transform, root );
@@ -88,6 +89,7 @@ namespace ps{
                                 case TransformKind_TopDown:
                                         r = execute_top_down( transform, root);
                                 }
+                                transform->end();
                                 result = result || r;
                         }
                         return false;

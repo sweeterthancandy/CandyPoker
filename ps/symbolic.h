@@ -365,6 +365,14 @@ namespace ps{
                         }
                         return *cache_;
                 }
+                std::string to_string()const{
+                        std::stringstream sstr;
+                        for(size_t i{0};i!=get_hands().size();++i){
+                                if( i != 0 ) sstr << " vs ";
+                                sstr << get_hands()[i];
+                        }
+                        return sstr.str();
+                }
         private:
                 std::vector<frontend::hand> hands_;
                 std::string hash_;

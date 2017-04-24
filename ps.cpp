@@ -27,7 +27,7 @@ namespace{
                 sch.decl<remove_suit_perms>();
                 sch.decl<consolidate_dup_prim>();
                 sch.decl<calc_primitive>(ctx);
-                sch.decl_top_down<tree_printer>();
+                //sch.decl_top_down<tree_printer>();
 
                 {
                         boost::timer::auto_cpu_timer at("tranforms took %w seconds\n");

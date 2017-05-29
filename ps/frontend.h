@@ -60,6 +60,11 @@ namespace ps{
                                         return ostr << boost::format("hand{%s}") % holdem_hand_decl::get(self.get());
                                 }
                         }
+                        auto to_string()const{
+                                std::stringstream sstr;
+                                sstr << *this;
+                                return sstr.str();
+                        }
 
 
                         auto i_am_a_duck__to_hand_vector()const{
@@ -102,6 +107,11 @@ namespace ps{
                                         }
                                 }
                                 return std::move(result);
+                        }
+                        auto to_string()const{
+                                std::stringstream sstr;
+                                sstr << *this;
+                                return sstr.str();
                         }
                 private:
                         rank_id x_;
@@ -184,6 +194,11 @@ namespace ps{
                                         break;
                                 }
                                 return std::move(result);
+                        }
+                        auto to_string()const{
+                                std::stringstream sstr;
+                                sstr << *this;
+                                return sstr.str();
                         }
                 private:
                         rank_id x_;
@@ -523,7 +538,7 @@ namespace ps{
                                  class = ::ps::detail::void_t< decltype( sub_range_t{ std::declval<Args>() } )... >
                         >
                         range(Args&& ...args){
-                                int _[]={0, ( (*this)+=args,0)...};
+                                int _[]={0, ( operator+=(std::forward<Args>(args)),0)...};
                         }
                         #endif
                         friend std::ostream& operator<<(std::ostream& ostr, range const& self){

@@ -1,7 +1,8 @@
 cmake_minimum_required(VERSION 3.7)
 
 set(CMAKE_CXX_COMPILER clang++)
-set(CMAKE_CXX_FLAGS "-std=c++14 -fno-rtti -Wno-switch")
+#set(CMAKE_CXX_FLAGS "-std=c++14 -fno-rtti -Wno-switch")
+set(CMAKE_CXX_FLAGS "-std=c++14  -Wno-switch")
 
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -ggdb3")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")

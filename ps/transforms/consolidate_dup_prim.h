@@ -9,6 +9,7 @@ namespace transforms{
                 bool apply(symbolic_computation::handle& ptr)override{
                         if( ptr->get_kind() != symbolic_computation::Kind_Symbolic_Primitive )
                                 return false;
+                        n_.insert(ptr.get());
                         auto aux_ptr{ reinterpret_cast<symbolic_primitive*>(ptr.get()) };
                         auto hash{ aux_ptr->get_hash() };
                         auto iter{ m_.find(hash) };
@@ -25,12 +26,13 @@ namespace transforms{
                         }
                 }
                 void debug(std::ostream& ostr)override{
-                        ostr << "{ sigma = " << sigma_ << ", hits = " << hits_ << "}\n";
+                        ostr << "{ sigma = " << sigma_ << ", hits = " << hits_ << ", n = " << n_.size() << "}\n";
                 }
         private:
                 size_t sigma_ = 0;
                 size_t hits_ = 0;
                 std::map<std::string, symbolic_computation::handle > m_;
+                std::set< void* > n_;
         };
 } // transform
 } // ps

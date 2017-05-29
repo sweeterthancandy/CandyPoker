@@ -24,7 +24,6 @@ struct detail_eval_impl{
         }
         void next( bool f, long a, long b, long c, long d, long e){
                 auto m = map_rank(a,b,c,d,e);
-                assert( m_[m] == 0 && "not injective");
                 if( f )
                         flush_map_[m] = order_;
                 else
@@ -116,8 +115,6 @@ struct detail_eval: detail_eval_impl{
                 std::uint32_t m = map_rank( rank_device_[a],rank_device_[b], rank_device_[c],rank_device_[d], rank_device_[e]);
                 std::uint32_t ret;
 
-                assert( flush_map_[m] && "unmapped value");
-                assert( rank_map_[m] && "unmapped value");
 
                 switch(f_aux){
                 case 2*2*2*2*2:

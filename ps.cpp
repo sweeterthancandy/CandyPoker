@@ -117,7 +117,7 @@ struct precomputed_db{
                 std::string hash;
                 for( size_t i{0}; i!= result.size1();++i){
                         if( i != 0)
-                                hash += "vs";
+                                hash += " vs ";
                         hash += players[i].to_string();
                 }
                 precomputed_item item { players, result };
@@ -126,7 +126,7 @@ struct precomputed_db{
 
         auto begin()const{ return m_.begin(); }
         auto end()const{ return m_.end(); }
-
+        auto size()const{ return m_.size(); }
 
 private:
         std::map< std::string, precomputed_item> m_;
@@ -234,9 +234,21 @@ void test2(){
         precomputed_db cache;
         equity_calc eq;
         int n{0};
-        detail::visit_combinations<2>( [&](auto &&... c){
+        try{
+        detail::visit_combinations<4>( [&](auto &&... cards){
+
+                ++n;
+
+                //if( n % 1000 != 0 )
+                        //return;
+
+                PRINT( cache.size() );
+
                 bnu::matrix<size_t> ret;
-                std::vector<holdem_id> players{ static_cast<holdem_id>(c)...};
+                std::vector<long> aux{ cards... };
+                std::vector<holdem_id> players{ holdem_hand_decl::get(holdem_hand_decl::make_id(aux[0], aux[1])),
+                                                holdem_hand_decl::get(holdem_hand_decl::make_id(aux[2], aux[3])) };
+
                 std::vector<ps::frontend::hand> pretty_players;
                 for( auto id : players ){
                         pretty_players.emplace_back( id);
@@ -245,15 +257,8 @@ void test2(){
                 eq.run( ret, players );
                 cache.append( pretty_players, ret);
 
-                std::stringstream sstr;
-                precomputed_db alt;
-                write(sstr, cache);
-                load(sstr, alt);
-                write(std::cout, alt);
 
-
-
-                #if 0
+                #if 1
                 const char* title_fmt{ "%10s %16s %16s %12s %12s %10s %10s %20s %10s\n" };
                 const char* fmt{       "%10s %16s %16s %12s %12s %10s %10s %20s %10.4f\n" };
                 std::cout << boost::format(title_fmt)
@@ -286,8 +291,11 @@ void test2(){
                 }
                 #endif
 
-        }, 52 * 51 -1);
-
+        }, 51 );
+        }catch(...){
+                std::ofstream ofstr("cache.json");
+                write(ofstr, cache);
+        }
 }
 
 int main(){

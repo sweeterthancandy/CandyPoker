@@ -38,7 +38,7 @@ target_link_libraries(ps_test GTest::GTest GTest::Main)
 target_link_libraries(ps_test ps_lib )
 
 #add_custom_command( TARGET ps_test POST_BUILD COMMAND echo "./ps_test" >> fifo )
-add_custom_command( TARGET _ps     POST_BUILD COMMAND echo "./_ps" >> fifo )
+#add_custom_command( TARGET _ps     POST_BUILD COMMAND echo "./_ps" >> fifo )
 
 add_executable(pokerstove app/pokerstove.cpp)
 target_link_libraries(pokerstove ps_lib )

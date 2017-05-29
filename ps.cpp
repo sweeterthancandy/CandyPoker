@@ -237,7 +237,7 @@ void test2(){
         std::mutex cache_mtx;
 
         std::list<card_id> groups;
-        for(card_id id{52}; id!= 4; ){
+        for(card_id id{52}; id!= 3; ){
                 --id;
                 groups.push_back(id);
         }
@@ -273,9 +273,11 @@ void test2(){
                                 detail::visit_combinations<3>( [&](auto &&... cards){
 
 
+                                        #if 0
                                         ++n;
                                         if( n % 201 != 0 )
                                                 return;
+                                        #endif
 
                                         
                                         bnu::matrix<size_t> ret;

@@ -177,7 +177,7 @@ void write(std::ostream& ostr, precomputed_db const& db){
                         }
                         ret.add("tied_abs", tied_abs);
                         ret.add("tied_weighted", tied_weighted);
-                        ret.add("equity", static_cast<double>(ps::computation_equity_fixed_prec) / result(i,9) * 100);
+                        ret.add("equity", static_cast<double>(result(i,10) ) / ps::computation_equity_fixed_prec / result(i,9) * 100 );
                         
                         sim.add_child("players.player", ret);
                         
@@ -233,69 +233,119 @@ void test2(){
         using namespace ps;
         precomputed_db cache;
         equity_calc eq;
-        int n{0};
-        try{
-        detail::visit_combinations<4>( [&](auto &&... cards){
+        std::mutex mtx;
+        std::mutex cache_mtx;
 
-                ++n;
-
-                //if( n % 1000 != 0 )
-                        //return;
-
-                PRINT( cache.size() );
-
-                bnu::matrix<size_t> ret;
-                std::vector<long> aux{ cards... };
-                std::vector<holdem_id> players{ holdem_hand_decl::get(holdem_hand_decl::make_id(aux[0], aux[1])),
-                                                holdem_hand_decl::get(holdem_hand_decl::make_id(aux[2], aux[3])) };
-
-                std::vector<ps::frontend::hand> pretty_players;
-                for( auto id : players ){
-                        pretty_players.emplace_back( id);
-                }
-
-                eq.run( ret, players );
-                cache.append( pretty_players, ret);
-
-
-                #if 1
-                const char* title_fmt{ "%10s %16s %16s %12s %12s %10s %10s %20s %10s\n" };
-                const char* fmt{       "%10s %16s %16s %12s %12s %10s %10s %20s %10.4f\n" };
-                std::cout << boost::format(title_fmt)
-                        % "n" % "wins" % "tied" % "|tied|" % "draws2" % "draws3" % "sigma" % "equity" % "equity %";
-                auto fmtc = [](auto c){
-                        static_assert( std::is_integral< std::decay_t<decltype(c)> >::value, "");
-                        std::string mem = boost::lexical_cast<std::string>(c);
-                        std::string ret;
-
-                        for(size_t i=0;i!=mem.size();++i){
-                                if( i % 3 == 0 && i != 0 )
-                                        ret += ',';
-                                ret += mem[mem.size()-i-1];
-                        }
-                        return std::string{ret.rbegin(), ret.rend()};
-                };
-                for(size_t i{0};i!=ret.size1();++i){
-                        double tied_weighted{0.0};
-                        size_t tied_abs{0};
-                        for( size_t j=1; j <= 3;++j){
-                                tied_weighted += static_cast<double>(ret(i,j)) / (j+1);
-                                tied_abs += ret(i,j);
-                        }
-                        std::cout << boost::format(fmt)
-                                % pretty_players[i] % fmtc(ret(i,0))
-                                % fmtc(tied_abs) % fmtc(static_cast<int>(tied_weighted))
-                                % fmtc(ret(i,1)) % fmtc(ret(i,2)) 
-                                % fmtc(ret(i,9)) % fmtc(ret(i,10)) 
-                                % ( static_cast<double>(ret(i,10) ) / computation_equity_fixed_prec / ret(i,9) * 100 );
-                }
-                #endif
-
-        }, 51 );
-        }catch(...){
-                std::ofstream ofstr("cache.json");
-                write(ofstr, cache);
+        std::list<card_id> groups;
+        for(card_id id{52}; id!= 4; ){
+                --id;
+                groups.push_back(id);
         }
+
+        std::vector<std::thread> tg;
+        for(size_t i=0;i!= 16; ++i){
+                tg.emplace_back( [&](){
+
+                        precomputed_db local_cache;
+
+                        for(;;){
+
+                                boost::optional<card_id> card;
+                                mtx.lock(); 
+                                if( groups.size() ){
+                                        #if 0
+                                        card = groups.front();
+                                        groups.pop_front();
+                                        #else
+                                        card = groups.back();
+                                        groups.pop_back();
+                                        #endif
+                                }
+                                mtx.unlock();
+
+                                if( ! card )
+                                        break;
+
+                                auto c{ card.get() };
+
+                                size_t n{0};
+
+                                detail::visit_combinations<3>( [&](auto &&... cards){
+
+
+                                        ++n;
+                                        if( n % 201 != 0 )
+                                                return;
+
+                                        
+                                        bnu::matrix<size_t> ret;
+                                        std::vector<long> aux{ cards... };
+
+                                        std::vector<holdem_id> players{ holdem_hand_decl::get(holdem_hand_decl::make_id(aux[0], aux[1])),
+                                                                        holdem_hand_decl::get(holdem_hand_decl::make_id(aux[2], aux[3])) };
+
+                                        std::vector<ps::frontend::hand> pretty_players;
+                                        for( auto id : players ){
+                                                pretty_players.emplace_back( id);
+                                        }
+
+                                        eq.run( ret, players );
+                                        local_cache.append( pretty_players, ret);
+
+
+                                        #if 0
+                                        std::lock_guard<std::mutex> guard(mtx);
+                                        const char* title_fmt{ "%10s %16s %16s %12s %12s %10s %10s %20s %10s\n" };
+                                        const char* fmt{       "%10s %16s %16s %12s %12s %10s %10s %20s %10.4f\n" };
+                                        std::cout << boost::format(title_fmt)
+                                                % "n" % "wins" % "tied" % "|tied|" % "draws2" % "draws3" % "sigma" % "equity" % "equity %";
+                                        auto fmtc = [](auto c){
+                                                static_assert( std::is_integral< std::decay_t<decltype(c)> >::value, "");
+                                                std::string mem = boost::lexical_cast<std::string>(c);
+                                                std::string ret;
+
+                                                for(size_t i=0;i!=mem.size();++i){
+                                                        if( i % 3 == 0 && i != 0 )
+                                                                ret += ',';
+                                                        ret += mem[mem.size()-i-1];
+                                                }
+                                                return std::string{ret.rbegin(), ret.rend()};
+                                        };
+                                        for(size_t i{0};i!=ret.size1();++i){
+                                                double tied_weighted{0.0};
+                                                size_t tied_abs{0};
+                                                for( size_t j=1; j <= 3;++j){
+                                                        tied_weighted += static_cast<double>(ret(i,j)) / (j+1);
+                                                        tied_abs += ret(i,j);
+                                                }
+                                                std::cout << boost::format(fmt)
+                                                        % pretty_players[i] % fmtc(ret(i,0))
+                                                        % fmtc(tied_abs) % fmtc(static_cast<int>(tied_weighted))
+                                                        % fmtc(ret(i,1)) % fmtc(ret(i,2)) 
+                                                        % fmtc(ret(i,9)) % fmtc(ret(i,10)) 
+                                                        % ( static_cast<double>(ret(i,10) ) / computation_equity_fixed_prec / ret(i,9) * 100 );
+                                        }
+                                        #endif
+
+                                }, ps::detail::true_, c -1, c  );
+
+                                std::lock_guard<std::mutex> guard(cache_mtx);
+                                static int wrote = 0;
+                                std::cout << "writing (" << ++wrote << ")\n";
+                                std::stringstream sstr;
+                                write(sstr, local_cache);
+                                load(sstr, cache);
+                                std::ofstream of("cache.json");
+                                write(of, cache);
+                        }
+
+                });
+        }
+
+        for( auto& t : tg)
+                t.join();
+                                
+
 }
 
 int main(){

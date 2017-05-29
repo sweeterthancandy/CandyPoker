@@ -124,104 +124,108 @@ struct precomputed_db{
                 m_[hash] = item;
         }
 
-
-        void write(std::ostream& ostr)const{
-                bpt::ptree root;
-                        
-                std::vector<std::string> schema_ = {
-                        "win1",
-                        "win2",
-                        "win3",
-                        "win4",
-                        "win5",
-                        "win6",
-                        "win7",
-                        "win8",
-                        "win9",
-                        "sigma",
-                        "equity_100",
-                };
-
-                for( auto const& p : m_ ){
-
-                        bpt::ptree sim;
-                        
-                        auto const& players{ p.second.players };
-                        auto const& result{ p.second.result };
-
-                        sim.put("hash", p.first);
-                        sim.put("n", players.size() );
-
-                        for( size_t i{0}; i!= result.size1();++i){
-                                bpt::ptree ret;
-                                ret.add("hand", players[i].to_string() );
-                                for(size_t j{0};j!=schema_.size();++j){
-                                        ret.add(schema_[j], result(i,j) );
-                                }
+        auto begin()const{ return m_.begin(); }
+        auto end()const{ return m_.end(); }
 
 
-                                // now print these for prettyness
-                                
-                                double tied_weighted{0.0};
-                                size_t tied_abs{0};
-                                for( size_t j=1; j <= 8;++j){
-                                        tied_weighted += static_cast<double>(result(i,j)) / (j+1);
-                                        tied_abs += result(i,j);
-                                }
-                                ret.add("tied_abs", tied_abs);
-                                ret.add("tied_weighted", tied_weighted);
-                                ret.add("equity", static_cast<double>(ps::computation_equity_fixed_prec) / result(i,9) * 100);
-                                
-                                sim.add_child("players.player", ret);
-                                
-                        }
-
-                        root.add_child("simulation", sim);
-                }
-                bpt::write_json(ostr, root);
-        }
-        void load(std::istream& ostr){
-                bpt::ptree root;
-                bpt::read_json(ostr, root);
-
-                std::vector<std::string> schema_ = {
-                        "win1",
-                        "win2",
-                        "win3",
-                        "win4",
-                        "win5",
-                        "win6",
-                        "win7",
-                        "win8",
-                        "win9",
-                        "sigma",
-                        "equity_100",
-                };
-
-                for( auto const& sim : root ){
-                        precomputed_item item;
-                                
-                        std::string hash = sim.second.get<std::string>("hash");
-                        size_t n = sim.second.get<size_t>("n");
-
-                        item.result = bnu::matrix<size_t>{n, ps::computation_size, 0};
-                        size_t i=0;
-                        
-                        for( auto const& player : sim.second.get_child("players") ){
-                                ps::frontend::hand h{ps::holdem_hand_decl::get( player.second.get<std::string>("hand") ) };
-                                item.players.emplace_back( h );
-                                for(size_t j{0}; j!= schema_.size();++j){
-                                        item.result(i,j) = player.second.get<size_t>( schema_[j]);
-                                }
-                                ++i;
-                        }
-
-                        m_[hash] = item;
-                }
-        }
 private:
         std::map< std::string, precomputed_item> m_;
 };
+        
+void write(std::ostream& ostr, precomputed_db const& db){
+        bpt::ptree root;
+                
+        std::vector<std::string> schema_ = {
+                "win1",
+                "win2",
+                "win3",
+                "win4",
+                "win5",
+                "win6",
+                "win7",
+                "win8",
+                "win9",
+                "sigma",
+                "equity_100",
+        };
+
+        for( auto const& p : db ){
+
+                bpt::ptree sim;
+                
+                auto const& players{ p.second.players };
+                auto const& result{ p.second.result };
+
+                sim.put("hash", p.first);
+                sim.put("n", players.size() );
+
+                for( size_t i{0}; i!= result.size1();++i){
+                        bpt::ptree ret;
+                        ret.add("hand", players[i].to_string() );
+                        for(size_t j{0};j!=schema_.size();++j){
+                                ret.add(schema_[j], result(i,j) );
+                        }
+
+
+                        // now print these for prettyness
+                        
+                        double tied_weighted{0.0};
+                        size_t tied_abs{0};
+                        for( size_t j=1; j <= 8;++j){
+                                tied_weighted += static_cast<double>(result(i,j)) / (j+1);
+                                tied_abs += result(i,j);
+                        }
+                        ret.add("tied_abs", tied_abs);
+                        ret.add("tied_weighted", tied_weighted);
+                        ret.add("equity", static_cast<double>(ps::computation_equity_fixed_prec) / result(i,9) * 100);
+                        
+                        sim.add_child("players.player", ret);
+                        
+                }
+
+                root.add_child("simulation", sim);
+        }
+        bpt::write_json(ostr, root);
+}
+void load(std::istream& ostr, precomputed_db& db){
+        bpt::ptree root;
+        bpt::read_json(ostr, root);
+
+        std::vector<std::string> schema_ = {
+                "win1",
+                "win2",
+                "win3",
+                "win4",
+                "win5",
+                "win6",
+                "win7",
+                "win8",
+                "win9",
+                "sigma",
+                "equity_100",
+        };
+
+        for( auto const& sim : root ){
+                precomputed_item item;
+                        
+                //std::string hash = sim.second.get<std::string>("hash");
+                size_t n = sim.second.get<size_t>("n");
+
+                item.result = bnu::matrix<size_t>{n, ps::computation_size, 0};
+                size_t i=0;
+                
+                for( auto const& player : sim.second.get_child("players") ){
+                        ps::frontend::hand h{ps::holdem_hand_decl::get( player.second.get<std::string>("hand") ) };
+                        item.players.emplace_back( h );
+                        for(size_t j{0}; j!= schema_.size();++j){
+                                item.result(i,j) = player.second.get<size_t>( schema_[j]);
+                        }
+                        ++i;
+                }
+
+                db.append( item.players, item.result );
+        }
+}
 
 
 
@@ -243,9 +247,9 @@ void test2(){
 
                 std::stringstream sstr;
                 precomputed_db alt;
-                cache.write(sstr);
-                alt.load(sstr);
-                alt.write(std::cout);
+                write(sstr, cache);
+                load(sstr, alt);
+                write(std::cout, alt);
 
 
 
@@ -284,7 +288,6 @@ void test2(){
 
         }, 52 * 51 -1);
 
-        cache.write(std::cout);
 }
 
 int main(){

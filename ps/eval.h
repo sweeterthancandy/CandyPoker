@@ -16,8 +16,6 @@ struct eval{
         std::uint32_t operator()(long a, long b, long c, long d, long e)const;
         std::uint32_t operator()(long a, long b, long c, long d, long e, long f)const;
         std::uint32_t operator()(long a, long b, long c, long d, long e, long f, long g)const;
-private:
-        std::shared_ptr<detail_eval> impl_;
 };
 
 

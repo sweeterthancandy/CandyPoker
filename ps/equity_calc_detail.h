@@ -9,6 +9,10 @@
 
 namespace ps{
 
+        /*
+                The point of this class is provide an efficent way of enumerating
+                a board runout of n-players.
+         */
         struct equity_calc_detail{
 
                 template<class Visitor>

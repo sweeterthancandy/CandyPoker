@@ -1,6 +1,5 @@
 cmake_minimum_required(VERSION 3.7)
 
-set(CMAKE_CXX_COMPILER clang++)
 #set(CMAKE_CXX_FLAGS "-std=c++14 -fno-rtti -Wno-switch")
 set(CMAKE_CXX_FLAGS "-std=c++14  -Wno-switch")
 
@@ -14,7 +13,7 @@ find_package(GTest REQUIRED)
 #set(Boost_USE_MULTITHREADED      ON)
 #set(Boost_USE_STATIC_RUNTIME    OFF)
 
-find_package(Boost 1.59.0 REQUIRED COMPONENTS system timer)
+find_package(Boost 1.59.0 REQUIRED COMPONENTS system timer serialization)
 
 include_directories(${Boost_INCLUDE_DIRS})
 

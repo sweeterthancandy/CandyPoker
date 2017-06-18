@@ -1,3 +1,4 @@
+#include <boost/lexical_cast.hpp>
 #include "ps/tree.h"
 
 #include "ps/detail/tree_printer.h"
@@ -6,43 +7,30 @@ namespace ps{
         void tree_range::display()const{
                 detail::tree_printer_detail p;
                 do{
-                        std::stringstream line;
-                        for(size_t i{0};i!=players.size();++i){
-                                if( i != 0 ) line << " vs ";
-                                line << players[i];
-                        }
-                        p.non_terminal(line.str());
+                        p.non_terminal(
+                                boost::lexical_cast<std::string>(
+                                        *this
+                        ));
                 }while(0);
 
                 p.begin_children_size( children.size() );
                 for( auto const& c : children ){
 
-                        do{
-                                std::stringstream line;
-                                for(size_t i{0};i!=c.players.size();++i){
-                                        if( i != 0 ) line << " vs ";
-                                        line << c.players[i];
-                                }
-                                p.non_terminal(line.str());
+                        p.non_terminal(
+                                boost::lexical_cast<std::string>(
+                                        c
+                        ));
 
-                                p.begin_children_size( c.children.size() );
-                                for( auto const& d : c.children ){
+                        p.begin_children_size( c.children.size() );
+                        for( auto const& d : c.children ){
+                                p.terminal(
+                                        boost::lexical_cast<std::string>(
+                                                d
+                                ));
 
-                                        do{
-                                                std::stringstream line;
-                                                for(size_t i{0};i!=d.players.size();++i){
-                                                        if( i != 0 ) line << " vs ";
-                                                        line << d.players[i];
-                                                }
-                                                p.terminal(line.str());
-
-                                        }while(0);
-
-                                        p.next_child();
-                                }
-                                p.end_children();
-
-                        }while(0);
+                                p.next_child();
+                        }
+                        p.end_children();
 
                         p.next_child();
                 }

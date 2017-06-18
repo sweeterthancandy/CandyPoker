@@ -5,21 +5,37 @@
 
 
 namespace ps{
+        /*
+                This a helper structure, to map the range vs range into a tree structure
+                of 
+
+                                             <range>
+                            /                   |                     \
+                 <primitive_range>      <primitive_range>    <primitive_range> 
+                /       |       \
+           <hand>    <hand>    <hand>
+
+
+                This makes evalu
+         */
 
 
         struct tree_hand{
 
-                explicit tree_hand(std::vector<frontend::hand> const& players):players{players}{}
+                explicit tree_hand(std::vector<frontend::hand> const& players){
+                        for( auto const& h : players)
+                                this->players.push_back( h.get() );
+                }
 
                 friend std::ostream& operator<<(std::ostream& ostr, tree_hand const& self){
                         for(size_t i{0};i!=self.players.size();++i){
                                 if( i != 0 ) ostr << " vs ";
-                                ostr << self.players[i];
+                                ostr << holdem_hand_decl::get(self.players[i]);
                         }
                         return ostr;
                 }
 
-                std::vector<frontend::hand>      players;
+                std::vector<holdem_id> players;
         };
 
         struct tree_primitive_range{

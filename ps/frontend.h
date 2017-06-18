@@ -574,9 +574,17 @@ namespace ps{
                 range percent(size_t pct){
                         assert(pct == 100 && "not yet implemented");
                         range rng;
+                        #if 0
                         for(holdem_id x{0};x!=52*51;++x){
                                 rng += hand{x};
                         }
+                        #endif
+                        for(card_id x{13};x!=1;){
+                                --x;
+                                rng += interval(offsuit(x,x-1),offsuit(x,0));
+                                rng += interval( suited(x,x-1),suited(x,0));
+                        }
+                        rng += interval(pocket_pair(0), pocket_pair(12));
                         return std::move(rng);
                 }
 

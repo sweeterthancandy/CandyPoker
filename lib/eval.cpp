@@ -186,6 +186,7 @@ struct detail_eval: detail_eval_impl{
                 return aux.front();
         }
         std::uint32_t operator()(long a, long b, long c, long d, long e, long f, long g)const{
+                //return eval_brute(a,b,c,d,e,f,g);
                 auto f_aux{ flush_device_[a] * flush_device_[b] * flush_device_[c] * 
                             flush_device_[d] * flush_device_[e] * flush_device_[f] * 
                             flush_device_[g] };
@@ -229,28 +230,35 @@ struct detail_eval: detail_eval_impl{
                         ss << card_decl::get(g);
                         PRINT(ss.str());
                 }
-                #endif
+#endif
                 return aux.front();
         }
 private:
         std::vector<std::uint32_t> cache_6_;
 };
 
-eval::eval():impl_{new detail_eval{}}{
-        impl_->init();
+/*
+ * by far easiest option
+ */
+namespace{
+        detail_eval* impl = new detail_eval;
+        int init_ = ( impl->init(), 0 );
+}
+
+eval::eval(){
 }
 std::uint32_t eval::eval_5(std::vector<long> const& cards)const{
         assert( cards.size() == 5 && "precondition failed");
         return this->operator()(cards[0], cards[1], cards[2], cards[3], cards[4] );
 }
 std::uint32_t eval::operator()(long a, long b, long c, long d, long e)const{
-        return impl_->operator()(a,b,c,d,e);
+        return impl->operator()(a,b,c,d,e);
 }
 std::uint32_t eval::operator()(long a, long b, long c, long d, long e, long f)const{
-        return impl_->operator()(a,b,c,d,e, f);
+        return impl->operator()(a,b,c,d,e, f);
 }
 std::uint32_t eval::operator()(long a, long b, long c, long d, long e, long f, long g)const{
-        return impl_->operator()(a,b,c,d,e,f,g);
+        return impl->operator()(a,b,c,d,e,f,g);
 }
 
 

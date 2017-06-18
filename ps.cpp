@@ -1,5 +1,5 @@
-#include "ps/symbolic.h"
-#include "ps/transforms.h"
+//#include "ps/symbolic.h"
+//#include "ps/transforms.h"
 
 #include <type_traits>
 
@@ -354,18 +354,151 @@ void test2(){
 #endif
 
 #include "ps/tree.h"
+#include "ps/equity_calc_detail.h"
+        
+using namespace ps;
+using namespace ps::frontend;
+
+struct hu_visitor{
+
+        template<class Int, class Vec>
+        void operator()(Int a, Int b, Int c, Int d, Int e, Vec const& ranked){
+                if( ranked[0] < ranked[1] ){
+                        ++win;
+                } else if( ranked[0] > ranked[1] ){
+                        ++lose;
+                } else{
+                        ++draw;
+                }
+        }  
+        hu_visitor permutate(std::vector<int> const& perm)const{
+                hu_visitor ret(*this);
+                if( perm[0] == 1 )
+                        std::swap(ret.win, ret.lose);
+                return ret;
+        }
+        hu_visitor const& append(hu_visitor const& that){
+                win  += that.win;
+                lose += that.lose;
+                draw += that.draw;
+                return *this;
+        }
+        friend std::ostream& operator<<(std::ostream& ostr, hu_visitor const& self){
+                auto sigma{ self.win + self.lose + self.draw };
+                auto equity{ (self.win + self.draw / 2.0 ) / sigma * 100 };
+                return ostr << boost::format("%2.2f%% (%d,%d,%d)") % equity % self.win % self.draw % self.lose;
+        }
+        size_t win{0};
+        size_t lose{0};
+        size_t draw{0};
+};
+
+struct equity_cacher{
+        hu_visitor visit_boards( std::vector<ps::holdem_id> const& players){
+                
+                std::vector< std::tuple< size_t, std::string> > player_perm;
+                for(size_t i=0;i!=players.size();++i){
+                        auto h{ holdem_hand_decl::get( players[i] ) };
+                        player_perm.emplace_back(i, h.first().rank().to_string() +
+                                                    h.second().rank().to_string() );
+                }
+                boost::sort(player_perm, [](auto const& left, auto const& right){
+                        return std::get<1>(left) < std::get<1>(right);
+                });
+                std::vector<int> perm;
+                std::array< int, 4> suits{0,1,2,3};
+                std::array< int, 4> rev_suit_map{-1,-1,-1,-1};
+                int suit_iter = 0;
+
+                std::stringstream from, to;
+                for(size_t i=0;i!=players.size();++i){
+                        perm.emplace_back( std::get<0>(player_perm[i]) );
+                }
+                for(size_t i=0;i!=players.size();++i){
+                        auto h{ holdem_hand_decl::get( players[perm[i]] ) };
+
+                        // TODO pocket pair
+                        if(     rev_suit_map[h.first().suit()] == -1 )
+                                rev_suit_map[h.first().suit()] = suit_iter++;
+                        if(     rev_suit_map[h.second().suit()] == -1 )
+                                rev_suit_map[h.second().suit()] = suit_iter++;
+                }
+                for(size_t i=0;i != 4;++i){
+                        if(     rev_suit_map[i] == -1 )
+                                rev_suit_map[i] = suit_iter++;
+                }
+                std::vector< int> suit_perms;
+                for(size_t i=0;i != 4;++i){
+                        suit_perms.emplace_back(rev_suit_map[i]);
+                }
+                
+                std::vector<ps::holdem_id> perm_hands;
+                for(size_t i=0;i != players.size();++i){
+                        auto h{ holdem_hand_decl::get( players[perm[i]] ) };
+                        perm_hands.emplace_back( 
+                                holdem_hand_decl::make_id(
+                                        h.first().rank(),
+                                        suit_perms[h.first().suit()],
+                                        h.second().rank(),
+                                        suit_perms[h.second().suit()]));
+                }
+                return do_visit_boards( perm, perm_hands );
+        }
+        hu_visitor do_visit_boards( std::vector<int> const& perm, std::vector<ps::holdem_id> const& players){
+                auto iter = cache_.find(players);
+                if( iter != cache_.end() ){
+                        #if 0
+                        hu_visitor v;
+                        ec_.visit_boards(v, players);
+                        if( v.win != iter->second.win  ||
+                            v.draw != iter->second.draw ||
+                            v.lose != iter->second.lose ){
+                                PRINT_SEQ((v)(iter->second));
+                                asseet(false);
+                        }
+                        #endif 
+                        hu_visitor aux{ iter->second.permutate(perm) };
+                        return aux;
+                }
+
+                hu_visitor v;
+                ec_.visit_boards(v, players);
+                cache_.insert(std::make_pair(players, v));
+                return do_visit_boards(perm, players);
+        }
+private:
+        std::map<std::vector<ps::holdem_id>, hu_visitor> cache_;
+        ps::equity_calc_detail ec_;
+};
 
 void test3(){
-        using namespace ps;
-        using namespace ps::frontend;
 
         range p0;
         range p1;
-        p0 += _AKo;
+        #if 0
+        p0 += _QQ++;
+        p0 += _AKs;
         p1 += _QQ++;
+        #endif
+        p0 = percent(100);
+        p1 = percent(100);
 
         tree_range root{ std::vector<frontend::range>{p0, p1} };
-        root.display();
+        //root.display();
+        equity_cacher ec;
+
+        hu_visitor comp;
+        for( auto c : root.children ){
+                for( auto d : c.children ){
+                        std::vector<holdem_id> players;
+                        for( auto h : d.players) 
+                                players.push_back( h.get() );
+                        auto v = ec.visit_boards(players );
+                        std::cout << d << " = " << v << "\n";
+                        comp.append(v);
+                }
+        }
+        std::cout << root << " = " << comp << "\n";
 }
 
 int main(){

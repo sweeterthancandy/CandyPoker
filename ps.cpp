@@ -6,6 +6,8 @@
 #include <boost/timer/timer.hpp>
 #include <boost/lexical_cast.hpp>
 
+#if 0
+
 
 
 namespace{
@@ -349,8 +351,23 @@ void test2(){
                                 
 
 }
+#endif
+
+#include "ps/tree.h"
+
+void test3(){
+        using namespace ps;
+        using namespace ps::frontend;
+
+        range p0;
+        range p1;
+        p0 += _AKo;
+        p1 += _QQ++;
+
+        tree_range root{ std::vector<frontend::range>{p0, p1} };
+        root.display();
+}
 
 int main(){
-        //test1();
-        test2();
+        test3();
 }

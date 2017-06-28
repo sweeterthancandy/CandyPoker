@@ -65,6 +65,7 @@ namespace ps{
                 }
                 static suit_decl const& get(suit_id id);
                 static suit_decl const& parse(std::string const& s);
+                static suit_decl const& parse(char c){ return parse(std::string{c}); }
                 operator suit_id()const{ return id_; }
         private:
                 suit_id id_;

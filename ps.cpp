@@ -22,7 +22,7 @@ int main(){
         PRINT( ec.visit_boards(
                         std::vector<ps::holdem_class_id>{
                                 _AKo, _JTs } ) );
-                                #endif
+        #endif
         ps::generate_cache();
 
 }

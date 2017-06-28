@@ -22,7 +22,7 @@ TEST( visit_combinations, _){
         */
         std::vector<std::string> lines;
         detail::visit_combinations<3>(
-                [](auto a, auto b, auto c){
+                [&](auto a, auto b, auto c){
                 std::stringstream sstr;
                 sstr << a << b << c;
                 lines.push_back(sstr.str());

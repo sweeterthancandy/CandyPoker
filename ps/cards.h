@@ -197,10 +197,47 @@ namespace ps{
                         first_{a},
                         second_{b}
                 {
-                        // when pp a == b
-                        PRINT_SEQ((id_)(*this));
+                        //PRINT_SEQ((id_)(*this));
+
+                        switch(cat_){
+                        case holdem_class_type::suited:
+                                for(suit_id x{0};x!=4;++x){
+                                        hand_set_.emplace_back(
+                                                card_decl(
+                                                        suit_decl::get(x), first_),
+                                                card_decl(
+                                                        suit_decl::get(x), second_));
+                                }
+                                break;
+                        case holdem_class_type::offsuit:
+                                for(suit_id x{0};x!=4;++x){
+                                        for(suit_id y{0};y!=4;++y){
+                                                if( x == y )
+                                                        continue;
+                                                hand_set_.emplace_back(
+                                                        card_decl(
+                                                                suit_decl::get(x), first_),
+                                                        card_decl(
+                                                                suit_decl::get(y), second_));
+                                        }
+                                }
+                                break;
+                        case holdem_class_type::pocket_pair:
+                                for(suit_id x{0};x!=4;++x){
+                                        for(suit_id y{x+1};y!=4;++y){
+                                                hand_set_.emplace_back(
+                                                        card_decl(
+                                                                suit_decl::get(x), first_),
+                                                        card_decl(
+                                                                suit_decl::get(y), first_));
+                                        }
+                                }
+                                break;
+                        }
                 }
+                auto get_hand_set()const{ return hand_set_; }
                 auto id()const{ return id_; }
+                auto category(){ return cat_; }
                 std::string to_string()const{
                         std::string tmp{
                                 first_.to_string() + 
@@ -254,6 +291,8 @@ namespace ps{
                 holdem_class_type cat_;
                 rank_decl first_;
                 rank_decl second_;
+                std::vector<holdem_hand_decl> hand_set_;
+                std::vector<holdem_id> hand_id_vec_;
         };
 
         template<class... Args,

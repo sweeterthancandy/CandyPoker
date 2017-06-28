@@ -124,9 +124,6 @@ private:
         ps::equity_calc_detail ec_;
 };
 
-struct class_equity_cacher{
-};
-
 
 inline
 void generate_cache(){

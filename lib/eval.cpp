@@ -1,6 +1,7 @@
 #include "ps/eval.h"
 
 #include <sstream>
+#include <mutex>
 
 #include <boost/range/algorithm.hpp>
 #include <boost/timer/timer.hpp>
@@ -241,7 +242,7 @@ private:
  * by far easiest option
  */
 namespace{
-        #if 1
+        #if 0
         detail_eval* impl = new detail_eval;
         int init_ = ( impl->init(), 0 );
         inline detail_eval* get_impl(){
@@ -250,9 +251,14 @@ namespace{
         #else
         detail_eval* get_impl(){
                 static detail_eval* impl = 0;
+                static std::mutex mtx;
                 if( impl == 0 ){
-                        impl = new detail_eval;
-                        impl->init();
+                        std::lock_guard<std::mutex> lock(mtx);
+                        if( impl == 0 ){
+                                auto tmp{new detail_eval};
+                                tmp->init();
+                                impl = tmp;
+                        }
                 }
                 return impl;
         }
@@ -267,13 +273,13 @@ std::uint32_t eval::eval_5(std::vector<long> const& cards)const{
         return this->operator()(cards[0], cards[1], cards[2], cards[3], cards[4] );
 }
 std::uint32_t eval::operator()(long a, long b, long c, long d, long e)const{
-        return impl->operator()(a,b,c,d,e);
+        return get_impl()->operator()(a,b,c,d,e);
 }
 std::uint32_t eval::operator()(long a, long b, long c, long d, long e, long f)const{
-        return impl->operator()(a,b,c,d,e, f);
+        return get_impl()->operator()(a,b,c,d,e, f);
 }
 std::uint32_t eval::operator()(long a, long b, long c, long d, long e, long f, long g)const{
-        return impl->operator()(a,b,c,d,e,f,g);
+        return get_impl()->operator()(a,b,c,d,e,f,g);
 }
 
 

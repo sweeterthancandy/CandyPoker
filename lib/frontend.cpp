@@ -130,10 +130,10 @@ namespace ps{ namespace frontend{
                                 if( std::regex_search( iter, last, m, rgx_XX_suit_decl ) ){
                                         switch(m[0].str()[2]){
                                         case 'o': case 'O':
-                                                stack_.emplace_back( offsuit{rank_decl::get(*iter), rank_decl::get(*(iter+1))});
+                                                stack_.emplace_back( offsuit{rank_decl::parse(*iter), rank_decl::parse(*(iter+1))});
                                                 break;
                                         case 's': case 'S':
-                                                stack_.emplace_back( suited{rank_decl::get(*iter), rank_decl::get(*(iter+1))});
+                                                stack_.emplace_back( suited{rank_decl::parse(*iter), rank_decl::parse(*(iter+1))});
                                                 break;
                                         }
                                         iter += m[0].length();
@@ -141,16 +141,16 @@ namespace ps{ namespace frontend{
                                 }
                                 if( std::regex_search( iter, last, m, rgx_XX) ){
                                         if( m[0].str()[0] == m[0].str()[1] ){
-                                                stack_.emplace_back( pocket_pair{rank_decl::get(*iter)});
+                                                stack_.emplace_back( pocket_pair{rank_decl::parse(*iter)});
                                         } else{
-                                                stack_.emplace_back( any_suit{rank_decl::get(*iter), rank_decl::get(*(iter+1))});
+                                                stack_.emplace_back( any_suit{rank_decl::parse(*iter), rank_decl::parse(*(iter+1))});
                                         }
                                         iter += m[0].length();
                                         return true;
                                 }
                                 // AX+, Ax
                                 if( std::regex_search( iter, last, m, rgx_X_) ){
-                                        stack_.emplace_back( any_suit{rank_decl::get(*iter), rank_decl::get('2')});;
+                                        stack_.emplace_back( any_suit{rank_decl::parse(*iter), rank_decl::parse('2')});;
                                         iter += m[0].length();
                                         return true;
                                 }

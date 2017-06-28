@@ -10,8 +10,10 @@
 #include <algorithm>
 
 #include "ps/detail/void_t.h"
+#include "ps/detail/print.h"
 
 #include <boost/exception/all.hpp>
+#include <boost/range/algorithm.hpp>
 
 namespace ps{
 
@@ -30,6 +32,7 @@ namespace ps{
         using rank_id   = unsigned;
         using card_id   = unsigned;
         using holdem_id = unsigned;
+        using holdem_class_id = unsigned;
 
         // random access, means
         //      {id=0, key=4}, {id=2,key=5} needs
@@ -40,7 +43,7 @@ namespace ps{
                 explicit decl_factory(Args&&... args)
                         : vec_{std::forward<Args>(args)...}
                 {
-                        std::sort( vec_.begin(), vec_.end() );
+                        boost::sort( vec_ );
                 }
                 T const& get(Key k)const{
                         assert( k < vec_.size() && "key doesn't exist");
@@ -173,6 +176,86 @@ namespace ps{
 
         };
 
+        enum class suit_category{
+                any_suit,
+                suited,
+                offsuit
+        };
+        
+        enum class holdem_class_type{
+                pocket_pair,
+                suited,
+                offsuit
+        };
+
+        struct holdem_class_decl{
+                holdem_class_decl(holdem_class_type cat,
+                                  rank_decl const& a,
+                                  rank_decl const& b):
+                        id_{ make_id( cat, a.id(), b.id() ) },
+                        cat_{cat},
+                        first_{a},
+                        second_{b}
+                {
+                        // when pp a == b
+                        PRINT_SEQ((id_)(*this));
+                }
+                auto id()const{ return id_; }
+                std::string to_string()const{
+                        std::string tmp{
+                                first_.to_string() + 
+                                second_.to_string()};
+                        switch(cat_){
+                        case holdem_class_type::suited:
+                                tmp += 's';
+                                break;
+                        case holdem_class_type::offsuit:
+                                tmp += 'o';
+                                break;
+                        case holdem_class_type::pocket_pair:
+                                break;
+                        }
+                        return std::move(tmp);
+                }
+                friend std::ostream& operator<<(std::ostream& ostr, holdem_class_decl const& self){
+                        return ostr << self.to_string();
+                }
+                bool operator<(holdem_class_decl const& that)const{
+                        return id_ < that.id_;
+                }
+                decltype(auto) first()const{ return first_; }
+                decltype(auto) second()const{ return second_; }
+                inline static holdem_class_decl const& get(holdem_id id);
+                inline static holdem_class_decl const& get(std::string const& s){
+                        auto x = rank_decl::get(s.substr(0,1)).id();
+                        auto y = rank_decl::get(s.substr(1,1)).id();
+                        PRINT_SEQ((s)(x)(y));
+                        switch(s.size()){
+                        case 2:
+                                return get(make_id(holdem_class_type::pocket_pair, x, y) );
+                        case 3:
+                                switch(s[2]){
+                                case 's': 
+                                        return get(make_id(holdem_class_type::suited, x, y) );
+                                case 'o': 
+                                        return get(make_id(holdem_class_type::offsuit, x, y) );
+                                default:
+                                        BOOST_THROW_EXCEPTION(std::domain_error("not a holdem hand cat (" + s + ")"));
+                                }
+                        default:
+                                BOOST_THROW_EXCEPTION(std::domain_error("not a holdem hand cat (" + s + ")"));
+                        }
+                }
+                // any bijection will do, nice to keep the mapping within a char
+                inline static holdem_class_id make_id(holdem_class_type cat, rank_id x, rank_id y);
+                operator holdem_class_id()const{ return id_; }
+        private:
+                holdem_class_id id_;
+                holdem_class_type cat_;
+                rank_decl first_;
+                rank_decl second_;
+        };
+
         template<class... Args,
                  class = detail::void_t<
                          std::enable_if_t<
@@ -267,6 +350,22 @@ namespace ps{
                 static card_decl _3s{_s, _3};
                 static card_decl _2s{_s, _2};
 
+                #if 0
+                static holdem_class_decl _AA{ holdem_class_type::pocket_pair, _A, _A };
+                static holdem_class_decl _KK{ holdem_class_type::pocket_pair, _K, _K };
+                static holdem_class_decl _QQ{ holdem_class_type::pocket_pair, _Q, _Q };
+                static holdem_class_decl _JJ{ holdem_class_type::pocket_pair, _J, _J };
+                static holdem_class_decl _TT{ holdem_class_type::pocket_pair, _T, _T };
+                static holdem_class_decl _99{ holdem_class_type::pocket_pair, _9, _9 };
+                static holdem_class_decl _88{ holdem_class_type::pocket_pair, _8, _8 };
+                static holdem_class_decl _77{ holdem_class_type::pocket_pair, _7, _7 };
+                static holdem_class_decl _66{ holdem_class_type::pocket_pair, _6, _6 };
+                static holdem_class_decl _55{ holdem_class_type::pocket_pair, _5, _5 };
+                static holdem_class_decl _44{ holdem_class_type::pocket_pair, _4, _4 };
+                static holdem_class_decl _33{ holdem_class_type::pocket_pair, _3, _3 };
+                static holdem_class_decl _22{ holdem_class_type::pocket_pair, _2, _2 };
+                #endif
+
         }
                 
         suit_decl const& suit_decl::get(suit_id id){
@@ -344,11 +443,71 @@ namespace ps{
                 return fac.get(id);
         }
 
-        enum class suit_category{
-                any_suit,
-                suited,
-                offsuit
-        };
+        holdem_class_id holdem_class_decl::make_id(holdem_class_type cat, rank_id x, rank_id y){
+                using std::get;
+                static auto aux{[](){
+                        std::vector<std::tuple<int,rank_id, rank_id, holdem_class_id> > vec;
+                        holdem_class_id id{0};
+                        for(rank_id a{13};a!=0;){
+                                --a;
+                                vec.emplace_back(0,a,a,id++);
+                        }
+                        for( unsigned a{13};a!=1;){
+                                --a;
+                                for( unsigned b{a};b!=0;){
+                                        --b;
+                                        vec.emplace_back(1,a,b,id++);
+                                        vec.emplace_back(2,a,b,id++);
+                                }
+                        }
+                        PRINT(vec.size());
+                        boost::sort(vec);
+                        for( auto const& t : vec ){
+                                PRINT_SEQ((get<0>(t))(get<1>(t))(get<2>(t))(get<3>(t)));
+                        }
+                        return std::move(vec);
+                }()};
+                if( x < y )
+                        std::swap(x,y);
+                 
+                PRINT_SEQ((static_cast<int>(cat))(x)(y));
+                for( auto const& t : aux ){
+                        if( get<0>(t) == static_cast<int>(cat) &&
+                            get<1>(t) == x &&
+                            get<2>(t) == y ){
+                                return get<3>(t);
+                        }
+                }
+                BOOST_THROW_EXCEPTION(std::domain_error("not a tuple"));
+        }
+        holdem_class_decl const& holdem_class_decl::get(holdem_id id){
+                static decl_factory<holdem_class_decl> fac{
+                        [](){
+                                std::vector<holdem_class_decl> aux;
+                                for( unsigned a{13};a!=0;){
+                                        --a;
+                                        aux.emplace_back( holdem_class_type::pocket_pair,
+                                                          rank_decl::get(a),
+                                                          rank_decl::get(a) );
+                                }
+                                for( unsigned a{13};a!=1;){
+                                        --a;
+                                        for( unsigned b{a};b!=0;){
+                                                --b;
+                                                aux.emplace_back( holdem_class_type::suited,
+                                                                  rank_decl::get(a),
+                                                                  rank_decl::get(b) );
+                                                aux.emplace_back( holdem_class_type::offsuit,
+                                                                  rank_decl::get(a),
+                                                                  rank_decl::get(b) );
+                                        }
+                                }
+                                return std::move(aux);
+                        }()
+                };
+                return fac.get(id);
+        }
+
 
                 
 

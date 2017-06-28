@@ -15,27 +15,15 @@
 #include "ps/algorithm.h"
 
 namespace ps{
-
-struct hu_visitor{
-
-        template<class Int, class Vec>
-        void operator()(Int a, Int b, Int c, Int d, Int e, Vec const& ranked){
-                //PRINT( detail::to_string(ranked) );
-                if( ranked[0] < ranked[1] ){
-                        ++win;
-                } else if( ranked[0] > ranked[1] ){
-                        ++lose;
-                } else{
-                        ++draw;
-                }
-        }  
-        hu_visitor permutate(std::vector<int> const& perm)const{
-                hu_visitor ret(*this);
+        
+struct hu_result_t{
+        hu_result_t permutate(std::vector<int> const& perm)const{
+                hu_result_t ret(*this);
                 if( perm[0] == 1 )
                         std::swap(ret.win, ret.lose);
                 return ret;
         }
-        hu_visitor const& append(hu_visitor const& that){
+        hu_result_t const& append(hu_result_t const& that){
                 win  += that.win;
                 lose += that.lose;
                 draw += that.draw;
@@ -47,7 +35,7 @@ struct hu_visitor{
                 ar & lose;
                 ar & draw;
         }
-        friend std::ostream& operator<<(std::ostream& ostr, hu_visitor const& self){
+        friend std::ostream& operator<<(std::ostream& ostr, hu_result_t const& self){
                 auto sigma{ self.win + self.lose + self.draw };
                 auto equity{ (self.win + self.draw / 2.0 ) / sigma * 100 };
                 return ostr << boost::format("%2.2f%% (%d,%d,%d)") % equity % self.win % self.draw % self.lose;
@@ -56,6 +44,21 @@ struct hu_visitor{
         size_t lose{0};
         size_t draw{0};
 };
+
+struct hu_visitor{
+        template<class Int, class Vec>
+        void operator()(Int a, Int b, Int c, Int d, Int e, Vec const& ranked){
+                //PRINT( detail::to_string(ranked) );
+                if( ranked[0] < ranked[1] ){
+                        ++win;
+                } else if( ranked[0] > ranked[1] ){
+                        ++lose;
+                } else{
+                        ++draw;
+                }
+        }  
+        hu_result_t result;
+};
         
 
 /*
@@ -63,13 +66,13 @@ struct hu_visitor{
         the preflop equity
  */
 struct equity_cacher{
-        hu_visitor visit_boards( std::vector<ps::holdem_id> const& players){
+        hu_result_t visit_boards( std::vector<ps::holdem_id> const& players){
 
                 auto p{ permutate_for_the_better(players) };
                 
                 return do_visit_boards( std::get<0>(p), std::get<1>(p) );
         }
-        hu_visitor do_visit_boards( std::vector<int> const& perm, std::vector<ps::holdem_id> const& players){
+        hu_result_t do_visit_boards( std::vector<int> const& perm, std::vector<ps::holdem_id> const& players){
                 auto iter = cache_.find(players);
                 if( iter != cache_.end() ){
                         #if 0
@@ -82,7 +85,7 @@ struct equity_cacher{
                                 asseet(false);
                         }
                         #endif 
-                        hu_visitor aux{ iter->second.permutate(perm) };
+                        hu_result_t aux{ iter->second.permutate(perm) };
                         return aux;
                 }
 

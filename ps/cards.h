@@ -18,13 +18,14 @@
 namespace ps{
 
         #if 0
-        using id_type =  std::uint16_t;
+        using id_type         =  std::uint16_t;
 
-        using suit_id   = std::uint8_t;
-        using rank_id   = std::uint8_t; 
-        using card_id   = std::uint8_t; 
-        using holdem_id = std::uint16_t;
-        #endif
+        using suit_id         = std::uint8_t;
+        using rank_id         = std::uint8_t; 
+        using card_id         = std::uint8_t; 
+        using holdem_id       = std::uint16_t;
+        using holdem_class_id = std::uint8_t; 
+        #else
 
         using id_type =  unsigned;
 
@@ -34,6 +35,7 @@ namespace ps{
         using holdem_id = unsigned;
         using holdem_class_id = unsigned;
 
+        #endif
         // random access, means
         //      {id=0, key=4}, {id=2,key=5} needs
         //      {4,-1,5} etc
@@ -224,7 +226,7 @@ namespace ps{
                                 break;
                         case holdem_class_type::pocket_pair:
                                 for(suit_id x{0};x!=4;++x){
-                                        for(suit_id y{x+1};y!=4;++y){
+                                        for(suit_id y{static_cast<suit_id>(x+1)};y!=4;++y){
                                                 hand_set_.emplace_back(
                                                         card_decl(
                                                                 suit_decl::get(x), first_),
@@ -523,15 +525,15 @@ namespace ps{
                 static decl_factory<holdem_class_decl> fac{
                         [](){
                                 std::vector<holdem_class_decl> aux;
-                                for( unsigned a{13};a!=0;){
+                                for( rank_id a{13};a!=0;){
                                         --a;
                                         aux.emplace_back( holdem_class_type::pocket_pair,
                                                           rank_decl::get(a),
                                                           rank_decl::get(a) );
                                 }
-                                for( unsigned a{13};a!=1;){
+                                for( rank_id a{13};a!=1;){
                                         --a;
-                                        for( unsigned b{a};b!=0;){
+                                        for( rank_id b{a};b!=0;){
                                                 --b;
                                                 aux.emplace_back( holdem_class_type::suited,
                                                                   rank_decl::get(a),

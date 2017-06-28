@@ -45,20 +45,22 @@ struct hu_result_t{
         size_t draw{0};
 };
 
+namespace detail{
 struct hu_visitor{
         template<class Int, class Vec>
         void operator()(Int a, Int b, Int c, Int d, Int e, Vec const& ranked){
                 //PRINT( detail::to_string(ranked) );
                 if( ranked[0] < ranked[1] ){
-                        ++win;
+                        ++result.win;
                 } else if( ranked[0] > ranked[1] ){
-                        ++lose;
+                        ++result.lose;
                 } else{
-                        ++draw;
+                        ++result.draw;
                 }
         }  
         hu_result_t result;
 };
+} // detail
         
 
 /*
@@ -89,11 +91,11 @@ struct equity_cacher{
                         return aux;
                 }
 
-                hu_visitor v;
+                detail::hu_visitor v;
                 ec_.visit_boards(v, players);
                 //std::cout << detail::to_string(players) << " -> " << v << "\n";
 
-                cache_.insert(std::make_pair(players, v));
+                cache_.insert(std::make_pair(players, v.result));
                 return do_visit_boards(perm, players);
         }
 
@@ -123,9 +125,61 @@ struct equity_cacher{
         }
         auto cache_size()const{ return cache_.size(); }
 private:
-        std::map<std::vector<ps::holdem_id>, hu_visitor> cache_;
+        std::map<std::vector<ps::holdem_id>, hu_result_t> cache_;
         ps::equity_calc_detail ec_;
 };
+
+struct class_equity_cacher{
+        explicit class_equity_cacher(equity_cacher& ec)
+                :ec_{&ec}
+        {}
+
+        bool load(std::string const& name){
+                std::ifstream is(name);
+                if( ! is.is_open() )
+                        return false;
+                boost::archive::text_iarchive ia(is);
+                ia >> *this;
+                return true;
+        }
+        bool save(std::string const& name)const{
+                std::ofstream of(name);
+                boost::archive::text_oarchive oa(of);
+                oa << *this;
+                return true;
+        }
+        template<class Archive>
+        void serialize(Archive& ar, unsigned int){
+                ar & cache_;          
+        }
+
+        hu_result_t const& visit_boards( std::vector<ps::holdem_class_id> const& players){
+                auto iter{ cache_.find( players) };
+                if( iter != cache_.end() ){
+                        return iter->second;
+                }
+                auto const& left{ holdem_class_decl::get(players[0]).get_hand_set() };
+                auto const& right{ holdem_class_decl::get(players[1]).get_hand_set() };
+                hu_result_t ret;
+                for( auto const& l : left ){
+                        for( auto const& r : right ){
+                                if( ! disjoint(l, r) )
+                                        continue;
+                                auto const& cr{ ec_->visit_boards(
+                                        std::vector<ps::holdem_id>{l,r} ) };
+                                ret.win  += cr.win;
+                                ret.lose += cr.lose;
+                               ret.draw += cr.draw;
+                        }
+                }
+                cache_.insert(std::make_pair( players, ret) );
+                return visit_boards(players);
+        }
+private:
+        std::map<std::vector<ps::holdem_class_id>, hu_result_t> cache_;
+        equity_cacher* ec_;
+};
+
 
 
 inline
@@ -137,6 +191,7 @@ void generate_cache(){
         p1 = frontend::percent(100);
 
         tree_range root{ std::vector<frontend::range>{p0, p1} };
+        root.display();
         std::set< std::vector<ps::holdem_id> > world;
         size_t sigma{0};
         

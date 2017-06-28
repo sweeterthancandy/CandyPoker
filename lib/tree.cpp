@@ -51,7 +51,6 @@ namespace ps{
 
                 this->players = players;
                 // XXX dispatch for N
-                PRINT(this->players.size());
                 switch(this->players.size()){
                 case 2:
                         detail::visit_exclusive_combinations<2>(

@@ -191,7 +191,6 @@ void generate_cache(){
         p1 = frontend::percent(100);
 
         tree_range root{ std::vector<frontend::range>{p0, p1} };
-        root.display();
         std::set< std::vector<ps::holdem_id> > world;
         size_t sigma{0};
         

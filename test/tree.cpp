@@ -24,6 +24,8 @@ TEST(tree, _){
         // 6 * 4 = 24
         EXPECT_EQ( 24, child.children.size());
 
+        root.display();
+
 
 
 }

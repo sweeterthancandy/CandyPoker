@@ -1,7 +1,8 @@
 #include "ps/heads_up.h"
 #include "ps/detail/print.h"
 
-#if 0
+#if 1
+namespace ps{
 struct class_equity_cacher{
         struct result_t{
                 result_t permutate(std::vector<int> const& perm)const{
@@ -52,7 +53,7 @@ struct class_equity_cacher{
         }
 
         class_equity_cacher(){
-                ec_.loan("cache.bin");
+                //ec_.load("cache.bin");
         }
         
         result_t const& visit_boards( std::vector<ps::holdem_class_id> const& players){
@@ -60,18 +61,35 @@ struct class_equity_cacher{
                 if( iter != cache_.end() ){
                         return iter->second;
                 }
-
-
+                auto const& left{ holdem_class_decl::get(players[0]).get_hand_set() };
+                auto const& right{ holdem_class_decl::get(players[1]).get_hand_set() };
+                result_t ret;
+                for( auto const& l : left ){
+                        for( auto const& r : right ){
+                                if( ! disjoint(l, r) )
+                                        continue;
+                                auto const& cr{ ec_.visit_boards(
+                                        std::vector<ps::holdem_id>{l,r} ) };
+                                ret.win  += cr.win;
+                                ret.lose += cr.lose;
+                               ret.draw += cr.draw;
+                        }
+                }
+                cache_.insert(std::make_pair( players, ret) );
+                return visit_boards(players);
         }
 private:
         std::map<std::vector<ps::holdem_class_id>, result_t> cache_;
         equity_cacher ec_;
 };
+}
 
+#if 0
 void generate_hu_cache(){
         class_equity_cacher cec;
 
 }
+#endif
 #endif
 
 int main(){
@@ -82,7 +100,16 @@ int main(){
                 auto h{ holdem_class_decl::get(i) };
                 PRINT_SEQ((i)(h)(ps::detail::to_string(h.get_hand_set())));
         } 
-        PRINT( holdem_class_decl::get("AKo") );
-        PRINT( holdem_class_decl::get("33") );
-        PRINT( holdem_class_decl::get("79s") );
+        auto _AKo{ holdem_class_decl::get("AKo")};
+        auto _33{ holdem_class_decl::get("33") };
+        auto _JTs{ holdem_class_decl::get("JTs") };
+
+        class_equity_cacher ec;
+        PRINT( ec.visit_boards(
+                        std::vector<ps::holdem_class_id>{
+                                _AKo, _JTs } ) );
+        PRINT( ec.visit_boards(
+                        std::vector<ps::holdem_class_id>{
+                                _AKo, _JTs } ) );
+
 }

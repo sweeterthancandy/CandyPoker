@@ -275,6 +275,71 @@ void generate_cache(){
 
 }
 
+struct hu_strategy{
+        hu_strategy(double fill){
+                for(size_t i{0};i!=169;++i){
+                        vec_[i] = fill;
+                }
+        }
+        auto begin()const{ return vec_.begin(); }
+        auto end()const{ return vec_.end(); }
+        double& operator[](size_t idx){return vec_[idx]; }
+        double const& operator[](size_t idx)const{return vec_[idx]; }
+        void check(){
+                for(size_t i{0};i!=169;++i){
+                        if ( !( 0 <= vec_[i] && vec_[i] <= 1.0 && "not a strat") ){
+                                std::cerr << "FAILED\n";
+                                return;
+                        }
+                }
+        }
+        hu_strategy& operator*=(double val){
+                for(size_t i{0};i!=169;++i){
+                        vec_[i] *= val;
+                }
+                return *this;
+        }
+        hu_strategy operator*(double val){
+                hu_strategy result{*this};
+                result *= val;
+                return std::move(result);
+        }
+        hu_strategy& operator+=(hu_strategy const& that){
+                for(size_t i{0};i!=169;++i){
+                        vec_[i] += that.vec_[i];
+                }
+                return *this;
+        }
+        hu_strategy operator+(hu_strategy const& that){
+                hu_strategy result{*this};
+                result += that;
+                return std::move(result);
+        }
+        hu_strategy& operator-=(hu_strategy const& that){
+                for(size_t i{0};i!=169;++i){
+                        vec_[i] -= that.vec_[i];
+                }
+                return *this;
+        }
+        hu_strategy operator-(hu_strategy const& that){
+                hu_strategy result{*this};
+                result -= that;
+                return std::move(result);
+        }
+        double norm()const{
+                double result{0.0};
+                for(size_t i{0};i!=169;++i){
+                        result = std::max(result, std::fabs(vec_[i]));
+                }
+                return result;
+        }
+        friend std::ostream& operator<<(std::ostream& ostr, hu_strategy const& strat){
+                return ostr << ps::detail::to_string(strat.vec_);
+        }
+private:
+        std::array<double, 169> vec_;
+};
+
 } // ps
 
 #endif // PS_HEADS_UP_H

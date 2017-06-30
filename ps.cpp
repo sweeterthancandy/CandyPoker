@@ -32,7 +32,7 @@ using namespace ps::frontend;
 double calc( class_equity_cacher& cec,
                    hu_strategy const& sb_push_strat,
                    hu_strategy const& bb_call_strat,
-                   double eff_stack, double bb, double sb)
+                   double eff_stack, double sb, double bb)
 {
         struct context{
                 class_equity_cacher* cec;
@@ -117,7 +117,7 @@ double calc( class_equity_cacher& cec,
 
 auto solve_hu_push_fold_bb_maximal_exploitable(ps::class_equity_cacher& cec,
                                                hu_strategy const& sb_push_strat,
-                                               double eff_stack, double bb, double sb)
+                                               double eff_stack, double sb, double bb)
 {
         struct context{
                 class_equity_cacher* cec;
@@ -183,7 +183,7 @@ auto solve_hu_push_fold_bb_maximal_exploitable(ps::class_equity_cacher& cec,
 } 
 auto solve_hu_push_fold_sb_maximal_exploitable(ps::class_equity_cacher& cec,
                                                hu_strategy const& bb_call_strat,
-                                               double eff_stack, double bb, double sb)
+                                               double eff_stack, double sb, double bb)
 {
         struct context{
                 class_equity_cacher* cec;
@@ -253,106 +253,9 @@ auto solve_hu_push_fold_sb_maximal_exploitable(ps::class_equity_cacher& cec,
         }
         return std::move(ctx.sb_push_strat);
 } 
-#if 0
-auto solve_hu_push_fold___sb_maximal_exploitable(ps::class_equity_cacher& cec,
-                                               hu_strategy const& bb_call_strat,
-                                               double eff_stack, double bb, double sb)
-{
-        hu_strategy counter_strat{0.0};
-
-        for(holdem_class_id x{0}; x != 169;++x){
-
-                hu_fresult_t result;
-
-                double win_preflop{0};
-                
-                // weight average again villians range
-                for(holdem_class_id y{0}; y != 169;++y){
-                        auto p{bb_call_strat[y]};
-
-                        hu_fresult_t sim{cec.visit_boards(std::vector<ps::holdem_class_id>{ x,y })};
-                        win_preflop += sim.sigma() * ( 1 - p );
-                        sim *= p;
-                        result.append(sim);
-
-                }
-
-                auto total{ result.sigma() + win_preflop };
-                double call_p{result.sigma() / total };
-                double fold_p{win_preflop    / total};
-
-                /*
-                        Ev<Push> = Ev<Villan calls | Push> + Ev<Villian fold | Push>
-                */
-                double ev_push_call{ eff_stack * ( 2 * result.equity() - 1.0) };
-
-                double ev_push{ call_p * ev_push_call + fold_p * bb };
-                double ev_fold{ -sb };
-                
-                //auto hero{ holdem_class_decl::get(x) };
-
-                //PRINT_SEQ((hero)(sigma)(call_equity)(call_p)(fold_p)(call_p+fold_p)(ev_push_call)(ev_push));
-
-                if( ev_push >= ev_fold ){
-                        counter_strat[x] = 1.0;
-                }
-
-        }
-        return std::move(counter_strat);
-} 
-#endif
 
 
 
-double hu_calc_sb_push_value( class_equity_cacher& cec,
-                           hu_strategy const& sb_push_strat,
-                           hu_strategy const& bb_call_strat,
-                           double eff_stack, double bb, double sb)
-{
-        double sigma{0.0};
-        for(holdem_class_id x{0}; x != 169;++x){
-
-                hu_fresult_t win_call;
-                double comb_sigma{0.0};
-
-
-                // weight average again villians range
-                for(holdem_class_id y{0}; y != 169;++y){
-
-                        auto p{bb_call_strat[y]};
-
-                        hu_fresult_t sim{cec.visit_boards(std::vector<ps::holdem_class_id>{ x,y })};
-                        comb_sigma += sim.sigma();
-                        sim *= p;
-                        win_call.append(sim);
-
-                }
-
-                // EV = sigma_of_pot * p_win - cost_of_bet
-                
-                double value_push_call{ eff_stack * ( 2 * win_call.equity() - 1) };
-                if( win_call.sigma() == 0 )
-                        value_push_call = 0;
-                
-                double call_p{win_call.sigma() / comb_sigma};
-                double fold_p{ 1 - call_p};
-
-                double value{ call_p * value_push_call + fold_p * bb }; 
-                
-                double weighted_value{ sb_push_strat[x] * value - ( 1- sb_push_strat[x] ) * sb };
-
-                sigma += weighted_value * holdem_class_decl::get(x).prob();
-
-                PRINT_SEQ((comb_sigma)(value_push_call)(call_p)(fold_p)(value)(weighted_value));
-
-        }
-        return sigma;
-}
-
-
-void game_tree_driver(){
-
-}
 
 int main(){
         using namespace ps;
@@ -367,64 +270,39 @@ int main(){
         double bb{1.0};
         double sb{0.5};
 
-        hu_strategy sb_strat{1.0};
-        hu_strategy bb_strat{0.0};
-
-        #if 0
-        PRINT_SEQ((gt_hu::calc(cec, bb_strat, sb_strat, eff_stack, bb, sb)));
-        PRINT_SEQ((gt_hu::calc(cec, sb_strat, bb_strat, eff_stack, bb, sb)));
-        bb_strat[0] = 1.0;
-        PRINT_SEQ((gt_hu::calc(cec, bb_strat, sb_strat, eff_stack, bb, sb)));
-        #endif
-
-
-
-
-#if 1
         for(;;eff_stack += 1.0){
+
                 double alpha{0.5};
                 hu_strategy sb_strat{1.0};
-                hu_strategy bb_strat{1.0};
-                double bb{1.0};
-                double sb{0.5};
                 for(size_t count=0;;++count){
-                        double ev{calc(cec, bb_strat, sb_strat, eff_stack, bb, sb)};
 
                         auto bb_me{solve_hu_push_fold_bb_maximal_exploitable(cec,
                                                                              sb_strat,
                                                                              eff_stack,
-                                                                             bb,
-                                                                             sb)};
-                        auto bb_next{ bb_strat * ( 1 - alpha) + bb_me * alpha };
-                        auto bb_norm{ (bb_next - bb_strat).norm() };
-                        bb_strat = std::move(bb_next);
+                                                                             sb,
+                                                                             bb)};
+
+                        double ev{calc(cec, bb_me, sb_strat, eff_stack, sb, bb)};
 
                         auto sb_me{solve_hu_push_fold_sb_maximal_exploitable(cec,
-                                                                             bb_strat,
+                                                                             bb_me,
                                                                              eff_stack,
-                                                                             bb,
-                                                                             sb)};
+                                                                             sb,
+                                                                             bb)};
+
+
                         auto sb_next{ sb_strat * ( 1 - alpha) + sb_me * alpha };
                         auto sb_norm{ (sb_next - sb_strat).norm() };
                         sb_strat = std::move(sb_next);
 
                         #if 1
-                        PRINT(bb_strat);
                         PRINT(sb_strat);
                         #endif
 
-                        #if 0
-                        for(size_t i{0};i!=169;++i){
-                                if( sb_strat[i] < 1e-3 )
-                                        sb_strat[i] = 0.0;
-                                else if( std::fabs(1.0 - sb_strat[i]) > 1e-3 )
-                                        sb_strat[i] = 1.0;
-                        }
-                        #endif
                         //PRINT_SEQ((::ps::detail::to_string(sb_strat)));
                         //
-                        PRINT_SEQ((sb_norm)(bb_norm)(ev));
-                        if( ( sb_norm + bb_norm ) < 1e-5 ){
+                        PRINT_SEQ((sb_norm)(ev));
+                        if( ( sb_norm ) < 1e-5 ){
                                 std::cout << "_break_\n";
                                 break;
                         }
@@ -439,24 +317,7 @@ int main(){
                         std::cout << holdem_class_decl::get(i) << " ";
                 }
                 std::cout << "\n";
+                break;
         }
-        #if 0
-        for(size_t i{0};i!=3;++i){
-                boost::timer::auto_cpu_timer at;
-                for(holdem_class_id x{0}; x != 169;++x){
-                        for(holdem_class_id y{0}; y != 169;++y){
-                                auto hero{ holdem_class_decl::get(x) };
-                                auto villian{ holdem_class_decl::get(y) };
-                                cec.visit_boards( std::vector<ps::holdem_class_id>{ x,y } );
-                                #if 0
-                                PRINT_SEQ((hero)(villian)( cec.visit_boards(
-                                                std::vector<ps::holdem_class_id>{
-                                                        x,y } ) ));
-                                                        #endif
-                        }
-                }
-        }
-        #endif
-#endif
 
 }

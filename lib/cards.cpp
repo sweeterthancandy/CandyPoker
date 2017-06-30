@@ -1,5 +1,9 @@
 #include "ps/cards.h"
 
+#include <iostream>
+
+#include <boost/range/algorithm.hpp>
+
 namespace{
         // random access, means
         //      {id=0, key=4}, {id=2,key=5} needs

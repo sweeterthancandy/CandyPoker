@@ -2,6 +2,7 @@
 #define PS_DETAIL_TREE_PRINTER_H
 
 #include <boost/mpl/char.hpp>
+#include <iostream>
 
 namespace ps{
 namespace detail{

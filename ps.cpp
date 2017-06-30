@@ -1,11 +1,11 @@
 #include "ps/heads_up.h"
+#include "ps/heads_up.h"
 #include "ps/detail/print.h"
 
 #include <numeric>
 #include <boost/timer/timer.hpp>
 
 using namespace ps;
-using namespace ps::frontend;
 
 
 /*
@@ -259,7 +259,6 @@ auto solve_hu_push_fold_sb_maximal_exploitable(ps::class_equity_cacher& cec,
 
 int main(){
         using namespace ps;
-        using namespace ps::frontend;
 
         equity_cacher ec;
         ec.load("cache.bin");

@@ -127,17 +127,12 @@ namespace ps{
                                         vec.emplace_back(2,a,b,id++);
                                 }
                         }
-                        PRINT(vec.size());
                         boost::sort(vec);
-                        for( auto const& t : vec ){
-                                PRINT_SEQ((get<0>(t))(get<1>(t))(get<2>(t))(get<3>(t)));
-                        }
                         return std::move(vec);
                 }()};
                 if( x < y )
                         std::swap(x,y);
                  
-                PRINT_SEQ((static_cast<int>(cat))(x)(y));
                 for( auto const& t : aux ){
                         if( get<0>(t) == static_cast<int>(cat) &&
                             get<1>(t) == x &&

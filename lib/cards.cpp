@@ -256,4 +256,21 @@ namespace ps{
                         BOOST_THROW_EXCEPTION(std::domain_error("not a holdem hand cat (" + s + ")"));
                 }
         }
+        size_t holdem_class_decl::weight(holdem_class_id c0, holdem_class_id c1){
+                auto const& left{ holdem_class_decl::get(c0).get_hand_set() };
+                auto const& right{ holdem_class_decl::get(c1).get_hand_set() };
+                size_t count{0};
+                for( auto const& l : left ){
+                        for( auto const& r : right ){
+                                if( ! disjoint(l, r) ){
+                                        ++count;
+                                }
+                        }
+                }
+                return count;
+        }
+        double holdem_class_decl::prob(holdem_class_id c0, holdem_class_id c1){
+                // I just got this magic constant my summing all the weights
+                return weight(c0, c1) / 133926.0;
+        }
 } // 

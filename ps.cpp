@@ -7,6 +7,7 @@
 using namespace ps;
 using namespace ps::frontend;
 
+
 /*
                 
                                         <>
@@ -28,50 +29,238 @@ using namespace ps::frontend;
                                             = S( 2 Eq - 1 )
 
  */
+double calc( class_equity_cacher& cec,
+                   hu_strategy const& sb_push_strat,
+                   hu_strategy const& bb_call_strat,
+                   double eff_stack, double bb, double sb)
+{
+        struct context{
+                class_equity_cacher* cec;
+                hu_strategy sb_push_strat;
+                hu_strategy bb_call_strat;
+                double eff_stack;
+                double sb;
+                double bb;
+                holdem_class_id sb_id;
+                holdem_class_id bb_id;
+        };
+        /*
+                                         <root>
+                                    ______/  \______
+                                   /                \
+                              <sb_push>          <sb_fold>
+                         ____/        \_____
+                        /                   \
+               <sb_push_bb_call>      <sb_push_bb_fold>
+
+         */
+        struct sb_push__bb_call{
+                double operator()(context& ctx)const{
+                        auto equity{ctx.cec->visit_boards(std::vector<ps::holdem_class_id>{ ctx.bb_id,ctx.sb_id }).equity()};
+                        return ctx.eff_stack * ( 2 * equity - 1 );
+                }
+        };
+        struct sb_push__bb_fold{
+                double operator()(context& ctx)const{
+                        return +ctx.bb;
+                }
+        };
+        struct sb_push{
+                double operator()(context& ctx)const{
+                        return 
+                                (  ctx.bb_call_strat[ctx.sb_id]) * bb_call_(ctx) +
+                                (1-ctx.bb_call_strat[ctx.sb_id]) * bb_fold_(ctx);
+                }
+        private:
+                sb_push__bb_call bb_call_;
+                sb_push__bb_fold bb_fold_;
+        };
+        struct sb_fold{
+                double operator()(context& ctx)const{
+                        return -ctx.sb;
+                }
+        };
+        struct root{
+                double operator()(context& ctx)const{
+                        return 
+                                (  ctx.sb_push_strat[ctx.bb_id]) * sb_push_(ctx) +
+                                (1-ctx.sb_push_strat[ctx.bb_id]) * sb_fold_(ctx);
+                }
+        private:
+                sb_push sb_push_;
+                sb_fold sb_fold_;
+        };
+        context ctx = {
+                &cec,
+                sb_push_strat,
+                bb_call_strat,
+                eff_stack,
+                sb,
+                bb,
+                0,
+                0
+        };
+        double sigma{0.0};
+        root root_;
+        for(holdem_class_id bb_id{0}; bb_id != 169;++bb_id){
+                for(holdem_class_id sb_id{0}; sb_id != 169;++sb_id){
+                        ctx.bb_id = bb_id;
+                        ctx.sb_id = sb_id;
+                        sigma += root_(ctx) * holdem_class_decl::prob(bb_id,sb_id);
+                }
+        }
+        return sigma;
+}
+
+
 
 
 auto solve_hu_push_fold_bb_maximal_exploitable(ps::class_equity_cacher& cec,
                                                hu_strategy const& sb_push_strat,
                                                double eff_stack, double bb, double sb)
 {
-        hu_strategy counter_strat{0.0};
+        struct context{
+                class_equity_cacher* cec;
+                hu_strategy sb_push_strat;
+                hu_strategy bb_call_strat;
+                double eff_stack;
+                double sb;
+                double bb;
+                holdem_class_id bb_id;
+                holdem_class_id sb_id;
+        };
+        /*
+                                         <solver>
+                                    ______/  \______
+                                   /                \
+                              <call>              <fold>
 
-        for(holdem_class_id x{0}; x != 169;++x){
-                hu_fresult_t result;
-                // weight average again villians range
-                for(holdem_class_id y{0}; y != 169;++y){
-                        auto p{sb_push_strat[y]};
-
-                        hu_fresult_t sim{cec.visit_boards(std::vector<ps::holdem_class_id>{ x,y })};
-                        sim *= p;
-                        result.append(sim);
+         */
+        struct fold{
+                double operator()(context& ctx)const{
+                        return -ctx.bb;
                 }
-
-                double ev_call{ eff_stack * ( 2 * result.sigma() - 1 ) };
-                double ev_fold{ -bb };
-                //double ev_fold{ 0.0 };
-                auto hero{ holdem_class_decl::get(x) };
-                //PRINT_SEQ((hero)(sigma)(equity)(ev_call));
-
-                if( ev_call >= ev_fold ){
-                        counter_strat[x] = 1.0;
+        };
+        struct call{
+                double operator()(context& ctx)const{
+                        hu_fresult_t res;
+                        for(holdem_class_id sb_id{0}; sb_id != 169;++sb_id){
+                                hu_fresult_t tmp{ctx.cec->visit_boards(std::vector<ps::holdem_class_id>{ ctx.bb_id, sb_id })};
+                                tmp *= ctx.sb_push_strat[sb_id];
+                                res.append(tmp);
+                        }
+                        return ctx.eff_stack * ( 2 * res.equity() - 1);
                 }
+        };
+        struct solver{
+                void operator()(context& ctx)const{
+                        if( call_(ctx) > fold_(ctx) ){
+                                ctx.bb_call_strat[ctx.bb_id] = 1.0;
+                        }
+                }
+        private:
+                call call_;
+                fold fold_;
+        };
 
+        context ctx = {
+                &cec,
+                sb_push_strat,
+                hu_strategy{0.0},
+                eff_stack,
+                sb,
+                bb,
+                0,
+                0
+        };
+        solver solver_;
+
+        for(holdem_class_id bb_id{0}; bb_id != 169;++bb_id){
+                ctx.bb_id = bb_id;
+                solver_(ctx);
         }
-        return std::move(counter_strat);
+        return std::move(ctx.bb_call_strat);
 } 
 auto solve_hu_push_fold_sb_maximal_exploitable(ps::class_equity_cacher& cec,
                                                hu_strategy const& bb_call_strat,
                                                double eff_stack, double bb, double sb)
 {
-        hu_strategy counter_strat{0.0};
-        for(holdem_class_id x{0}; x != 169;++x){
-                /*
-                 *  We call iff
-                 *
-                 *    EV<push x| villian call with S> >= 0
-                 */
+        struct context{
+                class_equity_cacher* cec;
+                hu_strategy sb_push_strat;
+                hu_strategy bb_call_strat;
+                double eff_stack;
+                double bb;
+                double sb;
+                holdem_class_id bb_id;
+                holdem_class_id sb_id;
+        };
+        struct sb_push__bb_call{
+                double operator()(context& ctx)const{
+                        auto equity{ctx.cec->visit_boards(std::vector<ps::holdem_class_id>{ ctx.sb_id, ctx.bb_id }).equity()};
+                        return ctx.eff_stack * ( 2 * equity - 1);
+                }
+        };
+        struct sb_push__bb_fold{
+                double operator()(context& ctx)const{
+                        return +ctx.bb;
+                }
+        };
+        struct sb_push{
+                double operator()(context& ctx)const{
+                        double sigma{0.0};
+                        for(holdem_class_id bb_id{0}; bb_id != 169;++bb_id){
+                                ctx.bb_id = bb_id;
+                                sigma +=
+                                           ctx.bb_call_strat[ctx.bb_id]  * bb_call_(ctx) +
+                                        (1-ctx.bb_call_strat[ctx.bb_id]) * bb_fold_(ctx);
+                        }
+                        return sigma;
+                }
+        private:
+                sb_push__bb_call bb_call_;
+                sb_push__bb_fold bb_fold_;
+        };
+        struct sb_fold{
+               double operator()(context& ctx)const{
+                        return -ctx.sb;
+                }
+        };
+        struct solver{
+                void operator()(context& ctx)const{
+                        if( sb_push_(ctx) > sb_fold_(ctx) )
+                                ctx.sb_push_strat[ctx.sb_id] = 1.0;
+                }
+        private:
+                sb_push sb_push_;
+                sb_fold sb_fold_;
+        };
+        context ctx = {
+                &cec,
+                hu_strategy{0.0},
+                bb_call_strat,
+                eff_stack,
+                bb,
+                sb,
+                0,
+                0
+        };
+        solver solver_;
 
+        for(holdem_class_id sb_id{0}; sb_id != 169;++sb_id){
+                ctx.sb_id = sb_id;
+                solver_(ctx);
+        }
+        return std::move(ctx.sb_push_strat);
+} 
+#if 0
+auto solve_hu_push_fold___sb_maximal_exploitable(ps::class_equity_cacher& cec,
+                                               hu_strategy const& bb_call_strat,
+                                               double eff_stack, double bb, double sb)
+{
+        hu_strategy counter_strat{0.0};
+
+        for(holdem_class_id x{0}; x != 169;++x){
 
                 hu_fresult_t result;
 
@@ -111,6 +300,7 @@ auto solve_hu_push_fold_sb_maximal_exploitable(ps::class_equity_cacher& cec,
         }
         return std::move(counter_strat);
 } 
+#endif
 
 
 
@@ -153,12 +343,16 @@ double hu_calc_sb_push_value( class_equity_cacher& cec,
 
                 sigma += weighted_value * holdem_class_decl::get(x).prob();
 
-                //PRINT_SEQ((comb_sigma)(value_push_call)(call_p)(fold_p)(value)(weighted_value));
+                PRINT_SEQ((comb_sigma)(value_push_call)(call_p)(fold_p)(value)(weighted_value));
 
         }
         return sigma;
 }
 
+
+void game_tree_driver(){
+
+}
 
 int main(){
         using namespace ps;
@@ -177,10 +371,10 @@ int main(){
         hu_strategy bb_strat{0.0};
 
         #if 0
-        PRINT_SEQ((hu_calc_sb_push_value(cec, bb_strat, sb_strat, eff_stack, bb, sb)));
-        PRINT_SEQ((hu_calc_sb_push_value(cec, sb_strat, bb_strat, eff_stack, bb, sb)));
+        PRINT_SEQ((gt_hu::calc(cec, bb_strat, sb_strat, eff_stack, bb, sb)));
+        PRINT_SEQ((gt_hu::calc(cec, sb_strat, bb_strat, eff_stack, bb, sb)));
         bb_strat[0] = 1.0;
-        PRINT_SEQ((hu_calc_sb_push_value(cec, bb_strat, sb_strat, eff_stack, bb, sb)));
+        PRINT_SEQ((gt_hu::calc(cec, bb_strat, sb_strat, eff_stack, bb, sb)));
         #endif
 
 
@@ -194,7 +388,7 @@ int main(){
                 double bb{1.0};
                 double sb{0.5};
                 for(size_t count=0;;++count){
-                        double ev{hu_calc_sb_push_value(cec, bb_strat, sb_strat, eff_stack, bb, sb)};
+                        double ev{calc(cec, bb_strat, sb_strat, eff_stack, bb, sb)};
 
                         auto bb_me{solve_hu_push_fold_bb_maximal_exploitable(cec,
                                                                              sb_strat,
@@ -214,7 +408,7 @@ int main(){
                         auto sb_norm{ (sb_next - sb_strat).norm() };
                         sb_strat = std::move(sb_next);
 
-                        #if 0
+                        #if 1
                         PRINT(bb_strat);
                         PRINT(sb_strat);
                         #endif

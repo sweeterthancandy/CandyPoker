@@ -3,6 +3,7 @@
 
 #include <future>
 #include <thread>
+#include <numeric>
 #include <mutex>
 #include <fstream>
 #include <boost/archive/text_oarchive.hpp>
@@ -282,8 +283,8 @@ struct hu_strategy{
                 }
         }
         auto begin()const{ return vec_.begin(); }
-        auto end()const{ return vec_.end(); }
-        double& operator[](size_t idx){return vec_[idx]; }
+        auto end()  const{ return vec_.end();   }
+        double&       operator[](size_t idx)     {return vec_[idx]; }
         double const& operator[](size_t idx)const{return vec_[idx]; }
         void check(){
                 for(size_t i{0};i!=169;++i){
@@ -299,21 +300,11 @@ struct hu_strategy{
                 }
                 return *this;
         }
-        hu_strategy operator*(double val){
-                hu_strategy result{*this};
-                result *= val;
-                return std::move(result);
-        }
         hu_strategy& operator+=(hu_strategy const& that){
                 for(size_t i{0};i!=169;++i){
                         vec_[i] += that.vec_[i];
                 }
                 return *this;
-        }
-        hu_strategy operator+(hu_strategy const& that){
-                hu_strategy result{*this};
-                result += that;
-                return std::move(result);
         }
         hu_strategy& operator-=(hu_strategy const& that){
                 for(size_t i{0};i!=169;++i){
@@ -321,11 +312,26 @@ struct hu_strategy{
                 }
                 return *this;
         }
+
+        hu_strategy operator*(double val){
+                hu_strategy result{*this};
+                result *= val;
+                return std::move(result);
+        }
+        hu_strategy operator+(hu_strategy const& that){
+                hu_strategy result{*this};
+                result += that;
+                return std::move(result);
+        }
         hu_strategy operator-(hu_strategy const& that){
                 hu_strategy result{*this};
                 result -= that;
                 return std::move(result);
         }
+        double sigma(){
+                return std::accumulate(vec_.begin(), vec_.end(), 0.0);
+        }
+
         double norm()const{
                 double result{0.0};
                 for(size_t i{0};i!=169;++i){

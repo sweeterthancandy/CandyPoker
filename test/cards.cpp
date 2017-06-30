@@ -64,3 +64,12 @@ TEST(holdem_class_decl, prob){
         EXPECT_NEAR(1.0, sigma, 1e-3);
         EXPECT_NEAR( ( 4 / 52.0 ) * (3 / 52.0) , holdem_class_decl::parse("AA").prob(), 1e-3);
 }
+TEST(holdem_class_decl, static_prob){
+        double sigma{0.0};
+        for(size_t i{0};i!=169;++i){
+                for(size_t j{0};j!=169;++j){
+                        sigma += holdem_class_decl::prob(i,j);
+                }
+        }
+        EXPECT_NEAR(1.0, sigma, 1e-3);
+}

@@ -144,12 +144,29 @@ auto solve_hu_push_fold_bb_maximal_exploitable(ps::class_equity_cacher& cec,
         struct call{
                 double operator()(context& ctx)const{
                         hu_fresult_t res;
+                        std::vector<double> weights(169);
+                        for(holdem_class_id sb_id{0}; sb_id != 169;++sb_id){
+                                weights[sb_id] = static_cast<double>(holdem_class_decl::weight(ctx.sb_id, sb_id));
+                        }
+                        auto factor{ std::accumulate( weights.begin(), weights.end(), 0.0) };
+
+                        double equity{0.0};
+                        for(holdem_class_id sb_id{0}; sb_id != 169;++sb_id){
+                                hu_fresult_t tmp{ctx.cec->visit_boards(std::vector<ps::holdem_class_id>{ ctx.bb_id, sb_id })};
+                                tmp *= ctx.sb_push_strat[sb_id];
+                                res.append(tmp);
+
+                                equity += tmp.equity() * ctx.sb_push_strat[sb_id] * weights[sb_id] / factor;
+                        }
+                        //PRINT_SEQ((res.equity())(equity));
+                        #if 0
                         for(holdem_class_id sb_id{0}; sb_id != 169;++sb_id){
                                 hu_fresult_t tmp{ctx.cec->visit_boards(std::vector<ps::holdem_class_id>{ ctx.bb_id, sb_id })};
                                 tmp *= ctx.sb_push_strat[sb_id];
                                 res.append(tmp);
                         }
-                        return 2 * ctx.eff_stack * res.equity() - ( ctx.eff_stack - ctx.bb);
+                        #endif
+                        return 2 * ctx.eff_stack * equity - ( ctx.eff_stack - ctx.bb);
                         //return ctx.eff_stack * ( 2 * res.equity() - 1);
                 }
         };
@@ -211,11 +228,19 @@ auto solve_hu_push_fold_sb_maximal_exploitable(ps::class_equity_cacher& cec,
         struct sb_push{
                 double operator()(context& ctx)const{
                         double sigma{0.0};
+                        std::vector<double> weights(169);
+                        for(holdem_class_id bb_id{0}; bb_id != 169;++bb_id){
+                                weights[bb_id] = static_cast<double>(holdem_class_decl::weight(ctx.sb_id, bb_id));
+                        }
+                        auto factor{ std::accumulate( weights.begin(), weights.end(), 0.0) };
+
                         for(holdem_class_id bb_id{0}; bb_id != 169;++bb_id){
                                 ctx.bb_id = bb_id;
                                 sigma +=
+                                        (
                                            ctx.bb_call_strat[ctx.bb_id]  * bb_call_(ctx) +
-                                        (1-ctx.bb_call_strat[ctx.bb_id]) * bb_fold_(ctx);
+                                        (1-ctx.bb_call_strat[ctx.bb_id]) * bb_fold_(ctx)
+                                        ) * weights[bb_id] / factor;
                         }
                         return sigma;
                 }
@@ -279,7 +304,7 @@ int main(){
 
         for(;;eff_stack += 1.0){
 
-                double alpha{0.1};
+                double alpha{0.4};
                 hu_strategy sb_strat{1.0};
                 for(size_t count=0;;++count){
 
@@ -309,16 +334,20 @@ int main(){
                         //PRINT_SEQ((::ps::detail::to_string(sb_strat)));
                         //
                         PRINT_SEQ((sb_norm)(ev));
+                        #if 0
                         if( ( sb_norm ) < 1e-5 ){
                                 std::cout << "_break_\n";
                                 break;
                         }
+                        #endif
 
                 }
                 std::cout << "-------- BB " << eff_stack << "--------\n";
                 for(size_t i{0};i!=169;++i){
+                        #if 0
                         if( sb_strat[i] < 1e-3 )
                                 continue;
+                                #endif
                         if( std::fabs(1.0 - sb_strat[i]) > 1e-3 )
                                 std::cout << sb_strat[i] << " ";
                         std::cout << holdem_class_decl::get(i) << " ";

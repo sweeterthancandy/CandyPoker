@@ -16,17 +16,32 @@
 
 namespace ps{
         
-struct hu_result_t{
-        hu_result_t permutate(std::vector<int> const& perm)const{
-                hu_result_t ret(*this);
+template<class T>
+struct basic_hu_result_t{
+        basic_hu_result_t()=default;
+        template<class U>
+        basic_hu_result_t(basic_hu_result_t<U> const& that)
+                : win(static_cast<T>(that.win))
+                , lose(static_cast<T>(that.lose))
+                , draw(static_cast<T>(that.draw))
+        {}
+        basic_hu_result_t permutate(std::vector<int> const& perm)const{
+                basic_hu_result_t ret(*this);
                 if( perm[0] == 1 )
                         std::swap(ret.win, ret.lose);
                 return ret;
         }
-        hu_result_t const& append(hu_result_t const& that){
+        basic_hu_result_t const& append(basic_hu_result_t const& that){
                 win  += that.win;
                 lose += that.lose;
                 draw += that.draw;
+                return *this;
+        }
+        template<class U>
+        basic_hu_result_t& operator*=(U val){
+                win  *= val;
+                lose *= val;
+                draw *= val;
                 return *this;
         }
         template<class Archive>
@@ -35,15 +50,22 @@ struct hu_result_t{
                 ar & lose;
                 ar & draw;
         }
-        friend std::ostream& operator<<(std::ostream& ostr, hu_result_t const& self){
-                auto sigma{ self.win + self.lose + self.draw };
-                auto equity{ (self.win + self.draw / 2.0 ) / sigma * 100 };
-                return ostr << boost::format("%2.2f%% (%d,%d,%d)") % equity % self.win % self.draw % self.lose;
+
+        friend std::ostream& operator<<(std::ostream& ostr, basic_hu_result_t const& self){
+                return ostr << boost::format("%2.2f%% (%d,%d,%d)") % self.equity() % self.win % self.draw % self.lose;
         }
-        size_t win{0};
-        size_t lose{0};
-        size_t draw{0};
+        auto sigma()const{
+                return win + lose + draw;
+        }
+        auto equity()const{
+                return ( win + draw / 2.0 ) / sigma();
+        }
+        T win  = T();
+        T lose = T();
+        T draw = T();
 };
+using hu_result_t = basic_hu_result_t<size_t>;
+using hu_fresult_t = basic_hu_result_t<double>;
 
 namespace detail{
 struct hu_visitor{

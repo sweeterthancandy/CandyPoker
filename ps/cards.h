@@ -177,6 +177,25 @@ namespace ps{
                 bool operator<(holdem_class_decl const& that)const{
                         return id_ < that.id_;
                 }
+                size_t weight()const{
+                        switch(cat_){
+                        case holdem_class_type::suited:
+                                return 4;
+                        case holdem_class_type::offsuit:
+                                return 12;
+                        case holdem_class_type::pocket_pair:
+                                return 6;
+                        }
+                }
+                double prob()const{
+                        constexpr size_t half{ ( 13 * 13 - 13 ) / 2 };
+                        constexpr size_t sigma{ 
+                                13   *  6 +
+                                half * 12 +
+                                half * 4
+                        };
+                        return static_cast<double>(weight()) / sigma;
+                }
                 decltype(auto) first()const{ return first_; }
                 decltype(auto) second()const{ return second_; }
                 static holdem_class_decl const& get(holdem_id id);

@@ -55,3 +55,12 @@ TEST(card_decl, _){
         EXPECT_EQ( card_decl::parse("Ah").suit(), suit_decl::parse("h") );
         EXPECT_EQ( card_decl::parse("Ah").rank(), rank_decl::parse("A") );
 }
+
+TEST(holdem_class_decl, prob){
+        double sigma{0.0};
+        for(size_t i{0};i!=169;++i){
+                sigma += holdem_class_decl::get(i).prob();
+        }
+        EXPECT_NEAR(1.0, sigma, 1e-3);
+        EXPECT_NEAR( ( 4 / 52.0 ) * (3 / 52.0) , holdem_class_decl::parse("AA").prob(), 1e-3);
+}

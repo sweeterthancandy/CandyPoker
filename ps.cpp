@@ -190,6 +190,53 @@ auto solve_hu_push_fold_sb_maximal_exploitable(ps::class_equity_cacher& cec,
 
 
 
+double hu_calc_value( class_equity_cacher& cec,
+                      hu_strategy const& bb_push_strat,
+                      hu_strategy const& sb_call_strat,
+                      double eff_stack, double bb, double sb)
+{
+        double sigma{0.0};
+        for(holdem_class_id x{0}; x != 169;++x){
+                /*
+                 *  We call iff
+                 *
+                 *    EV<push x| villian call with S> >= 0
+                 */
+
+                hu_fresult_t win_call;
+                hu_fresult_t win_fold;
+
+                // weight average again villians range
+                for(holdem_class_id y{0}; y != 169;++y){
+
+                        auto p{sb_call_strat[y]};
+
+                        hu_fresult_t sim{cec.visit_boards(std::vector<ps::holdem_class_id>{ x,y })};
+                        win_fold.win += sim.sigma() * ( 1 - p );
+                        sim *= p;
+                        win_call.append(sim);
+
+                }
+
+                auto total{ win_call.sigma() + win_fold.sigma() };
+                
+                double call_p{win_call.sigma() / total };
+
+                double fold_p{win_fold.sigma() / total};
+
+                double ev_push_call{ win_call.equity() * 2 * ( eff_stack + sb ) - eff_stack };
+
+                double ev_push{ call_p * ev_push_call + fold_p * ( sb + bb ) }; 
+                
+                double value{ bb_push_strat[x] * ev_push - sb * ( 1 - bb_push_strat[x] ) };
+
+                sigma += value * holdem_class_decl::get(x).prob();
+
+        }
+        return sigma;
+}
+
+
 int main(){
         using namespace ps;
         using namespace ps::frontend;
@@ -216,6 +263,7 @@ int main(){
                 double bb{1.0};
                 double sb{0.5};
                 for(size_t count=0;;++count){
+                        double ev{hu_calc_value(cec, bb_strat, sb_strat, eff_stack, bb, sb)};
 
                         auto bb_me{solve_hu_push_fold_bb_maximal_exploitable(cec,
                                                                              sb_strat,
@@ -250,7 +298,7 @@ int main(){
                         #endif
                         //PRINT_SEQ((::ps::detail::to_string(sb_strat)));
                         //
-                        PRINT_SEQ((sb_norm)(bb_norm));
+                        PRINT_SEQ((sb_norm)(bb_norm)(ev));
                         if( ( sb_norm + bb_norm ) < 1e-5 ){
                                 std::cout << "_break_\n";
                                 break;

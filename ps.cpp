@@ -293,9 +293,12 @@ int main(){
         class_equity_cacher cec(ec);
         cec.load("hc_cache.bin");
 
-        double eff_stack{10.0};
+        double eff_stack{5.0};
         double bb{1.0};
         double sb{0.5};
+
+        std::vector<double> sb_table(169,0.0);
+        std::vector<double> bb_table(169,0.0);
 
         for(;;eff_stack += 1.0){
 
@@ -333,10 +336,6 @@ int main(){
                         }
                         circular_set.insert(sb_strat);
 
-                        #if 0
-                        PRINT(sb_strat);
-                        #endif
-
                         //PRINT_SEQ((::ps::detail::to_string(sb_strat)));
                         //
                         PRINT_SEQ((sb_norm)(ev)(ev_));
@@ -348,6 +347,11 @@ int main(){
                         #endif
 
                 }
+                auto bb_strat{solve_hu_push_fold_bb_maximal_exploitable(cec,
+                                                                        sb_strat,
+                                                                        eff_stack,
+                                                                        sb,
+                                                                        bb)};
                 std::cout << "-------- BB " << eff_stack << "--------\n";
                 for(size_t i{0};i!=169;++i){
                         if( sb_strat[i] < 1e-3 )
@@ -357,6 +361,22 @@ int main(){
                         std::cout << holdem_class_decl::get(i) << " ";
                 }
                 std::cout << "\n";
+
+
+                for(size_t i{0};i!=169;++i){
+                        if( sb_strat[i] < 1e-3 )
+                                continue;
+                        if( std::fabs(1.0 - sb_strat[i]) > 1e-3 )
+                                sb_table[1] = eff_stack;
+                }
+                for(size_t i{0};i!=169;++i){
+                        if( bb_strat[i] < 1e-3 )
+                                continue;
+                        if( std::fabs(1.0 - bb_strat[i]) > 1e-3 )
+                                bb_table[1] = eff_stack;
+                }
         }
+        PRINT_SEQ((::ps::detail::to_string(sb_table)));
+        PRINT_SEQ((::ps::detail::to_string(bb_table)));
 
 }

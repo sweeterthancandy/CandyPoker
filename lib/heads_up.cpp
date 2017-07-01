@@ -119,7 +119,7 @@ hu_result_t const& class_equity_cacher::visit_boards( std::vector<ps::holdem_cla
                                 std::vector<ps::holdem_id>{l,r} ) };
                         ret.win  += cr.win;
                         ret.lose += cr.lose;
-                       ret.draw += cr.draw;
+                        ret.draw += cr.draw;
                 }
         }
         cache_.insert(std::make_pair( players, ret) );

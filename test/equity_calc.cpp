@@ -2,8 +2,66 @@
 
 #include "ps/equity_calc.h"
 #include "ps/frontend.h"
+#include "ps/heads_up.h"
 
 using namespace ps;
+
+
+struct class_equity_calc_ : testing::Test{
+        class_equity_calc_()
+                :cec{ec}
+        {
+                ec.load("cache.bin");
+                //cec.load("hc_cjche.bin");
+        }
+        equity_cacher ec;
+        class_equity_cacher cec;
+
+};
+
+        /*
+        Hand 0: 	65.771%  	65.55% 	00.22% 	      26939748 	    89034   { 77 }
+        Hand 1: 	34.229%  	34.01% 	00.22% 	      13977480 	    89034   { A5s }
+
+        Hand 0: 	50.000%  	02.17% 	47.83% 	        223296 	  4913616   { TT }
+        Hand 1: 	50.000%  	02.17% 	47.83% 	        223296 	  4913616   { TT }
+
+        Hand 0: 	32.860%  	22.46% 	10.40% 	      41543220 	 19223502   { J7o }
+        Hand 1: 	67.140%  	56.75% 	10.40% 	     104938608 	 19223502   { J8o }
+
+        Hand 0: 	30.222%  	26.88% 	03.34% 	       5523852 	   685974   { 96s }
+        Hand 1: 	69.778%  	66.44% 	03.34% 	      13651848 	   685974   { T9s }
+
+        Hand 0: 	45.383%  	45.15% 	00.23% 	      55669464 	   281142   { AKo }
+        Hand 1: 	54.617%  	54.39% 	00.23% 	      67054140 	   281142   { 55 }
+
+        */
+TEST_F( class_equity_calc_, _){
+        struct regression_result{
+                regression_result()=default;
+                regression_result(std::string const& h, std::string const& v, double e):
+                        hero{h}, villian{v}, equity{e}
+                {}
+                std::string hero;
+                std::string villian;
+                double equity;
+        };
+
+        // just take some results from pokerstove
+        std::vector<regression_result> ticker = {
+                {  "77", "A5s",  0.65771 },
+                {  "TT",  "TT",  0.50000 },
+                { "J7o", "J8o",  0.32860 },
+                { "96s", "T9s",  0.30222 },
+                { "AKo",  "55",  0.45383 }
+        };
+        for( auto const& r : ticker){
+                auto const& ret{ cec.visit_boards( std::vector<ps::holdem_class_id>{ 
+                                                   ps::holdem_class_decl::parse( r.hero ),
+                                                   ps::holdem_class_decl::parse( r.villian ) } ) };
+                EXPECT_NEAR( r.equity, ret.equity(), 1e-3 );
+        }
+}
 
 #if NOT_DEFINED
 

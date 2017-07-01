@@ -177,6 +177,9 @@ struct hu_strategy{
         friend std::ostream& operator<<(std::ostream& ostr, hu_strategy const& strat){
                 return ostr << ps::detail::to_string(strat.vec_);
         }
+        bool operator<(hu_strategy const& that)const{
+                return vec_ < that.vec_;
+        }
 private:
         std::array<double, 169> vec_;
 };

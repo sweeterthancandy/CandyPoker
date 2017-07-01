@@ -146,7 +146,7 @@ auto solve_hu_push_fold_bb_maximal_exploitable(ps::class_equity_cacher& cec,
                         hu_fresult_t res;
                         std::vector<double> weights(169);
                         for(holdem_class_id sb_id{0}; sb_id != 169;++sb_id){
-                                weights[sb_id] = static_cast<double>(holdem_class_decl::weight(ctx.sb_id, sb_id));
+                                weights[sb_id] = static_cast<double>(holdem_class_decl::weight(ctx.bb_id, sb_id));
                         }
                         auto factor{ std::accumulate( weights.begin(), weights.end(), 0.0) };
 
@@ -306,6 +306,9 @@ int main(){
 
                 double alpha{0.4};
                 hu_strategy sb_strat{1.0};
+
+                std::set< hu_strategy > circular_set;
+
                 for(size_t count=0;;++count){
 
                         auto bb_me{solve_hu_push_fold_bb_maximal_exploitable(cec,
@@ -326,6 +329,12 @@ int main(){
                         auto sb_next{ sb_strat * ( 1 - alpha) + sb_me * alpha };
                         auto sb_norm{ (sb_next - sb_strat).norm() };
                         sb_strat = std::move(sb_next);
+
+                        if( circular_set.count(sb_strat) ){
+                                std::cerr << "ok circular!\n";
+                                break;
+                        }
+                        circular_set.insert(sb_strat);
 
                         #if 1
                         PRINT(sb_strat);

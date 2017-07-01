@@ -12,7 +12,7 @@ struct class_equity_calc_ : testing::Test{
                 :cec{ec}
         {
                 ec.load("cache.bin");
-                //cec.load("hc_cjche.bin");
+                cec.load("hc_cache.bin");
         }
         equity_cacher ec;
         class_equity_cacher cec;
@@ -61,6 +61,19 @@ TEST_F( class_equity_calc_, _){
                                                    ps::holdem_class_decl::parse( r.villian ) } ) };
                 EXPECT_NEAR( r.equity, ret.equity(), 1e-3 );
         }
+}
+
+TEST_F( class_equity_calc_, aggregation){
+        double sigma{0.0};
+        hu_fresult_t agg;
+        for(holdem_class_id x{0};x!=169;++x){
+                for(holdem_class_id y{0};y!=169;++y){
+                        auto const& ret{ cec.visit_boards( std::vector<ps::holdem_class_id>{ x, y } ) };
+                        agg.append(ret);
+                        sigma += ret.equity() * holdem_class_decl::prob(x,y);
+                }
+        }
+        EXPECT_NEAR( agg.equity(), sigma, 1e-2 );
 }
 
 #if NOT_DEFINED

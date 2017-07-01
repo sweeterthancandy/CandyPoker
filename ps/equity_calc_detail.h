@@ -1,7 +1,5 @@
-#include "ps/equity_calc.h"
-
 #include "ps/cards.h"
-
+#include "ps/eval.h"
 
 #include "ps/detail/visit_combinations.h"
 

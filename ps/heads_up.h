@@ -230,7 +230,7 @@ struct hu_strategy{
                                 size_t padding{ widths[j] - token_buffer[j][i].size()};
                                 size_t left_pad{padding/2};
                                 size_t right_pad{padding - left_pad};
-                                if( i != 0){
+                                if( j != 0){
                                         std::cout << " ";
                                 }
                                 std::cout << ( left_pad ? std::string(left_pad,' ') : "")

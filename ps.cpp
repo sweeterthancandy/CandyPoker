@@ -156,7 +156,7 @@ auto solve_hu_push_fold_bb_maximal_exploitable(ps::class_equity_cacher& cec,
                                 tmp *= ctx.sb_push_strat[sb_id];
                                 res.append(tmp);
 
-                                equity += tmp.equity() * ctx.sb_push_strat[sb_id] * weights[sb_id] / factor;
+                                equity += tmp.equity() * weights[sb_id] / factor;
                         }
                         //PRINT_SEQ((res.equity())(equity));
                         #if 0
@@ -297,11 +297,6 @@ int main(){
         double bb{1.0};
         double sb{0.5};
 
-        PRINT( calc( cec, hu_strategy{1.0}, hu_strategy{1.0}, eff_stack, sb, bb) );
-        PRINT( calc( cec, hu_strategy{1.0}, hu_strategy{0.0}, eff_stack, sb, bb) );
-        PRINT( calc( cec, hu_strategy{0.0}, hu_strategy{0.0}, eff_stack, sb, bb) );
-        PRINT( calc( cec, hu_strategy{0.5}, hu_strategy{1.0}, eff_stack, sb, bb) );
-
         for(;;eff_stack += 1.0){
 
                 double alpha{0.4};
@@ -324,6 +319,8 @@ int main(){
                                                                              eff_stack,
                                                                              sb,
                                                                              bb)};
+                        
+                        double ev_{calc(cec, sb_me, bb_me, eff_stack, sb, bb)};
 
 
                         auto sb_next{ sb_strat * ( 1 - alpha) + sb_me * alpha };
@@ -336,14 +333,14 @@ int main(){
                         }
                         circular_set.insert(sb_strat);
 
-                        #if 1
+                        #if 0
                         PRINT(sb_strat);
                         #endif
 
                         //PRINT_SEQ((::ps::detail::to_string(sb_strat)));
                         //
-                        PRINT_SEQ((sb_norm)(ev));
-                        #if 0
+                        PRINT_SEQ((sb_norm)(ev)(ev_));
+                        #if 1
                         if( ( sb_norm ) < 1e-5 ){
                                 std::cout << "_break_\n";
                                 break;
@@ -353,16 +350,13 @@ int main(){
                 }
                 std::cout << "-------- BB " << eff_stack << "--------\n";
                 for(size_t i{0};i!=169;++i){
-                        #if 0
                         if( sb_strat[i] < 1e-3 )
                                 continue;
-                                #endif
                         if( std::fabs(1.0 - sb_strat[i]) > 1e-3 )
                                 std::cout << sb_strat[i] << " ";
                         std::cout << holdem_class_decl::get(i) << " ";
                 }
                 std::cout << "\n";
-                break;
         }
 
 }

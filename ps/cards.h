@@ -129,7 +129,7 @@ namespace ps{
                                   rank_decl const& b);
                 auto get_hand_set()const{ return hand_set_; }
                 auto id()const{ return id_; }
-                auto category(){ return cat_; }
+                auto category()const{ return cat_; }
                 std::string to_string()const;
                 friend std::ostream& operator<<(std::ostream& ostr, holdem_class_decl const& self){
                         return ostr << self.to_string();

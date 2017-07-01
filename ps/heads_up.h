@@ -9,6 +9,7 @@
 #include <numeric>
 
 #include <boost/format.hpp>
+#include <boost/lexical_cast.hpp>
 
 namespace ps{
         
@@ -176,6 +177,68 @@ struct hu_strategy{
         }
         friend std::ostream& operator<<(std::ostream& ostr, hu_strategy const& strat){
                 return ostr << ps::detail::to_string(strat.vec_);
+        }
+        // print pretty table
+        //
+        //      AA  AKs ... A2s
+        //      AKo KK
+        //      ...     ...
+        //      A2o         22
+        //
+        //
+        void display(){
+                /*
+                        token_buffer[0][0] token_buffer[1][0]
+                        token_buffer[0][1]
+
+                        token_buffer[y][x]
+
+
+                 */
+                std::array<
+                        std::array<std::string, 13>, // x
+                        13                           // y
+                > token_buffer;
+                std::array<size_t, 13> widths;
+
+                for(size_t i{0};i!=169;++i){
+                        auto const& decl{ holdem_class_decl::get(i) };
+                        size_t x{decl.first().id()};
+                        size_t y{decl.second().id()};
+                        // inverse
+                        x = 12 - x;
+                        y = 12 - y;
+                        if( decl.category() == holdem_class_type::offsuit ){
+                                std::swap(x,y);
+                        }
+
+                        #if 1
+                        token_buffer[y][x] = boost::lexical_cast<std::string>(vec_[i]);
+                        #else
+                        token_buffer[y][x] = boost::lexical_cast<std::string>(decl.to_string());
+                        #endif
+                }
+                for(size_t i{0};i!=13;++i){
+                        widths[i] = std::max_element( token_buffer[i].begin(),
+                                                      token_buffer[i].end(),
+                                                      [](auto const& l, auto const& r){
+                                                              return l.size() < r.size(); 
+                                                      })->size();
+                }
+                for(size_t i{0};i!=13;++i){
+                        for(size_t j{0};j!=13;++j){
+                                size_t padding{ widths[j] - token_buffer[j][i].size()};
+                                size_t left_pad{padding/2};
+                                size_t right_pad{padding - left_pad};
+                                if( i != 0){
+                                        std::cout << " ";
+                                }
+                                std::cout << ( left_pad ? std::string(left_pad,' ') : "")
+                                          << token_buffer[j][i]
+                                          << ( right_pad ? std::string(right_pad,' ') : "");
+                        }
+                        std::cout << "\n";
+                }
         }
         bool operator<(hu_strategy const& that)const{
                 return vec_ < that.vec_;

@@ -43,9 +43,10 @@ int main(){
         std::uniform_int_distribution<holdem_class_id> deck(0,51);
 
         long double ev{0};
-        size_t n{1000};
+        size_t n{100000};
         double e_ev{ calc( cec, sb_strat, bb_strat, eff_stack, sb, bb ) };
-        for(size_t i{0};i!=n;++i){
+        size_t i{0};
+        for(;i!=n;++i){
                 long double sim{0.0};
                 std::vector<card_id> deal;
                 for(;deal.size() < 4;){
@@ -55,18 +56,21 @@ int main(){
                 }
                 auto const& sb_hand{holdem_hand_decl::get( deal[0], deal[1] ) };
                 auto const& bb_hand{holdem_hand_decl::get( deal[2], deal[3] ) };
+                
+                if( i % 100 == 0 )
+                        PRINT_SEQ((i)(ev / i));
 
                 if( sb_strat[sb_hand.class_()] == 0.0 ){
-                        ev += ( -sb ) / n;
+                        ev += ( -sb );
                         continue;
                 }
                 if( bb_strat[bb_hand.class_()] == 0.0 ){
-                        ev += ( +bb ) / n;
+                        ev += ( +bb );
                         continue;
                 }
                 auto ret{ ec.visit_boards( std::vector<holdem_id>{ sb_hand.id(), bb_hand.id()})};
-                ev += eff_stack * ( 2 * ret.equity() - 1 );
+                ev += ( eff_stack * ( 2 * ret.equity() - 1 ) );
         }
-        PRINT_SEQ((n)(e_ev)(ev));
+        PRINT_SEQ((n)(e_ev)(ev / i));
 
 }

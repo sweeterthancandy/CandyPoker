@@ -225,19 +225,41 @@ struct hu_strategy{
                                                               return l.size() < r.size(); 
                                                       })->size();
                 }
+
+                auto pad{ [](auto const& s, size_t w){
+                        size_t padding{ w - s.size()};
+                        size_t left_pad{padding/2};
+                        size_t right_pad{padding - left_pad};
+                        std::string ret;
+                        if(left_pad)
+                               ret += std::string(left_pad,' ');
+                        ret += s;
+                        if(right_pad)
+                               ret += std::string(right_pad,' ');
+                        return std::move(ret);
+                }};
+                
+                std::cout << "   ";
                 for(size_t i{0};i!=13;++i){
+                        std::cout << pad( rank_decl::get(12-i).to_string(), widths[i] ) << " ";
+                }
+                std::cout << "\n";
+                std::cout << "  +" << std::string( std::accumulate(widths.begin(), widths.end(), 0) + 13, '-') << "\n";
+
+                for(size_t i{0};i!=13;++i){
+                        std::cout << rank_decl::get(12-i).to_string() << " |";
                         for(size_t j{0};j!=13;++j){
-                                size_t padding{ widths[j] - token_buffer[j][i].size()};
-                                size_t left_pad{padding/2};
-                                size_t right_pad{padding - left_pad};
                                 if( j != 0){
                                         std::cout << " ";
                                 }
-                                std::cout << ( left_pad ? std::string(left_pad,' ') : "")
-                                          << token_buffer[j][i]
-                                          << ( right_pad ? std::string(right_pad,' ') : "");
+                                std::cout << pad(token_buffer[j][i], widths[j]);
                         }
                         std::cout << "\n";
+                }
+        }
+        void transform(std::function<double(size_t i, double)> const& t){
+                for(size_t i{0};i!=169;++i){
+                        vec_[i] = t(i, vec_[i]);
                 }
         }
         bool operator<(hu_strategy const& that)const{

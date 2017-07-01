@@ -73,3 +73,11 @@ TEST(holdem_class_decl, static_prob){
         }
         EXPECT_NEAR(1.0, sigma, 1e-3);
 }
+TEST(holdem_class_decl, class_){
+        for(size_t i{0};i!=169;++i){
+                auto const& decl{holdem_class_decl::get(i)};
+                for( auto c : decl.get_hand_set() ){
+                        EXPECT_EQ(decl.id(), c.class_());
+                }
+        }
+}

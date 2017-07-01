@@ -277,4 +277,16 @@ namespace ps{
                 // I just got this magic constant my summing all the weights
                 return weight(c0, c1) / 133926.0;
         }
+
+        holdem_class_id holdem_hand_decl::class_()const{
+                holdem_class_type type;
+                if( first().rank() == second().rank() ){
+                        type = holdem_class_type::pocket_pair;
+                } else if ( first().suit() == second().suit() ){
+                        type = holdem_class_type::suited;
+                } else{
+                        type = holdem_class_type::offsuit;
+                }
+                return holdem_class_decl::make_id(type, first().rank().id(), second().rank().id());
+        }
 } // 

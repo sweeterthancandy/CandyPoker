@@ -110,12 +110,18 @@ namespace ps{
                 decltype(auto) first()const{ return first_; }
                 decltype(auto) second()const{ return second_; }
                 static holdem_hand_decl const& get(holdem_id id);
+                static holdem_hand_decl const& get(card_id x, card_id y){
+                        return get( make_id(x,y) );
+                }
                 static holdem_hand_decl const& parse(std::string const& s);
                 static holdem_id make_id( rank_id r0, suit_id s0, rank_id r1, suit_id s1);
                 inline static holdem_id make_id( card_id x, card_id y){
+                        if( x < y )
+                                std::swap(x,y);
                         return  x * 52 + y;
                 }
                 operator holdem_id()const{ return id_; }
+                holdem_class_id class_()const;
         private:
                 holdem_id id_;
                 card_decl first_;

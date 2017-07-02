@@ -51,10 +51,36 @@ TEST(card_decl, _){
 
         // first card is A
         EXPECT_EQ( card_decl::get(0).rank(), rank_decl::parse("2") );
+        EXPECT_EQ( card_decl::get(51).rank(), rank_decl::parse("A") );
 
         EXPECT_EQ( card_decl::parse("Ah").suit(), suit_decl::parse("h") );
         EXPECT_EQ( card_decl::parse("Ah").rank(), rank_decl::parse("A") );
 }
+TEST(holdem_hand_decl, _){
+        for(card_id x{0};x!=52;++x){
+                for(card_id y{0};y!=52;++y){
+                        auto const& decl{ holdem_hand_decl::get(x,y) };
+                        auto const& decl2{ holdem_hand_decl::get(y,x) };
+
+                        // should be transative
+                        EXPECT_EQ(decl.id(), decl2.id());
+                        // should be less than this, should be a 
+                        // strictly lower trianglar matrix
+                        EXPECT_LE(( 52 * 52 - 52 ) / 2, decl.id());
+
+                        std::set<card_id> s;
+                        s.insert(decl.first().id());
+                        s.insert(decl.second().id());
+                        EXPECT_EQ( 1, s.count(x) );
+                        EXPECT_EQ( 1, s.count(y) );
+                }
+        }
+
+        for(card_id id{0};id!=( 52 * 52 - 52 ) / 2 ;++id){
+                EXPECT_EQ(id, card_decl::get(id).id());
+        }
+}
+
 
 TEST(holdem_class_decl, prob){
         double sigma{0.0};

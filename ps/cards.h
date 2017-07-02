@@ -150,7 +150,7 @@ namespace ps{
         };
 
         struct holdem_class_decl{
-                static constexpr const holdem_class_id max_id = 13 * 31;
+                static constexpr const holdem_class_id max_id = 13 * 13;
                 holdem_class_decl(holdem_class_type cat,
                                   rank_decl const& a,
                                   rank_decl const& b);

@@ -101,6 +101,11 @@ TEST_F( class_equity_calc_, aggregation){
         // just take some results from pokerstove
         std::vector<regression_result> ticker = {
                 {  
+                        "100%",
+                        "100%",
+                        0.5
+                },
+                {  
                         "ATo+ KTo+ QTo+ JTo",
                         "100%",
                         0.60847
@@ -140,25 +145,26 @@ TEST_F( class_equity_calc_, aggregation){
 
         };
         for( auto const& r : ticker){
-                size_t sigma{0};
+                double sigma{0};
+                size_t factor{0};
                 tree_range root{ std::vector<frontend::range>{frontend::parse(r.hero),
                                                               frontend::parse(r.villian)} };
                 hu_fresult_t agg;
                 for( auto const& c : root.children ){
+
+                        ASSERT_EQ( c.opt_cplayers.size(), 2 );
                         
-                        if( c.opt_cplayers.size() ){
-                                auto ret{ cec.visit_boards( c.opt_cplayers ) };
-                                agg.append(ret);
-                                //PRINT_SEQ((detail::to_string(c.opt_cplayers))(ret.equity())(agg.equity()));
-                        } else {
-                                for( auto d : c.children ){
-                                        auto ret{ ec.visit_boards( d.players ) };
-                                        agg.append(ret);
-                                }
-                        }
+                        auto ret{ cec.visit_boards( c.opt_cplayers ) };
+                        agg.append(ret);
+
+                        size_t weight{ holdem_class_decl::weight( c.opt_cplayers[0], c.opt_cplayers[1]) };
+                        sigma += ret.equity() * weight;
+                        factor += weight;
                 }
-                PRINT_SEQ((agg.equity())(r.equity)(std::fabs(agg.equity()-r.equity)));
+                double equity{ sigma / factor };
+                PRINT_SEQ((agg.equity())(r.equity)(equity)(std::fabs(agg.equity()-r.equity)));
                 EXPECT_NEAR( agg.equity(), r.equity, 1e-3 );
+                EXPECT_NEAR( equity, r.equity, 1e-3 );
         }
 }
 

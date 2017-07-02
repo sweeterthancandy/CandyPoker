@@ -282,7 +282,7 @@ namespace ps{
                 size_t count{0};
                 for( auto const& l : left ){
                         for( auto const& r : right ){
-                                if( ! disjoint(l, r) ){
+                                if( disjoint(l, r) ){
                                         ++count;
                                 }
                         }
@@ -291,7 +291,17 @@ namespace ps{
         }
         double holdem_class_decl::prob(holdem_class_id c0, holdem_class_id c1){
                 // I just got this magic constant my summing all the weights
-                return weight(c0, c1) / 133926.0;
+                static const size_t factor{
+                        [](){
+                                size_t ret{0};
+                                for(size_t i{0};i!=holdem_class_decl::max_id;++i){
+                                        for(size_t j{0};j!=holdem_class_decl::max_id;++j){
+                                                ret += holdem_class_decl::weight(i,j);
+                                        }
+                                }
+                                return ret;
+                        }()};
+                return static_cast<double>(weight(c0, c1)) / factor;
         }
 
         holdem_class_id holdem_hand_decl::class_()const{

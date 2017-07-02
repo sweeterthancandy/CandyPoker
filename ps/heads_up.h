@@ -114,7 +114,7 @@ private:
 
 
 struct hu_strategy{
-        hu_strategy(double fill){
+        hu_strategy(double fill = 1.0){
                 for(size_t i{0};i!=169;++i){
                         vec_[i] = fill;
                 }

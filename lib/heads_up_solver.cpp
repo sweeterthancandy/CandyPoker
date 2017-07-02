@@ -411,6 +411,7 @@ hu_strategy solve_hu_push_fold_sb_maximal_exploitable(ps::class_equity_cacher& c
                         return ctx.sb + ctx.bb;
                 }
         };
+        #if 0
         struct sb_push{
                 double operator()(context& ctx)const{
 
@@ -427,7 +428,7 @@ hu_strategy solve_hu_push_fold_sb_maximal_exploitable(ps::class_equity_cacher& c
                 sb_push__bb_call bb_call_;
                 sb_push__bb_fold bb_fold_;
         };
-        #if 0
+        #else
         struct sb_push{
                 double operator()(context& ctx)const{
                         double sigma{0.0};
@@ -444,7 +445,6 @@ hu_strategy solve_hu_push_fold_sb_maximal_exploitable(ps::class_equity_cacher& c
                                 sigma  += weight * ev_bb;
                                 factor += weight;
                         }
-                        ctx.debug[ctx.sb_id] = ev_
                         sigma /= factor;
 
                         return sigma;
@@ -500,7 +500,7 @@ hu_strategy solve_hu_push_fold_sb(ps::class_equity_cacher& cec,
 
         std::set< hu_strategy > circular_set;
 
-        for(size_t i=0;i < 20;++i){
+        for(size_t i=0;;++i){
                 boost::timer::auto_cpu_timer at;
 
                 auto bb_me{solve_hu_push_fold_bb_maximal_exploitable(cec,
@@ -553,13 +553,18 @@ hu_strategy solve_hu_push_fold_sb(ps::class_equity_cacher& cec,
 
                 sb_strat.display();
 
-                //
+                #if 0
                 if( ( ev_d ) < 1e-3 ){
                         std::cout << "_ev_d_break_\n";
                         break;
                 }
+                #endif
                 if( ( sb_norm ) < 1e-5 ){
                         std::cout << "_break_\n";
+                        break;
+                }
+                if( i == 50){
+                        std::cout << "_i_break_\n";
                         break;
                 }
         }
@@ -588,7 +593,7 @@ void make_heads_up_table(){
                 >
         > results;
 
-        for( double eff_stack{1.0};eff_stack < 20;eff_stack += 0.5){
+        for( double eff_stack{1.0};eff_stack < 40;eff_stack += 0.05){
 
                 auto work = [&cec, eff_stack,sb,bb]()->hu_strategy{
                         auto sb_strat{solve_hu_push_fold_sb(cec, eff_stack, sb, bb)};

@@ -102,8 +102,9 @@ double simulation( equity_cacher& ec,
 }
 
 int main(){
-        //make_heads_up_table();
+        make_heads_up_table();
 
+        return EXIT_SUCCESS;
         using namespace ps;
 
         equity_cacher ec;
@@ -111,22 +112,26 @@ int main(){
         class_equity_cacher cec(ec);
         cec.load("hc_cache.bin");
 
-        double eff_stack{2.0};
+        double eff_stack{10.0};
         double bb{1.0};
         double sb{0.5};
 
+        #if 0
         solve_hu_push_fold_sb_maximal_exploitable(cec, hu_strategy{1.0}, eff_stack, sb, bb).display();
         return 0;
+        #endif
                         
-        #if 0
+        #if 1
         auto sb_strat{solve_hu_push_fold_sb(cec, eff_stack, sb, bb)};
         auto bb_strat{solve_hu_push_fold_bb_maximal_exploitable(cec,
                                                                 sb_strat,
                                                                 eff_stack,
                                                                 sb,
                                                                 bb)};
+        #if 0
         hu_strategy sb_strat{1.0};
         hu_strategy bb_strat{1.0};
+        #endif
 
         sb_strat.transform( [](auto i, auto d){
                 #if 0

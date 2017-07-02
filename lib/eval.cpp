@@ -41,8 +41,8 @@ struct detail_eval_impl{
         }
         auto eval_flush(long a, long b, long c, long d, long e)const noexcept{
                 std::uint32_t m = map_rank( rank_device_[a],rank_device_[b],
-                                       rank_device_[c],rank_device_[d],
-                                       rank_device_[e]);
+                                            rank_device_[c],rank_device_[d],
+                                            rank_device_[e]);
                 return eval_flush(m);
         }
 
@@ -52,25 +52,25 @@ struct detail_eval_impl{
         }
         auto eval_rank(long a, long b, long c, long d, long e)const noexcept{
                 std::uint32_t m = map_rank( rank_device_[a],rank_device_[b],
-                                       rank_device_[c],rank_device_[d],
-                                       rank_device_[e]);
+                                            rank_device_[c],rank_device_[d],
+                                            rank_device_[e]);
                 return eval_rank(m);
         }
         auto eval_rank(long a, long b, long c, long d, long e, long f)const noexcept{
                 std::uint32_t m = map_rank( rank_device_[a],rank_device_[b],
-                                       rank_device_[c],rank_device_[d],
-                                       rank_device_[e],rank_device_[f]);
+                                            rank_device_[c],rank_device_[d],
+                                            rank_device_[e],rank_device_[f]);
                 return eval_rank(m);
         }
 
         std::uint32_t map_rank(long a, long b, long c, long d, long e)const{
                 //                                 2 3 4 5  6  7  8  9  T  J  Q  K  A
-                std::array<std::uint32_t, 13> p = {2,3,5,7,11,13,17,19,23,27,29,31,37};
+                static std::array<std::uint32_t, 13> p = {2,3,5,7,11,13,17,19,23,27,29,31,37};
                 return p[a] * p[b] * p[c] * p[d] * p[e];
         }
         std::uint32_t map_rank(long a, long b, long c, long d, long e, long f)const{
                 //                                 2 3 4 5  6  7  8  9  T  J  Q  K  A
-                std::array<std::uint32_t, 13> p = {2,3,5,7,11,13,17,19,23,27,29,31,37};
+                static std::array<std::uint32_t, 13> p = {2,3,5,7,11,13,17,19,23,27,29,31,37};
                 return p[a] * p[b] * p[c] * p[d] * p[e] * p[f];
         }
 protected:
@@ -94,7 +94,12 @@ struct detail_eval: detail_eval_impl{
                         [this](long a, long b, long c, long d, long e, long f){
                                 auto m{  map_rank(rank_device_[a],rank_device_[b],rank_device_[c],
                                                   rank_device_[d],rank_device_[e],rank_device_[f])  };
-                                auto f_aux{ flush_device_[a] * flush_device_[b] * flush_device_[c] * flush_device_[d] * flush_device_[e] * flush_device_[f] };
+                                auto f_aux{ flush_device_[a] * 
+                                            flush_device_[b] * 
+                                            flush_device_[c] * 
+                                            flush_device_[d] * 
+                                            flush_device_[e] * 
+                                            flush_device_[f] };
                                 if( (f_aux % (2*2*2*2*2)) == 0 ||
                                     (f_aux % (3*3*3*3*3)) == 0 ||
                                     (f_aux % (5*5*5*5*5)) == 0 ||
@@ -113,7 +118,11 @@ struct detail_eval: detail_eval_impl{
 
         std::uint32_t operator()(long a, long b, long c, long d, long e)const{
                 auto f_aux{ flush_device_[a] * flush_device_[b] * flush_device_[c] * flush_device_[d] * flush_device_[e] };
-                std::uint32_t m = map_rank( rank_device_[a],rank_device_[b], rank_device_[c],rank_device_[d], rank_device_[e]);
+                std::uint32_t m = map_rank( rank_device_[a],
+                                            rank_device_[b], 
+                                            rank_device_[c],
+                                            rank_device_[d], 
+                                            rank_device_[e]);
                 std::uint32_t ret;
 
 

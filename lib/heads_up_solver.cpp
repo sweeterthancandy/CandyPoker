@@ -338,15 +338,19 @@ hu_strategy solve_hu_push_fold_bb_maximal_exploitable(ps::class_equity_cacher& c
                         // edge case, can return anything here probably
                         if( res.sigma() == 0 )
                                 return 0.0;
+                        
+                        //PRINT_SEQ((ctx.eff_stack)(ctx.sb)(ctx.bb));
 
-                        return ctx.eff_stack * 2 * res.equity() - ( ctx.eff_stack - ctx.bb );
-                        //     \----equity of pot to win -----/   \------cost of bet-------/
+                        double ev{ ctx.eff_stack * 2 * res.equity() - ( ctx.eff_stack - ctx.bb ) };
+                        //         \----equity of pot to win -----/   \------cost of bet-------/
+
+                        ctx.debug[ctx.bb_id] = ev;
+                        return ev;
                 }
         };
         struct solver{
                 void operator()(context& ctx)const{
-                        auto ev_call{ call_(ctx) };
-                        ctx.debug[ctx.bb_id] = ev_call;
+                        //ctx.debug[ctx.bb_id] = ev_call;
                         if( call_(ctx) > fold_(ctx) ){
                                 ctx.bb_call_strat[ctx.bb_id] = 1.0;
                         }
@@ -372,8 +376,8 @@ hu_strategy solve_hu_push_fold_bb_maximal_exploitable(ps::class_equity_cacher& c
                 ctx.bb_id = bb_id;
                 solver_(ctx);
         }
-        std::cout << "HERE is BB Call diff\n";
-        ctx.debug.display();
+        //std::cout << "HERE is BB Call diff\n";
+        //ctx.debug.display();
         #if 0
         std::cout << "HERE is BB Strat\n";
         ctx.bb_call_strat.display();
@@ -389,8 +393,8 @@ hu_strategy solve_hu_push_fold_sb_maximal_exploitable(ps::class_equity_cacher& c
                 hu_strategy sb_push_strat;
                 hu_strategy bb_call_strat;
                 double eff_stack;
-                double bb;
                 double sb;
+                double bb;
                 holdem_class_id bb_id;
                 holdem_class_id sb_id;
                 hu_strategy debug;
@@ -409,6 +413,23 @@ hu_strategy solve_hu_push_fold_sb_maximal_exploitable(ps::class_equity_cacher& c
         };
         struct sb_push{
                 double operator()(context& ctx)const{
+
+                        hu_fresult_t agg;
+                        for(ctx.bb_id = 0; ctx.bb_id != 169;++ctx.bb_id){
+                                agg.append(ctx.cec->visit_boards(std::vector<ps::holdem_class_id>{ ctx.sb_id, ctx.bb_id }));
+                        }
+                        auto ret{ ctx.eff_stack * 2 *  agg.equity() - ( ctx.eff_stack -  ctx.sb ) };
+                        PRINT_SEQ((ctx.eff_stack)(agg.equity())(ctx.sb)( ctx.eff_stack * 2 *  agg.equity() - ( ctx.eff_stack -  ctx.sb ) ));
+                        ctx.debug[ctx.sb_id] = ret;
+                        return ret;
+                }
+        private:
+                sb_push__bb_call bb_call_;
+                sb_push__bb_fold bb_fold_;
+        };
+        #if 0
+        struct sb_push{
+                double operator()(context& ctx)const{
                         double sigma{0.0};
                         double factor{0.0};
 
@@ -423,6 +444,7 @@ hu_strategy solve_hu_push_fold_sb_maximal_exploitable(ps::class_equity_cacher& c
                                 sigma  += weight * ev_bb;
                                 factor += weight;
                         }
+                        ctx.debug[ctx.sb_id] = ev_
                         sigma /= factor;
 
                         return sigma;
@@ -431,6 +453,7 @@ hu_strategy solve_hu_push_fold_sb_maximal_exploitable(ps::class_equity_cacher& c
                 sb_push__bb_call bb_call_;
                 sb_push__bb_fold bb_fold_;
         };
+        #endif
         struct sb_fold{
                double operator()(context& ctx)const{
                         //return ctx.sb;
@@ -441,7 +464,6 @@ hu_strategy solve_hu_push_fold_sb_maximal_exploitable(ps::class_equity_cacher& c
                 void operator()(context& ctx)const{
                         auto ev_push{ sb_push_(ctx) };
                         auto ev_fold{ sb_fold_(ctx) };
-                        ctx.debug[ctx.sb_id] = ev_push;
                         //PRINT_SEQ((ev_push)(ev_fold));
                         if( ev_push > ev_fold )
                                 ctx.sb_push_strat[ctx.sb_id] = 1.0;
@@ -466,7 +488,7 @@ hu_strategy solve_hu_push_fold_sb_maximal_exploitable(ps::class_equity_cacher& c
                 solver_(ctx);
         }
         
-        std::cout << "HERE is SB Push diff\n";
+        //std::cout << "HERE is SB Push diff\n";
         ctx.debug.display();
         return std::move(ctx.sb_push_strat);
 } 

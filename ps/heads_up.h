@@ -215,7 +215,13 @@ struct hu_strategy{
 
                         #if 1
                         //token_buffer[y][x] = boost::lexical_cast<std::string>(vec_[i]);
-                        token_buffer[y][x] = str(boost::format("%.4f") % vec_[i]);
+                        if( vec_[i] == 1.0 ){
+                                token_buffer[y][x] = "1";
+                        } else if( vec_[i] == 0.0 ){
+                                token_buffer[y][x] = "0";
+                        } else {
+                                token_buffer[y][x] = str(boost::format("%.4f") % vec_[i]);
+                        }
 
                         #else
                         token_buffer[y][x] = boost::lexical_cast<std::string>(decl.to_string());

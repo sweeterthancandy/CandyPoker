@@ -102,6 +102,7 @@ double simulation( equity_cacher& ec,
 }
 
 int main(){
+        #if 1
         using namespace ps;
 
         equity_cacher ec;
@@ -115,17 +116,19 @@ int main(){
 
         hu_strategy{1.0}.display();
 
-        hu_strategy sb_strat{1.0};
-        hu_strategy bb_strat{1.0};
                         
-        #if 0
+        #if 1
         auto sb_strat{solve_hu_push_fold_sb(cec, eff_stack, sb, bb)};
         auto bb_strat{solve_hu_push_fold_bb_maximal_exploitable(cec,
                                                                 sb_strat,
                                                                 eff_stack,
                                                                 sb,
                                                                 bb)};
-                                                                #endif
+        #else
+        hu_strategy sb_strat{1.0};
+        hu_strategy bb_strat{1.0};
+        #endif
+
         sb_strat.transform( [](auto i, auto d){
                 #if 0
                 if( std::fabs( d - 0.0 ) < 1e-3 )
@@ -150,6 +153,7 @@ int main(){
                 auto ev{simulation(ec, cec, sb_strat, bb_strat, eff_stack, sb, bb, n)};
                 PRINT_SEQ((n)(ev));
         }
+        #endif
 
 
 

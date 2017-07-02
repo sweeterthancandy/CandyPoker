@@ -106,7 +106,7 @@ double calc( class_equity_cacher& cec,
                 for(holdem_class_id bb_id{0}; bb_id != 169;++bb_id){
                         ctx.bb_id = bb_id;
                         ctx.sb_id = sb_id;
-                        sigma += root_(ctx) * holdem_class_decl::prob(bb_id,sb_id);
+                        sigma += root_(ctx) * holdem_class_decl::prob(sb_id,bb_id);
                 }
                         //PRINT(sigma);
         }
@@ -146,30 +146,19 @@ hu_strategy solve_hu_push_fold_bb_maximal_exploitable(ps::class_equity_cacher& c
         struct call{
                 double operator()(context& ctx)const{
                         hu_fresult_t res;
-                        std::vector<double> weights(169);
-                        for(holdem_class_id sb_id{0}; sb_id != 169;++sb_id){
-                                weights[sb_id] = static_cast<double>(holdem_class_decl::weight(ctx.bb_id, sb_id));
-                        }
-                        auto factor{ std::accumulate( weights.begin(), weights.end(), 0.0) };
-
-                        double equity{0.0};
                         for(holdem_class_id sb_id{0}; sb_id != 169;++sb_id){
                                 hu_fresult_t tmp{ctx.cec->visit_boards(std::vector<ps::holdem_class_id>{ ctx.bb_id, sb_id })};
                                 tmp *= ctx.sb_push_strat[sb_id];
                                 res.append(tmp);
 
-                                equity += tmp.equity() * weights[sb_id] / factor;
                         }
-                        //PRINT_SEQ((res.equity())(equity));
-                        #if 0
-                        for(holdem_class_id sb_id{0}; sb_id != 169;++sb_id){
-                                hu_fresult_t tmp{ctx.cec->visit_boards(std::vector<ps::holdem_class_id>{ ctx.bb_id, sb_id })};
-                                tmp *= ctx.sb_push_strat[sb_id];
-                                res.append(tmp);
-                        }
-                        #endif
-                        return 2 * ctx.eff_stack * equity - ( ctx.eff_stack - ctx.bb);
-                        //return ctx.eff_stack * ( 2 * res.equity() - 1);
+
+                        // edge case, can return anything here probably
+                        if( res.sigma() == 0 )
+                                return 0.0;
+
+                        return ctx.eff_stack * ( 2 * res.equity() - ( 1 - ctx.bb   ) );
+                        //                       \-E pot to win-/   \-cost of bet-/
                 }
         };
         struct solver{

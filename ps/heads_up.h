@@ -35,7 +35,7 @@ struct basic_hu_result_t{
                 return *this;
         }
         template<class U>
-        basic_hu_result_t& operator*=(U val){
+        basic_hu_result_t& times(U val){
                 win  *= val;
                 lose *= val;
                 draw *= val;
@@ -214,7 +214,9 @@ struct hu_strategy{
                         }
 
                         #if 1
-                        token_buffer[y][x] = boost::lexical_cast<std::string>(vec_[i]);
+                        //token_buffer[y][x] = boost::lexical_cast<std::string>(vec_[i]);
+                        token_buffer[y][x] = str(boost::format("%.4f") % vec_[i]);
+
                         #else
                         token_buffer[y][x] = boost::lexical_cast<std::string>(decl.to_string());
                         #endif

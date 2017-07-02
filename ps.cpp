@@ -110,7 +110,7 @@ int main(){
         class_equity_cacher cec(ec);
         cec.load("hc_cache.bin");
 
-        double eff_stack{10.0};
+        double eff_stack{30.0};
         double bb{1.0};
         double sb{0.5};
 

@@ -3,6 +3,7 @@
 #include "ps/equity_calc.h"
 #include "ps/frontend.h"
 #include "ps/heads_up.h"
+#include "ps/tree.h"
 
 using namespace ps;
 
@@ -87,17 +88,36 @@ TEST_F( class_equity_calc_, _){
 }
 
 TEST_F( class_equity_calc_, aggregation){
-        double sigma{0.0};
-        hu_fresult_t agg;
-        for(holdem_class_id x{0};x!=169;++x){
-                for(holdem_class_id y{0};y!=169;++y){
-                        auto const& ret{ cec.visit_boards( std::vector<ps::holdem_class_id>{ x, y } ) };
-                        agg.append(ret);
-                        sigma += ret.equity() * holdem_class_decl::prob(x,y);
+        struct regression_result{
+                regression_result()=default;
+                regression_result(std::string const& h, std::string const& v, double e):
+                        hero{h}, villian{v}, equity{e}
+                {}
+                std::string hero;
+                std::string villian;
+                double equity;
+        };
+
+        // just take some results from pokerstove
+        std::vector<regression_result> ticker = {
+                {  "ATo+, KTo+, QTo+, JTo", "100%",  0.60847 }
+        };
+        for( auto const& r : ticker){
+                size_t sigma{0};
+                tree_range root{ std::vector<frontend::range>{frontend::parse(r.hero),
+                                                              frontend::parse(r.villian)} };
+                hu_fresult_t agg;
+                for( auto const& c : root.children ){
+                        for( auto d : c.children ){
+                                auto ret{ cec.visit_boards( d.players ) };
+                                agg.append(agg);
+                        }
                 }
+                EXPECT_NEAR( agg.equity(), r.equity, 1e-3 );
         }
-        EXPECT_NEAR( agg.equity(), .5, 1e-5 );
-        EXPECT_NEAR( sigma       , .5, 1e-5 );
+}
+
+TEST_F( class_equity_calc_, range_vs_range ){
 }
 
 #if NOT_DEFINED

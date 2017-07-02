@@ -53,9 +53,13 @@ namespace ps{ namespace frontend{
                                 begin = start;
                                 iter = begin;
                                 last = end;
+
+                                if( std::string{start,end} == "100%" )
+                                        return percent(100);
                                         
                                 // eat whitespace
                                 for(;iter!=last && std::isspace(*iter);++iter);
+
 
                                 for(;iter != last;){
 

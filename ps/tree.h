@@ -50,8 +50,10 @@ namespace ps{
                         return ostr;
                 }
 
+
                 std::vector<frontend::primitive_t> players;
                 std::vector<tree_hand>             children;
+                std::vector<holdem_class_id>       opt_cplayers;
         };
 
         struct tree_range{

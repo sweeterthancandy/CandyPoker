@@ -22,6 +22,12 @@
 
 #include "ps/cards.h"
 
+/*
+        The point of the frontend is just
+                - parsing ranges
+                - creating a small dsl
+ */
+
 namespace ps{
 
         namespace frontend{
@@ -66,7 +72,6 @@ namespace ps{
                                 return sstr.str();
                         }
 
-
                         auto i_am_a_duck__to_hand_vector()const{
                                 return std::vector<holdem_id>{id_};
                         }
@@ -107,6 +112,12 @@ namespace ps{
                                         }
                                 }
                                 return std::move(result);
+                        }
+                        auto i_am_a_duck__to_class_id()const{
+                                return holdem_class_decl::make_id(
+                                        holdem_class_type::pocket_pair,
+                                        x_,
+                                        x_);
                         }
                         auto to_string()const{
                                 std::stringstream sstr;
@@ -194,6 +205,25 @@ namespace ps{
                                         break;
                                 }
                                 return std::move(result);
+                        }
+                        auto i_am_a_duck__to_class_id()const{
+                                switch(Suit_Category){
+                                case suit_category::any_suit:
+                                        BOOST_THROW_EXCEPTION(std::domain_error("bad card"));
+                                        break;
+                                case suit_category::suited:
+                                        return holdem_class_decl::make_id(
+                                                holdem_class_type::suited,
+                                                x_,
+                                                y_);
+                                        break;
+                                case suit_category::offsuit:
+                                        return holdem_class_decl::make_id(
+                                                holdem_class_type::offsuit,
+                                                x_,
+                                                y_);
+                                        break;
+                                }
                         }
                         auto to_string()const{
                                 std::stringstream sstr;
@@ -500,6 +530,18 @@ namespace ps{
                                 }
                         };
 
+                        struct to_class_id : boost::static_visitor<holdem_class_id>{
+                                template<class T, class = ps::detail::void_t<
+                                        decltype( std::declval<T>().i_am_a_duck__to_class_id() )> >
+                                holdem_class_id operator()(T const& val)const{
+                                        return val.i_am_a_duck__to_class_id();
+                                }
+                                holdem_class_id operator()(...)const{
+                                        return -1;
+                                }
+                        };
+                        
+
                 }
 
                 struct primitive_range{
@@ -617,6 +659,15 @@ namespace ps{
                         return boost::apply_visitor( detail::to_hand_vector(), prim);
                 }
 
+                template<class T>
+                auto to_class_id(T const& val){
+                        return boost::apply_visitor( detail::to_class_id(), val);
+                }
+                template<class T>
+                auto to_class_id(T const& val)->decltype( val.i_am_a_duck__to_class_id() ){
+                        return val.i_am_a_duck__to_class_id();
+                }
+
 
                 #if 0
                 template<class T,
@@ -632,10 +683,8 @@ namespace ps{
                 }
                 #endif
 
-        }
-
-
-}
+        } // frontend
+} // ps
 
 #include "ps/frontend_decl.h"
 

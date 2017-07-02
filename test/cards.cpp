@@ -8,37 +8,37 @@ TEST(suit_decl, _){
         for(suit_id id{0};id!=4;++id){
                 EXPECT_EQ(id, suit_decl::get(id).id());
         }
-        EXPECT_NO_THROW( suit_decl::parse("d") );
-        EXPECT_NO_THROW( suit_decl::parse("c") );
-        EXPECT_NO_THROW( suit_decl::parse('h') );
-        EXPECT_NO_THROW( suit_decl::parse('s') );
-        EXPECT_NO_THROW( suit_decl::parse('D') );
-        EXPECT_NO_THROW( suit_decl::parse("C") );
-        EXPECT_NO_THROW( suit_decl::parse("H") );
-        EXPECT_NO_THROW( suit_decl::parse("S") );
+        EXPECT_EQ( decl::_d, suit_decl::parse("d") );
+        EXPECT_EQ( decl::_d, suit_decl::parse('D') );
+        EXPECT_EQ( decl::_c, suit_decl::parse("c") );
+        EXPECT_EQ( decl::_c, suit_decl::parse("C") );
+        EXPECT_EQ( decl::_h, suit_decl::parse('h') );
+        EXPECT_EQ( decl::_h, suit_decl::parse("H") );
+        EXPECT_EQ( decl::_s, suit_decl::parse('s') );
+        EXPECT_EQ( decl::_s, suit_decl::parse("S") );
 }
 TEST(rank_decl, _){
         for(rank_id id{0};id!=13;++id){
                 EXPECT_EQ(id, rank_decl::get(id).id());
         }
-        EXPECT_NO_THROW( rank_decl::parse("A") );
-        EXPECT_NO_THROW( rank_decl::parse("K") );
-        EXPECT_NO_THROW( rank_decl::parse("Q") );
-        EXPECT_NO_THROW( rank_decl::parse("J") );
-        EXPECT_NO_THROW( rank_decl::parse("T") );
-        EXPECT_NO_THROW( rank_decl::parse("a") );
-        EXPECT_NO_THROW( rank_decl::parse("k") );
-        EXPECT_NO_THROW( rank_decl::parse("q") );
-        EXPECT_NO_THROW( rank_decl::parse("j") );
-        EXPECT_NO_THROW( rank_decl::parse("t") );
-        EXPECT_NO_THROW( rank_decl::parse("9") );
-        EXPECT_NO_THROW( rank_decl::parse("8") );
-        EXPECT_NO_THROW( rank_decl::parse("7") );
-        EXPECT_NO_THROW( rank_decl::parse('6') );
-        EXPECT_NO_THROW( rank_decl::parse('5') );
-        EXPECT_NO_THROW( rank_decl::parse('4') );
-        EXPECT_NO_THROW( rank_decl::parse('3') );
-        EXPECT_NO_THROW( rank_decl::parse('2') );
+        EXPECT_EQ( decl::_A, rank_decl::parse("A") );
+        EXPECT_EQ( decl::_A, rank_decl::parse("a") );
+        EXPECT_EQ( decl::_K, rank_decl::parse("K") );
+        EXPECT_EQ( decl::_K, rank_decl::parse("k") );
+        EXPECT_EQ( decl::_Q, rank_decl::parse("Q") );
+        EXPECT_EQ( decl::_Q, rank_decl::parse("q") );
+        EXPECT_EQ( decl::_J, rank_decl::parse("J") );
+        EXPECT_EQ( decl::_J, rank_decl::parse("j") );
+        EXPECT_EQ( decl::_T, rank_decl::parse("T") );
+        EXPECT_EQ( decl::_T, rank_decl::parse("t") );
+        EXPECT_EQ( decl::_9, rank_decl::parse("9") );
+        EXPECT_EQ( decl::_8, rank_decl::parse("8") );
+        EXPECT_EQ( decl::_7, rank_decl::parse("7") );
+        EXPECT_EQ( decl::_6, rank_decl::parse("6") );
+        EXPECT_EQ( decl::_5, rank_decl::parse("5") );
+        EXPECT_EQ( decl::_4, rank_decl::parse("4") );
+        EXPECT_EQ( decl::_3, rank_decl::parse("3") );
+        EXPECT_EQ( decl::_2, rank_decl::parse("2") );
 
 
         EXPECT_EQ( 12, rank_decl::parse("A").id() );

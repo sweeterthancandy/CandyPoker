@@ -102,6 +102,7 @@ double simulation( equity_cacher& ec,
 }
 
 int main(){
+        //make_heads_up_table();
         #if 1
         using namespace ps;
 
@@ -110,7 +111,7 @@ int main(){
         class_equity_cacher cec(ec);
         cec.load("hc_cache.bin");
 
-        double eff_stack{10.0};
+        double eff_stack{2.0};
         double bb{1.0};
         double sb{0.5};
 
@@ -145,6 +146,7 @@ int main(){
         });
 
         sb_strat.display();
+        bb_strat.display();
 
 
         size_t n{1000};

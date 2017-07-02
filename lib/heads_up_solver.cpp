@@ -58,6 +58,8 @@ double calc_detail(calc_context& ctx)
                         }
                 };
                 double operator()(calc_context& ctx)const{
+                        if( ctx.bb_call_strat[ctx.bb_id] == 0.0 )
+                                return bb_fold_(ctx);
                         return 
                                 (  ctx.bb_call_strat[ctx.bb_id]) * bb_call_(ctx) +
                                 (1-ctx.bb_call_strat[ctx.bb_id]) * bb_fold_(ctx);
@@ -72,6 +74,11 @@ double calc_detail(calc_context& ctx)
         };
         struct root{
                 double operator()(calc_context& ctx)const{
+
+                        // short-circuit
+                        if( ctx.sb_push_strat[ctx.sb_id] == 0.0 )
+                                return sb_fold_(ctx);
+
                         return 
                                 (  ctx.sb_push_strat[ctx.sb_id]) * sb_push_(ctx) +
                                 (1-ctx.sb_push_strat[ctx.sb_id]) * sb_fold_(ctx);
@@ -109,6 +116,81 @@ double calc(calc_context& ctx){
                         //PRINT(sigma);
         }
         return sigma;
+}
+
+hu_strategy solve_hu_push_fold_bb_maximal_exploitable__ev_brute(ps::class_equity_cacher& cec,
+                                                                hu_strategy const& sb_push_strat,
+                                                                double eff_stack, double sb, double bb)
+{
+        hu_strategy result{0.0};
+        calc_context ctx = {
+                &cec,
+                sb_push_strat,
+                hu_strategy{0.0},
+                eff_stack,
+                sb,
+                bb,
+                0,
+                0
+        };
+        for(ctx.bb_id = 0; ctx.bb_id != 169;++ctx.bb_id){
+                double value_fold{0.0};
+                double value_call{0.0};
+                for(ctx.sb_id = 0; ctx.sb_id != 169;++ctx.sb_id){
+                        double p{holdem_class_decl::prob(ctx.sb_id, ctx.bb_id)};
+                        value_fold += p * calc_detail(ctx);
+                        ctx.bb_call_strat[ctx.bb_id] = 1;
+                        value_call += p * calc_detail(ctx);
+                        ctx.bb_call_strat[ctx.bb_id] = 0;
+                }
+                // negative because in bb
+                if( value_call < value_fold ){
+                        result[ctx.bb_id] = 1;
+                }
+        }
+        return std::move(result);
+}
+hu_strategy solve_hu_push_fold_sb_maximal_exploitable__ev_brute(ps::class_equity_cacher& cec,
+                                               hu_strategy const& bb_call_strat,
+                                               double eff_stack, double sb, double bb)
+{
+        hu_strategy result{0.0};
+        calc_context ctx = {
+                &cec,
+                hu_strategy{0.0},
+                bb_call_strat,
+                eff_stack,
+                sb,
+                bb,
+                0,
+                0
+        };
+        #if 0
+        for(size_t sb_id = 0; sb_id != 169;++sb_id){
+                auto value_fold{ calc(ctx) };
+                ctx.sb_push_strat[sb_id] = 1;
+                auto value_push{ calc(ctx) };
+                if( value_fold < value_push )
+                        result[sb_id] = 1;
+                ctx.sb_push_strat[sb_id] = 0;
+        }
+        return std::move(result);
+        #endif
+        for(ctx.sb_id = 0; ctx.sb_id != 169;++ctx.sb_id){
+                double value_fold{0.0};
+                double value_push{0.0};
+                for(ctx.bb_id = 0; ctx.bb_id != 169;++ctx.bb_id){
+                        double p{holdem_class_decl::prob(ctx.sb_id, ctx.bb_id)};
+                        value_fold += p * calc_detail(ctx);
+                        ctx.sb_push_strat[ctx.sb_id] = 1;
+                        value_push += p * calc_detail(ctx);
+                        ctx.sb_push_strat[ctx.sb_id] = 0;
+                }
+                if( value_push > value_fold ){
+                        result[ctx.sb_id] = 1;
+                }
+        }
+        return std::move(result);
 }
 
 hu_strategy solve_hu_push_fold_bb_maximal_exploitable__ev(ps::class_equity_cacher& cec,
@@ -391,12 +473,13 @@ hu_strategy solve_hu_push_fold_sb_maximal_exploitable(ps::class_equity_cacher& c
 
 hu_strategy solve_hu_push_fold_sb(ps::class_equity_cacher& cec,
                            double eff_stack, double sb, double bb){
-        double alpha{0.1};
+        double alpha{0.3};
         hu_strategy sb_strat{1.0};
 
         std::set< hu_strategy > circular_set;
 
-        for(;;){
+        for(size_t i=0;i < 20;++i){
+                boost::timer::auto_cpu_timer at;
 
                 auto bb_me{solve_hu_push_fold_bb_maximal_exploitable(cec,
                                                                      sb_strat,
@@ -447,7 +530,12 @@ hu_strategy solve_hu_push_fold_sb(ps::class_equity_cacher& cec,
                 circular_set.insert(sb_strat);
 
                 sb_strat.display();
+
                 //
+                if( ( ev_d ) < 1e-3 ){
+                        std::cout << "_ev_d_break_\n";
+                        break;
+                }
                 if( ( sb_norm ) < 1e-5 ){
                         std::cout << "_break_\n";
                         break;

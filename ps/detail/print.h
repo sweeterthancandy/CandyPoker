@@ -5,6 +5,7 @@
 #include <iterator>
 #include <type_traits>
 #include <ostream>
+#include <iostream>
 
 #include <boost/preprocessor.hpp>
 #include <boost/lexical_cast.hpp>

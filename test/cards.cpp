@@ -57,8 +57,13 @@ TEST(card_decl, _){
         EXPECT_EQ( card_decl::parse("Ah").rank(), rank_decl::parse("A") );
 }
 TEST(holdem_hand_decl, _){
+        for(card_id id{0};id!=( 52 * 52 - 52 ) / 2 ;++id){
+                EXPECT_EQ(id, holdem_hand_decl::get(id).id());
+        }
         for(card_id x{0};x!=52;++x){
                 for(card_id y{0};y!=52;++y){
+                        if( x == y )
+                                continue;
                         auto const& decl{ holdem_hand_decl::get(x,y) };
                         auto const& decl2{ holdem_hand_decl::get(y,x) };
 
@@ -66,19 +71,21 @@ TEST(holdem_hand_decl, _){
                         EXPECT_EQ(decl.id(), decl2.id());
                         // should be less than this, should be a 
                         // strictly lower trianglar matrix
-                        EXPECT_LE(( 52 * 52 - 52 ) / 2, decl.id());
-
+                        EXPECT_LE(decl.id(),( 52 * 52 - 52 ) / 2);
+                        
                         std::set<card_id> s;
                         s.insert(decl.first().id());
                         s.insert(decl.second().id());
+
+                        if( s.count(x) + s.count(y) != 2 ){
+                                PRINT_SEQ((x)(y)(decl.first().id())(decl.second().id()));
+                        }
+
                         EXPECT_EQ( 1, s.count(x) );
                         EXPECT_EQ( 1, s.count(y) );
                 }
         }
 
-        for(card_id id{0};id!=( 52 * 52 - 52 ) / 2 ;++id){
-                EXPECT_EQ(id, card_decl::get(id).id());
-        }
 }
 
 

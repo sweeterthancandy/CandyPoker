@@ -17,7 +17,7 @@ namespace{
                         boost::sort( vec_ );
                 }
                 T const& get(Key k)const{
-                        assert( k < vec_.size() && "key doesn't exist");
+                        assert( k < vec_.size() && "precondition failed, key doesn't exist");
                         return vec_[k];
                 }
         private:
@@ -101,9 +101,9 @@ namespace ps{
                 static decl_factory<holdem_hand_decl> fac{
                         [](){
                                 std::vector< holdem_hand_decl> aux;
-                                for( char a{52};a!=0;){
+                                for( char a{52};a!=1;){
                                         --a;
-                                        for( char b{52};b!=0;){
+                                        for( char b{a};b!=0;){
                                                 --b;
                                                 aux.emplace_back( card_decl::get(a), card_decl::get(b));
                                         }

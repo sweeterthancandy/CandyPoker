@@ -4,6 +4,7 @@
 #include <vector>
 #include <set>
 
+
 #include "ps/cards_fwd.h"
 #include "ps/detail/void_t.h"
 #include "ps/detail/print.h"
@@ -116,9 +117,26 @@ namespace ps{
                 static holdem_hand_decl const& parse(std::string const& s);
                 static holdem_id make_id( rank_id r0, suit_id s0, rank_id r1, suit_id s1);
                 inline static holdem_id make_id( card_id x, card_id y){
-                        if( x < y )
-                                std::swap(x,y);
-                        return  x * 52 + y;
+                        static std::array<holdem_id, 52*52> proto{
+                                [](){
+                                        size_t id{0};
+                                        std::array<holdem_id, 52*52> result;
+                                        for( char a{52};a!=1;){
+                                                --a;
+                                                for( char b{a};b!=0;){
+                                                        --b;
+                                                        result[a * 52 + b ] = id;
+                                                        result[b * 52 + a ] = id;
+                                                        ++id;
+                                                }
+                                        }
+                                        PRINT_SEQ((id)((52*52-52)/2));
+                                        return std::move(result);
+                                }()
+                        };
+                        assert( x < 52 && "precondition failed");
+                        assert( y < 52 && "precondition failed");
+                        return proto[x * 52 + y];
                 }
                 operator holdem_id()const{ return id_; }
                 holdem_class_id class_()const;

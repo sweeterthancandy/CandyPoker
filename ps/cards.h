@@ -90,6 +90,7 @@ namespace ps{
         };
 
         struct holdem_hand_decl{
+                static constexpr const holdem_id max_id = 52 * 51 / 2;
                 // a must be the biggest
                 holdem_hand_decl( card_decl const& a, card_decl const& b):
                         id_{ make_id(a.id(), b.id()) },
@@ -140,6 +141,7 @@ namespace ps{
                 }
                 operator holdem_id()const{ return id_; }
                 holdem_class_id class_()const;
+                static double prob(holdem_id c0, holdem_id c1);
         private:
                 holdem_id id_;
                 card_decl first_;
@@ -148,6 +150,7 @@ namespace ps{
         };
 
         struct holdem_class_decl{
+                static constexpr const holdem_class_id max_id = 13 * 31;
                 holdem_class_decl(holdem_class_type cat,
                                   rank_decl const& a,
                                   rank_decl const& b);

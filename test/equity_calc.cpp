@@ -7,17 +7,40 @@
 using namespace ps;
 
 
-struct class_equity_calc_ : testing::Test{
+struct equity_calc_ : testing::Test{
+        equity_calc_()
+        {
+                ec.load("cache.bin");
+        }
+        equity_cacher ec;
+};
+
+struct class_equity_calc_ : equity_calc_{
         class_equity_calc_()
                 :cec{ec}
         {
-                ec.load("cache.bin");
                 cec.load("hc_cache.bin");
         }
-        equity_cacher ec;
         class_equity_cacher cec;
 
 };
+
+// this is super slow
+#if 0
+TEST_F( equity_calc_, aggregation){
+        double sigma{0.0};
+        hu_fresult_t agg;
+        for(holdem_id x{0};x!=holdem_hand_decl::max_id;++x){
+                for(holdem_class_id y{0};y!=holdem_hand_decl::max_id;++y){
+                        auto const& ret{ ec.visit_boards( std::vector<ps::holdem_id>{ x, y } ) };
+                        agg.append(ret);
+                        sigma += ret.equity() * holdem_hand_decl::prob(x,y);
+                }
+        }
+        EXPECT_NEAR( agg.equity(), .5, 1e-5 );
+        EXPECT_NEAR( sigma       , .5, 1e-5 );
+}
+#endif
 
         /*
         Hand 0: 	65.771%  	65.55% 	00.22% 	      26939748 	    89034   { 77 }
@@ -73,7 +96,8 @@ TEST_F( class_equity_calc_, aggregation){
                         sigma += ret.equity() * holdem_class_decl::prob(x,y);
                 }
         }
-        EXPECT_NEAR( agg.equity(), sigma, 1e-2 );
+        EXPECT_NEAR( agg.equity(), .5, 1e-5 );
+        EXPECT_NEAR( sigma       , .5, 1e-5 );
 }
 
 #if NOT_DEFINED

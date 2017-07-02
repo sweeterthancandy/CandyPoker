@@ -85,6 +85,7 @@ struct equity_cacher{
         bool save(std::string const& name)const;
         void append( equity_cacher const& that);
         auto cache_size()const{ return cache_.size(); }
+        static void generate_cache(std::string const& name);
 private:
         std::map<std::vector<ps::holdem_id>, hu_result_t> cache_;
         std::shared_ptr<equity_calc_detail> ec_;
@@ -103,6 +104,7 @@ struct class_equity_cacher{
         }
 
         hu_result_t const& visit_boards( std::vector<ps::holdem_class_id> const& players);
+        static void generate_cache(equity_cacher& ec, std::string const& name);
 private:
         std::map<std::vector<ps::holdem_class_id>, hu_result_t> cache_;
         equity_cacher* ec_;
@@ -110,7 +112,6 @@ private:
 
 
 
-void generate_cache();
 
 struct hu_strategy{
         hu_strategy(double fill){

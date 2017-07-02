@@ -4,6 +4,7 @@
 #include <future>
 #include <thread>
 #include <boost/range/algorithm.hpp>
+#include <boost/timer/timer.hpp>
 
 using namespace ps;
 
@@ -16,7 +17,8 @@ double do_simulation( equity_cacher& ec,
                       double bb,
                       size_t n)
 {
-        std::default_random_engine gen;
+        //std::default_random_engine gen;
+        std::random_device gen;
         std::uniform_int_distribution<holdem_class_id> deck(0,51);
 
         long double ev{0};
@@ -63,10 +65,18 @@ double simulation( equity_cacher& ec,
                    size_t n) // n per thread
 {
         size_t num_threads{ std::thread::hardware_concurrency() };
-        size_t N{0};
-        std::vector<std::future<double> > results;
+        size_t block_n;
+        size_t block_last;
+        if( num_threads == 1 ){
+                block_n    = n;
+                block_last = n;
+        } else {
+                block_n    =  n / num_threads;
+                block_last = n - block_n * ( num_threads -1 );
+        }
+        PRINT_SEQ((block_n)(block_last));
+        std::vector<std::future<double> > results(num_threads);
         for(size_t i{0}; i != num_threads ;++i){
-                N += n;
                 std::packaged_task<double()> task{
                         [&,i](){
                                 return do_simulation(ec,
@@ -76,15 +86,17 @@ double simulation( equity_cacher& ec,
                                                      eff_stack,
                                                      sb,
                                                      bb,
-                                                     n);
+                                                     (i==0 ? block_last : block_n) );
                         }};
-                results.emplace_back( task.get_future() );
+                results[i] = task.get_future();
                 std::thread{std::move(task)}.detach();
         }
         double sigma{0.0};
         for(auto& r : results){
-                PRINT(r.get());
-                sigma += r.get() / num_threads;
+                r.wait();
+                auto ev_sim{r.get()};
+                PRINT(ev_sim);
+                sigma += ev_sim / num_threads;
         }
         return sigma;
 }
@@ -102,13 +114,18 @@ int main(){
         double sb{0.5};
 
         hu_strategy{1.0}.display();
+
+        hu_strategy sb_strat{1.0};
+        hu_strategy bb_strat{1.0};
                         
+        #if 0
         auto sb_strat{solve_hu_push_fold_sb(cec, eff_stack, sb, bb)};
         auto bb_strat{solve_hu_push_fold_bb_maximal_exploitable(cec,
                                                                 sb_strat,
                                                                 eff_stack,
                                                                 sb,
                                                                 bb)};
+                                                                #endif
         sb_strat.transform( [](auto i, auto d){
                 #if 0
                 if( std::fabs( d - 0.0 ) < 1e-3 )
@@ -127,7 +144,12 @@ int main(){
         sb_strat.display();
 
 
-        PRINT(simulation(ec, cec, sb_strat, bb_strat, eff_stack, sb, bb, 1000));
+        size_t n{1000};
+        for(;;n*=2){
+                boost::timer::auto_cpu_timer at;
+                auto ev{simulation(ec, cec, sb_strat, bb_strat, eff_stack, sb, bb, n)};
+                PRINT_SEQ((n)(ev));
+        }
 
 
 

@@ -127,7 +127,7 @@ hu_result_t const& class_equity_cacher::visit_boards( std::vector<ps::holdem_cla
 }
 
 
-void generate_cache(){
+void equity_cacher::generate_cache(std::string const& name){
 
         frontend::range p0;
         frontend::range p1;
@@ -156,7 +156,7 @@ void generate_cache(){
 
         std::vector<std::thread> tg;
         std::vector<equity_cacher> result;
-        for(size_t i=0; i!=16 ; ++i){
+        for(size_t i=0; i!= std::thread::hardware_concurrency() ; ++i){
                 tg.emplace_back( [&]()mutable{
                         equity_cacher ec;
                         for(;;){
@@ -191,10 +191,25 @@ void generate_cache(){
         for( auto const& r : result )
                 aggregate.append(r);
         PRINT(aggregate.cache_size());
-        aggregate.save("cache.bin");
+        aggregate.save(name);
                         
         PRINT_SEQ((sigma)(world.size())(done));
 
+}
+        
+void class_equity_cacher::generate_cache(equity_cacher& ec, std::string const& name)
+{
+        #if 0
+        constexpr const max_{ 52 * 52 / 2 };
+        class_equity_cacher cec{ec};
+        detail::visit_exclusive_combinations<2>(
+                [](auto a, auto b){
+                if( a == b )
+                        return;
+                cec.visit_boards( std::vector<holdem_class_id>
+
+        }, detail::true_, std::vector<size_t>{max_, max_});
+        #endif
 }
 
 } // ps

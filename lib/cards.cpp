@@ -113,6 +113,22 @@ namespace ps{
                 };
                 return fac.get(id);
         }
+        double holdem_hand_decl::prob(holdem_id c0, holdem_id c1){
+                // static
+                static auto aux{ [](){
+                        size_t count{0};
+                        for(size_t i{0};i!=holdem_hand_decl::max_id;++i){
+                                for(size_t j{0};j!=holdem_hand_decl::max_id;++j){
+                                        if( disjoint(holdem_hand_decl::get(i),
+                                                     holdem_hand_decl::get(j) ) )
+                                                ++count;
+                                }
+                        }
+                        return count;
+                }()};
+                return 
+                        1.0 / aux;
+        }
 
         holdem_class_id holdem_class_decl::make_id(holdem_class_type cat, rank_id x, rank_id y){
                 using std::get;

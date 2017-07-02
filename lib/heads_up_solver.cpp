@@ -370,6 +370,7 @@ void make_heads_up_table(){
 
         }
         for(auto& r : results ){
+                std::get<1>(r).wait();
                 auto eff_stack{ std::get<0>(r) };
                 auto sb_strat{ std::get<1>(r).get() };
                 auto bb_strat{solve_hu_push_fold_bb_maximal_exploitable(cec,

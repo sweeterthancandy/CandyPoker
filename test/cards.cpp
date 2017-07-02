@@ -87,6 +87,17 @@ TEST(holdem_hand_decl, _){
         }
 
 }
+TEST(holdem_hand_decl, static_prob){
+        double sigma{0.0};
+        for(size_t i{0};i!=holdem_hand_decl::max_id;++i){
+                for(size_t j{0};j!=holdem_hand_decl::max_id;++j){
+                        if( disjoint(holdem_hand_decl::get(i),
+                                     holdem_hand_decl::get(j)) )
+                                sigma += holdem_hand_decl::prob(i,j);
+                }
+        }
+        EXPECT_NEAR(1.0, sigma, 1e-3);
+}
 
 
 TEST(holdem_class_decl, prob){

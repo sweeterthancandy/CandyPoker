@@ -99,17 +99,14 @@ double calc( class_equity_cacher& cec,
 }
 double calc(calc_context& ctx){
         double sigma{0.0};
-        size_t factor{0};
         for(ctx.sb_id = 0; ctx.sb_id != 169;++ctx.sb_id){
                 for(ctx.bb_id = 0; ctx.bb_id != 169;++ctx.bb_id){
-                        auto weight{ holdem_class_decl::prob(ctx.sb_id, ctx.bb_id) };
-                        sigma += calc_detail(ctx) * weight;
-                        factor += weight;
+                        auto p{ holdem_class_decl::prob(ctx.sb_id, ctx.bb_id) };
+                        sigma += calc_detail(ctx) * p;
                 }
                         //PRINT(sigma);
         }
-        PRINT_SEQ((sigma)(factor));
-        return sigma / factor;
+        return sigma;
 }
 
 hu_strategy solve_hu_push_fold_bb_maximal_exploitable__ev(ps::class_equity_cacher& cec,

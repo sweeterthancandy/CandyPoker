@@ -87,7 +87,6 @@ TEST_F( class_equity_calc_, _){
         }
 }
 
-#if 0
 TEST_F( class_equity_calc_, aggregation){
         struct regression_result{
                 regression_result()=default;
@@ -101,7 +100,44 @@ TEST_F( class_equity_calc_, aggregation){
 
         // just take some results from pokerstove
         std::vector<regression_result> ticker = {
-                {  "ATo+, KTo+, QTo+, JTo", "100%",  0.60847 }
+                {  
+                        "ATo+ KTo+ QTo+ JTo",
+                        "100%",
+                        0.60847
+                },
+                { 
+                        "22+",
+                        "100%",
+                        0.68625
+                },
+                {  
+                        "A2s+, K2s+, Q2s+, J2s+, T2s+, 92s+, 82s+, 72s+, 62s+, 52s+, 42s+, 32s ",
+                        "100%",
+                        0.50899
+                },
+                {
+                        " TT+, ATs+, KTs+, QTs+, JTs, ATo+, KTo+, QTo+, JTo ",
+                        " A2s+, K2s+, Q2s+, J2s+, T2s+, 92s+, 82s+, 72s+, 62s+, 52s+, 42s+, 32s ",
+                        0.62785
+                },
+                {
+                        " TT+, ATs+, KTs+, QTs+, JTs, ATo+, KTo+, QTo+, JTo ",
+                        " 22+, A2s+, K2s+, Q2s+, J2s+, T2s+, 92s+, 82s+, 72s+, 62s+, 52s+, 42s+, 32s ",
+                        0.59372
+                },
+                {
+                        " TT+, ATs+, KTs+, QTs+, JTs, ATo+, KTo+, QTo+, JTo ",
+                        " A2o+, K2o+ ",
+                        0.57313
+                }
+                #if 0
+                {
+                        "",
+                        "",
+                        0.0
+                },
+                #endif
+
         };
         for( auto const& r : ticker){
                 size_t sigma{0};
@@ -109,15 +145,22 @@ TEST_F( class_equity_calc_, aggregation){
                                                               frontend::parse(r.villian)} };
                 hu_fresult_t agg;
                 for( auto const& c : root.children ){
-                        for( auto d : c.children ){
-                                auto ret{ ec.visit_boards( d.players ) };
-                                agg.append(agg);
+                        
+                        if( c.opt_cplayers.size() ){
+                                auto ret{ cec.visit_boards( c.opt_cplayers ) };
+                                agg.append(ret);
+                                //PRINT_SEQ((detail::to_string(c.opt_cplayers))(ret.equity())(agg.equity()));
+                        } else {
+                                for( auto d : c.children ){
+                                        auto ret{ ec.visit_boards( d.players ) };
+                                        agg.append(ret);
+                                }
                         }
                 }
+                PRINT_SEQ((agg.equity())(r.equity)(std::fabs(agg.equity()-r.equity)));
                 EXPECT_NEAR( agg.equity(), r.equity, 1e-3 );
         }
 }
-#endif
 
 TEST_F( class_equity_calc_, range_vs_range ){
 }

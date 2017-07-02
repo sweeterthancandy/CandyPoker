@@ -17,6 +17,7 @@ TEST( frontend, parse){
         parse("   22-55");
         parse("  ajo-kk ");
         parse("          22+ Ax+ K2s+ K6o+ Q4s+ Q9o+ J6s+ J9o+ T6s+ T8o+ 96s+ 98o 85s+ 75s+ 64s+ 54s");
+        parse("100%");
 }
 
 TEST( frontend, to_class_id_){

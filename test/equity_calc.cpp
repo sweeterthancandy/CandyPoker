@@ -1,6 +1,5 @@
 #include <gtest/gtest.h>
 
-#include "ps/equity_calc.h"
 #include "ps/frontend.h"
 #include "ps/heads_up.h"
 #include "ps/tree.h"

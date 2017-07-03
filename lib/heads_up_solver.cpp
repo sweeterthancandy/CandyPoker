@@ -157,6 +157,7 @@ hu_strategy solve_hu_push_fold_bb_maximal_exploitable(ps::class_equity_cacher& c
                                 tmp.times(weight);
                                 res.append(tmp);
                                 
+
                         }
 
                         // edge case, can return anything here probably
@@ -458,4 +459,19 @@ void make_heads_up_table(){
         bb_table.display();
 
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 } // ps

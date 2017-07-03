@@ -43,3 +43,8 @@ add_executable(pokerstove app/pokerstove.cpp)
 target_link_libraries(pokerstove ps_lib )
 target_link_libraries(pokerstove pthread )
 target_link_libraries(pokerstove ${Boost_LIBRARIES})
+
+add_executable(create_cache app/create_cache.cpp)
+target_link_libraries(create_cache ps_lib )
+target_link_libraries(create_cache pthread )
+target_link_libraries(create_cache ${Boost_LIBRARIES})

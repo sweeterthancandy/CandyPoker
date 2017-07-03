@@ -13,11 +13,24 @@ namespace ps{
          */
         struct equity_calc_detail{
 
-                template<class Visitor>
+                template<
+                        class Visitor,
+                        class Players_Type
+                >
+                bool visit_boards( Visitor& v, Players_Type const& players){
+                        static std::array<card_id,0> aux;
+                        return visit_boards(v, players, aux, aux);
+                }
+                template<
+                        class Visitor,
+                        class Players_Type,
+                        class Board_Type,
+                        class Dead_Type
+                >
                 bool visit_boards( Visitor& v,
-                          std::vector<holdem_id> const& players,
-                          std::vector<card_id> const& board = std::vector<card_id>{},
-                          std::vector<card_id> const& dead = std::vector<card_id>{})noexcept
+                                   Players_Type const& players,
+                                   Board_Type const& board,
+                                   Dead_Type const& dead)noexcept
                 {
                         switch( players.size()){
                         case 2: return visit_boards_p<2>( v, players, board, dead ); break;
@@ -32,13 +45,17 @@ namespace ps{
                                 return false;
                         }
                 }
-
-                
-                template<size_t Num_Players, class Visitor>
-                bool visit_boards_p(Visitor& v,
-                                        std::vector<holdem_id> const& players,
-                                        std::vector<card_id> const& board,
-                                        std::vector<card_id> const& dead)noexcept
+                template<
+                        size_t Num_Players,
+                        class Visitor,
+                        class Players_Type,
+                        class Board_Type,
+                        class Dead_Type
+                >
+                bool visit_boards_p( Visitor& v,
+                                     Players_Type const& players,
+                                     Board_Type const& board,
+                                     Dead_Type const& dead)noexcept
                 {
                         auto dealt{ board.size() + dead.size() };
                         auto to_deal{ 5- dealt  };
@@ -52,12 +69,19 @@ namespace ps{
                                 return false;
                         }
                 }
-                template<size_t Num_Players, size_t Num_Deal, class Visitor>
+                template<
+                        size_t Num_Players,
+                        size_t Num_Deal,
+                        class Visitor,
+                        class Players_Type,
+                        class Board_Type,
+                        class Dead_Type
+                >
                 bool visit_boards_pd( Visitor& v,
-                                          std::vector<holdem_id> const& players,
-                                          std::vector<card_id> const& board,
-                                          std::vector<card_id> const& dead)noexcept{
-
+                                      Players_Type const& players,
+                                      Board_Type const& board,
+                                      Dead_Type const& dead)noexcept
+                {
                         std::vector<id_type> known;
 
                         // cache the cards

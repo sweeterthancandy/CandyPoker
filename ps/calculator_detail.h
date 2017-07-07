@@ -59,11 +59,186 @@ namespace detail{
 
 
 
-template<class Result_Decl, size_t N>
+
+
+template<size_t N>
+struct detailed_result_type{
+        detailed_result_type(detailed_result_type const&)=default;
+        detailed_result_type():
+                sigma_{0}
+        {
+                std::memset( data_.begin(), 0, sizeof(data_));
+        }
+        auto& data_access(size_t i, size_t j){
+                return data_[i * N + j];
+        }
+        auto data_access(size_t i, size_t j)const{
+                return data_[i * N + j];
+        }
+        size_t const* data()const{ return reinterpret_cast<size_t const*>(data_.begin()); }
+
+        #if 0
+        template<class Con>
+        result_type permutate(Con const& con)const{
+                result_type ret;
+                ret.sigma_ = sigma_;
+                size_t q{0};
+                for( auto idx : con ){
+                        for(size_t i=0;i!=N;++i){
+                                ret.data_[idx][i] = this->data_[q][i];
+                        }
+                        ++q;
+                }
+                return std::move(ret);
+        }
+        #endif
+
+
+
+        template<class Archive>
+        void serialize(Archive& ar, unsigned int){
+                ar & sigma_;
+                ar & data_;
+        }
+
+        auto sigma()const{ return sigma_; }
+        
+        size_t sigma_;
+
+        // access float, so can have a static view for all 
+        //  2,3,...9 etc without injeritace (see view_t)
+        std::array<
+                        size_t,
+                N * N
+        > data_;
+};
+
+struct detailed_view_type{
+
+        using perm_type = std::vector<int>;
+
+        struct player_view_t{
+                explicit player_view_t(size_t const* data_ptr, size_t n, size_t sigma)
+                        :data_ptr_(data_ptr),n_{n},sigma_{sigma}
+                {}
+                double equity()const{
+                        double result{0.0};
+                        for(size_t i=0;i!=n_;++i){
+                                result += nwin(i) / (i+1);
+                        }
+                        return result / sigma_;
+                }
+                // nwin(0) -> wins
+                // nwin(1) -> draws to split pot 2 ways
+                // nwin(2) -> draws to split pot 3 ways
+                // ...
+                size_t nwin(size_t idx)const{
+                        return data_ptr_[idx];
+                }
+        private:
+                size_t const* data_ptr_;
+                size_t n_;
+                size_t sigma_;
+        };
+        
+        template<size_t N, class Perm_Type>
+        explicit detailed_view_type(detailed_result_type<N> const* result, Perm_Type&& perm)
+                :data_ptr_(result->data()), n_(N), perm_{std::move(perm)}, sigma_{result->sigma()}
+        {}
+        auto player(size_t idx)const{
+                return player_view_t(data_ptr_ + n_ * perm_[idx],
+                                     n_,
+                                     sigma_ );
+        }
+        auto sigma()const{ return sigma_; }
+
+        friend std::ostream& operator<<(std::ostream& ostr, detailed_view_type const& self){
+                std::vector<std::vector<std::string> > line_buffer;
+                std::vector<size_t> widths(self.n_, 0);
+                std::cout << self.sigma() << "\n";
+                for(size_t i=0;i!=self.n_;++i){
+                        line_buffer.emplace_back();
+                        for(size_t j=0;j!=self.n_;++j){
+                                line_buffer.back().emplace_back(
+                                        boost::lexical_cast<std::string>(
+                                                self.player(i).nwin(j)));
+                                widths[j] = std::max(widths[j], line_buffer.back().back().size());
+                        }
+                }
+                for(size_t i=0;i!=self.n_;++i){
+                        for(size_t j=0;j!=self.n_;++j){
+                                auto const& tok(line_buffer[i][j]);
+                                size_t padding{widths[j]-tok.size()};
+                                size_t left_pad{padding/2};
+                                size_t right_pad{padding - left_pad};
+                                if( j != 0 ){
+                                        ostr << " | ";
+                                }
+                                if( left_pad )
+                                        ostr << std::string(left_pad,' ');
+                                ostr << tok;
+                                if( right_pad )
+                                        ostr << std::string(right_pad,' ');
+
+                        }
+                        ostr << "\n";
+                }
+                return ostr;
+        }
+private:
+        size_t const* data_ptr_;
+        size_t n_;
+        perm_type perm_;
+        size_t sigma_;
+};
+
+template<size_t N>
+struct detailed_observer_type{
+        template<class Int, class Vec>
+        void operator()(Int a, Int b, Int c, Int d, Int e, Vec const& ranked){
+                /*
+                        Here I need a quick way to work out the lowest rank,
+                        as well as how many are of that rank, and I need to
+                        find them. I think this is the quickest
+                */
+                auto lowest{ ranked[0] };
+                size_t count{1};
+                for(size_t i=1;i<ranked.size();++i){
+                        if( ranked[i] == lowest )
+                                ++count;
+                        else if( ranked[i] < lowest ){
+                                lowest = ranked[i]; 
+                                count = 1;
+                        }
+                }
+                for(size_t i=0;i!=ranked.size();++i){
+                        if( ranked[i] == lowest ){
+                                ++result.data_access(i,count-1);
+                        }
+                }
+                ++result.sigma_;
+        }  
+        template<class View_Type>
+        void append(View_Type const& view){
+                result.sigma += view.sigma();
+                for(size_t i=0;i!=N;++i){
+                        for(size_t j=0;j!=N;++j){
+                                result.data_access(i, j) += view.players(i).nwin(j);
+                        }
+                }
+        }
+        auto make(){ return result; }
+private:
+        detailed_result_type<N> result;
+};
+
+
+template<size_t N>
 struct basic_calculator_N{
-        using result_type   = typename Result_Decl::result_type;
-        using observer_type = typename Result_Decl::observer_type;
-        using player_vec_t   = std::array<ps::holdem_id, N>;
+        using view_type     = detailed_view_type;
+        using result_type   = detailed_result_type<N>;
+        using observer_type = detailed_observer_type<N>;
+        using player_vec_t  = std::array<ps::holdem_id, N>;
 
         explicit basic_calculator_N(equity_calc_detail* ec):ec_{ec}{}
 
@@ -86,7 +261,7 @@ struct basic_calculator_N{
                 ar & cache_;
         }
 
-        result_type calculate( std::array<ps::holdem_id, N> const& players){
+        view_type calculate( std::array<ps::holdem_id, N> const& players){
                 std::vector<ps::holdem_id> aux{ players.begin(), players.end() };
                 auto p{ permutate_for_the_better(aux) };
                 auto const& perm{std::get<0>(p)};
@@ -97,7 +272,7 @@ struct basic_calculator_N{
 
                 auto iter = cache_.find(perm_players);
                 if( iter != cache_.end() ){
-                        return iter->second.permutate(perm);
+                        return view_type{ &iter->second, std::move(perm) };
                 }
 
                 observer_type observer;
@@ -112,12 +287,12 @@ private:
 
 
 
-template<class Result_Decl, size_t N, class Impl>
+template<size_t N>
 struct basic_class_calculator_N{
-        using result_type   = typename Result_Decl::result_type;
-        using observer_type = typename Result_Decl::observer_type;
+        using result_type   = detailed_result_type<N>;
+        using observer_type = detailed_observer_type<N>;
         using player_vec_t  = std::array<ps::holdem_id, N>;
-        using impl_t        = Impl;
+        using impl_t        = basic_calculator_N<N>;
         using this_t        = basic_class_calculator_N;
 
         explicit basic_class_calculator_N(impl_t* impl):impl_{impl}{}
@@ -199,144 +374,7 @@ private:
         std::map< std::array< ps::holdem_class_id, N>, result_type> cache_;
         impl_t* impl_;
 };
-
-
-
-
-template<size_t N>
-struct basic_detailed_calculation_decl{
-
-        struct result_type{
-                result_type(result_type const&)=default;
-                result_type():
-                        sigma{0}
-                {
-                        std::memset( data.begin(), 0, sizeof(data));
-                }
-
-                template<class Con>
-                result_type permutate(Con const& con)const{
-                        result_type ret;
-                        ret.sigma = sigma;
-                        size_t q{0};
-                        for( auto idx : con ){
-                                for(size_t i=0;i!=N;++i){
-                                        ret.data[idx][i] = this->data[q][i];
-                                }
-                                ++q;
-                        }
-                        return std::move(ret);
-                }
-
-                struct view_t{
-                        explicit view_t(result_type const* self, size_t idx)
-                                :this_(self),idx_{idx}
-                        {}
-                        double equity()const{
-                                double result{0.0};
-                                for(size_t i=0;i!=N;++i){
-                                        result += this_->data[idx_][i] / (i+1);
-                                }
-                                return result / this_->sigma;
-                        }
-                        size_t sigma()const{
-                                return this_->sigma;
-                        }
-                private:
-                        size_t idx_;
-                        result_type const* this_;
-                };
-                auto player(size_t idx)const{ return view_t{this, idx}; }
-
-                size_t sigma;
-                std::array<
-                        std::array<
-                                size_t,
-                                N
-                        >,
-                        N
-                > data;
-                template<class Archive>
-                void serialize(Archive& ar, unsigned int){
-                        ar & sigma;
-                        ar & data;
-                }
-
-                friend std::ostream& operator<<(std::ostream& ostr, result_type const& self){
-                        std::vector<std::vector<std::string> > line_buffer;
-                        std::array<size_t, N> widths;
-                        widths.fill(0);
-                        std::cout << self.sigma << "\n";
-                        for(size_t i=0;i!=N;++i){
-                                line_buffer.emplace_back();
-                                for(size_t j=0;j!=N;++j){
-                                        line_buffer.back().emplace_back(
-                                                boost::lexical_cast<std::string>(
-                                                        self.data[i][j]));
-                                        widths[j] = std::max(widths[j], line_buffer.back().back().size());
-                                }
-                        }
-                        for(size_t i=0;i!=N;++i){
-                                for(size_t j=0;j!=N;++j){
-                                        auto const& tok(line_buffer[i][j]);
-                                        size_t padding{widths[j]-tok.size()};
-                                        size_t left_pad{padding/2};
-                                        size_t right_pad{padding - left_pad};
-                                        if( j != 0 ){
-                                                ostr << " | ";
-                                        }
-                                        if( left_pad )
-                                                ostr << std::string(left_pad,' ');
-                                        ostr << tok;
-                                        if( right_pad )
-                                                ostr << std::string(right_pad,' ');
-
-                                }
-                                ostr << "\n";
-                        }
-                        return ostr;
-                }
-        };
-
-        struct observer_type{
-                template<class Int, class Vec>
-                void operator()(Int a, Int b, Int c, Int d, Int e, Vec const& ranked){
-                        /*
-                                Here I need a quick way to work out the lowest rank,
-                                as well as how many are of that rank, and I need to
-                                find them. I think this is the quickest
-                        */
-                        auto lowest{ ranked[0] };
-                        size_t count{1};
-                        for(size_t i=1;i<ranked.size();++i){
-                                if( ranked[i] == lowest )
-                                        ++count;
-                                else if( ranked[i] < lowest ){
-                                        lowest = ranked[i]; 
-                                        count = 1;
-                                }
-                        }
-                        for(size_t i=0;i!=ranked.size();++i){
-                                if( ranked[i] == lowest ){
-                                        ++result.data[i][count-1];
-                                }
-                        }
-                        ++result.sigma;
-                }  
-                void append(result_type const& param){
-                        result.sigma += param.sigma;
-                        for(size_t i=0;i!=N;++i){
-                                for(size_t j=0;j!=N;++j){
-                                        result.data[i][j] += param.data[i][j];
-                                }
-                        }
-                }
-                auto make(){ return result; }
-        private:
-                result_type result;
-        };
-
-};
+                
 
 
 } // detail

@@ -12,9 +12,7 @@ void test0(){
         equity_cacher ec;
         class_equity_cacher cec{ec};
         ec.load("cache.bin");
-        basic_calculator_N<
-                basic_detailed_calculation_decl<2>,
-                2 > other_ec{&ecd};
+        basic_calculator_N<2> other_ec{&ecd};
 
         PRINT(  ec.visit_boards( std::vector<ps::holdem_id>{
                                  holdem_hand_decl::parse("AdKs").id(),
@@ -34,6 +32,7 @@ void test0(){
 
 }
 
+#if 0
 void test1(){
         equity_calc_detail ecd;
 
@@ -79,9 +78,11 @@ void test1(){
 cleanup:
         other_ec.save("new_cache.bin");
 }
+#endif
 
 
 
+#if 0
 void test2(){
         equity_calc_detail ecd;
 
@@ -104,7 +105,9 @@ void test2(){
                 }
         }
 }
+#endif
 
+#if 0
 void test3(){
         equity_calc_detail ecd;
 
@@ -141,8 +144,10 @@ void test3(){
                 }
         }
 }
+#endif
 
 
+#if 0
 void test4(){
         equity_calc_detail ecd;
 
@@ -170,7 +175,9 @@ void test4(){
         return;
 
 }
+#endif
+
 
 int main(){
-        test4();
+        test0();
 }

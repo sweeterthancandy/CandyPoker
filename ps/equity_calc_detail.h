@@ -4,6 +4,7 @@
 #include "ps/detail/visit_combinations.h"
 
 #include <boost/format.hpp>
+#include <boost/range/algorithm.hpp>
 
 namespace ps{
 

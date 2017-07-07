@@ -259,7 +259,7 @@ namespace ps{
         holdem_class_decl const& holdem_class_decl::parse(std::string const& s){
                 auto x = rank_decl::parse(s.substr(0,1)).id();
                 auto y = rank_decl::parse(s.substr(1,1)).id();
-                PRINT_SEQ((s)(x)(y));
+                //PRINT_SEQ((s)(x)(y));
                 switch(s.size()){
                 case 2:
                         return get(make_id(holdem_class_type::pocket_pair, x, y) );

@@ -145,8 +145,13 @@ struct detailed_view_type{
         
         template<size_t N, class Perm_Type>
         explicit detailed_view_type(detailed_result_type<N> const* result, Perm_Type&& perm)
-                :data_ptr_(result->data()), n_(N), perm_{std::move(perm)}, sigma_{result->sigma()}
-        {}
+                :data_ptr_(result->data()), n_(N), /*perm_{std::move(perm)},*/ sigma_{result->sigma()}
+        {
+                perm_.resize(N);
+                for(size_t i=0;i!=N;++i){
+                        perm_[perm[i]] = i;
+                }
+        }
         auto player(size_t idx)const{
                 return player_view_t(data_ptr_ + n_ * perm_[idx],
                                      n_,
@@ -190,8 +195,8 @@ struct detailed_view_type{
 private:
         size_t const* data_ptr_;
         size_t n_;
-        perm_type perm_;
         size_t sigma_;
+        perm_type perm_;
 };
 
 template<size_t N>

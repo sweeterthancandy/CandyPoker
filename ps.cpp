@@ -1,4 +1,5 @@
 #include "ps/calculator_detail.h"
+#include "ps/calculator.h"
 #include "ps/heads_up.h"
 
 #include <boost/timer/timer.hpp>
@@ -21,7 +22,8 @@ void test0(){
                                  holdem_hand_decl::parse("TsTh").id(),
                                  holdem_hand_decl::parse("AdKs").id()
                                  } ) );
-        PRINT( other_ec.calculate( std::array<ps::holdem_id, 2>{
+        PRINT( other_ec.calculate( 
+                        std::array<ps::holdem_id, 2>{
                                  holdem_hand_decl::parse("AdKs").id(),
                                  holdem_hand_decl::parse("TsTh").id()
                                  } ) );
@@ -163,7 +165,21 @@ void test4(){
 }
 #endif
 
+void test5(){
+        calculater calc;
+        auto left{ calc.calculate_class_equity(
+                std::array<ps::holdem_class_id, 4>{ 
+                        holdem_class_decl::parse("AKs").id(),
+                        holdem_class_decl::parse("QJs").id(),
+                        holdem_class_decl::parse("T9s").id(),
+                        holdem_class_decl::parse("87s").id()
+                        } ) };
+        PRINT(left);
+
+}
+
 
 int main(){
         test4();
+        test5();
 }

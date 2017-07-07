@@ -1,5 +1,5 @@
-#ifndef PS_CALCULATOR_H
-#define PS_CALCULATOR_H
+#ifndef PS_CALCULATOR_DETAIL_H
+#define PS_CALCULATOR_DETAIL_H
 
 #include <future>
 #include <utility>
@@ -17,6 +17,8 @@
 #include "ps/cards_fwd.h"
 #include "ps/equity_calc_detail.h"
 #include "ps/algorithm.h"
+
+#include "ps/detail/array_view.h"
 
 
 /*
@@ -268,7 +270,9 @@ struct basic_calculator_N{
                 ar & cache_;
         }
 
-        view_type calculate( std::array<ps::holdem_id, N> const& players){
+        // TODO remove duplication
+        view_type calculate( detail::array_view<ps::holdem_id> const& players){
+                assert( players.size() == N && "precondition failed");
                 std::vector<ps::holdem_id> aux{ players.begin(), players.end() };
                 auto p{ permutate_for_the_better(aux) };
                 auto const& perm{std::get<0>(p)};
@@ -288,7 +292,7 @@ struct basic_calculator_N{
                 return calculate(players);
         }
 private:
-        std::map< std::array< ps::holdem_id, N>, result_type> cache_;
+        std::map< player_vec_t, result_type> cache_;
         equity_calc_detail* ec_;
 };
 
@@ -340,10 +344,12 @@ private:
                                                                 holdem_hand_decl::get( hand_sets[Ints]->operator[](args).id())...
                                                                  })
                                            };
+                                #if 0
                                 int dum[]= {0, ( std::cout << Ints << ":" << args << ":" <<
                                                  hand_sets[Ints]->operator[](args) << " vs " , 0)...};
                                 std::cout << "\n";
                                 PRINT(result);
+                                #endif
 
                                 observer.append(result);
                         }
@@ -357,8 +363,12 @@ private:
                 std::array< std::vector<holdem_hand_decl> const*, N> hand_sets;
         };
 public:
-        view_type calculate( std::array<ps::holdem_class_id, N> const& players){
-                auto iter{ cache_.find( players) };
+        view_type calculate( detail::array_view<ps::holdem_class_id> const& players){
+                assert( players.size() == N && "precondition failed");
+                std::array< ps::holdem_class_id, N> proto;
+                for(size_t i=0;i!=N;++i)
+                        proto[i] = players[i];
+                auto iter{ cache_.find( proto) };
                 if( iter != cache_.end() ){
                         std::vector<int> perm;
                         for(size_t i=0;i!=N;++i)
@@ -378,7 +388,7 @@ public:
                 // TODO make this interface better
                 detail::visit_exclusive_combinations<N>( std::ref(detail_), detail::true_, size_vec);
 
-                cache_.insert(std::make_pair(players, detail_.observer.make()));
+                cache_.insert(std::make_pair(proto, detail_.observer.make()));
                 return calculate(players);
         }
 private:
@@ -391,4 +401,4 @@ private:
 } // detail
 } // ps
 
-#endif // PS_CALCULATOR_H
+#endif // PS_CALCULATOR_DETAIL_H

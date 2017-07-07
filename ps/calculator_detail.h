@@ -220,10 +220,10 @@ struct detailed_observer_type{
         }  
         template<class View_Type>
         void append(View_Type const& view){
-                result.sigma += view.sigma();
+                result.sigma_ += view.sigma();
                 for(size_t i=0;i!=N;++i){
                         for(size_t j=0;j!=N;++j){
-                                result.data_access(i, j) += view.players(i).nwin(j);
+                                result.data_access(i, j) += view.player(i).nwin(j);
                         }
                 }
         }
@@ -289,6 +289,7 @@ private:
 
 template<size_t N>
 struct basic_class_calculator_N{
+        using view_type     = detailed_view_type;
         using result_type   = detailed_result_type<N>;
         using observer_type = detailed_observer_type<N>;
         using player_vec_t  = std::array<ps::holdem_id, N>;
@@ -349,10 +350,13 @@ private:
                 std::array< std::vector<holdem_hand_decl> const*, N> hand_sets;
         };
 public:
-        result_type calculate( std::array<ps::holdem_class_id, N> const& players){
+        view_type calculate( std::array<ps::holdem_class_id, N> const& players){
                 auto iter{ cache_.find( players) };
                 if( iter != cache_.end() ){
-                        return iter->second;
+                        std::vector<int> perm;
+                        for(size_t i=0;i!=N;++i)
+                                perm.emplace_back(i);
+                        return view_type{&iter->second, std::move(perm) };
                 }
                 std::array<size_t, N> size_vec;
                 local_detail detail_;

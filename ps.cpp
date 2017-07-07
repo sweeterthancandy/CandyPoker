@@ -32,19 +32,17 @@ void test0(){
 
 }
 
-#if 0
+#if 1
 void test1(){
         equity_calc_detail ecd;
 
         equity_cacher ec;
         ec.load("cache.bin");
 
-        basic_calculator_N<
-                basic_detailed_calculation_decl<2>,
-                2 > other_ec{&ecd};
+        basic_calculator_N<2> other_ec{&ecd};
         size_t count{0};
         boost::timer::auto_cpu_timer at;
-        other_ec.load("new_cache.bin");
+        //other_ec.load("new_cache.bin");
         for(ps::holdem_id i=0; i!= holdem_hand_decl::max_id;++i){
                 for(ps::holdem_id j=0; j!= holdem_hand_decl::max_id;++j){
                         if( disjoint(holdem_hand_decl::get(i),holdem_hand_decl::get(j)) ){
@@ -82,14 +80,12 @@ cleanup:
 
 
 
-#if 0
+#if 1
 void test2(){
         equity_calc_detail ecd;
 
 
-        basic_calculator_N<
-                basic_detailed_calculation_decl<3>,
-                3 > other_ec{&ecd};
+        basic_calculator_N<3> other_ec{&ecd};
         boost::timer::auto_cpu_timer at;
         for(ps::holdem_id i=0; i!= holdem_hand_decl::max_id;++i){
                 for(ps::holdem_id j=0; j!= holdem_hand_decl::max_id;++j){
@@ -107,20 +103,15 @@ void test2(){
 }
 #endif
 
-#if 0
+#if 1
 void test3(){
         equity_calc_detail ecd;
 
         using hand_calc_t = 
-        basic_calculator_N<
-                basic_detailed_calculation_decl<3>,
-                3 >;
+        basic_calculator_N<3>;
 
         using class_calc_t = 
-        basic_class_calculator_N<
-                basic_detailed_calculation_decl<3>,
-                3,
-               hand_calc_t >; 
+        basic_class_calculator_N<3>;
         
         hand_calc_t other_ec{&ecd};
         class_calc_t cother_ec{&other_ec};
@@ -147,20 +138,15 @@ void test3(){
 #endif
 
 
-#if 0
+#if 1
 void test4(){
         equity_calc_detail ecd;
 
         using hand_calc_t = 
-        basic_calculator_N<
-                basic_detailed_calculation_decl<4>,
-                4 >;
+        basic_calculator_N<4>;
 
         using class_calc_t = 
-        basic_class_calculator_N<
-                basic_detailed_calculation_decl<4>,
-                4,
-               hand_calc_t >; 
+        basic_class_calculator_N<4>;
         
         hand_calc_t other_ec{&ecd};
         class_calc_t cother_ec{&other_ec};
@@ -179,5 +165,6 @@ void test4(){
 
 
 int main(){
-        test0();
+        test3();
+        test4();
 }

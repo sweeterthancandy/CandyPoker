@@ -142,6 +142,35 @@ void test3(){
         }
 }
 
+
+void test4(){
+        equity_calc_detail ecd;
+
+        using hand_calc_t = 
+        basic_calculator_N<
+                basic_detailed_calculation_decl<4>,
+                4 >;
+
+        using class_calc_t = 
+        basic_class_calculator_N<
+                basic_detailed_calculation_decl<4>,
+                4,
+               hand_calc_t >; 
+        
+        hand_calc_t other_ec{&ecd};
+        class_calc_t cother_ec{&other_ec};
+        auto left{ cother_ec.calculate(
+                std::array<ps::holdem_class_id, 4>{ 
+                        holdem_class_decl::parse("AKs").id(),
+                        holdem_class_decl::parse("QJs").id(),
+                        holdem_class_decl::parse("T9s").id(),
+                        holdem_class_decl::parse("87s").id()
+                        } ) };
+        PRINT(left);
+        return;
+
+}
+
 int main(){
-        test3();
+        test4();
 }

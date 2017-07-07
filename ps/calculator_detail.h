@@ -102,7 +102,9 @@ struct detailed_result_type{
         }
 
         auto sigma()const{ return sigma_; }
+        auto& sigma(){ return sigma_; }
         
+private:
         size_t sigma_;
 
         // access float, so can have a static view for all 
@@ -134,7 +136,7 @@ struct detailed_view_type{
                 // ...
                 size_t nwin(size_t idx)const{
                         return data_ptr_[idx];
-                }
+               }
         private:
                 size_t const* data_ptr_;
                 size_t n_;
@@ -216,11 +218,11 @@ struct detailed_observer_type{
                                 ++result.data_access(i,count-1);
                         }
                 }
-                ++result.sigma_;
+                ++result.sigma();
         }  
         template<class View_Type>
         void append(View_Type const& view){
-                result.sigma_ += view.sigma();
+                result.sigma() += view.sigma();
                 for(size_t i=0;i!=N;++i){
                         for(size_t j=0;j!=N;++j){
                                 result.data_access(i, j) += view.player(i).nwin(j);

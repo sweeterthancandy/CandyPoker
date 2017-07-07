@@ -165,6 +165,5 @@ void test4(){
 
 
 int main(){
-        test3();
         test4();
 }

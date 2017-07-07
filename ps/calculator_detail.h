@@ -11,6 +11,7 @@
 #include <boost/archive/text_iarchive.hpp>
 #include <boost/serialization/map.hpp>
 #include <boost/serialization/vector.hpp>
+#include <boost/serialization/array.hpp>
 
 #include "ps/cards_fwd.h"
 #include "ps/equity_calc_detail.h"
@@ -61,6 +62,25 @@ struct basic_calculator_N{
 
         explicit basic_calculator_N(equity_calc_detail* ec):ec_{ec}{}
 
+        bool load(std::string const& name){
+                std::ifstream is(name);
+                if( ! is.is_open() )
+                        return false;
+                boost::archive::text_iarchive ia(is);
+                ia >> *this;
+                return true;
+        }
+        bool save(std::string const& name)const{
+                std::ofstream of(name);
+                boost::archive::text_oarchive oa(of);
+                oa << *this;
+                return true;
+        }
+        template<class Archive>
+        void serialize(Archive& ar, unsigned int){
+                ar & cache_;
+        }
+
         result_type calculate( std::array<ps::holdem_id, N> const& players){
                 std::vector<ps::holdem_id> aux{ players.begin(), players.end() };
                 auto p{ permutate_for_the_better(aux) };
@@ -72,17 +92,6 @@ struct basic_calculator_N{
 
                 auto iter = cache_.find(perm_players);
                 if( iter != cache_.end() ){
-                        #if 0
-                        hu_visitor v;
-                        ec_.visit_boards(v, players);
-                        if( v.win != iter->second.win  ||
-                            v.draw != iter->second.draw ||
-                            v.lose != iter->second.lose ){
-                                PRINT_SEQ((v)(iter->second));
-                                asseet(false);
-                        }
-                        #endif 
-                        //hu_result_t aux{ iter->second.permutate(perm) };
                         return iter->second.permutate(perm);
                 }
 
@@ -109,7 +118,6 @@ struct basic_detailed_calculation_decl{
 
                 template<class Con>
                 result_type permutate(Con const& con)const{
-                        #if 1
                         result_type ret;
                         ret.sigma = sigma;
                         size_t q{0};
@@ -120,10 +128,24 @@ struct basic_detailed_calculation_decl{
                                 ++q;
                         }
                         return std::move(ret);
-                        #else
-                        return *this;
-                        #endif
                 }
+
+                struct view_t{
+                        explicit view_t(result_type const* self, size_t idx)
+                                :this_(self),idx_{idx}
+                        {}
+                        double equity()const{
+                                double result{0.0};
+                                for(size_t i=0;i!=N;++i){
+                                        result += this_->data[idx_][i] / (i+1);
+                                }
+                                return result / this_->sigma;
+                        }
+                private:
+                        size_t idx_;
+                        result_type const* this_;
+                };
+                auto player(size_t idx)const{ return view_t{this, idx}; }
 
                 size_t sigma;
                 std::array<
@@ -133,6 +155,11 @@ struct basic_detailed_calculation_decl{
                         >,
                         N
                 > data;
+                template<class Archive>
+                void serialize(Archive& ar, unsigned int){
+                        ar & sigma;
+                        ar & data;
+                }
 
                 friend std::ostream& operator<<(std::ostream& ostr, result_type const& self){
                         std::vector<std::vector<std::string> > line_buffer;

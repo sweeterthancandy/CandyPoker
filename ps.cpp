@@ -80,6 +80,31 @@ cleanup:
         other_ec.save("new_cache.bin");
 }
 
+
+
+void test2(){
+        equity_calc_detail ecd;
+
+
+        basic_calculator_N<
+                basic_detailed_calculation_decl<3>,
+                3 > other_ec{&ecd};
+        boost::timer::auto_cpu_timer at;
+        for(ps::holdem_id i=0; i!= holdem_hand_decl::max_id;++i){
+                for(ps::holdem_id j=0; j!= holdem_hand_decl::max_id;++j){
+                        for(ps::holdem_id k=0; k!= holdem_hand_decl::max_id;++k){
+                                if( disjoint(holdem_hand_decl::get(i),
+                                             holdem_hand_decl::get(j),
+                                             holdem_hand_decl::get(k)) ){
+                                        auto left{ other_ec.calculate(
+                                                std::array<ps::holdem_id, 3>{ i, j, k } ) };
+                                        PRINT(left);
+                                }
+                        }
+                }
+        }
+}
+
 int main(){
-        test1();
+        test2();
 }

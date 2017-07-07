@@ -141,6 +141,9 @@ struct basic_detailed_calculation_decl{
                                 }
                                 return result / this_->sigma;
                         }
+                        size_t sigma()const{
+                                return this_->sigma;
+                        }
                 private:
                         size_t idx_;
                         result_type const* this_;

@@ -154,7 +154,7 @@ namespace ps{
                 holdem_class_decl(holdem_class_type cat,
                                   rank_decl const& a,
                                   rank_decl const& b);
-                auto get_hand_set()const{ return hand_set_; }
+                auto const& get_hand_set()const{ return hand_set_; }
                 auto id()const{ return id_; }
                 auto category()const{ return cat_; }
                 std::string to_string()const;

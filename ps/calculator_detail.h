@@ -2,6 +2,7 @@
 #define PS_CALCULATOR_H
 
 #include <future>
+#include <utility>
 #include <thread>
 #include <numeric>
 #include <mutex>
@@ -104,6 +105,99 @@ private:
         std::map< std::array< ps::holdem_id, N>, result_type> cache_;
         equity_calc_detail* ec_;
 };
+
+
+
+template<class Result_Decl, size_t N, class Impl>
+struct basic_class_calculator_N{
+        using result_type   = typename Result_Decl::result_type;
+        using observer_type = typename Result_Decl::observer_type;
+        using player_vec_t  = std::array<ps::holdem_id, N>;
+        using impl_t        = Impl;
+        using this_t        = basic_class_calculator_N;
+
+        explicit basic_class_calculator_N(impl_t* impl):impl_{impl}{}
+
+        bool load(std::string const& name){
+                std::ifstream is(name);
+                if( ! is.is_open() )
+                        return false;
+                boost::archive::text_iarchive ia(is);
+                ia >> *this;
+                return true;
+        }
+        bool save(std::string const& name)const{
+                std::ofstream of(name);
+                boost::archive::text_oarchive oa(of);
+                oa << *this;
+                return true;
+        }
+        template<class Archive>
+        void serialize(Archive& ar, unsigned int){
+                ar & cache_;
+        }
+
+private:
+
+        // Can't have this local to calculate
+        struct local_detail{
+                template<size_t... Ints, class... size_t_>
+                void impl(std::index_sequence<Ints...> , size_t_... args){
+
+                        if( disjoint(
+                                holdem_hand_decl::get( hand_sets[Ints]->operator[](args).id())...
+                                    ) )
+                        {
+                                auto result{
+                                        this_->impl_->calculate(std::array<ps::holdem_id, N>{
+                                                                holdem_hand_decl::get( hand_sets[Ints]->operator[](args).id())...
+                                                                 })
+                                           };
+                                int dum[]= {0, ( std::cout << Ints << ":" << args << ":" <<
+                                                 hand_sets[Ints]->operator[](args) << " vs " , 0)...};
+                                std::cout << "\n";
+                                PRINT(result);
+
+                                observer.append(result);
+                        }
+                }
+                template<class... size_t_, class seq = std::make_index_sequence<sizeof...(size_t_)> >
+                void operator()(size_t_... args){
+                        impl( seq{}, args... );
+                }
+                this_t* this_;
+                observer_type observer;
+                std::array< std::vector<holdem_hand_decl> const*, N> hand_sets;
+        };
+public:
+        result_type calculate( std::array<ps::holdem_class_id, N> const& players){
+                auto iter{ cache_.find( players) };
+                if( iter != cache_.end() ){
+                        return iter->second;
+                }
+                std::array<size_t, N> size_vec;
+                local_detail detail_;
+                for(size_t i=0;i!=N;++i){
+                        detail_.hand_sets[i] = &holdem_class_decl::get(players[i]).get_hand_set();
+                        size_vec[i] = detail_.hand_sets[i]->size() -1;
+                }
+
+                detail_.this_ = this;
+
+                // TODO test disjoint at each start
+                // TODO make this interface better
+                detail::visit_exclusive_combinations<N>( std::ref(detail_), detail::true_, size_vec);
+
+                cache_.insert(std::make_pair(players, detail_.observer.make()));
+                return calculate(players);
+        }
+private:
+        std::map< std::array< ps::holdem_class_id, N>, result_type> cache_;
+        impl_t* impl_;
+};
+
+
+
 
 template<size_t N>
 struct basic_detailed_calculation_decl{
@@ -225,7 +319,15 @@ struct basic_detailed_calculation_decl{
                         }
                         ++result.sigma;
                 }  
-                auto make(){ return std::move(result); }
+                void append(result_type const& param){
+                        result.sigma += param.sigma;
+                        for(size_t i=0;i!=N;++i){
+                                for(size_t j=0;j!=N;++j){
+                                        result.data[i][j] += param.data[i][j];
+                                }
+                        }
+                }
+                auto make(){ return result; }
         private:
                 result_type result;
         };

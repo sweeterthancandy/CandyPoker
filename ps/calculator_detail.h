@@ -109,13 +109,15 @@ struct basic_detailed_calculation_decl{
 
                 template<class Con>
                 result_type permutate(Con const& con)const{
-                        #if 0
+                        #if 1
                         result_type ret;
                         ret.sigma = sigma;
+                        size_t q{0};
                         for( auto idx : con ){
                                 for(size_t i=0;i!=N;++i){
-                                        ret.data[idx][i];
+                                        ret.data[idx][i] = this->data[q][i];
                                 }
+                                ++q;
                         }
                         return std::move(ret);
                         #else

@@ -197,6 +197,146 @@ namespace ps{
                                 }
                         }, detail::true_, size_vec);
                         break;
+                case 5:
+                        detail::visit_exclusive_combinations<5>(
+                                [&](auto a, auto b, auto c, auto d, auto e){
+                                
+                                // make sure disjoint
+
+                                if( disjoint( holdem_hand_decl::get(aux[0][a]),
+                                              holdem_hand_decl::get(aux[1][b]),
+                                              holdem_hand_decl::get(aux[2][c]),
+                                              holdem_hand_decl::get(aux[3][d]),
+                                              holdem_hand_decl::get(aux[4][e])
+                                            ) )
+                                {
+                                        children.emplace_back(
+                                                       std::vector<frontend::hand>{
+                                                                frontend::hand{aux[0][a]},
+                                                                frontend::hand{aux[1][b]},
+                                                                frontend::hand{aux[2][c]},
+                                                                frontend::hand{aux[3][d]},
+                                                                frontend::hand{aux[4][e]}
+                                                                });
+                                }
+                        }, detail::true_, size_vec);
+                        break;
+                case 6:
+                        detail::visit_exclusive_combinations<6>(
+                                [&](auto a, auto b, auto c, auto d, auto e, auto f){
+                                
+                                // make sure disjoint
+
+                                if( disjoint( holdem_hand_decl::get(aux[0][a]),
+                                              holdem_hand_decl::get(aux[1][b]),
+                                              holdem_hand_decl::get(aux[2][c]),
+                                              holdem_hand_decl::get(aux[3][d]),
+                                              holdem_hand_decl::get(aux[4][e]),
+                                              holdem_hand_decl::get(aux[5][f])
+                                            ) )
+                                {
+                                        children.emplace_back(
+                                                       std::vector<frontend::hand>{
+                                                                frontend::hand{aux[0][a]},
+                                                                frontend::hand{aux[1][b]},
+                                                                frontend::hand{aux[2][c]},
+                                                                frontend::hand{aux[3][d]},
+                                                                frontend::hand{aux[4][e]},
+                                                                frontend::hand{aux[5][f]}
+                                                                });
+                                }
+                        }, detail::true_, size_vec);
+                        break;
+                case 7:
+                        detail::visit_exclusive_combinations<7>(
+                                [&](auto a, auto b, auto c, auto d, auto e, auto f, auto g){
+                                
+                                // make sure disjoint
+
+                                if( disjoint( holdem_hand_decl::get(aux[0][a]),
+                                              holdem_hand_decl::get(aux[1][b]),
+                                              holdem_hand_decl::get(aux[2][c]),
+                                              holdem_hand_decl::get(aux[3][d]),
+                                              holdem_hand_decl::get(aux[4][e]),
+                                              holdem_hand_decl::get(aux[5][f]),
+                                              holdem_hand_decl::get(aux[6][g])
+                                            ) )
+                                {
+                                        children.emplace_back(
+                                                       std::vector<frontend::hand>{
+                                                                frontend::hand{aux[0][a]},
+                                                                frontend::hand{aux[1][b]},
+                                                                frontend::hand{aux[2][c]},
+                                                                frontend::hand{aux[3][d]},
+                                                                frontend::hand{aux[4][e]},
+                                                                frontend::hand{aux[5][f]},
+                                                                frontend::hand{aux[6][g]}
+                                                                });
+                                }
+                        }, detail::true_, size_vec);
+                        break;
+                case 8:
+                        detail::visit_exclusive_combinations<8>(
+                                [&](auto a, auto b, auto c, auto d, auto e, auto f, auto g, auto h){
+                                
+                                // make sure disjoint
+
+                                if( disjoint( holdem_hand_decl::get(aux[0][a]),
+                                              holdem_hand_decl::get(aux[1][b]),
+                                              holdem_hand_decl::get(aux[2][c]),
+                                              holdem_hand_decl::get(aux[3][d]),
+                                              holdem_hand_decl::get(aux[4][e]),
+                                              holdem_hand_decl::get(aux[5][f]),
+                                              holdem_hand_decl::get(aux[6][g]),
+                                              holdem_hand_decl::get(aux[7][h])
+                                            ) )
+                                {
+                                        children.emplace_back(
+                                                       std::vector<frontend::hand>{
+                                                                frontend::hand{aux[0][a]},
+                                                                frontend::hand{aux[1][b]},
+                                                                frontend::hand{aux[2][c]},
+                                                                frontend::hand{aux[3][d]},
+                                                                frontend::hand{aux[4][e]},
+                                                                frontend::hand{aux[5][f]},
+                                                                frontend::hand{aux[6][g]},
+                                                                frontend::hand{aux[7][h]}
+                                                                });
+                                }
+                        }, detail::true_, size_vec);
+                        break;
+                case 9:
+                        detail::visit_exclusive_combinations<9>(
+                                [&](auto a, auto b, auto c, auto d, auto e, auto f, auto g, auto h, auto i){
+                                
+                                // make sure disjoint
+
+                                if( disjoint( holdem_hand_decl::get(aux[0][a]),
+                                              holdem_hand_decl::get(aux[1][b]),
+                                              holdem_hand_decl::get(aux[2][c]),
+                                              holdem_hand_decl::get(aux[3][d]),
+                                              holdem_hand_decl::get(aux[4][e]),
+                                              holdem_hand_decl::get(aux[5][f]),
+                                              holdem_hand_decl::get(aux[6][g]),
+                                              holdem_hand_decl::get(aux[7][h]),
+                                              holdem_hand_decl::get(aux[8][i])
+                                            ) )
+                                {
+                                        children.emplace_back(
+                                                       std::vector<frontend::hand>{
+                                                                frontend::hand{aux[0][a]},
+                                                                frontend::hand{aux[1][b]},
+                                                                frontend::hand{aux[2][c]},
+                                                                frontend::hand{aux[3][d]},
+                                                                frontend::hand{aux[4][e]},
+                                                                frontend::hand{aux[5][f]},
+                                                                frontend::hand{aux[6][g]},
+                                                                frontend::hand{aux[7][h]},
+                                                                frontend::hand{aux[8][i]}
+                                                                });
+                                }
+                        }, detail::true_, size_vec);
+                        break;
                 default:
                         assert( 0 && " not implemented");
                 }

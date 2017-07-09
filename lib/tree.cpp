@@ -52,29 +52,74 @@ namespace ps{
 
                 this->players = players;
                 // XXX dispatch fr N
-                #if 1
                 switch(this->players.size()){
                 case 2:
-                        detail::visit_exclusive_combinations<2>(
-                                [&](auto a, auto b){
+                        detail::visit_vector_combinations(
+                                [&](auto... comb){
                                 children.emplace_back(
-                                       std::vector<frontend::primitive_t>{prims[0][a], prims[1][b]}
-                                );
-                        }, detail::true_, size_vec);
+                                        std::vector<frontend::primitive_t>{comb...}
+                                        );
+                                }, prims[0], prims[1]);
                         break;
                 case 3:
-                        detail::visit_exclusive_combinations<3>(
-                                [&](auto a, auto b, auto c){
+                        detail::visit_vector_combinations(
+                                [&](auto... comb){
                                 children.emplace_back(
-                                       std::vector<frontend::primitive_t>{prims[0][a], prims[1][b], prims[2][c]}
-                                );
-                        }, detail::true_, size_vec);
+                                        std::vector<frontend::primitive_t>{comb...}
+                                        );
+                                }, prims[0], prims[1], prims[2]);
+                        break;
+                case 4:
+                        detail::visit_vector_combinations(
+                                [&](auto... comb){
+                                children.emplace_back(
+                                        std::vector<frontend::primitive_t>{comb...}
+                                        );
+                                }, prims[0], prims[1], prims[2], prims[3]);
+                        break;
+                case 5:
+                        detail::visit_vector_combinations(
+                                [&](auto... comb){
+                                children.emplace_back(
+                                        std::vector<frontend::primitive_t>{comb...}
+                                        );
+                                }, prims[0], prims[1], prims[2], prims[3], prims[4] );
+                        break;
+                case 6:
+                        detail::visit_vector_combinations(
+                                [&](auto... comb){
+                                children.emplace_back(
+                                        std::vector<frontend::primitive_t>{comb...}
+                                        );
+                                }, prims[0], prims[1], prims[2], prims[3], prims[4], prims[5]);
+                        break;
+                case 7:
+                        detail::visit_vector_combinations(
+                                [&](auto... comb){
+                                children.emplace_back(
+                                        std::vector<frontend::primitive_t>{comb...}
+                                        );
+                                }, prims[0], prims[1], prims[2], prims[3], prims[4], prims[5], prims[6]);
+                        break;
+                case 8:
+                        detail::visit_vector_combinations(
+                                [&](auto... comb){
+                                children.emplace_back(
+                                        std::vector<frontend::primitive_t>{comb...}
+                                        );
+                                }, prims[0], prims[1], prims[2], prims[3], prims[4], prims[5], prims[6], prims[7]);
+                        break;
+                case 9:
+                        detail::visit_vector_combinations(
+                                [&](auto... comb){
+                                children.emplace_back(
+                                        std::vector<frontend::primitive_t>{comb...}
+                                        );
+                                }, prims[0], prims[1], prims[2], prims[3], prims[4], prims[5], prims[6], prims[7], prims[8]);
                         break;
                 default:
                         assert( 0 && " not implemented");
                 }
-                #else
-                #endif
         }
 
         tree_primitive_range::tree_primitive_range(std::vector<frontend::primitive_t> const& players){
@@ -127,6 +172,28 @@ namespace ps{
                                                                 frontend::hand{aux[0][a]},
                                                                 frontend::hand{aux[1][b]},
                                                                 frontend::hand{aux[2][c]}});
+                                }
+                        }, detail::true_, size_vec);
+                        break;
+                case 4:
+                        detail::visit_exclusive_combinations<4>(
+                                [&](auto a, auto b, auto c, auto d){
+                                
+                                // make sure disjoint
+
+                                if( disjoint( holdem_hand_decl::get(aux[0][a]),
+                                              holdem_hand_decl::get(aux[1][b]),
+                                              holdem_hand_decl::get(aux[2][c]),
+                                              holdem_hand_decl::get(aux[3][d])
+                                            ) )
+                                {
+                                        children.emplace_back(
+                                                       std::vector<frontend::hand>{
+                                                                frontend::hand{aux[0][a]},
+                                                                frontend::hand{aux[1][b]},
+                                                                frontend::hand{aux[2][c]},
+                                                                frontend::hand{aux[3][d]}
+                                                                });
                                 }
                         }, detail::true_, size_vec);
                         break;

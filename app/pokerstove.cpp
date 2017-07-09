@@ -1,7 +1,6 @@
 #include "ps/calculator.h"
 #include "ps/frontend.h"
 #include "ps/tree.h"
-#include "ps/support/push_pull.h"
 
 #include <type_traits>
 #include <functional>
@@ -30,7 +29,11 @@ namespace ps{
                         lines.back().emplace_back("range");
                         lines.back().emplace_back("equity");
                         lines.back().emplace_back("wins");
-                        lines.back().emplace_back("draws");
+                        //lines.back().emplace_back("draws");
+                        #if 1
+                        for(size_t i=0; i != players.size() -1;++i)
+                                lines.back().emplace_back("draws");
+                        #endif
                         lines.back().emplace_back("lose");
                         lines.back().emplace_back("sigma");
                         lines.emplace_back();
@@ -41,14 +44,20 @@ namespace ps{
 
                                 lines.back().emplace_back( boost::lexical_cast<std::string>(players[i]) );
                                 lines.back().emplace_back( boost::lexical_cast<std::string>(pv.equity()) );
-                                lines.back().emplace_back( boost::lexical_cast<std::string>(pv.win()));
-                                lines.back().emplace_back( boost::lexical_cast<std::string>(pv.draw()));
+                                for(size_t i=0; i != players.size(); ++i ){
+                                        lines.back().emplace_back( boost::lexical_cast<std::string>(pv.nwin(i)));
+                                }
+                                #if 0
+                                for(size_t i=0; i != players.size() -1; ++i ){
+                                        lines.back().emplace_back( boost::lexical_cast<std::string>(pv.nwin(i+1)));
+                                }
+                                #endif
                                 lines.back().emplace_back( boost::lexical_cast<std::string>(pv.lose()));
 
                                 lines.back().emplace_back( boost::lexical_cast<std::string>(pv.sigma()) );
                         }
                         
-                        std::vector<size_t> widths(6,0);
+                        std::vector<size_t> widths(lines.back().size(),0);
                         for( auto const& line : lines){
                                 for(size_t i=0;i!=line.size();++i){
                                         widths[i] = std::max(line[i].size(), widths[i]);
@@ -89,13 +98,11 @@ namespace ps{
                 using namespace ps::frontend;
 
                 calculater calc;
-                #if 0
-                ec.load("cache.bin");
-                cec.load("hc_cache.bin");
-                #endif
 
                 std::vector<std::string> players_s;
                 std::vector<frontend::range> players;
+
+                boost::timer::auto_cpu_timer at;
 
                 int arg_iter = 1;
 

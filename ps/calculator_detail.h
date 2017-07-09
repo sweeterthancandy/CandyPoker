@@ -132,9 +132,9 @@ struct detailed_observer_type{
                 auto lowest{ ranked[0] };
                 size_t count{1};
                 for(size_t i=1;i<ranked.size();++i){
-                        if( ranked[i] == lowest )
+                        if( ranked[i] == lowest ){
                                 ++count;
-                        else if( ranked[i] < lowest ){
+                        } else if( ranked[i] < lowest ){
                                 lowest = ranked[i]; 
                                 count = 1;
                         }

@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <ostream>
+#include <numeric>
 
 #include "ps/detail/array_view.h"
 
@@ -31,7 +32,7 @@ struct detailed_view_type{
                 }
                 size_t win()const{  return nwin(0); }
                 size_t draw()const{ return nwin(1); }
-                size_t lose()const{ return nwin(n_-1); }
+                size_t lose()const{ return sigma_ - std::accumulate( data_.begin(), data_.end(), 0); }
                 size_t sigma()const{ return sigma_; }
 
         private:

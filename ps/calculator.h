@@ -14,8 +14,13 @@ namespace ps{
         struct  calculator_impl;
 
         struct calculater{
+                // rule of 6
                 calculater();
                 ~calculater();
+                calculater(const calculater& that)=delete;
+                calculater(calculater&& that);
+                calculater& operator=(const calculater& that)=delete;
+                calculater& operator=(calculater&& that);
 
 
 
@@ -32,6 +37,10 @@ namespace ps{
 
                 bool load(std::string const& name);
                 bool save(std::string const& name)const;
+                void append(calculater const& that);
+
+                // It's nice to have nice things
+                void json_dump(std::ostream& ostr)const;
 
         private:
                 view_t calculate_hand_equity_(detail::array_view<holdem_id> const& players);

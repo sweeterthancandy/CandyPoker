@@ -167,6 +167,7 @@ struct basic_calculator_N{
         using result_type   = detailed_result_type<N>;
         using observer_type = detailed_observer_type<N>;
         using player_vec_t  = std::array<ps::holdem_id, N>;
+        using this_t        = basic_calculator_N;
 
         explicit basic_calculator_N(equity_calc_detail* ec):ec_{ec}{}
 
@@ -215,6 +216,10 @@ struct basic_calculator_N{
                 cache_.insert(std::make_pair(perm_players, observer.make()));
                 return calculate(players);
         }
+        void append(this_t const& that){
+                for( auto const& p : that.cache_ )
+                        this->cache_.insert(p);
+        }
 private:
         std::map< player_vec_t, result_type> cache_;
         equity_calc_detail* ec_;
@@ -250,6 +255,10 @@ struct basic_class_calculator_N{
         template<class Archive>
         void serialize(Archive& ar, unsigned int){
                 ar & cache_;
+        }
+        void append(this_t const& that){
+                for( auto const& p : that.cache_ )
+                        this->cache_.insert(p);
         }
 
 private:

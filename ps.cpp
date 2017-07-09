@@ -1,6 +1,7 @@
 #include "ps/calculator_detail.h"
 #include "ps/calculator.h"
 #include "ps/heads_up.h"
+#include "ps/frontend.h"
 
 #include <boost/timer/timer.hpp>
 
@@ -180,6 +181,83 @@ void test5(){
 
 
 int main(){
-        test4();
-        test5();
+        
+        size_t sigma{0};
+
+        std::vector<std::vector<ps::holdem_id> > world;
+        #if 0
+        frontend::range p0;
+        frontend::range p1;
+        p0 = frontend::percent(100);
+        p1 = frontend::percent(100);
+
+        tree_range root{ std::vector<frontend::range>{p0, p1} };
+        
+        for( auto const& c : root.children ){
+                for( auto d : c.children ){
+                        ++sigma;
+                        auto p{ permutate_for_the_better(d.players) };
+                        world.insert( std::get<1>(p) );
+                }
+        }
+        #endif
+        detail::visit_combinations<2>(
+                [&](auto a, auto b){
+                world.emplace_back(
+                        std::vector<holdem_id>{
+                                static_cast<holdem_id>(a),
+                                static_cast<holdem_id>(b)});
+        }, detail::true_, holdem_class_decl::max_id -1 );
+
+        PRINT(world.size());
+
+        auto iter{world.begin()};
+        auto end{world.end()};
+
+        
+        std::mutex mtx;
+        std::mutex result_mtx;
+        
+        std::atomic_int done{0};
+
+        std::vector<std::thread> tg;
+        std::vector<calculater> result;
+        for(size_t i=0; i!= std::thread::hardware_concurrency()*2; ++i){
+                tg.emplace_back( [&]()mutable{
+                        calculater calc;
+                        for(;;){
+                                mtx.lock();
+                                if( iter == end ){
+                                        mtx.unlock();
+                                        break;
+                                }
+                                auto first{iter};
+                                const size_t batch_size{50};
+                                for(size_t c=0; c != batch_size && iter!=end;++c,++iter);
+                                auto last{iter};
+                                mtx.unlock();
+                                
+                                for(;first!=last;++first){
+                                        calc.calculate_class_equity( *first );
+                                        ++done;
+                                }
+                                PRINT_SEQ((sigma)(world.size())(done));
+                                #if 0
+                                if( done > 100 )
+                                        break;
+                                #endif
+                        }
+                        std::lock_guard<std::mutex> lock(result_mtx);
+                        result.push_back(std::move(calc));
+                } );
+        }
+        for( auto& t : tg )
+                t.join();
+        calculater aggregate;
+        for( auto const& r : result )
+                aggregate.append(r);
+        aggregate.save("newcache.bin");
+        aggregate.save("newcache.bin_");
+                        
+        PRINT_SEQ((sigma)(world.size())(done));
 }

@@ -1,5 +1,10 @@
 #include "ps/calculator.h"
 
+#include "ps/cards_fwd.h"
+#include "ps/equity_calc_detail.h"
+#include "ps/algorithm.h"
+#include "ps/calculator_detail.h"
+
 #include <future>
 #include <utility>
 #include <thread>
@@ -13,10 +18,10 @@
 #include <boost/serialization/vector.hpp>
 #include <boost/serialization/array.hpp>
 
-#include "ps/cards_fwd.h"
-#include "ps/equity_calc_detail.h"
-#include "ps/algorithm.h"
-#include "ps/calculator_detail.h"
+#if 0
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/json_parser.hpp>
+#endif
 
 namespace ps{
 
@@ -95,6 +100,32 @@ namespace ps{
                         ar & _c_8_;
                         ar & _c_9_;
                 }
+                void append(calculator_impl const& that){
+                        _2_.append(that._2_);
+                        _3_.append(that._3_);
+                        _4_.append(that._4_);
+                        _5_.append(that._5_);
+                        _6_.append(that._6_);
+                        _7_.append(that._7_);
+                        _8_.append(that._8_);
+                        _9_.append(that._9_);
+                        _c_2_.append(that._c_2_);
+                        _c_3_.append(that._c_3_);
+                        _c_4_.append(that._c_4_);
+                        _c_5_.append(that._c_5_);
+                        _c_6_.append(that._c_6_);
+                        _c_7_.append(that._c_7_);
+                        _c_8_.append(that._c_8_);
+                        _c_9_.append(that._c_9_);
+                }
+                void json_dump(std::ostream& ostr)const{
+                        #if 0
+                        using bpt = boost::property_tree;
+                        bpt::ptree root;
+                        root.add("2_player_call"
+                        #endif
+
+                }
         private:
                 equity_calc_detail ecd_;
 
@@ -125,6 +156,8 @@ namespace ps{
                 :impl_{new calculator_impl{}}
         {}
         calculater::~calculater()=default;
+        calculater::calculater(calculater&& that)=default;
+        calculater& calculater::operator=(calculater&& that)=default;
 
 
         view_t calculater::calculate_hand_equity_(detail::array_view<holdem_id> const& players){
@@ -147,6 +180,13 @@ namespace ps{
                 boost::archive::text_oarchive oa(of);
                 oa << *impl_;
                 return true;
+        }
+
+        void calculater::append(calculater const& that){
+                impl_->append( *that.impl_);
+        }
+        void calculater::json_dump(std::ostream& ostr)const{
+                impl_->json_dump( ostr );
         }
 
 } // ps

@@ -14,7 +14,7 @@ struct detailed_view_type{
 
         struct player_view_t{
                 explicit player_view_t(size_t n, size_t sigma, detail::array_view<size_t> const& data)
-                        :sigma_{sigma}, data_{data}
+                        :n_{n}, sigma_{sigma}, data_{data}
                 {}
                 double equity()const{
                         double result{0.0};

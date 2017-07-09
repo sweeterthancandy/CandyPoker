@@ -28,7 +28,12 @@ struct detailed_view_type{
                 // ...
                 size_t nwin(size_t idx)const{
                         return data_[idx];
-               }
+                }
+                size_t win()const{  return nwin(0); }
+                size_t draw()const{ return nwin(1); }
+                size_t lose()const{ return nwin(n_-1); }
+                size_t sigma()const{ return sigma_; }
+
         private:
                 size_t n_;
                 size_t sigma_;
@@ -72,6 +77,7 @@ struct detailed_view_type{
                                      detail::array_view<size_t>{data_.begin() + n_ * perm_[idx], n_ }};
         }
         auto sigma()const{ return sigma_; }
+        auto n()const{ return n_; }
 
         friend std::ostream& operator<<(std::ostream& ostr, detailed_view_type const& self);
 private:

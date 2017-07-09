@@ -219,7 +219,7 @@ int main(){
         std::mutex result_mtx;
         
         std::atomic_int done{0};
-
+        
         std::vector<std::thread> tg;
         std::vector<calculater> result;
         for(size_t i=0; i!= std::thread::hardware_concurrency()*2; ++i){

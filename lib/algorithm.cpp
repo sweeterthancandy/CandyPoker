@@ -6,6 +6,37 @@ namespace ps{
 
 /*
 
+   The idea of this is to 2-tuple of permutations (C,S), 
+   so for a vector of n-players, we apply the permutation
+                        C : c -> c',
+   ie
+                (p1,p2,p3) -> (p1', p2', p3'),
+   and then apply the suit permutation S : s -> s'
+                (p1', p2', p3') -> (p1'', p2'', p3''),
+   so that given and set of players, we can can an injective
+   mapping to a small subset. Ei, AA vs KK == KK vs AA 
+   with the player orientation swapped around.
+        Noting that we can complete ignore any permutation 
+   of suits for all practical purposes, as always just want
+   to find a suit permutation so that it's injective
+
+                    eval(AA,KK vs AA,KK)
+    
+        =           eval(AA vs AA ) * w0 + 
+                    eval(AA vs KK ) * w1 + 
+                    eval(KK vs AA ) * w2 + 
+                    eval(KK vs KK ) * w3
+    
+        =           eval(AA vs AA ) * w0 + 
+                    eval(AA vs KK ) * w1 + 
+            Inverse(eval(AA vs KK )) * w2 + 
+                    eval(KK vs KK ) * w3
+
+          
+        
+        
+
+        
  */
 
 std::tuple<

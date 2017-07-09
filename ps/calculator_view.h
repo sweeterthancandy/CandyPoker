@@ -41,17 +41,6 @@ struct detailed_view_type{
                 detail::array_view<size_t> data_;
         };
         
-        #if 0
-        template<size_t N, class Perm_Type>
-        explicit detailed_view_type(detailed_result_type<N> const* result, Perm_Type&& perm)
-                :data_ptr_(result->data()), n_(N), /*perm_{std::move(perm)},*/ sigma_{result->sigma()}
-        {
-                perm_.resize(N);
-                for(size_t i=0;i!=N;++i){
-                        perm_[perm[i]] = i;
-                }
-        }
-        #endif
 
         explicit detailed_view_type(size_t n, size_t sigma, detail::array_view<size_t> const& data, std::vector<int> const& perm)
                 : n_{n}
@@ -63,25 +52,28 @@ struct detailed_view_type{
                         perm_[perm[i]] = i;
                 }
         }
-                
-
-        #if 0
-        auto player(size_t idx)const{
-                return player_view_t(data_ptr_ + n_ * perm_[idx],
-                                     n_,
-                                     sigma_ );
+        explicit detailed_view_type(size_t n, size_t sigma, detail::array_view<size_t> const& data)
+                : n_{n}
+                , sigma_{sigma}
+                , data_{ data }
+        {
         }
-        #endif
+                
         auto player(size_t idx)const{
                 return player_view_t{n_,
                                      sigma_,
-                                     detail::array_view<size_t>{data_.begin() + n_ * perm_[idx], n_ }};
+                                     detail::array_view<size_t>{data_.begin() + n_ * map_idx_(idx), n_ }};
         }
         auto sigma()const{ return sigma_; }
         auto n()const{ return n_; }
 
         friend std::ostream& operator<<(std::ostream& ostr, detailed_view_type const& self);
 private:
+        size_t map_idx_(size_t idx)const{
+                if( perm_.empty())
+                        return idx;
+                return perm_[idx];
+        }
         size_t n_;
         size_t sigma_;
         detail::array_view<size_t> data_;

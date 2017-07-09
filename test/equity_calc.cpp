@@ -3,27 +3,19 @@
 #include "ps/frontend.h"
 #include "ps/heads_up.h"
 #include "ps/tree.h"
+#include "ps/calculator.h"
 
 using namespace ps;
 
 
-struct equity_calc_ : testing::Test{
-        equity_calc_()
+struct calculator_ : testing::Test{
+        calculator_()
         {
-                ec.load("cache.bin");
+                calc.load("newcache.bin");
         }
-        equity_cacher ec;
+        calculater calc;
 };
 
-struct class_equity_calc_ : equity_calc_{
-        class_equity_calc_()
-                :cec{ec}
-        {
-                cec.load("hc_cache.bin");
-        }
-        class_equity_cacher cec;
-
-};
 
 // this is super slow
 #if 0
@@ -59,7 +51,7 @@ TEST_F( equity_calc_, aggregation){
         Hand 1: 	54.617%  	54.39% 	00.23% 	      67054140 	   281142   { 55 }
 
         */
-TEST_F( class_equity_calc_, _){
+TEST_F( calculator_, _){
         struct regression_result{
                 regression_result()=default;
                 regression_result(std::string const& h, std::string const& v, double e):
@@ -79,14 +71,14 @@ TEST_F( class_equity_calc_, _){
                 { "AKo",  "55",  0.45383 }
         };
         for( auto const& r : ticker){
-                auto const& ret{ cec.visit_boards( std::vector<ps::holdem_class_id>{ 
+                auto const& ret{ calc.calculate_class_equity( 
                                                    ps::holdem_class_decl::parse( r.hero ),
-                                                   ps::holdem_class_decl::parse( r.villian ) } ) };
-                EXPECT_NEAR( r.equity, ret.equity(), 1e-3 );
+                                                   ps::holdem_class_decl::parse( r.villian ) ) };
+                EXPECT_NEAR( r.equity, ret.player(0).equity(), 1e-3 );
         }
 }
 
-TEST_F( class_equity_calc_, aggregation){
+TEST_F( calculator_, aggregation){
         struct regression_result{
                 regression_result()=default;
                 regression_result(std::string const& h, std::string const& v, double e):
@@ -148,26 +140,26 @@ TEST_F( class_equity_calc_, aggregation){
                 size_t factor{0};
                 tree_range root{ std::vector<frontend::range>{frontend::parse(r.hero),
                                                               frontend::parse(r.villian)} };
-                hu_fresult_t agg;
+                aggregator agg;
                 for( auto const& c : root.children ){
 
                         ASSERT_EQ( c.opt_cplayers.size(), 2 );
                         
-                        auto ret{ cec.visit_boards( c.opt_cplayers ) };
+                        auto ret{ calc.calculate_class_equity( c.opt_cplayers ) };
                         agg.append(ret);
 
                         size_t weight{ holdem_class_decl::weight( c.opt_cplayers[0], c.opt_cplayers[1]) };
-                        sigma += ret.equity() * weight;
+                        sigma += ret.player(0).equity() * weight;
                         factor += weight;
                 }
                 double equity{ sigma / factor };
-                PRINT_SEQ((agg.equity())(r.equity)(equity)(std::fabs(agg.equity()-r.equity)));
-                EXPECT_NEAR( agg.equity(), r.equity, 1e-3 );
+                //PRINT_SEQ((agg.equity())(r.equity)(equity)(std::fabs(agg.equity()-r.equity)));
+                EXPECT_NEAR( agg.make_view().player(0).equity(), r.equity, 1e-3 );
                 EXPECT_NEAR( equity, r.equity, 1e-3 );
         }
 }
 
-TEST_F( class_equity_calc_, range_vs_range ){
+TEST_F( calculator_, range_vs_range ){
 }
 
 #if NOT_DEFINED

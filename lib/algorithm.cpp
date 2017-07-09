@@ -5,7 +5,6 @@
 namespace ps{
 
 /*
-        The idea of this is that
 
  */
 

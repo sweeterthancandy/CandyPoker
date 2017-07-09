@@ -3,6 +3,7 @@
 
 #include <string>
 #include <memory>
+#include <array>
 
 #include "ps/cards_fwd.h"
 #include "ps/calculator_view.h"
@@ -66,6 +67,19 @@ namespace ps{
                 view_t calculate_class_equity(Players_Type const& players){
                         return calculate_class_equity_(detail::make_array_view(players));
                 }
+                template<class... Args>
+                view_t calculate_hand_equity(Args... args){
+                        // should this be a cast or not?
+                        std::array<ps::holdem_id, sizeof...(args)> aux{ static_cast<ps::holdem_id>(args)... };
+                        return calculate_hand_equity_(detail::make_array_view(aux));
+                }
+                template<class... Args>
+                view_t calculate_class_equity(Args... args){
+                        // should this be a cast or not?
+                        std::array<ps::holdem_class_id, sizeof...(args)> aux{ static_cast<ps::holdem_class_id>(args)... };
+                        return calculate_class_equity_(detail::make_array_view(aux));
+                }
+
 
 
                 bool load(std::string const& name);

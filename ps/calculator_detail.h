@@ -81,24 +81,6 @@ struct detailed_result_type{
         }
         size_t const* data()const{ return reinterpret_cast<size_t const*>(data_.begin()); }
 
-        #if 0
-        template<class Con>
-        result_type permutate(Con const& con)const{
-                result_type ret;
-                ret.sigma_ = sigma_;
-                size_t q{0};
-                for( auto idx : con ){
-                        for(size_t i=0;i!=N;++i){
-                                ret.data_[idx][i] = this->data_[q][i];
-                        }
-                        ++q;
-                }
-                return std::move(ret);
-        }
-        #endif
-
-
-
         template<class Archive>
         void serialize(Archive& ar, unsigned int){
                 ar & sigma_;

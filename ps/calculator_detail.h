@@ -20,6 +20,8 @@
 
 #include "ps/detail/array_view.h"
 
+#include "ps/calculator_view.h"
+
 
 /*
         For equity calculations, creating pre-computation
@@ -117,89 +119,6 @@ private:
         > data_;
 };
 
-struct detailed_view_type{
-
-        using perm_type = std::vector<int>;
-
-        struct player_view_t{
-                explicit player_view_t(size_t const* data_ptr, size_t n, size_t sigma)
-                        :data_ptr_(data_ptr),n_{n},sigma_{sigma}
-                {}
-                double equity()const{
-                        double result{0.0};
-                        for(size_t i=0;i!=n_;++i){
-                                result += nwin(i) / (i+1);
-                        }
-                        return result / sigma_;
-                }
-                // nwin(0) -> wins
-                // nwin(1) -> draws to split pot 2 ways
-                // nwin(2) -> draws to split pot 3 ways
-                // ...
-                size_t nwin(size_t idx)const{
-                        return data_ptr_[idx];
-               }
-        private:
-                size_t const* data_ptr_;
-                size_t n_;
-                size_t sigma_;
-        };
-        
-        template<size_t N, class Perm_Type>
-        explicit detailed_view_type(detailed_result_type<N> const* result, Perm_Type&& perm)
-                :data_ptr_(result->data()), n_(N), /*perm_{std::move(perm)},*/ sigma_{result->sigma()}
-        {
-                perm_.resize(N);
-                for(size_t i=0;i!=N;++i){
-                        perm_[perm[i]] = i;
-                }
-        }
-        auto player(size_t idx)const{
-                return player_view_t(data_ptr_ + n_ * perm_[idx],
-                                     n_,
-                                     sigma_ );
-        }
-        auto sigma()const{ return sigma_; }
-
-        friend std::ostream& operator<<(std::ostream& ostr, detailed_view_type const& self){
-                std::vector<std::vector<std::string> > line_buffer;
-                std::vector<size_t> widths(self.n_, 0);
-                std::cout << self.sigma() << "\n";
-                for(size_t i=0;i!=self.n_;++i){
-                        line_buffer.emplace_back();
-                        for(size_t j=0;j!=self.n_;++j){
-                                line_buffer.back().emplace_back(
-                                        boost::lexical_cast<std::string>(
-                                                self.player(i).nwin(j)));
-                                widths[j] = std::max(widths[j], line_buffer.back().back().size());
-                        }
-                }
-                for(size_t i=0;i!=self.n_;++i){
-                        for(size_t j=0;j!=self.n_;++j){
-                                auto const& tok(line_buffer[i][j]);
-                                size_t padding{widths[j]-tok.size()};
-                                size_t left_pad{padding/2};
-                                size_t right_pad{padding - left_pad};
-                                if( j != 0 ){
-                                        ostr << " | ";
-                                }
-                                if( left_pad )
-                                        ostr << std::string(left_pad,' ');
-                                ostr << tok;
-                                if( right_pad )
-                                        ostr << std::string(right_pad,' ');
-
-                        }
-                        ostr << "\n";
-                }
-                return ostr;
-        }
-private:
-        size_t const* data_ptr_;
-        size_t n_;
-        size_t sigma_;
-        perm_type perm_;
-};
 
 template<size_t N>
 struct detailed_observer_type{
@@ -283,7 +202,12 @@ struct basic_calculator_N{
 
                 auto iter = cache_.find(perm_players);
                 if( iter != cache_.end() ){
-                        return view_type{ &iter->second, std::move(perm) };
+                        return view_type{
+                                N,
+                                iter->second.sigma(),
+                                detail::array_view<size_t>{ iter->second.data(), N},
+                                std::move(perm)
+                        };
                 }
 
                 observer_type observer;
@@ -373,7 +297,12 @@ public:
                         std::vector<int> perm;
                         for(size_t i=0;i!=N;++i)
                                 perm.emplace_back(i);
-                        return view_type{&iter->second, std::move(perm) };
+                        return view_type{
+                                N,
+                                iter->second.sigma(),
+                                detail::array_view<size_t>{ iter->second.data(), N},
+                                std::move(perm)
+                        };
                 }
                 std::array<size_t, N> size_vec;
                 local_detail detail_;

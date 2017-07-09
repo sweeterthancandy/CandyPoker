@@ -9,20 +9,21 @@ namespace detail{
 
         template<class T>
         struct array_view{
-                array_view(T* ptr, size_t sz):
+                using value_type = std::add_const_t<T>;
+                array_view(value_type* ptr, size_t sz):
                         ptr_{ptr}, sz_{sz}
                 {}
                 template<class U, size_t N>
                 array_view(std::array<U, N> const& array):
                         ptr_{array.begin()}, sz_{array.size()}
                 {
-                        static_assert( sizeof(U) == sizeof(T), "");
+                        static_assert( sizeof(U) == sizeof(value_type), "");
                 }
                 template<class U>
                 array_view(std::vector<U> const& vec):
                         ptr_{&vec[0]}, sz_{vec.size()}
                 {
-                        static_assert( sizeof(U) == sizeof(T), "");
+                        static_assert( sizeof(U) == sizeof(value_type), "");
                 }
                 auto size()const{ return sz_; }
                 auto& operator[](size_t idx){ return ptr_[idx]; }
@@ -30,7 +31,7 @@ namespace detail{
                 auto begin()const{ return ptr_; }
                 auto end()const{ return ptr_ + sz_; }
         private:
-                T const* ptr_;
+                value_type const* ptr_;
                 size_t sz_;
         };
         // homo only

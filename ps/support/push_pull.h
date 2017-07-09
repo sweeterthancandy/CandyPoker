@@ -1,6 +1,7 @@
 #ifndef PS_SUPPORT_PUSH_PULL_H
 #define PS_SUPPORT_PUSH_PULL_H
 
+#include <atomic>
 #include <mutex>
 #include <thread>
 #include <condition_variable>
@@ -84,14 +85,24 @@ struct push_pull{
          */
         boost::optional<work_type> pull(){
                 std::unique_lock<std::mutex> lock(this->mtx_);
-                if( this->work_.empty() ){
-                        if( workers_working_ != 0 ){
+                // need this because when waiting for a pull, we 
+                // get notificaiton in the form of pull_cond_
+                // that workers_working_ changed (maybe
+                // this should only be when it's zero)
+                for(;;){
+                        if( this->work_.empty() ){
+                                if( workers_working_ == 0 ){
+                                        return boost::none;
+                                }
+
                                 this->pull_cond_.wait( lock );
+                                continue;
                         }
+
+
+                        break; // <-------------
                 }
-                if( this->work_.empty() ){
-                        return boost::none;
-                }
+                //PRINT_SEQ(( workers_working_)( work_.size()) );
                 auto work{std::move(this->work_.back())};
                 this->work_.pop_back();
                 this->push_cond_.notify_all();

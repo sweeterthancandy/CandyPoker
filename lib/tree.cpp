@@ -2,6 +2,7 @@
 #include "ps/tree.h"
 
 #include "ps/detail/tree_printer.h"
+#include "ps/detail/visit_sequence.h"
 
 namespace ps{
         void tree_range::display()const{
@@ -50,7 +51,8 @@ namespace ps{
 
 
                 this->players = players;
-                // XXX dispatch for N
+                // XXX dispatch fr N
+                #if 1
                 switch(this->players.size()){
                 case 2:
                         detail::visit_exclusive_combinations<2>(
@@ -71,6 +73,8 @@ namespace ps{
                 default:
                         assert( 0 && " not implemented");
                 }
+                #else
+                #endif
         }
 
         tree_primitive_range::tree_primitive_range(std::vector<frontend::primitive_t> const& players){
@@ -89,6 +93,7 @@ namespace ps{
                 // all or none
                 if( opt_cplayers.size() != this->players.size())
                         opt_cplayers.clear();
+
                 
                 switch(this->players.size()){
                 case 2:

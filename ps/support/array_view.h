@@ -5,7 +5,7 @@
 #include <vector>
 
 namespace ps{
-namespace detail{
+namespace support{
 
         template<class T>
         struct array_view{
@@ -55,7 +55,7 @@ namespace detail{
         auto make_array_view(std::vector<T> const& vec){
                 return array_view<T>(vec);
         }
-} // detail
+} // supprt
 } // ps
 
 #endif // PS_ARRAY_VIEW_H 

@@ -1,5 +1,4 @@
-write pretty printer
 
-cache n-player result
-make heads up push-fold saver
 
+
+add mechinism to make result of calculation a std::futurer

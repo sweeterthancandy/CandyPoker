@@ -5,7 +5,7 @@
 #include <ostream>
 #include <numeric>
 
-#include "ps/detail/array_view.h"
+#include "ps/support/array_view.h"
 
 namespace ps{
 struct detailed_view_type{
@@ -13,7 +13,7 @@ struct detailed_view_type{
         using perm_type = std::vector<int>;
 
         struct player_view_t{
-                explicit player_view_t(size_t n, size_t sigma, detail::array_view<size_t> const& data)
+                explicit player_view_t(size_t n, size_t sigma, support::array_view<size_t> const& data)
                         :n_{n}, sigma_{sigma}, data_{data}
                 {}
                 double equity()const{
@@ -38,11 +38,11 @@ struct detailed_view_type{
         private:
                 size_t n_;
                 size_t sigma_;
-                detail::array_view<size_t> data_;
+                support::array_view<size_t> data_;
         };
         
 
-        explicit detailed_view_type(size_t n, size_t sigma, detail::array_view<size_t> const& data, std::vector<int> const& perm)
+        explicit detailed_view_type(size_t n, size_t sigma, support::array_view<size_t> const& data, std::vector<int> const& perm)
                 : n_{n}
                 , sigma_{sigma}
                 , data_{ data }
@@ -52,7 +52,7 @@ struct detailed_view_type{
                         perm_[perm[i]] = i;
                 }
         }
-        explicit detailed_view_type(size_t n, size_t sigma, detail::array_view<size_t> const& data)
+        explicit detailed_view_type(size_t n, size_t sigma, support::array_view<size_t> const& data)
                 : n_{n}
                 , sigma_{sigma}
                 , data_{ data }
@@ -62,7 +62,7 @@ struct detailed_view_type{
         auto player(size_t idx)const{
                 return player_view_t{n_,
                                      sigma_,
-                                     detail::array_view<size_t>{data_.begin() + n_ * map_idx_(idx), n_ }};
+                                     support::array_view<size_t>{data_.begin() + n_ * map_idx_(idx), n_ }};
         }
         auto sigma()const{ return sigma_; }
         auto n()const{ return n_; }
@@ -76,7 +76,7 @@ private:
         }
         size_t n_;
         size_t sigma_;
-        detail::array_view<size_t> data_;
+        support::array_view<size_t> data_;
         perm_type perm_;
 };
 

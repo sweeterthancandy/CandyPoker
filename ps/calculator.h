@@ -34,7 +34,7 @@ namespace ps{
                         return view_t{
                                 n_,
                                 sigma_,
-                                detail::array_view<size_t>{ data_},
+                                support::array_view<size_t>{ data_},
                                 std::move(perm)
                         };
                 }
@@ -61,23 +61,23 @@ namespace ps{
                 // how about some sugar
                 template<class Players_Type>
                 view_t calculate_hand_equity(Players_Type const& players){
-                        return calculate_hand_equity_( detail::make_array_view(players) );
+                        return calculate_hand_equity_( support::make_array_view(players) );
                 }
                 template<class Players_Type>
                 view_t calculate_class_equity(Players_Type const& players){
-                        return calculate_class_equity_(detail::make_array_view(players));
+                        return calculate_class_equity_(support::make_array_view(players));
                 }
                 template<class... Args>
                 view_t calculate_hand_equity(Args... args){
                         // should this be a cast or not?
                         std::array<ps::holdem_id, sizeof...(args)> aux{ static_cast<ps::holdem_id>(args)... };
-                        return calculate_hand_equity_(detail::make_array_view(aux));
+                        return calculate_hand_equity_(support::make_array_view(aux));
                 }
                 template<class... Args>
                 view_t calculate_class_equity(Args... args){
                         // should this be a cast or not?
                         std::array<ps::holdem_class_id, sizeof...(args)> aux{ static_cast<ps::holdem_class_id>(args)... };
-                        return calculate_class_equity_(detail::make_array_view(aux));
+                        return calculate_class_equity_(support::make_array_view(aux));
                 }
 
 
@@ -90,8 +90,8 @@ namespace ps{
                 void json_dump(std::ostream& ostr)const;
 
         private:
-                view_t calculate_hand_equity_(detail::array_view<holdem_id> const& players);
-                view_t calculate_class_equity_(detail::array_view<holdem_id> const& players);
+                view_t calculate_hand_equity_(support::array_view<holdem_id> const& players);
+                view_t calculate_class_equity_(support::array_view<holdem_id> const& players);
 
                 std::unique_ptr<calculator_impl> impl_;
         };

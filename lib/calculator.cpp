@@ -52,7 +52,7 @@ namespace ps{
                         _c_9_{&_9_}
                 {
                 }
-                view_t calculate_hand_equity(detail::array_view<ps::holdem_id> const& players){
+                view_t calculate_hand_equity(support::array_view<ps::holdem_id> const& players){
                         switch(players.size()){
                         case 2: return _2_.calculate(players);
                         case 3: return _3_.calculate(players);
@@ -66,7 +66,7 @@ namespace ps{
                                 BOOST_THROW_EXCEPTION(std::domain_error("bad number of players"));
                         }
                 }
-                view_t calculate_class_equity(detail::array_view<ps::holdem_class_id> const& players){
+                view_t calculate_class_equity(support::array_view<ps::holdem_class_id> const& players){
                         switch(players.size()){
                         case 2: return _c_2_.calculate(players);
                         case 3: return _c_3_.calculate(players);
@@ -160,10 +160,10 @@ namespace ps{
         calculater& calculater::operator=(calculater&& that)=default;
 
 
-        view_t calculater::calculate_hand_equity_(detail::array_view<holdem_id> const& players){
+        view_t calculater::calculate_hand_equity_(support::array_view<holdem_id> const& players){
                 return impl_->calculate_hand_equity(players);
         }
-        view_t calculater::calculate_class_equity_(detail::array_view<holdem_id> const& players){
+        view_t calculater::calculate_class_equity_(support::array_view<holdem_id> const& players){
                 return impl_->calculate_class_equity(players);
         }
 

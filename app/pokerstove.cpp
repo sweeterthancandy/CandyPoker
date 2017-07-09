@@ -13,40 +13,6 @@ using namespace ps;
 
 namespace ps{
 
-        struct aggregator{
-                void append(view_t const& view){
-                        if( n_ == 0 ){
-                                PRINT(view.n());
-                                std::cout << std::flush;
-                                n_ = view.n();
-                                data_.resize( n_ * n_ );
-                        }
-                        sigma_ += view.sigma();
-                        for(size_t i=0;i!=n_;++i){
-                                for(size_t j=0;j!=n_;++j){
-                                        data_access(i, j) += view.player(i).nwin(j);
-                                }
-                        }
-                }
-                view_t make_view(){
-                        std::vector<int> perm;
-                        for(size_t i=0;i!=n_;++i)
-                                perm.emplace_back(i);
-                        return view_t{
-                                n_,
-                                sigma_,
-                                detail::array_view<size_t>{ data_},
-                                std::move(perm)
-                        };
-                }
-        private:
-                size_t& data_access(size_t i,size_t j){
-                        return data_[i * n_ + j];
-                }
-                size_t n_=0;
-                size_t sigma_ =0;
-                std::vector< size_t > data_;
-        };
 
         /*
                 poker_stove AKs TT QQ
@@ -103,17 +69,17 @@ namespace ps{
                                 if( line.size() >= 1 && line[0] == "__break__" ){
                                         for(size_t i=0;i!=widths.size();++i){
                                                 if( i != 0 )
-                                                        std::cout << "-+-";
-                                                std::cout << std::string(widths[i],'-');
+                                                        ostr << "-+-";
+                                                ostr << std::string(widths[i],'-');
                                         }
                                 } else{
                                         for(size_t i=0;i!=line.size();++i){
                                                 if( i != 0 )
-                                                        std::cout << " | ";
-                                                std::cout << pad(line[i], widths[i]);
+                                                        ostr << " | ";
+                                                ostr << pad(line[i], widths[i]);
                                         }
                                 }
-                                std::cout << "\n";
+                                ostr << "\n";
                         }
                 }
         };
@@ -129,9 +95,33 @@ namespace ps{
 
                 std::vector<std::string> players_s;
                 std::vector<frontend::range> players;
-                for(int i=1;i < argc; ++i){
-                        players_s.push_back( argv[i] );
-                        players.push_back( frontend::parse(argv[i]));
+
+                int arg_iter = 1;
+
+                for(; arg_iter < argc;){
+                        int args_left{ argc - arg_iter };
+                        switch(args_left){
+                        default:
+                        case 2:
+                                if( argv[arg_iter] == std::string{"--cache"} ){
+                                        std::cerr << "Loading...\n";
+
+                                        if( ! calc.load(argv[arg_iter+1] ) ){
+                                                std::cerr << "Failed to load " << argv[arg_iter+1] << "\n";
+                                        } else {
+                                                std::cerr << "Done...\n";
+                                        }
+                                        arg_iter += 2;
+                                        continue;
+                                }
+                        case 1:
+                                // we must have players now
+                                for(; arg_iter < argc;++arg_iter){
+                                        players_s.push_back( argv[arg_iter] );
+                                        players.push_back( frontend::parse(argv[arg_iter]));
+                                }
+                                break;
+                        }
                 }
 
                 double sigma{0};

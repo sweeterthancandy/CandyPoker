@@ -8,9 +8,64 @@
 #include <boost/optional.hpp>
 #include <boost/variant.hpp>
 
+#include <boost/xpressive/xpressive.hpp>
+#include <boost/xpressive/regex_actions.hpp>
+
 #include "ps/detail/print.h"
         
 namespace fs = std::experimental::filesystem;
+
+
+enum Street{
+        Street_Preflop,
+        Street_Flop,
+        Street_Turn,
+        Street_River
+};
+        
+enum HandType{
+        HandType_Cash,
+        HandType_Tournament
+};
+
+struct decl_type{
+        enum DeclType{
+                Decl_Seat,
+                Decl_Button,
+                Decl_NumPlayers,
+                Decl_Event
+        };
+
+
+        decl_type(DeclType type):type_{type}{}
+        virtual ~decl_type()=default;
+
+        auto type()const{ return type_; }
+private:
+        DeclType type_;
+};
+
+struct event_type : decl_type{
+        enum EventType{
+                Event_PostAnte,
+                Event_PostSB,
+                Event_PostBB,
+                Event_Fold,
+                Event_Call,
+                Event_Raise,
+                Event_FlopDeal,
+                Event_TurnDeal,
+                Event_RiverDeal
+        };
+
+        event_type(EventType event):decl_type{Decl_Event}, event_{event}{}
+
+        auto event()const{ return event_; }
+private:
+        EventType event_;
+};
+
+
 
 /*
 
@@ -19,6 +74,7 @@ namespace fs = std::experimental::filesystem;
 
 */
 
+#if 0
 struct player_decl{
         void decl_name(std::string const& name){ return name_; }
         void decl_stack(double stack){ return stack_; }
@@ -36,8 +92,11 @@ private:
         boost::optional<double> bb_;
         std::vector< player_decl > players_;
 };
+#endif
 
-using player_id = int;
+#if 0
+
+
 
 /*
  *  From past experince I want this
@@ -46,6 +105,7 @@ enum SubParserCtrl{
         SubParserCtrl_Parsed,
         SubParserCtrl_Failed
 };
+
 struct subparser
 {
         using line_iterator = std::vector<std::string>::const_iterator;
@@ -74,7 +134,7 @@ private:
 
 
 namespace pokerstars{
-        
+        std::shared_ptr< parser_decl > make
         // by domain
         namespace header{
 
@@ -90,10 +150,33 @@ namespace pokerstars{
                         //std::regex rgx_{R"(PokerStars Hand #(\d+): Tournament #(\d+), $14.10+$0.90 USD Hold'em No Limit - Level I (10/20) - 2017/07/02 14:36:52 WET [2017/07/02 9:36:52 ET])"};
                 };
         }
+
+
+}
+
+std::shared_ptr< parser_decl > make_ps_parser(){
+        parser_builder b;
+
+        auto header{
+
 }
 
 
 
+
+struct action_post_sb{
+        action_post_sb(player_id player):
+                player_(player)
+        {}
+        void execute( factory& fac){
+                fac.post_sb();
+        }
+private:
+        player_id id_;
+};
+#endif
+
+#if 0
 struct parser_global_factory{
 
         template<class T>
@@ -114,50 +197,123 @@ private:
         std::map<std::string, std::function<std::shared_ptr<subparser>()> > maker_;
         std::map<std::string, std::vector<std::function<std::shared_ptr<subparser>()> > > maker_;
 };
+#endif
 
-struct action_post_sb{
-        action_post_sb(player_id player):
-                player_(player)
-        {}
-        void execute( factory& fac){
-                fac.post_sb();
-        }
-private:
-        player_id id_;
-};
+namespace xpr = boost::xpressive;
 
-
-struct parser_item{
-        std::regex rgx;
-};
-struct parser_namespace{
-        std::vector<parser_item> item_;
-};
-struct parser_factory{
-};
 struct parser_context{
+        int make(){ return 1; }
+        void begin_hand(){}
+};
+
+using namespace xpr;
+
+xpr::sregex& make_header(parser_context& ctx){
+        struct on_header_impl
+        {
+                // Result type, needed for tr1::result_of
+                typedef void result_type;
+
+                void operator()(parser_context& ctx, std::string const& line) const
+                {
+                        //std::cout << "header : " << line << "\n";
+                }
+        };
+        static xpr::function<on_header_impl>::type const on_header = {{}};
+        static sregex r{xpr::sregex::compile(R"(^PokerStars Hand #[[:digit:]]+)")
+                [ on_header(std::ref(ctx), _) ]
+        };
+        return r;
+}
+
+xpr::sregex& make_button_decl(parser_context& ctx){
+        struct on_button_decl_impl
+        {
+                // Result type, needed for tr1::result_of
+                typedef void result_type;
+
+                void operator()(parser_context const& ctx, std::string const& line) const
+                {
+                        //std::cout << "btn decl : " << line << "\n";
+                }
+        };
+
+        static xpr::function<on_button_decl_impl>::type const on_button_decl = {{}};
+                // Table '1863148423 21' 9-max Seat #7 is the button
+        static sregex r{
+                xpr::sregex::compile(R"(Table '\d+ \d+' \d-max Seat #\d+ is the button)")
+                [ on_button_decl(std::ref(ctx), _) ]
+        };
+        return r;
+}
+
+xpr::sregex& make_seat_decl(parser_context& ctx){
+        struct on_seat_decl_impl
+        {
+                // Result type, needed for tr1::result_of
+                typedef void result_type;
+
+                void operator()(parser_context const& ctx,
+                                std::string const& line,
+                                int seat,
+                                std::string const& name,
+                                std::string const& stack) const
+                {
+                        PRINT_SEQ((seat)(name)(stack));
+                        //std::cout << "btn decl : " << line << "\n";
+                }
+        };
+
+        static xpr::function<on_seat_decl_impl>::type const on_seat_decl = {{}};
+                // Seat 1: bileo27 (25595 in chips)
+        static sregex r{
+                xpr::bos >> "Seat " >> (s1=+_d) >> ": " >> (s2=+_) >> "(" >> (s3=+_d) >> " in chips)" >> *_s >> xpr::eos
+                [ on_seat_decl(std::ref(ctx), _, as<int>(s1), s2, s3) ]
+        };
+        return r;
+}
+struct pokerstars_parser{
+         void parse(std::vector<std::string> const& lines){
+                 parser_context ctx;
+
+                 using xpr::_d;
+                 using namespace xpr;
+
+                 xpr::sregex header, button_decl, rgx;
+
+                 rgx = 
+                         make_header(ctx)       |
+                         make_button_decl(ctx)  |
+                         make_seat_decl(ctx)
+                 ;
+
+                 pctx_.begin_hand();
+
+                 for(auto const& l : lines){
+                         if( ! xpr::regex_search( l, rgx ) ){
+                                 PRINT(l);
+                                 return;
+                         }
+                 }
+                
+                 auto result{pctx_.make()};
+         }
+private:
+         parser_context pctx_;
 };
 
 struct parser{
         parser(){
-                factory fac;
-                auto root   = new subparser_or{};
-                
-                auto header = new subparser_or{};
-                header->add( new ps_tourn_header{} );
-                
-                auto info   = new subparser_header;
-                info->dd(new ps_tourn_
-
-
-
         }
 
         void section_parser_(std::vector<std::string>&& lines){
-                
-                for( auto const& l : lines)
-                        std::cout << l << "\n";
-                std::cout << "END_SECTION\n";
+                #if 0
+                auto subparser{ parser_global_factory::get()->detect(lines) };
+                auto hand{ subparser->parse(line) };
+                hand.display();
+                #endif
+                pokerstars_parser ps;
+                ps.parse(lines);
         }
         void parse(std::istream& istr){
                 std::vector<std::string> lines;
@@ -191,7 +347,6 @@ struct parser{
         }
 private:
         std::regex whitespace_rgx_{R"(\s+)"};
-        parser_context pc_proto_;
 };
 
 
@@ -221,7 +376,7 @@ int main(){
         parser p;
         int i=0;
         for( auto const& f : to_process ){
-                PRINT(f);
+                //PRINT(f);
                 std::ifstream ifstr(f, std::ifstream::binary);
                 if( ! ifstr.is_open()){
                         std::cerr << "unable to open " << f << "\n";

@@ -208,6 +208,109 @@ namespace parser{
 using namespace xpr;
 
 
+auto make_decl_finish_tournament(parser_context& ctx){
+        struct impl
+        {
+                // Result type, needed for tr1::result_of
+                typedef void result_type;
+
+                void operator()(parser_context const& ctx,
+                                std::string const& line,
+                                std::string const& who,
+                                std::string const& place
+                                ) const
+                {
+                        //PRINT_SEQ((line)(name)(from)(to));
+                }
+        };
+
+        static xpr::function<impl>::type const f = {{}};
+                // Seat 1: bileo27 (25595 in chips)
+        return std::make_shared<sregex>(
+                (xpr::bos >> (s1=+_) >> " finished the tournament in " >> (s2=+~_s) >> " place")
+                [ f(std::ref(ctx), _, s1, s2) ]
+        );
+}
+
+SUBPARSER_FACTORY_REGISTER(decl_finish_tournament, make_decl_finish_tournament)
+
+auto make_decl_win_tournament(parser_context& ctx){
+        struct impl
+        {
+                // Result type, needed for tr1::result_of
+                typedef void result_type;
+
+                void operator()(parser_context const& ctx,
+                                std::string const& line,
+                                std::string const& who,
+                                std::string const& prize
+                                ) const
+                {
+                        //PRINT_SEQ((line)(name)(from)(to));
+                }
+        };
+
+        static xpr::function<impl>::type const f = {{}};
+                // Seat 1: bileo27 (25595 in chips)
+        return std::make_shared<sregex>(
+                (xpr::bos >> (s1=+_) >> " wins the tournament and receives " >> (s2=+~_s) >> " - congratulations!")
+                [ f(std::ref(ctx), _, s1, s2) ]
+        );
+}
+
+SUBPARSER_FACTORY_REGISTER(decl_win_tournament, make_decl_win_tournament)
+
+auto make_decl_connection(parser_context& ctx){
+        struct impl
+        {
+                // Result type, needed for tr1::result_of
+                typedef void result_type;
+
+                void operator()(parser_context const& ctx,
+                                std::string const& line,
+                                std::string const& who,
+                                std::string const& what
+                                ) const
+                {
+                        //PRINT_SEQ((line)(name)(from)(to));
+                }
+        };
+
+        static xpr::function<impl>::type const f = {{}};
+                // Seat 1: bileo27 (25595 in chips)
+        return std::make_shared<sregex>(
+                (xpr::bos >> (s1=+_) >> " is " >> (s2=( as_xpr("connected") |
+                                                               "disconnected") ) )
+                [ f(std::ref(ctx), _, s1, s2) ]
+        );
+}
+
+SUBPARSER_FACTORY_REGISTER(decl_connection, make_decl_connection)
+
+auto make_decl_returned(parser_context& ctx){
+        struct impl
+        {
+                // Result type, needed for tr1::result_of
+                typedef void result_type;
+
+                void operator()(parser_context const& ctx,
+                                std::string const& line,
+                                std::string const& who
+                                ) const
+                {
+                        //PRINT_SEQ((line)(name)(from)(to));
+                }
+        };
+
+        static xpr::function<impl>::type const f = {{}};
+                // Seat 1: bileo27 (25595 in chips)
+        return std::make_shared<sregex>(
+                (xpr::bos >> (s1=+_) >> " has returned")
+                [ f(std::ref(ctx), _, s1) ]
+        );
+}
+
+SUBPARSER_FACTORY_REGISTER(decl_returned, make_decl_returned)
 }
 }
 
@@ -237,6 +340,10 @@ struct pokerstars_parser{
                  auto decl_flop{ps::parser::make("decl_flop", ctx)};
                  auto shows{ps::parser::make("shows", ctx)};
                  auto decl_seat_summary{ps::parser::make("decl_seat_summary", ctx)};
+                 auto decl_finish_tournament{ps::parser::make("decl_finish_tournament", ctx)};
+                 auto decl_win_tournament{ps::parser::make("decl_win_tournament", ctx)};
+                 auto decl_connection{ps::parser::make("decl_connection", ctx)};
+                 auto decl_returned{ps::parser::make("decl_returned", ctx)};
                  rgx =
                         *header                 |
                         *button_decl            |
@@ -246,12 +353,16 @@ struct pokerstars_parser{
                         *bet                    |
                         *decl_deal              |
                         *decl_section           |
+                        *decl_connection        |
+                        *decl_returned          |
                         *post                   |
                         *seat_decl              |
                         *raise                  |
                         *check                  |
                         *uncalled_bet_returned  |
                         *doesnt_show_hand       |
+                        *decl_finish_tournament |
+                        *decl_win_tournament |
                         *decl_total_pot         |
                         *decl_flop              |
                         *shows                  |
@@ -264,10 +375,8 @@ struct pokerstars_parser{
                  for(auto const& l : lines){
                          xpr::sregex ws{ xpr::sregex::compile(R"(\s+$)")};
                          auto stripped( xpr::regex_replace(l, ws, "") );
-                         if( ! xpr::regex_search( stripped, rgx ) ){
-                                 PRINT(l);
-                                 return;
-                         }
+                         int ret( xpr::regex_search( stripped, rgx ) );
+                         PRINT_SEQ((ret)(l));
                  }
                 
          }

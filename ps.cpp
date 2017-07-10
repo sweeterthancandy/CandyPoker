@@ -203,7 +203,13 @@ private:
 #endif
 
 
+namespace ps{
+namespace parser{
+using namespace xpr;
 
+
+}
+}
 
 struct pokerstars_parser{
          void parse(std::vector<std::string> const& lines){
@@ -212,42 +218,46 @@ struct pokerstars_parser{
 
                  xpr::sregex rgx, tmp;
 
-                 #if 0
-                 rgx  = make_button_decl(ctx);
-                 rgx |= make_header(ctx);
-                 //rgx |= make_seat_decl(ctx);
-                 #endif
-                 #if 0
-                 rgx  =
-                        make_button_decl(ctx) |
-                        make_header(ctx)      |
-                        make_seat_decl(ctx)   |
-                        make_post(ctx)        |
-                        make_decl_section(ctx)|
-                        make_decl_deal(ctx)   |
-                        make_fold(ctx)        |
-                        make_call(ctx)      
-
-                ;
-                #endif
-                auto header{ps::parser::make("header", ctx)};
-                auto button_decl{ps::parser::make("button_decl",ctx)};
-                auto call{ps::parser::make("call", ctx)};
-                auto fold{ps::parser::make("fold", ctx)};
-                auto decl_deal{ps::parser::make("decl_deal", ctx)};
-                auto decl_section{ps::parser::make("decl_section", ctx)};
-                auto post{ps::parser::make("post", ctx)};
-                auto seat_decl{ps::parser::make("seat_decl", ctx)};
-                rgx =
-                        *header      |
-                        *button_decl |
-                        *call        |
-                        *fold        |
-                        *decl_deal   |
-                        *decl_section|
-                        *post        |
-                        *seat_decl  
-                ;
+                 auto header{ps::parser::make("header", ctx)};
+                 auto button_decl{ps::parser::make("button_decl",ctx)};
+                 auto call{ps::parser::make("call", ctx)};
+                 auto fold{ps::parser::make("fold", ctx)};
+                 auto bet{ps::parser::make("bet", ctx)};
+                 auto decl_deal{ps::parser::make("decl_deal", ctx)};
+                 auto decl_section{ps::parser::make("decl_section", ctx)};
+                 auto post{ps::parser::make("post", ctx)};
+                 auto seat_decl{ps::parser::make("seat_decl", ctx)};
+                 auto raise{ps::parser::make("raise", ctx)};
+                 auto mucks{ps::parser::make("mucks", ctx)};
+                 auto uncalled_bet_returned{ps::parser::make("uncalled_bet_returned", ctx)};
+                 auto check{ps::parser::make("check", ctx)};
+                 auto collected_from_pot{ps::parser::make("collected_from_pot", ctx)};
+                 auto doesnt_show_hand{ps::parser::make("doesnt_show_hand", ctx)};
+                 auto decl_total_pot{ps::parser::make("decl_total_pot", ctx)};
+                 auto decl_flop{ps::parser::make("decl_flop", ctx)};
+                 auto shows{ps::parser::make("shows", ctx)};
+                 auto decl_seat_summary{ps::parser::make("decl_seat_summary", ctx)};
+                 rgx =
+                        *header                 |
+                        *button_decl            |
+                        *call                   |
+                        *fold                   |
+                        *mucks                  |
+                        *bet                    |
+                        *decl_deal              |
+                        *decl_section           |
+                        *post                   |
+                        *seat_decl              |
+                        *raise                  |
+                        *check                  |
+                        *uncalled_bet_returned  |
+                        *doesnt_show_hand       |
+                        *decl_total_pot         |
+                        *decl_flop              |
+                        *shows                  |
+                        *decl_seat_summary      |
+                        *collected_from_pot
+                 ;
 
 
 

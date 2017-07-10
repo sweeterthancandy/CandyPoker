@@ -406,7 +406,7 @@ auto make_decl_seat_summary(parser_context& ctx){
                  >> "Seat " >> (s1=_d) >> ": " >> (s2=+_) >> " " 
                  #if 1
                  >> optional( ( as_xpr("(big blind)")   |
-                                       "(small blind)") ) >> " "
+                                       "(small blind)" ) >> " " )
                  >> optional( as_xpr("(button) ") >> " " )
                  #endif
                  >> ( ( as_xpr("collected (")  >> +_d >> ")"  ) |
@@ -472,6 +472,109 @@ auto make_mucks(parser_context& ctx){
 
 SUBPARSER_FACTORY_REGISTER(mucks, make_mucks)
 
+auto make_decl_finish_tournament(parser_context& ctx){
+        struct impl
+        {
+                // Result type, needed for tr1::result_of
+                typedef void result_type;
+
+                void operator()(parser_context const& ctx,
+                                std::string const& line,
+                                std::string const& who,
+                                std::string const& place
+                                ) const
+                {
+                        //PRINT_SEQ((line)(name)(from)(to));
+                }
+        };
+
+        static xpr::function<impl>::type const f = {{}};
+                // Seat 1: bileo27 (25595 in chips)
+        return std::make_shared<sregex>(
+                (xpr::bos >> (s1=+_) >> " finished the tournament in " >> (s2=+~_s) >> " place")
+                [ f(std::ref(ctx), _, s1, s2) ]
+        );
+}
+
+SUBPARSER_FACTORY_REGISTER(decl_finish_tournament, make_decl_finish_tournament)
+
+auto make_decl_win_tournament(parser_context& ctx){
+        struct impl
+        {
+                // Result type, needed for tr1::result_of
+                typedef void result_type;
+
+                void operator()(parser_context const& ctx,
+                                std::string const& line,
+                                std::string const& who,
+                                std::string const& prize
+                                ) const
+                {
+                        //PRINT_SEQ((line)(name)(from)(to));
+                }
+        };
+
+        static xpr::function<impl>::type const f = {{}};
+                // Seat 1: bileo27 (25595 in chips)
+        return std::make_shared<sregex>(
+                (xpr::bos >> (s1=+_) >> " wins the tournament and receives " >> (s2=+~_s) >> " - congratulations!")
+                [ f(std::ref(ctx), _, s1, s2) ]
+        );
+}
+
+SUBPARSER_FACTORY_REGISTER(decl_win_tournament, make_decl_win_tournament)
+
+auto make_decl_connection(parser_context& ctx){
+        struct impl
+        {
+                // Result type, needed for tr1::result_of
+                typedef void result_type;
+
+                void operator()(parser_context const& ctx,
+                                std::string const& line,
+                                std::string const& who,
+                                std::string const& what
+                                ) const
+                {
+                        //PRINT_SEQ((line)(name)(from)(to));
+                }
+        };
+
+        static xpr::function<impl>::type const f = {{}};
+                // Seat 1: bileo27 (25595 in chips)
+        return std::make_shared<sregex>(
+                (xpr::bos >> (s1=+_) >> " is " >> (s2=( as_xpr("connected") |
+                                                               "disconnected") ) )
+                [ f(std::ref(ctx), _, s1, s2) ]
+        );
+}
+
+SUBPARSER_FACTORY_REGISTER(decl_connection, make_decl_connection)
+
+auto make_decl_returned(parser_context& ctx){
+        struct impl
+        {
+                // Result type, needed for tr1::result_of
+                typedef void result_type;
+
+                void operator()(parser_context const& ctx,
+                                std::string const& line,
+                                std::string const& who
+                                ) const
+                {
+                        //PRINT_SEQ((line)(name)(from)(to));
+                }
+        };
+
+        static xpr::function<impl>::type const f = {{}};
+                // Seat 1: bileo27 (25595 in chips)
+        return std::make_shared<sregex>(
+                (xpr::bos >> (s1=+_) >> " has returned")
+                [ f(std::ref(ctx), _, s1) ]
+        );
+}
+
+SUBPARSER_FACTORY_REGISTER(decl_returned, make_decl_returned)
 } // anon
 } // paser
 } // ps

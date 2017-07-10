@@ -51,7 +51,7 @@ auto make_button_decl(parser_context& ctx){
 
 SUBPARSER_FACTORY_REGISTER(button_decl, make_button_decl)
 
-xpr::sregex& make_seat_decl(parser_context& ctx){
+auto make_seat_decl(parser_context& ctx){
         struct on_seat_decl_impl
         {
                 // Result type, needed for tr1::result_of
@@ -70,14 +70,15 @@ xpr::sregex& make_seat_decl(parser_context& ctx){
 
         static xpr::function<on_seat_decl_impl>::type const on_seat_decl = {{}};
                 // Seat 1: bileo27 (25595 in chips)
-        static sregex r{
+        return std::make_shared<sregex>(
                 (xpr::bos >> "Seat " >> (s1=+_d) >> ": " >> (s2=+_) >> "(" >> (s3=+_d) >> " in chips)" >> *_s >> xpr::eos)
                 [ on_seat_decl(std::ref(ctx), _, as<int>(s1), s2, s3) ]
-        };
-        return r;
+        );
 }
 
-xpr::sregex& make_post(parser_context& ctx){
+SUBPARSER_FACTORY_REGISTER(seat_decl, make_seat_decl)
+
+auto make_post(parser_context& ctx){
         struct impl
         {
                 // Result type, needed for tr1::result_of
@@ -95,14 +96,15 @@ xpr::sregex& make_post(parser_context& ctx){
 
         static xpr::function<impl>::type const f = {{}};
                 // Seat 1: bileo27 (25595 in chips)
-        static sregex r{
+        return std::make_shared<sregex>(
                 (xpr::bos >> (s1=+_) >> ": posts " >> (s3=xpr::sregex::compile("(the ante|small blind|big blind)")) >> *_s >> (s2=+~_s))
                 [ f(std::ref(ctx), _, s1, s2, s3) ]
-        };
-        return r;
+        );
 }
 
-xpr::sregex& make_decl_section(parser_context& ctx){
+SUBPARSER_FACTORY_REGISTER(post, make_post)
+
+auto make_decl_section(parser_context& ctx){
         struct impl
         {
                 // Result type, needed for tr1::result_of
@@ -118,14 +120,15 @@ xpr::sregex& make_decl_section(parser_context& ctx){
 
         static xpr::function<impl>::type const f = {{}};
                 // Seat 1: bileo27 (25595 in chips)
-        static sregex r{
+        return std::make_shared<sregex>(
                 (xpr::bos >> "*** " >> (s1=+_) >> " ***")
                 [ f(std::ref(ctx), _, s1) ]
-        };
-        return r;
+        );
 }
 
-xpr::sregex& make_decl_deal(parser_context& ctx){
+SUBPARSER_FACTORY_REGISTER(decl_section, make_decl_section)
+
+auto make_decl_deal(parser_context& ctx){
         struct impl
         {
                 // Result type, needed for tr1::result_of
@@ -142,13 +145,16 @@ xpr::sregex& make_decl_deal(parser_context& ctx){
 
         static xpr::function<impl>::type const f = {{}};
                 // Seat 1: bileo27 (25595 in chips)
-        static sregex r{
+                
+        return std::make_shared<sregex>(
                 (xpr::bos >> "Dealt to " >> (s1=+_) >> *_s >> "[" >> (s2=+_) >> "]" >> *_s >> xpr::eos)
                 [ f(std::ref(ctx), _, s1, s2) ]
-        };
-        return r;
+        );
 }
-xpr::sregex& make_fold(parser_context& ctx){
+
+SUBPARSER_FACTORY_REGISTER(decl_deal, make_decl_deal)
+
+auto make_fold(parser_context& ctx){
         struct impl
         {
                 // Result type, needed for tr1::result_of
@@ -164,14 +170,15 @@ xpr::sregex& make_fold(parser_context& ctx){
         };
 
         static xpr::function<impl>::type const f = {{}};
-                // Seat 1: bileo27 (25595 in chips)
-        static sregex r{
+        return std::make_shared<sregex>(
                 (xpr::bos >> (s1=+_) >> ": folds" >> xpr::eos )
                 [ f(std::ref(ctx), _, s1) ]
-        };
-        return r;
+        );
 }
-xpr::sregex& make_call(parser_context& ctx){
+
+SUBPARSER_FACTORY_REGISTER(fold, make_fold)
+
+auto make_call(parser_context& ctx){
         struct impl
         {
                 // Result type, needed for tr1::result_of
@@ -189,12 +196,13 @@ xpr::sregex& make_call(parser_context& ctx){
 
         static xpr::function<impl>::type const f = {{}};
                 // Seat 1: bileo27 (25595 in chips)
-        static sregex r{
+        return std::make_shared<sregex>(
                 (xpr::bos >> (s1=+_) >> ": calls " >> (s2=+~_s) >> optional(" and is all-in"))
                 [ f(std::ref(ctx), _, s1, s2) ]
-        };
-        return r;
+        );
 }
+
+SUBPARSER_FACTORY_REGISTER(call, make_call)
 
 } // paser
 } // ps

@@ -232,9 +232,21 @@ struct pokerstars_parser{
                 #endif
                 auto header{ps::parser::make("header", ctx)};
                 auto button_decl{ps::parser::make("button_decl",ctx)};
+                auto call{ps::parser::make("call", ctx)};
+                auto fold{ps::parser::make("fold", ctx)};
+                auto decl_deal{ps::parser::make("decl_deal", ctx)};
+                auto decl_section{ps::parser::make("decl_section", ctx)};
+                auto post{ps::parser::make("post", ctx)};
+                auto seat_decl{ps::parser::make("seat_decl", ctx)};
                 rgx =
-                        *header |
-                        *button_decl
+                        *header      |
+                        *button_decl |
+                        *call        |
+                        *fold        |
+                        *decl_deal   |
+                        *decl_section|
+                        *post        |
+                        *seat_decl  
                 ;
 
 

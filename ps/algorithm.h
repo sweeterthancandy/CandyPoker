@@ -35,6 +35,33 @@ std::array<int, N> injective_player_perm( support::array_view<ps::holdem_id> con
         return std::move(perm);
 }
 
+inline
+std::array<int, 4> injective_suit_perm( support::array_view<ps::holdem_id> const& players ){
+
+        std::array< int, 4> rev_suit_map{-1,-1,-1,-1};
+        int suit_iter = 0; // using the fact we know suits \in {0,1,2,3}
+        for(size_t i=0;i!=players.size();++i){
+                auto h{ holdem_hand_decl::get( players[i] ) };
+
+                // TODO pocket pair
+                if(     rev_suit_map[h.first().suit()] == -1 )
+                        rev_suit_map[h.first().suit()] = suit_iter++;
+                if(     rev_suit_map[h.second().suit()] == -1 )
+                        rev_suit_map[h.second().suit()] = suit_iter++;
+        }
+
+        #if 1
+        // TODO remove this, unneeded
+        for(size_t i=0;i != 4;++i){
+                if(     rev_suit_map[i] == -1 )
+                        rev_suit_map[i] = suit_iter++;
+        }
+        #endif
+        //for(; suit_iter != 4; rev_suit_map[i] = suit_iter++);
+
+        return rev_suit_map;
+}
+
 template<size_t N>
 std::tuple<
         std::array<int, N>,
@@ -42,7 +69,13 @@ std::tuple<
 > permutate_for_the_better( support::array_view<ps::holdem_id> const& players ){
         
         std::array<int, N> perm{ injective_player_perm<N>( players) };
+        std::array<ps::holdem_id, N> pplayers;
+        for(int i=0;i!=N;++i)
+                pplayers[i] = players[perm[i]];
 
+
+        std::array<int, 4> suit_perm{ injective_suit_perm( pplayers) };
+        #if 0
         std::array< int, 4> rev_suit_map{-1,-1,-1,-1};
         int suit_iter = 0; // using the fact we know suits \in {0,1,2,3}
         for(size_t i=0;i!=players.size();++i){
@@ -66,6 +99,7 @@ std::tuple<
         for(size_t i=0;i != 4;++i){
                 suit_perms.emplace_back(rev_suit_map[i]);
         }
+        #endif
         
         std::array<ps::holdem_id, N> perm_hands;
         for(size_t i=0;i != players.size();++i){
@@ -73,9 +107,9 @@ std::tuple<
                 perm_hands[i] = 
                         holdem_hand_decl::make_id(
                                 h.first().rank(),
-                                suit_perms[h.first().suit()],
+                                suit_perm[h.first().suit()],
                                 h.second().rank(),
-                                suit_perms[h.second().suit()]);
+                                suit_perm[h.second().suit()]);
         }
         return std::make_tuple( perm, perm_hands);
 }

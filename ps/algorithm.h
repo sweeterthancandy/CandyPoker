@@ -18,12 +18,12 @@ std::tuple<
         // first create vector of n, and token_n = hh_n
         //      (0,hh_0), (1,hh_1), ... (n,hh_n),
         // where first h is greater handk the second h
-        std::array< std::tuple< size_t, std::string>, N> player_perm;
+        std::array< std::tuple< size_t, size_t>, N> player_perm;
         for(size_t i=0;i!=players.size();++i){
                 auto h{ holdem_hand_decl::get( players[i] ) };
                 player_perm[i] = std::make_tuple(i, 
-                                                 h.first().rank().to_string() +
-                                                 h.second().rank().to_string() );
+                                                 h.first().rank().id() * 17 + 
+                                                 h.second().rank().id());
         }
         // sort it by the token
         boost::sort(player_perm, [](auto const& left, auto const& right){

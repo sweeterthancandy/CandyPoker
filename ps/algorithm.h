@@ -9,12 +9,9 @@
 #include "ps/support/array_view.h"
 
 namespace ps{
-
+        
 template<size_t N>
-std::tuple<
-        std::array<int, N>,
-        std::array<ps::holdem_id, N>
-> permutate_for_the_better( support::array_view<ps::holdem_id> const& players ){
+std::array<int, N> injective_player_perm( support::array_view<ps::holdem_id> const& players ){
         // first create vector of n, and token_n = hh_n
         //      (0,hh_0), (1,hh_1), ... (n,hh_n),
         // where first h is greater handk the second h
@@ -35,6 +32,16 @@ std::tuple<
         for(size_t i=0;i!=players.size();++i){
                 perm[i] = std::get<0>(player_perm[i]);
         }
+        return std::move(perm);
+}
+
+template<size_t N>
+std::tuple<
+        std::array<int, N>,
+        std::array<ps::holdem_id, N>
+> permutate_for_the_better( support::array_view<ps::holdem_id> const& players ){
+        
+        std::array<int, N> perm{ injective_player_perm<N>( players) };
 
         std::array< int, 4> rev_suit_map{-1,-1,-1,-1};
         int suit_iter = 0; // using the fact we know suits \in {0,1,2,3}

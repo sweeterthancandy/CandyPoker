@@ -100,6 +100,7 @@ struct basic_calculator_N{
         // TODO remove duplication
         view_type calculate( support::array_view<ps::holdem_id> const& players){
                 assert( players.size() == N && "precondition failed");
+                #if 0
                 std::vector<ps::holdem_id> aux{ players.begin(), players.end() };
                 auto p{ permutate_for_the_better(aux) };
                 auto const& perm{std::get<0>(p)};
@@ -107,6 +108,10 @@ struct basic_calculator_N{
                 for(size_t i=0;i!=N;++i){
                         perm_players[i] = std::get<1>(p)[i];
                 }
+                #endif
+                auto p{ permutate_for_the_better<N>(players) };
+                auto const& perm{std::get<0>(p)};
+                auto const& perm_players{std::get<1>(p)};
 
                 auto iter = cache_.find(perm_players);
                 if( iter != cache_.end() ){
@@ -114,7 +119,7 @@ struct basic_calculator_N{
                                 N,
                                 iter->second.sigma(),
                                 support::array_view<size_t>{ iter->second.data(), N},
-                                std::move(perm)
+                                std::move(std::vector<int>{perm.begin(), perm.end()})
                         };
                 }
 

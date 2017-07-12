@@ -43,24 +43,28 @@ std::tuple<
         std::vector<int>,
         std::vector<ps::holdem_id>
 > permutate_for_the_better( std::vector<ps::holdem_id> const& players ){
+        // first create vector of n, and token_n = hh_n
+        //      (0,hh_0), (1,hh_1), ... (n,hh_n),
+        // where first h is greater handk the second h
         std::vector< std::tuple< size_t, std::string> > player_perm;
         for(size_t i=0;i!=players.size();++i){
                 auto h{ holdem_hand_decl::get( players[i] ) };
                 player_perm.emplace_back(i, h.first().rank().to_string() +
                                             h.second().rank().to_string() );
         }
+        // sort it by the token
         boost::sort(player_perm, [](auto const& left, auto const& right){
                 return std::get<1>(left) < std::get<1>(right);
         });
-        std::vector<int> perm;
-        std::array< int, 4> suits{0,1,2,3};
-        std::array< int, 4> rev_suit_map{-1,-1,-1,-1};
-        int suit_iter = 0;
 
-        std::stringstream from, to;
+        // new work out the perm used to create it
+        std::vector<int> perm;
         for(size_t i=0;i!=players.size();++i){
                 perm.emplace_back( std::get<0>(player_perm[i]) );
         }
+
+        std::array< int, 4> rev_suit_map{-1,-1,-1,-1};
+        int suit_iter = 0; // using the fact we know suits \in {0,1,2,3}
         for(size_t i=0;i!=players.size();++i){
                 auto h{ holdem_hand_decl::get( players[perm[i]] ) };
 
@@ -70,10 +74,14 @@ std::tuple<
                 if(     rev_suit_map[h.second().suit()] == -1 )
                         rev_suit_map[h.second().suit()] = suit_iter++;
         }
+
+        // TODO remove this, unneeded
         for(size_t i=0;i != 4;++i){
                 if(     rev_suit_map[i] == -1 )
                         rev_suit_map[i] = suit_iter++;
         }
+
+        // crate map
         std::vector< int> suit_perms;
         for(size_t i=0;i != 4;++i){
                 suit_perms.emplace_back(rev_suit_map[i]);

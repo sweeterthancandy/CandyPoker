@@ -8,6 +8,7 @@
 
 #include <boost/timer/timer.hpp>
 #include <boost/lexical_cast.hpp>
+#include <boost/format.hpp>
 
 using namespace ps;
 
@@ -43,7 +44,7 @@ namespace ps{
                                 lines.emplace_back();
 
                                 lines.back().emplace_back( boost::lexical_cast<std::string>(players[i]) );
-                                lines.back().emplace_back( boost::lexical_cast<std::string>(pv.equity()) );
+                                lines.back().emplace_back( str(boost::format("%.4f%%") % (pv.equity() * 100)));
                                 for(size_t i=0; i != players.size(); ++i ){
                                         lines.back().emplace_back( boost::lexical_cast<std::string>(pv.nwin(i)));
                                 }

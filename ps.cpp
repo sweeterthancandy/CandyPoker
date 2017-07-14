@@ -12,6 +12,8 @@
 #include "ps/cards.h"
 #include "ps/algorithm.h"
 #include "ps/equity_calc_detail.h"
+#include "ps/hand_vector.h"
+#include "ps/support/push_pull.h"
 
 #include <type_traits>
 #include <functional>
@@ -29,82 +31,170 @@
 
 using namespace ps;
 
-bool card_vector_disjoint(std::vector<ps::holdem_id> const& cards){
-        std::set<card_id> s;
-        for( auto id : cards ){
-                s.insert( holdem_hand_decl::get(id).first() );
-                s.insert( holdem_hand_decl::get(id).second() );
-        }
-        return s.size() == cards.size()*2;
-}
+struct calculation{
+        using result_type = dyn_result_type;
+        using view_type = detailed_view_type;
+        using observer_type = dyn_observer_type;
 
-struct primitive_calculation;
+        virtual ~calculation()=default;
+        virtual view_type eval()=0;
+};
+
+
+struct permuation_view : calculation{
+        using perm_type = std::vector<int>;
+        permuation_view(perm_type perm, 
+                        std::shared_future<result_type> fut)
+                :perm_(std::move(perm))
+                ,fut_(std::move(fut))
+        {}
+        view_type eval()override{
+                auto const& result{ fut_.get() };
+                auto ret{ view_type{
+                        result.n(), 
+                        result.sigma(), 
+                        support::array_view<size_t>{ result.data(), result.n() * result.n()},
+                        perm_ } };
+                return ret;
+        }
+private:
+        perm_type perm_;
+        std::shared_future<result_type> fut_;
+};
+
+struct aggregate_calculation : calculation, std::vector<std::shared_ptr<calculation>>{
+        view_type eval()override{
+                for( auto ptr : *this){
+                        agg.append(ptr->eval());
+                }
+                return agg.make_view();
+        }
+private:
+        aggregator agg;
+};
+
 
 struct calculation_context{
+        using result_type = dyn_result_type;
+        using view_type = detailed_view_type;
+        using observer_type = dyn_observer_type;
+
+        std::vector<
+                std::packaged_task<result_type(equity_calc_detail*)>
+        > work;
+
         std::map<
-                std::vector<ps::holdem_class_id>,
-                primitive_calculation*
+                holdem_hand_vector,
+                std::shared_future<result_type>
         > primitives;
-};
 
-struct calculation{
-        virtual ~calculation()=default;
-        
-};
-
-struct primitive_calculation : calculation{
-};
-struct permuation_view : calculation{
-};
-struct aggregate_calculation : calculation{
-};
-
-#if 0
-struct calculation_compiler{
-        std::unique_ptr<calculation>
-        compile_class_evaluation(calculation_context& ctx,
-                                 std::array_view<ps::holdem_class_id> const& players)
-        {
-                std::vector<calculation*> 
+        auto get_primitive_handle( holdem_hand_vector const& players ){
+                auto iter = primitives.find( players );
+                if( iter != primitives.end())
+                        return iter->second;
+                work.emplace_back( [p=players](equity_calc_detail* ec){
+                        calculation::observer_type observer( p.size() );
+                        ec->visit_boards(observer, p);
+                        auto ret{ observer.make() };
+                        return std::move(ret);
+                });
+                primitives.emplace( players, work.back().get_future() );
+                return this->get_primitive_handle(players);
         }
-};
-#endif
-
-// expands all the combinations
-template<class V>
-auto make_holdem_class_visit_hand_combinations(V v,
-                                          support::array_view<ps::holdem_class_id> const& players){
-        std::vector< std::vector< holdem_id> > stack;
-        stack.emplace_back();
-
-        for(size_t i=0; i!= players.size(); ++i){
-                decltype(stack) next_stack;
-                auto const& hand_set{ holdem_class_decl::get( players[i] ).get_hand_set() };
-                for( size_t j=0;j!=hand_set.size(); ++j){
-                        for(size_t k=0;k!=stack.size();++k){
-                                next_stack.push_back( stack[k] );
-                                next_stack.back().push_back( hand_set[j].id() );
-                                if( ! card_vector_disjoint( next_stack.back() ) )
-                                        next_stack.pop_back();
-                        }
+        void eval( equity_calc_detail* ec){
+                #if 0
+                for( auto& item : work){
+                        item(ec);
+                        PRINT("Done");
                 }
-                stack = std::move(next_stack);
+                #endif
+                #if 1
+                support::push_pull<
+                        std::function<void()>
+                > pp(-1);
+                PRINT( work.size() );
+                pp.begin_worker();
+                std::vector<std::thread> tg;
+                for(size_t i=0;i!=std::thread::hardware_concurrency();++i){
+                        tg.emplace_back( [&](){
+                                for(;;){
+                                        auto w{ pp.pull() };
+                                        if( ! w )
+                                                break;
+                                        w.get()();
+                                }
+                        });
+                }
+                for( auto& item : work ){
+                        pp.push( [i=&item,ec]()mutable{ (*i)(ec); });
+                }
+                pp.end_worker();
+                for(auto& t : tg ){
+                        t.join();
+                }
+                #endif
+                #if 0
+                std::vector<std::future<void> > ss;
+                for( auto & item : work ){
+                        ss.emplace_back(
+                                std::async(
+                                        std::launch::async,
+                                        [i=&item,ec]()mutable{ (*i)(ec); }
+                                )
+                        );
+                }
+                for( auto& _ : ss )
+                        _.get();
+                #endif
         }
-        return std::move(stack);
-}
+};
 
-#include "ps/hand_vector.h"
+struct calculation_builder{
+        static auto make( calculation_context& ctx, holdem_class_vector const& players ){
+                auto agg = std::make_unique<aggregate_calculation>();
+                for( auto hs : players.get_hand_vectors()){
+                        auto t{ hs.find_injective_permutation() };
+                        auto prim{ ctx.get_primitive_handle( std::get<1>(t) ) };
+                        auto const& perm{ std::get<0>(t) };
+                        std::vector<int> rperm;
+                        for(int i=0;i!= perm.size();++i)
+                                rperm.push_back( perm[i] );
+                        auto view{ std::make_shared<permuation_view>(rperm, prim) };
+                        agg->push_back(view);
+                }
+                return agg;
+        }
+};
+
+
 
 int main(){
-        holdem_class_vector players{ holdem_class_decl::parse("A2o"),
-                holdem_class_decl::parse("88"),
-                holdem_class_decl::parse("QJs") };
+        holdem_class_vector players{ holdem_class_decl::parse("AKs"),
+                                     holdem_class_decl::parse("KQs"),
+                                     holdem_class_decl::parse("Q6s"),
+                                     holdem_class_decl::parse("87s")
+        };
 
         PRINT( players );
 
+
+        calculation_context ctx;
+        
+        auto root = calculation_builder::make(ctx, players );
+        equity_calc_detail ec;
+        boost::timer::auto_cpu_timer at;
+        ctx.eval(&ec);
+
+        PRINT( root->eval() );
+                                         
+        #if 0
         for( auto hs : players.get_hand_vectors()){
-                PRINT( hs );
+                auto t{ hs.find_injective_permutation() };
+                PRINT(std::get<1>(t));
+                builder.add( hs 
         }
+        #endif
+
 
         #if 0
         std::vector< std::vector< holdem_id> > stack;

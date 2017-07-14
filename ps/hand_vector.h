@@ -28,10 +28,43 @@ namespace ps{
                 holdem_hand_vector(Args&&... args)
                 : std::vector<ps::holdem_id>{std::forward<Args>(args)...}
                 {};
+                holdem_hand_decl const& decl_at(size_t i)const{
+                        return holdem_hand_decl::get( 
+                                this->operator[](i)
+                        );
+                }
                 friend std::ostream& operator<<(std::ostream& ostr, holdem_hand_vector const& self){
                         return ostr << detail::to_string(self, detail::hand_caster{} );
                 }
+                auto find_injective_permutation()const{
+                        auto tmp{ permutate_for_the_better(*this) };
+                        return std::make_tuple(
+                                std::get<0>(tmp),
+                                holdem_hand_vector(std::move(std::get<1>(tmp))));
+                }
+                bool disjoint()const{
+                        std::set<card_id> s;
+                        for( auto id : *this ){
+                                auto const& decl{holdem_hand_decl::get(id)};
+                                s.insert( decl.first() );
+                                s.insert( decl.second() );
+                        }
+                        return s.size() == this->size()*2;
+                }
         };
+
+        #if 0
+        struct holdem_hand_vector_permutation : holdem_hand_vector{
+                using perm_type = std::vector<int>;
+                template<class... Args>
+                holdem_hand_vector_permutation(perm_type perm, Args&&... args)
+                        : holdem_hand_vector{ std::forwards<Args>(args)... }
+                        , perms_(std::move(perm))
+                {}
+        private:
+                std::vector<int> perm_;
+        };
+        #endif
 
 
         struct holdem_class_vector : std::vector<ps::holdem_class_id>{
@@ -59,7 +92,7 @@ namespace ps{
                                         for(size_t k=0;k!=stack.size();++k){
                                                 next_stack.push_back( stack[k] );
                                                 next_stack.back().push_back( hand_set[j].id() );
-                                                if( ! card_vector_disjoint( next_stack.back() ) )
+                                                if( ! next_stack.back().disjoint() )
                                                         next_stack.pop_back();
                                         }
                                 }

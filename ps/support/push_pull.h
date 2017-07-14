@@ -52,7 +52,7 @@ struct push_pull{
                 push_pull* This_;
         };
 
-        push_pull():workers_working_{0}{}
+        push_pull(size_t max_work = 0):max_work_{max_work},workers_working_{0}{}
 
         handle make_work_handle(){ return handle{this}; }
         /*
@@ -61,18 +61,17 @@ struct push_pull{
         void begin_worker(){
                 std::unique_lock<std::mutex> lock(this->mtx_);
                 ++workers_working_;
-                PRINT(workers_working_);
                 this->pull_cond_.notify_all();
         }
         void end_worker(){
                 std::unique_lock<std::mutex> lock(this->mtx_);
                 --workers_working_;
-                PRINT(workers_working_);
                 this->pull_cond_.notify_all();
         }
         void push(work_type const& work){
                 std::unique_lock<std::mutex> lock(this->mtx_);
-                if( this->work_.size() != 0 ){
+                if( this->work_.size() > max_work_ ){
+                        std::cerr << "waiting\n";
                         this->push_cond_.wait(lock);
                 }
                 this->work_.push_back(work);
@@ -109,6 +108,7 @@ struct push_pull{
                 return std::move(work);
         }
 private:
+        size_t max_work_;
 
         std::atomic_int         workers_working_;
 

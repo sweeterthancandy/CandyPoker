@@ -50,14 +50,13 @@ std::array<int, 4> injective_suit_perm( support::array_view<ps::holdem_id> const
                         rev_suit_map[h.second().suit()] = suit_iter++;
         }
 
-        #if 1
+        #if 0
         // TODO remove this, unneeded
         for(size_t i=0;i != 4;++i){
                 if(     rev_suit_map[i] == -1 )
                         rev_suit_map[i] = suit_iter++;
         }
         #endif
-        //for(; suit_iter != 4; rev_suit_map[i] = suit_iter++);
 
         return rev_suit_map;
 }
@@ -75,31 +74,6 @@ std::tuple<
 
 
         std::array<int, 4> suit_perm{ injective_suit_perm( pplayers) };
-        #if 0
-        std::array< int, 4> rev_suit_map{-1,-1,-1,-1};
-        int suit_iter = 0; // using the fact we know suits \in {0,1,2,3}
-        for(size_t i=0;i!=players.size();++i){
-                auto h{ holdem_hand_decl::get( players[perm[i]] ) };
-
-                // TODO pocket pair
-                if(     rev_suit_map[h.first().suit()] == -1 )
-                        rev_suit_map[h.first().suit()] = suit_iter++;
-                if(     rev_suit_map[h.second().suit()] == -1 )
-                        rev_suit_map[h.second().suit()] = suit_iter++;
-        }
-
-        // TODO remove this, unneeded
-        for(size_t i=0;i != 4;++i){
-                if(     rev_suit_map[i] == -1 )
-                        rev_suit_map[i] = suit_iter++;
-        }
-
-        // crate map
-        std::vector< int> suit_perms;
-        for(size_t i=0;i != 4;++i){
-                suit_perms.emplace_back(rev_suit_map[i]);
-        }
-        #endif
         
         std::array<ps::holdem_id, N> perm_hands;
         for(size_t i=0;i != players.size();++i){

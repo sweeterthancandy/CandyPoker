@@ -100,15 +100,6 @@ struct basic_calculator_N{
         // TODO remove duplication
         view_type calculate( support::array_view<ps::holdem_id> const& players){
                 assert( players.size() == N && "precondition failed");
-                #if 0
-                std::vector<ps::holdem_id> aux{ players.begin(), players.end() };
-                auto p{ permutate_for_the_better(aux) };
-                auto const& perm{std::get<0>(p)};
-                std::array<ps::holdem_id, N> perm_players;
-                for(size_t i=0;i!=N;++i){
-                        perm_players[i] = std::get<1>(p)[i];
-                }
-                #endif
                 auto p{ permutate_for_the_better<N>(players) };
                 auto const& perm{std::get<0>(p)};
                 auto const& perm_players{std::get<1>(p)};
@@ -189,12 +180,6 @@ private:
                                                                 holdem_hand_decl::get( hand_sets[Ints]->operator[](args).id())...
                                                                  })
                                            };
-                                #if 0
-                                int dum[]= {0, ( std::cout << Ints << ":" << args << ":" <<
-                                                 hand_sets[Ints]->operator[](args) << " vs " , 0)...};
-                                std::cout << "\n";
-                                PRINT(result);
-                                #endif
 
                                 observer.append(result);
                         }
@@ -215,14 +200,10 @@ public:
                         proto[i] = players[i];
                 auto iter{ cache_.find( proto) };
                 if( iter != cache_.end() ){
-                        std::vector<int> perm;
-                        for(size_t i=0;i!=N;++i)
-                                perm.emplace_back(i);
                         return view_type{
                                 N,
                                 iter->second.sigma(),
-                                support::array_view<size_t>{ iter->second.data(), N},
-                                std::move(perm)
+                                support::array_view<size_t>{ iter->second.data(), N}
                         };
                 }
                 std::array<size_t, N> size_vec;

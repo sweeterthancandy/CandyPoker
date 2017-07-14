@@ -149,8 +149,7 @@ struct detail_eval: detail_eval_impl{
                         (*this)(a,b,c,d,  f),
                         (*this)(a,b,c,d,e  )
                 };
-                boost::sort(aux);
-                return aux.front();
+                return * std::min_element(aux.begin(), aux.end() );
         }
         std::uint32_t operator()(long a, long b, long c, long d, long e, long f)const{
                 //return eval_brute(a,b,c,d,e,f);
@@ -192,8 +191,7 @@ struct detail_eval: detail_eval_impl{
                         (*this)(a,b,c,d,e,  g),
                         (*this)(a,b,c,d,e,f  )
                 };
-                boost::sort(aux);
-                return aux.front();
+                return * std::min_element(aux.begin(), aux.end() );
         }
         std::uint32_t operator()(long a, long b, long c, long d, long e, long f, long g)const{
                 //return eval_brute(a,b,c,d,e,f,g);
@@ -226,7 +224,7 @@ struct detail_eval: detail_eval_impl{
                         cache_6_[ map_rank(r[0], r[1], r[2], r[3], r[4]      , r[6]) ],
                         cache_6_[ map_rank(r[0], r[1], r[2], r[3], r[4], r[5]      ) ]
                 };
-                boost::sort(aux);
+                return * std::min_element(aux.begin(), aux.end() );
 #if 0
 
                 if( aux.front() != eval_brute(a,b,c,d,e,f,g)){
@@ -241,7 +239,6 @@ struct detail_eval: detail_eval_impl{
                         PRINT(ss.str());
                 }
 #endif
-                return aux.front();
         }
 private:
         std::vector<std::uint32_t> cache_6_;

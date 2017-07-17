@@ -32,9 +32,12 @@ namespace ps{
                         lines.back().emplace_back("wins");
                         //lines.back().emplace_back("draws");
                         #if 1
-                        for(size_t i=0; i != players.size() -1;++i)
-                                lines.back().emplace_back("draws");
+                        for(size_t i=0; i != players.size() -1;++i){
+                                lines.back().emplace_back("draw_"+ boost::lexical_cast<std::string>(i+1));
+                        }
+                        
                         #endif
+                        lines.back().emplace_back("draw equity");
                         lines.back().emplace_back("lose");
                         lines.back().emplace_back("sigma");
                         lines.emplace_back();
@@ -45,16 +48,19 @@ namespace ps{
 
                                 lines.back().emplace_back( boost::lexical_cast<std::string>(players[i]) );
                                 lines.back().emplace_back( str(boost::format("%.4f%%") % (pv.equity() * 100)));
+                                /*
+                                        draw_equity = \sum_i=1..n win_{i}/i
+                                */
+                                double draw_equity{0.0};
                                 for(size_t i=0; i != players.size(); ++i ){
                                         lines.back().emplace_back( boost::lexical_cast<std::string>(pv.nwin(i)));
+                                        if( i != 0 ){
+                                                draw_equity += pv.nwin(i) / ( i + 1 );
+                                        }
                                 }
-                                #if 0
-                                for(size_t i=0; i != players.size() -1; ++i ){
-                                        lines.back().emplace_back( boost::lexical_cast<std::string>(pv.nwin(i+1)));
-                                }
-                                #endif
-                                lines.back().emplace_back( boost::lexical_cast<std::string>(pv.lose()));
 
+                                lines.back().emplace_back( str(boost::format("%.2f%%") % ( draw_equity )));
+                                lines.back().emplace_back( boost::lexical_cast<std::string>(pv.lose()) );
                                 lines.back().emplace_back( boost::lexical_cast<std::string>(pv.sigma()) );
                         }
                         

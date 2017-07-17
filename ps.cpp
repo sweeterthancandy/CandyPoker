@@ -193,7 +193,7 @@ int main(){
         players.push_back( frontend::parse("KQo") );
         players.push_back( frontend::parse("Q6s-Q4s") );
         players.push_back( frontend::parse("ATo+") );
-        players.push_back( frontend::parse("TT-77") );
+        //players.push_back( frontend::parse("TT-77") );
 
         tree_range root{ players };
 

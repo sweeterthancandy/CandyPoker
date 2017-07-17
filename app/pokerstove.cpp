@@ -51,15 +51,14 @@ namespace ps{
                                 /*
                                         draw_equity = \sum_i=1..n win_{i}/i
                                 */
-                                double draw_equity{0.0};
                                 for(size_t i=0; i != players.size(); ++i ){
                                         lines.back().emplace_back( boost::lexical_cast<std::string>(pv.nwin(i)));
-                                        if( i != 0 ){
-                                                draw_equity += pv.nwin(i) / ( i + 1 );
-                                        }
                                 }
 
-                                lines.back().emplace_back( str(boost::format("%.2f%%") % ( draw_equity )));
+                                auto draw_sigma{
+                                        (pv.equity() - static_cast<double>(pv.win())/pv.sigma())*pv.sigma()
+                                };
+                                lines.back().emplace_back( str(boost::format("%.2f%%") % ( draw_sigma )));
                                 lines.back().emplace_back( boost::lexical_cast<std::string>(pv.lose()) );
                                 lines.back().emplace_back( boost::lexical_cast<std::string>(pv.sigma()) );
                         }

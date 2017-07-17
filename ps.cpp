@@ -97,6 +97,7 @@ struct calculation_context{
                 if( iter != primitives.end())
                         return iter->second;
                 work.emplace_back( [p=players](equity_calc_detail* ec){
+                        PRINT(p);
                         calculation::observer_type observer( p.size() );
                         ec->visit_boards(observer, p);
                         auto ret{ observer.make() };
@@ -170,16 +171,6 @@ struct calculation_builder{
                 auto agg = std::make_unique<aggregate_calculation>();
                 for( auto hs : players.get_hand_vectors()){
                         agg->push_back( make( ctx, hs ) );
-                        #if 0
-                        auto t{ hs.find_injective_permutation() };
-                        auto prim{ ctx.get_primitive_handle( std::get<1>(t) ) };
-                        auto const& perm{ std::get<0>(t) };
-                        std::vector<int> rperm;
-                        for(int i=0;i!= perm.size();++i)
-                                rperm.push_back( perm[i] );
-                        auto view{ std::make_shared<permuation_view>(rperm, prim) };
-                        agg->push_back(view);
-                        #endif
                 }
                 return std::shared_ptr<calculation>(agg.release());
         }
@@ -189,10 +180,25 @@ struct calculation_builder{
 
 int main(){
         std::vector<frontend::range> players;
+        players.push_back( frontend::parse("AKs") );
+        players.push_back( frontend::parse("KQs") );
+        players.push_back( frontend::parse("QJs") );
+        players.push_back( frontend::parse("JTs") );
+        players.push_back( frontend::parse("T9s") );
+
+        players.push_back( frontend::parse("98s") );
+        players.push_back( frontend::parse("87s") );
+        players.push_back( frontend::parse("76s") );
+        players.push_back( frontend::parse("65s") );
+        #if 0
+        players.push_back( frontend::parse("54s") );
+        #endif
+        #if 0
         players.push_back( frontend::parse("AKo") );
         players.push_back( frontend::parse("KQo") );
         players.push_back( frontend::parse("Q6s-Q4s") );
         players.push_back( frontend::parse("ATo+") );
+        #endif
         //players.push_back( frontend::parse("TT-77") );
 
         tree_range root{ players };

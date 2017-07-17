@@ -92,26 +92,10 @@ namespace ps{
                         std::array<id_type, Num_Players> x;
                         std::array<id_type, Num_Players> y;
 
-                        #if 0
-                        size_t sigma{0};
-                        /* create matrix of draws */
-                        std::array<
-                                std::array<size_t,9>,
-                                9
-                        > win_matrix;
-
-                        std::array<double,Num_Players> equity;
-                        #endif
-
                         for( size_t i{0}; i!= Num_Players;++i){
                                 auto const& p{ players[i]};
                                 x[i]      = holdem_hand_decl::get(players[i]).first().id();
                                 y[i]      = holdem_hand_decl::get(players[i]).second().id();
-                                #if 0
-                                for( size_t j=0;j!=win_matrix.size();++j)
-                                        win_matrix[i][j]  = 0;
-                                equity[i] = 0.0;
-                                #endif
                         }
 
                         boost::copy( x, std::back_inserter(known));

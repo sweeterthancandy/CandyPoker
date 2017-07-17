@@ -123,6 +123,7 @@ struct dyn_observer_type{
         explicit dyn_observer_type(size_t n):result(n){}
         template<class Int, class Vec>
         void operator()(Int a, Int b, Int c, Int d, Int e, Vec const& ranked){
+                #if 0
                 /*
                         Here I need a quick way to work out the lowest rank,
                         as well as how many are of that rank, and I need to
@@ -144,6 +145,22 @@ struct dyn_observer_type{
                         }
                 }
                 ++result.sigma();
+                #else
+                std::vector<std::pair<std::uint32_t, size_t> > aux;
+                aux.resize(ranked.size());
+                for(size_t i{0};i!=aux.size();++i){
+                        aux[i] = std::make_pair(ranked[i], i);
+                }
+                boost::sort( aux, [](auto const& l, auto const& r){ return l.first < r.first; });
+                auto winning_rank{ aux.front().first };
+                auto iter{ boost::find_if( aux, [&](auto const& _){ return _.first != winning_rank; } ) }; 
+                auto num_winners{ std::distance( aux.begin(), iter) };
+
+                for( auto j{ aux.begin() }; j!=iter;++j){
+                        ++result.data_access(j->second,num_winners - 1);
+                }
+                ++result.sigma();
+                #endif
         }  
         template<class View_Type>
         void append(View_Type const& view){

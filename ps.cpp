@@ -62,14 +62,18 @@ private:
         std::shared_future<result_type> fut_;
 };
 
-struct aggregate_calculation : calculation, std::vector<std::shared_ptr<calculation>>{
+struct aggregate_calculation : calculation {
         view_type eval()override{
-                for( auto ptr : *this){
+                for( auto ptr : vec_ ){
                         agg.append(ptr->eval());
                 }
                 return agg.make_view();
         }
+        void push_back(std::shared_ptr<calculation> ptr){
+                vec_.push_back(std::move(ptr));
+        }
 private:
+        std::vector<std::shared_ptr<calculation>> vec_;
         aggregator agg;
 };
 
@@ -115,6 +119,7 @@ struct calculation_context{
                 PRINT( work.size() );
                 pp.begin_worker();
                 std::vector<std::thread> tg;
+                std::atomic_int done{0};
                 for(size_t i=0;i!=std::thread::hardware_concurrency();++i){
                         tg.emplace_back( [&](){
                                 for(;;){
@@ -122,6 +127,7 @@ struct calculation_context{
                                         if( ! w )
                                                 break;
                                         w.get()();
+                                        PRINT(++done);
                                 }
                         });
                 }
@@ -150,9 +156,21 @@ struct calculation_context{
 };
 
 struct calculation_builder{
+        static auto make( calculation_context& ctx, holdem_hand_vector const& players ){
+                auto t{ players.find_injective_permutation() };
+                auto prim{ ctx.get_primitive_handle( std::get<1>(t) ) };
+                auto const& perm{ std::get<0>(t) };
+                std::vector<int> rperm;
+                for(int i=0;i!= perm.size();++i)
+                        rperm.push_back( perm[i] );
+                auto view{ std::make_shared<permuation_view>(rperm, prim) };
+                return view;
+        }
         static auto make( calculation_context& ctx, holdem_class_vector const& players ){
                 auto agg = std::make_unique<aggregate_calculation>();
                 for( auto hs : players.get_hand_vectors()){
+                        agg->push_back( make( ctx, hs ) );
+                        #if 0
                         auto t{ hs.find_injective_permutation() };
                         auto prim{ ctx.get_primitive_handle( std::get<1>(t) ) };
                         auto const& perm{ std::get<0>(t) };
@@ -161,20 +179,52 @@ struct calculation_builder{
                                 rperm.push_back( perm[i] );
                         auto view{ std::make_shared<permuation_view>(rperm, prim) };
                         agg->push_back(view);
+                        #endif
                 }
-                return agg;
+                return std::shared_ptr<calculation>(agg.release());
         }
 };
 
 
 
 int main(){
+        std::vector<frontend::range> players;
+        players.push_back( frontend::parse("AKo") );
+        players.push_back( frontend::parse("KQo") );
+        players.push_back( frontend::parse("Q6s-Q4s") );
+        players.push_back( frontend::parse("ATo+") );
+        players.push_back( frontend::parse("TT-77") );
+
+        tree_range root{ players };
+
+        auto agg = std::make_unique<aggregate_calculation>();
+        calculation_context ctx;
+        for( auto const& c : root.children ){
+
+                for( auto const& d : c.children ){
+                        //auto ret{ calc.calculate_hand_equity( d.players ) };
+                        //agg.append(ret);
+                        holdem_hand_vector aux{ d.players };
+                        std::shared_ptr<calculation> item = calculation_builder::make(ctx, aux );
+                        agg->push_back(item);
+
+                }
+
+        }
+        equity_calc_detail ec;
+        boost::timer::auto_cpu_timer at;
+        ctx.eval(&ec);
+        PRINT( agg->eval() );
+
+        #if 0
         holdem_class_vector players{ holdem_class_decl::parse("AKs"),
                                      holdem_class_decl::parse("KQs"),
                                      holdem_class_decl::parse("Q6s"),
                                      holdem_class_decl::parse("87s")
         };
+                                     #endif
 
+        #if 0
         PRINT( players );
 
 
@@ -186,6 +236,7 @@ int main(){
         ctx.eval(&ec);
 
         PRINT( root->eval() );
+        #endif
                                          
         #if 0
         for( auto hs : players.get_hand_vectors()){

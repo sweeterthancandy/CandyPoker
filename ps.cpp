@@ -101,7 +101,7 @@ struct calculation_context{
                         calculation::observer_type observer( p.size() );
                         ec->visit_boards(observer, p);
                         auto ret{ observer.make() };
-                        return std::move(ret);
+                        return ret;
                 });
                 primitives.emplace( players, work.back().get_future() );
                 return this->get_primitive_handle(players);
@@ -122,6 +122,7 @@ struct calculation_context{
                 std::vector<std::thread> tg;
                 std::atomic_int done{0};
                 for(size_t i=0;i!=std::thread::hardware_concurrency();++i){
+                //for(size_t i=0;i!=1;++i){
                         tg.emplace_back( [&](){
                                 for(;;){
                                         auto w{ pp.pull() };
@@ -221,6 +222,7 @@ int main(){
         boost::timer::auto_cpu_timer at;
         ctx.eval(&ec);
         PRINT( agg->eval() );
+
 
         #if 0
         holdem_class_vector players{ holdem_class_decl::parse("AKs"),

@@ -8,7 +8,7 @@
 #include "ps/detail/visit_combinations.h"
 #include "ps/detail/print.h"
 
-#include "ps/generate.h"
+#include "ps/base/generate.h"
 
 namespace ps{
 

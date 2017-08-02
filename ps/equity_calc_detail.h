@@ -1,7 +1,7 @@
 #ifndef PS_EQUITY_CALC_DETAIL_H
 #define PS_EQUITY_CALC_DETAIL_H
 
-#include "ps/cards.h"
+#include "ps/base/cards.h"
 #include "ps/eval.h"
 
 #include "ps/detail/visit_combinations.h"

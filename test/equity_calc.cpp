@@ -1,8 +1,9 @@
 #include <gtest/gtest.h>
 
-#include "ps/frontend.h"
+#include "ps/base/frontend.h"
+#include "ps/base/tree.h"
+
 #include "ps/heads_up.h"
-#include "ps/tree.h"
 #include "ps/calculator.h"
 
 using namespace ps;

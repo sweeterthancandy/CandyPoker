@@ -20,7 +20,7 @@
 #include "ps/detail/visit_combinations.h"
 
 
-#include "ps/cards.h"
+#include "ps/base/cards.h"
 
 /*
         The point of the frontend is just
@@ -686,6 +686,6 @@ namespace ps{
         } // frontend
 } // ps
 
-#include "ps/frontend_decl.h"
+#include "ps/base/frontend_decl.h"
 
 #endif // PS_HOLDEM_FRONTEND_H

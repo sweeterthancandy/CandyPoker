@@ -5,7 +5,7 @@
 #include <vector>
 #include <boost/range/algorithm.hpp>
 
-#include "ps/cards.h"
+#include "ps/base/cards.h"
 #include "ps/support/array_view.h"
 
 namespace ps{

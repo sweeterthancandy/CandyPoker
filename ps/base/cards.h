@@ -5,7 +5,7 @@
 #include <set>
 
 
-#include "ps/cards_fwd.h"
+#include "ps/base/cards_fwd.h"
 #include "ps/detail/void_t.h"
 #include "ps/detail/print.h"
 
@@ -222,6 +222,6 @@ namespace ps{
 
 }
 
-#include "ps/decl.h"
+#include "ps/base/decl.h"
 
 #endif // PS_CORE_CARDS_H

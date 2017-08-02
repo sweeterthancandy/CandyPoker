@@ -10,9 +10,9 @@
 #include <boost/serialization/map.hpp>
 #include <boost/serialization/vector.hpp>
 
-#include "ps/tree.h"
+#include "ps/base/tree.h"
+#include "ps/base/algorithm.h"
 #include "ps/equity_calc_detail.h"
-#include "ps/algorithm.h"
 
 namespace ps{
 namespace detail{

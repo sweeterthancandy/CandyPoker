@@ -14,9 +14,9 @@
 #include <boost/serialization/vector.hpp>
 #include <boost/serialization/array.hpp>
 
-#include "ps/cards_fwd.h"
+#include "ps/base/cards_fwd.h"
+#include "ps/base/algorithm.h"
 #include "ps/equity_calc_detail.h"
-#include "ps/algorithm.h"
 
 #include "ps/support/array_view.h"
 

@@ -3,7 +3,7 @@
 
 #include <vector>
 
-#include "ps/cards_fwd.h"
+#include "ps/base/cards_fwd.h"
 #include "ps/detail/print.h"
 
 namespace ps{

@@ -1,7 +1,7 @@
 
 #include <gtest/gtest.h>
-#include "ps/frontend.h"
-#include "ps/tree.h"
+#include "ps/base/frontend.h"
+#include "ps/base/tree.h"
 #include "ps/detail/print.h"
 
 using namespace ps;

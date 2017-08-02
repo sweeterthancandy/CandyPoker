@@ -1,7 +1,7 @@
 #ifndef PS_HEADS_UP_H
 #define PS_HEADS_UP_H
 
-#include "ps/cards.h"
+#include "ps/base/cards.h"
 
 #include <vector>
 #include <iostream>

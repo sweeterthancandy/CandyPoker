@@ -1,8 +1,8 @@
 #include <gtest/gtest.h>
 
-#include "ps/tree.h"
-#include "ps/frontend.h"
-#include "ps/frontend_decl.h"
+#include "ps/base/tree.h"
+#include "ps/base/frontend.h"
+#include "ps/base/frontend_decl.h"
 
 using namespace ps;
 using namespace ps::frontend;

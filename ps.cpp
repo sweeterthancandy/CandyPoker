@@ -8,12 +8,12 @@
 #include <boost/optional.hpp>
 #include <boost/variant.hpp>
 #include "ps/calculator.h"
-#include "ps/frontend.h"
-#include "ps/tree.h"
-#include "ps/cards.h"
-#include "ps/algorithm.h"
+#include "ps/base/frontend.h"
+#include "ps/base/tree.h"
+#include "ps/base/cards.h"
+#include "ps/base/algorithm.h"
 #include "ps/equity_calc_detail.h"
-#include "ps/hand_vector.h"
+#include "ps/base/hand_vector.h"
 #include "ps/support/push_pull.h"
 
 #include <type_traits>

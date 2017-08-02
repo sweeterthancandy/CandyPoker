@@ -1,7 +1,7 @@
 #ifndef PS_DECL_H
 #define PS_DECL_H
 
-#include "ps/cards.h"
+#include "ps/base/cards.h"
 
 namespace ps{
         namespace decl{

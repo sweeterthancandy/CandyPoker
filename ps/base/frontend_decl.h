@@ -1,7 +1,7 @@
 #ifndef PS_FRONTEND_DECL_H
 #define PS_FRONTEND_DECL_H
 
-#include "ps/frontend.h"
+#include "ps/base/frontend.h"
 
 namespace ps{
         namespace frontend{

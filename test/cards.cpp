@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "ps/cards.h"
+#include "ps/base/cards.h"
 
 using namespace ps;
 

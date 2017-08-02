@@ -1,5 +1,6 @@
 #include <boost/lexical_cast.hpp>
-#include "ps/tree.h"
+
+#include "ps/base/tree.h"
 
 #include "ps/detail/tree_printer.h"
 #include "ps/detail/visit_sequence.h"

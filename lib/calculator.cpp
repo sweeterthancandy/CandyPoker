@@ -1,8 +1,8 @@
 #include "ps/calculator.h"
 
-#include "ps/cards_fwd.h"
+#include "ps/base/cards_fwd.h"
 #include "ps/equity_calc_detail.h"
-#include "ps/algorithm.h"
+#include "ps/base/algorithm.h"
 #include "ps/calculator_detail.h"
 
 #include <future>

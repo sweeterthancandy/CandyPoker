@@ -10,6 +10,22 @@
 
 namespace ps{
         
+template<class... Args,
+         class = detail::void_t<
+                 std::enable_if_t<
+                        std::is_same<std::decay_t<Args>, holdem_hand_decl>::value>...
+        >
+>
+inline bool disjoint( Args&&... args){
+        std::array< holdem_hand_decl const*, sizeof...(args)> aux{ &args...};
+        std::set<card_id> s;
+        for( auto ptr : aux ){
+                s.insert( ptr->first() );
+                s.insert( ptr->second() );
+        }
+        return s.size() == aux.size()*2;
+}
+        
 template<size_t N>
 std::array<int, N> injective_player_perm( support::array_view<ps::holdem_id> const& players ){
         // first create vector of n, and token_n = hh_n

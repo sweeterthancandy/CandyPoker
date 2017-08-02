@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include "ps/base/cards.h"
+#include "ps/base/algorithm.h"
 
 using namespace ps;
 

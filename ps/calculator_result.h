@@ -32,8 +32,10 @@ struct basic_result_type{
                 n_{   detail::get_n<N>(args...)},
                 data_{detail::make_sq_array<N, size_t>(args...) }
         {
+                #if 0
                 PRINT(n_);
                 PRINT(data_.size());
+                #endif
         }
         size_t const& data_access(size_t i, size_t j)const{
                 #if 1

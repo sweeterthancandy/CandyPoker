@@ -7,6 +7,7 @@
 
 using namespace ps;
 
+#if 0
 
 struct calculator_ : testing::Test{
         calculator_()
@@ -161,6 +162,7 @@ TEST_F( calculator_, aggregation){
 
 TEST_F( calculator_, range_vs_range ){
 }
+#endif
 
 #if NOT_DEFINED
 

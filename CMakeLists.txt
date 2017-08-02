@@ -21,31 +21,35 @@ aux_source_directory(test test_sources)
 include_directories(.)
 
 
-aux_source_directory(lib lib_sources)
-add_library(ps_lib SHARED ${lib_sources}) 
-target_link_libraries(ps_lib ${Boost_LIBRARIES})
+aux_source_directory(lib/base base_sources)
+add_library(base_lib SHARED ${base_sources}) 
+target_link_libraries(base_lib ${Boost_LIBRARIES})
+
+aux_source_directory(lib/eval base_sources)
+add_library(eval_lib SHARED ${base_sources}) 
+target_link_libraries(eval_lib ${Boost_LIBRARIES})
 
 
 add_executable(_ps ps.cpp )
 target_link_libraries(_ps pthread )
 target_link_libraries(_ps ${Boost_LIBRARIES})
-target_link_libraries(_ps ps_lib )
+target_link_libraries(_ps base_lib eval_lib )
 #target_link_libraries(_ps stdc++fs )
 
 find_package(GTest REQUIRED)
 add_executable(ps_test ${test_sources})
 target_link_libraries(ps_test GTest::GTest GTest::Main)
-target_link_libraries(ps_test ps_lib )
+target_link_libraries(ps_test base_lib eval_lib )
 
 #add_custom_command( TARGET ps_test POST_BUILD COMMAND echo "./ps_test" >> fifo )
 add_custom_command( TARGET _ps     POST_BUILD COMMAND echo "./_ps" >> fifo )
 
 add_executable(pokerstove app/pokerstove.cpp)
-target_link_libraries(pokerstove ps_lib )
+target_link_libraries(pokerstove base_lib eval_lib )
 target_link_libraries(pokerstove pthread )
 target_link_libraries(pokerstove ${Boost_LIBRARIES})
 
 #add_executable(create_cache app/create_cache.cpp)
-#target_link_libraries(create_cache ps_lib )
+#target_link_libraries(create_cache base_lib eval_lib )
 #target_link_libraries(create_cache pthread )
 #target_link_libraries(create_cache ${Boost_LIBRARIES})

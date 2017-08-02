@@ -16,12 +16,12 @@
 
 #include "ps/base/cards_fwd.h"
 #include "ps/base/algorithm.h"
-#include "ps/equity_calc_detail.h"
+#include "ps/eval/equity_calc_detail.h"
 
 #include "ps/support/array_view.h"
 
-#include "ps/calculator_view.h"
-#include "ps/calculator_result.h"
+#include "ps/eval/calculator_view.h"
+#include "ps/eval/calculator_result.h"
 
 
 /*

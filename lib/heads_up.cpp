@@ -12,7 +12,7 @@
 
 #include "ps/base/tree.h"
 #include "ps/base/algorithm.h"
-#include "ps/equity_calc_detail.h"
+#include "ps/eval/equity_calc_detail.h"
 
 namespace ps{
 namespace detail{

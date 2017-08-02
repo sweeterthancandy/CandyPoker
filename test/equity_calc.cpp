@@ -4,7 +4,7 @@
 #include "ps/base/tree.h"
 
 #include "ps/heads_up.h"
-#include "ps/calculator.h"
+#include "ps/eval/calculator.h"
 
 using namespace ps;
 

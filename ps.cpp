@@ -7,12 +7,12 @@
 
 #include <boost/optional.hpp>
 #include <boost/variant.hpp>
-#include "ps/calculator.h"
+#include "ps/eval/calculator.h"
 #include "ps/base/frontend.h"
 #include "ps/base/tree.h"
 #include "ps/base/cards.h"
 #include "ps/base/algorithm.h"
-#include "ps/equity_calc_detail.h"
+#include "ps/eval/equity_calc_detail.h"
 #include "ps/base/hand_vector.h"
 #include "ps/support/push_pull.h"
 
@@ -27,8 +27,8 @@
 
 
 #include "ps/detail/print.h"
-#include "ps/calculator_result.h"
-#include "ps/calculator_view.h"
+#include "ps/eval/calculator_result.h"
+#include "ps/eval/calculator_view.h"
 
 using namespace ps;
 

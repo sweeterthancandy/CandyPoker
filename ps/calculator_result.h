@@ -12,38 +12,18 @@ struct basic_result_type{
         using traits = detail::static_dynamic_traits<N>;
         using data_type = typename traits::template array_sq_type< size_t >;
 
-        basic_result_type(basic_result_type const& that)
-                :sigma_{ that.sigma_}
-                ,n_{ that.n_ }
-                ,data_{ that.data_ }
-        {
-        }
-        basic_result_type(basic_result_type&& that)
-                :sigma_{ that.sigma_}
-                ,n_{ that.n_ }
-                ,data_{ that.data_ }
-        {
-        }
 
         // only if all convertiable to size_t
         template<class... Args, class = detail::void_t< decltype(static_cast<size_t>(std::declval<Args>()))...> >
         basic_result_type(Args&&... args):
-                sigma_{0},
                 n_{   detail::get_n<N>(args...)},
                 data_{detail::make_sq_array<N, size_t>(args...) }
         {
-                #if 0
-                PRINT(n_);
-                PRINT(data_.size());
-                #endif
         }
         size_t const& data_access(size_t i, size_t j)const{
-                #if 1
-                return data_[i * n_ + j];
-                #else
-                //PRINT_SEQ((n_)(i)(j)(i * n_ + j)(data_.size()));
                 return data_.at(i * n_ + j);
-                #endif
+                //return data_[i * n_ + j];
+                //PRINT_SEQ((n_)(i)(j)(i * n_ + j)(data_.size()));
         }
         size_t& data_access(size_t i, size_t j){
                 return const_cast<size_t&>(
@@ -65,7 +45,7 @@ struct basic_result_type{
         auto n()const{ return n_; }
         
 private:
-        size_t sigma_;
+        size_t sigma_ = 0;
         size_t n_;
 
         // access float, so can have a static view for all 

@@ -92,7 +92,7 @@ struct basic_observer_type{
                         as well as how many are of that rank, and I need to
                         find them. I think this is the quickest
                 */
-                auto lowest{ ranked[0] };
+                auto lowest =  ranked[0] ;
                 size_t count{1};
                 for(size_t i=1;i<ranked.size();++i){
                         if( ranked[i] == lowest ){
@@ -115,9 +115,9 @@ struct basic_observer_type{
                         aux[i] = std::make_pair(ranked[i], i);
                 }
                 boost::sort( aux, [](auto const& l, auto const& r){ return l.first < r.first; });
-                auto winning_rank{ aux.front().first };
+                auto winning_rank =  aux.front().first ;
                 auto iter{ boost::find_if( aux, [&](auto const& _){ return _.first != winning_rank; } ) }; 
-                auto num_winners{ std::distance( aux.begin(), iter) };
+                auto num_winners =  std::distance( aux.begin(), iter) ;
 
                 for( auto j{ aux.begin() }; j!=iter;++j){
                         ++result_.data_access(j->second,num_winners - 1);

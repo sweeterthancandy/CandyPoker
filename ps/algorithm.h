@@ -17,7 +17,7 @@ std::array<int, N> injective_player_perm( support::array_view<ps::holdem_id> con
         // where first h is greater handk the second h
         std::array< std::tuple< size_t, size_t>, N> player_perm;
         for(size_t i=0;i!=players.size();++i){
-                auto h{ holdem_hand_decl::get( players[i] ) };
+                auto h =  holdem_hand_decl::get( players[i] ) ;
                 player_perm[i] = std::make_tuple(i, 
                                                  h.first().rank().id() * 17 + 
                                                  h.second().rank().id());
@@ -41,7 +41,7 @@ std::array<int, 4> injective_suit_perm( support::array_view<ps::holdem_id> const
         std::array< int, 4> rev_suit_map{-1,-1,-1,-1};
         int suit_iter = 0; // using the fact we know suits \in {0,1,2,3}
         for(size_t i=0;i!=players.size();++i){
-                auto h{ holdem_hand_decl::get( players[i] ) };
+                auto h =  holdem_hand_decl::get( players[i] ) ;
 
                 // TODO pocket pair
                 if(     rev_suit_map[h.first().suit()] == -1 )
@@ -77,7 +77,7 @@ std::tuple<
         
         std::array<ps::holdem_id, N> perm_hands;
         for(size_t i=0;i != players.size();++i){
-                auto h{ holdem_hand_decl::get( players[perm[i]] ) };
+                auto h =  holdem_hand_decl::get( players[perm[i]] ) ;
                 perm_hands[i] = 
                         holdem_hand_decl::make_id(
                                 h.first().rank(),

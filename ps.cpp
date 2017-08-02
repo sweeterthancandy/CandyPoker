@@ -49,7 +49,7 @@ struct permuation_view : calculation{
                 ,fut_(std::move(fut))
         {}
         view_type eval()override{
-                auto const& result{ fut_.get() };
+                auto const& result =  fut_.get() ;
                 auto ret{ view_type{
                         result.n(), 
                         result.sigma(), 
@@ -100,7 +100,7 @@ struct calculation_context{
                         PRINT(p);
                         calculation::observer_type observer( p.size() );
                         ec->visit_boards(observer, p);
-                        auto ret{ observer.make() };
+                        auto ret =  observer.make() ;
                         return ret;
                 });
                 primitives.emplace( players, work.back().get_future() );
@@ -125,7 +125,7 @@ struct calculation_context{
                 //for(size_t i=0;i!=1;++i){
                         tg.emplace_back( [&](){
                                 for(;;){
-                                        auto w{ pp.pull() };
+                                        auto w =  pp.pull() ;
                                         if( ! w )
                                                 break;
                                         w.get()();
@@ -159,13 +159,13 @@ struct calculation_context{
 
 struct calculation_builder{
         static auto make( calculation_context& ctx, holdem_hand_vector const& players ){
-                auto t{ players.find_injective_permutation() };
-                auto prim{ ctx.get_primitive_handle( std::get<1>(t) ) };
-                auto const& perm{ std::get<0>(t) };
+                auto t =  players.find_injective_permutation() ;
+                auto prim =  ctx.get_primitive_handle( std::get<1>(t) ) ;
+                auto const& perm =  std::get<0>(t) ;
                 std::vector<int> rperm;
                 for(int i=0;i!= perm.size();++i)
                         rperm.push_back( perm[i] );
-                auto view{ std::make_shared<permuation_view>(rperm, prim) };
+                auto view =  std::make_shared<permuation_view>(rperm, prim) ;
                 return view;
         }
         static auto make( calculation_context& ctx, holdem_class_vector const& players ){
@@ -209,7 +209,7 @@ int main(){
         for( auto const& c : root.children ){
 
                 for( auto const& d : c.children ){
-                        //auto ret{ calc.calculate_hand_equity( d.players ) };
+                        //auto ret =  calc.calculate_hand_equity( d.players ) ;
                         //agg.append(ret);
                         holdem_hand_vector aux{ d.players };
                         std::shared_ptr<calculation> item = calculation_builder::make(ctx, aux );
@@ -248,7 +248,7 @@ int main(){
                                          
         #if 0
         for( auto hs : players.get_hand_vectors()){
-                auto t{ hs.find_injective_permutation() };
+                auto t =  hs.find_injective_permutation() ;
                 PRINT(std::get<1>(t));
                 builder.add( hs 
         }
@@ -261,7 +261,7 @@ int main(){
 
         for(size_t i=0; i!= players.size(); ++i){
                 decltype(stack) next_stack;
-                auto const& hand_set{ holdem_class_decl::get( players[i] ).get_hand_set() };
+                auto const& hand_set =  holdem_class_decl::get( players[i] ).get_hand_set() ;
                 for( size_t j=0;j!=hand_set.size(); ++j){
                         for(size_t k=0;k!=stack.size();++k){
                                 next_stack.push_back( stack[k] );
@@ -276,7 +276,7 @@ int main(){
         std::vector<std::tuple<std::vector<int>, std::vector< holdem_id>  > > packages;
         std::set< std::vector< holdem_id> > world;
         for( auto& s : stack ){
-                auto t{ permutate_for_the_better( s ) };
+                auto t =  permutate_for_the_better( s ) ;
                 packages.emplace_back( std::move(t));
         }
         

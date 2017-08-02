@@ -29,7 +29,7 @@ int main(){
         hu_visitor agg;
         for( auto const& c : root.children ){
                 for( auto d : c.children ){
-                        auto ret{ ec.visit_boards(d.players) };
+                        auto ret =  ec.visit_boards(d.players) ;
                         std::cout << d << " -> " << ret << "\n";
                         agg.append(ret);
                 }

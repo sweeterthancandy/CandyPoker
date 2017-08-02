@@ -24,7 +24,7 @@ TEST_F( equity_calc_, aggregation){
         hu_fresult_t agg;
         for(holdem_id x{0};x!=holdem_hand_decl::max_id;++x){
                 for(holdem_class_id y{0};y!=holdem_hand_decl::max_id;++y){
-                        auto const& ret{ ec.visit_boards( std::vector<ps::holdem_id>{ x, y } ) };
+                        auto const& ret =  ec.visit_boards( std::vector<ps::holdem_id>{ x, y } ) ;
                         agg.append(ret);
                         sigma += ret.equity() * holdem_hand_decl::prob(x,y);
                 }
@@ -145,7 +145,7 @@ TEST_F( calculator_, aggregation){
 
                         ASSERT_EQ( c.opt_cplayers.size(), 2 );
                         
-                        auto ret{ calc.calculate_class_equity( c.opt_cplayers ) };
+                        auto ret =  calc.calculate_class_equity( c.opt_cplayers ) ;
                         agg.append(ret);
 
                         size_t weight{ holdem_class_decl::weight( c.opt_cplayers[0], c.opt_cplayers[1]) };
@@ -190,7 +190,7 @@ TEST_F( equity_calc_, _AhKs_2s2c){
         
         eq.run(result, players, board, dead);
 
-        auto p{ result.proxy() };
+        auto p =  result.proxy() ;
 
         auto _5h6h = result(0);
         auto _8sAh = result(1);

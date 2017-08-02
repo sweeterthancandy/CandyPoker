@@ -26,7 +26,7 @@ struct subparser_factory{
                 world_[name] = f;
         }
         std::shared_ptr<xpr::sregex> make(std::string const& name, parser_context& ctx){
-                auto iter{ world_.find(name) };
+                auto iter =  world_.find(name) ;
                 if( iter == world_.end() )
                         BOOST_THROW_EXCEPTION(std::domain_error("no subparser " + name));
                 return iter->second(ctx);

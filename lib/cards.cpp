@@ -277,8 +277,8 @@ namespace ps{
                 }
         }
         size_t holdem_class_decl::weight(holdem_class_id c0, holdem_class_id c1){
-                auto const& left{ holdem_class_decl::get(c0).get_hand_set() };
-                auto const& right{ holdem_class_decl::get(c1).get_hand_set() };
+                auto const& left =  holdem_class_decl::get(c0).get_hand_set() ;
+                auto const& right =  holdem_class_decl::get(c1).get_hand_set() ;
                 size_t count{0};
                 for( auto const& l : left ){
                         for( auto const& r : right ){

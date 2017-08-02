@@ -48,7 +48,7 @@ double calc_detail(calc_context& ctx)
         struct sb_push{
                 struct sb_push__bb_call{
                         double operator()(calc_context& ctx)const{
-                                auto equity{ctx.cec->visit_boards(std::vector<ps::holdem_class_id>{ ctx.sb_id,ctx.bb_id }).equity()};
+                                auto equity = ctx.cec->visit_boards(std::vector<ps::holdem_class_id>{ ctx.sb_id,ctx.bb_id }).equity();
                                 return ctx.eff_stack * ( 2 * equity - 1 );
                         }
                 };
@@ -110,7 +110,7 @@ double calc(calc_context& ctx){
         double sigma{0.0};
         for(ctx.sb_id = 0; ctx.sb_id != 169;++ctx.sb_id){
                 for(ctx.bb_id = 0; ctx.bb_id != 169;++ctx.bb_id){
-                        auto p{ holdem_class_decl::prob(ctx.sb_id, ctx.bb_id) };
+                        auto p =  holdem_class_decl::prob(ctx.sb_id, ctx.bb_id) ;
                         sigma += calc_detail(ctx) * p;
                 }
                         //PRINT(sigma);
@@ -152,7 +152,7 @@ hu_strategy solve_hu_push_fold_bb_maximal_exploitable(ps::class_equity_cacher& c
                         hu_fresult_t res;
                         for(holdem_class_id sb_id{0}; sb_id != 169;++sb_id){
                                 hu_fresult_t tmp{ctx.cec->visit_boards(std::vector<ps::holdem_class_id>{ ctx.bb_id, sb_id })};
-                                auto weight{ctx.sb_push_strat[sb_id]};
+                                auto weight = ctx.sb_push_strat[sb_id];
                                 
                                 tmp.times(weight);
                                 res.append(tmp);
@@ -226,7 +226,7 @@ hu_strategy solve_hu_push_fold_sb_maximal_exploitable(ps::class_equity_cacher& c
         };
         struct sb_push__bb_call{
                 double operator()(context& ctx)const{
-                        auto equity{ctx.cec->visit_boards(std::vector<ps::holdem_class_id>{ ctx.sb_id, ctx.bb_id }).equity()};
+                        auto equity = ctx.cec->visit_boards(std::vector<ps::holdem_class_id>{ ctx.sb_id, ctx.bb_id }).equity();
                         return ctx.eff_stack * 2 *  equity - ( ctx.eff_stack -  ctx.sb );
                         //     \- reuity of pot to win  -/   \--- cost of bet  --------/
                 }
@@ -244,7 +244,7 @@ hu_strategy solve_hu_push_fold_sb_maximal_exploitable(ps::class_equity_cacher& c
                         for(ctx.bb_id = 0; ctx.bb_id != 169;++ctx.bb_id){
                                 agg.append(ctx.cec->visit_boards(std::vector<ps::holdem_class_id>{ ctx.sb_id, ctx.bb_id }));
                         }
-                        auto ret{ ctx.eff_stack * 2 *  agg.equity() - ( ctx.eff_stack -  ctx.sb ) };
+                        auto ret =  ctx.eff_stack * 2 *  agg.equity() - ( ctx.eff_stack -  ctx.sb ) ;
                         PRINT_SEQ((ctx.eff_stack)(agg.equity())(ctx.sb)( ctx.eff_stack * 2 *  agg.equity() - ( ctx.eff_stack -  ctx.sb ) ));
                         ctx.debug[ctx.sb_id] = ret;
                         return ret;
@@ -260,13 +260,13 @@ hu_strategy solve_hu_push_fold_sb_maximal_exploitable(ps::class_equity_cacher& c
                         double factor{0.0};
 
                         for(ctx.bb_id = 0; ctx.bb_id != 169;++ctx.bb_id){
-                                auto ev_bb_call{ bb_call_(ctx) };
-                                auto ev_bb_fold{ bb_fold_(ctx) };
+                                auto ev_bb_call =  bb_call_(ctx) ;
+                                auto ev_bb_fold =  bb_fold_(ctx) ;
                                 //PRINT_SEQ((ev_bb_call)(ev_bb_fold));
                                 double ev_bb{
                                            ctx.bb_call_strat[ctx.bb_id]  * ev_bb_call +
                                         (1-ctx.bb_call_strat[ctx.bb_id]) * ev_bb_fold};
-                                auto weight{holdem_class_decl::weight(ctx.sb_id, ctx.bb_id)};
+                                auto weight = holdem_class_decl::weight(ctx.sb_id, ctx.bb_id);
                                 sigma  += weight * ev_bb;
                                 factor += weight;
                         }
@@ -287,8 +287,8 @@ hu_strategy solve_hu_push_fold_sb_maximal_exploitable(ps::class_equity_cacher& c
         };
         struct solver{
                 void operator()(context& ctx)const{
-                        auto ev_push{ sb_push_(ctx) };
-                        auto ev_fold{ sb_fold_(ctx) };
+                        auto ev_push =  sb_push_(ctx) ;
+                        auto ev_fold =  sb_fold_(ctx) ;
                         //PRINT_SEQ((ev_push)(ev_fold));
                         if( ev_push > ev_fold )
                                 ctx.sb_push_strat[ctx.sb_id] = 1.0;
@@ -363,8 +363,8 @@ hu_strategy solve_hu_push_fold_sb(ps::class_equity_cacher& cec,
                 std::cout << "SB COUNTER COUNTER\n";
                 sb_me.display();
 
-                auto sb_next{ sb_strat * ( 1 - alpha) + sb_me * alpha };
-                auto sb_norm{ (sb_next - sb_strat).norm() };
+                auto sb_next =  sb_strat * ( 1 - alpha) + sb_me * alpha ;
+                auto sb_norm =  (sb_next - sb_strat).norm() ;
                 sb_strat = std::move(sb_next);
                 double ev_d{ std::fabs(ev - ev_) };
                 
@@ -421,7 +421,7 @@ void make_heads_up_table(){
         for( double eff_stack{4.0};eff_stack < 10;eff_stack += 1){
 
                 auto work = [&cec, eff_stack,sb,bb]()->hu_strategy{
-                        auto sb_strat{solve_hu_push_fold_sb(cec, eff_stack, sb, bb)};
+                        auto sb_strat = solve_hu_push_fold_sb(cec, eff_stack, sb, bb);
                         return std::move(sb_strat);
                 };
                 std::packaged_task<hu_strategy()> pt(work);
@@ -433,8 +433,8 @@ void make_heads_up_table(){
         }
         for(auto& r : results ){
                 std::get<1>(r).wait();
-                auto eff_stack{ std::get<0>(r) };
-                auto sb_strat{ std::get<1>(r).get() };
+                auto eff_stack =  std::get<0>(r) ;
+                auto sb_strat =  std::get<1>(r).get() ;
                 auto bb_strat{solve_hu_push_fold_bb_maximal_exploitable(cec,
                                                                         sb_strat,
                                                                         eff_stack,

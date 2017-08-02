@@ -107,7 +107,7 @@ struct detail_eval: detail_eval_impl{
                                 {
                                         return;
                                 }
-                                auto ret{ this->eval_brute(a,b,c,d,e,f) };
+                                auto ret =  this->eval_brute(a,b,c,d,e,f) ;
                                 //PRINT_SEQ((a)(b)(c)(d)(e)(f)(m)(cache_6_[m]));
                                 cache_6_[m] = ret;
                                 //PRINT_SEQ((a)(b)(c)(d)(e)(f)(m)(cache_6_[m]));
@@ -117,7 +117,7 @@ struct detail_eval: detail_eval_impl{
         }
 
         std::uint32_t operator()(long a, long b, long c, long d, long e)const{
-                auto f_aux{ flush_device_[a] * flush_device_[b] * flush_device_[c] * flush_device_[d] * flush_device_[e] };
+                auto f_aux =  flush_device_[a] * flush_device_[b] * flush_device_[c] * flush_device_[d] * flush_device_[e] ;
                 std::uint32_t m = map_rank( rank_device_[a],
                                             rank_device_[b], 
                                             rank_device_[c],
@@ -153,7 +153,7 @@ struct detail_eval: detail_eval_impl{
         }
         std::uint32_t operator()(long a, long b, long c, long d, long e, long f)const{
                 //return eval_brute(a,b,c,d,e,f);
-                auto f_aux{ flush_device_[a] * flush_device_[b] * flush_device_[c] * flush_device_[d] * flush_device_[e] * flush_device_[f] };
+                auto f_aux =  flush_device_[a] * flush_device_[b] * flush_device_[c] * flush_device_[d] * flush_device_[e] * flush_device_[f] ;
 
                 if( (f_aux % (2*2*2*2*2)) == 0 ||
                     (f_aux % (3*3*3*3*3)) == 0 ||
@@ -261,7 +261,7 @@ namespace{
                 if( impl == 0 ){
                         std::lock_guard<std::mutex> lock(mtx);
                         if( impl == 0 ){
-                                auto tmp{new detail_eval};
+                                auto tmp = new detail_eval;
                                 tmp->init();
                                 impl = tmp;
                         }

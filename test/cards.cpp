@@ -64,8 +64,8 @@ TEST(holdem_hand_decl, _){
                 for(card_id y{0};y!=52;++y){
                         if( x == y )
                                 continue;
-                        auto const& decl{ holdem_hand_decl::get(x,y) };
-                        auto const& decl2{ holdem_hand_decl::get(y,x) };
+                        auto const& decl =  holdem_hand_decl::get(x,y) ;
+                        auto const& decl2 =  holdem_hand_decl::get(y,x) ;
 
                         // should be transative
                         EXPECT_EQ(decl.id(), decl2.id());
@@ -119,7 +119,7 @@ TEST(holdem_class_decl, static_prob){
 }
 TEST(holdem_class_decl, class_){
         for(size_t i{0};i!=169;++i){
-                auto const& decl{holdem_class_decl::get(i)};
+                auto const& decl = holdem_class_decl::get(i);
                 for( auto c : decl.get_hand_set() ){
                         EXPECT_EQ(decl.id(), c.class_());
                 }

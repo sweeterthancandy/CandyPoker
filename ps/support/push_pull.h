@@ -102,7 +102,7 @@ struct push_pull{
                         break; // <-------------
                 }
                 //PRINT_SEQ(( workers_working_)( work_.size()) );
-                auto work{std::move(this->work_.back())};
+                auto work = std::move(this->work_.back());
                 this->work_.pop_back();
                 this->push_cond_.notify_all();
                 return std::move(work);
@@ -132,7 +132,7 @@ int main(int argc, char** argv){
         std::vector<int> result;
         auto consumer = [&](){
                 for(;;){
-                        auto work{ pp.pull() };
+                        auto work =  pp.pull() ;
                         if( ! work )
                                 break;
                         std::unique_lock<std::mutex> lock(mtx);

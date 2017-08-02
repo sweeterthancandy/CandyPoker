@@ -43,7 +43,7 @@ namespace ps{
                         lines.emplace_back();
                         lines.back().push_back("__break__");
                         for( size_t i=0;i!=players.size();++i){
-                                auto pv{ result.player(i) };
+                                auto pv =  result.player(i) ;
                                 lines.emplace_back();
 
                                 lines.back().emplace_back( boost::lexical_cast<std::string>(players[i]) );
@@ -146,11 +146,11 @@ namespace ps{
 
                         // this means it's a class vs class evaulation
                         if( c.opt_cplayers.size() != 0 ){
-                                auto ret{ calc.calculate_class_equity( c.opt_cplayers ) };
+                                auto ret =  calc.calculate_class_equity( c.opt_cplayers ) ;
                                 agg.append(ret);
                         } else{
                                 for( auto const& d : c.children ){
-                                        auto ret{ calc.calculate_hand_equity( d.players ) };
+                                        auto ret =  calc.calculate_hand_equity( d.players ) ;
                                         agg.append(ret);
                                 }
                         }

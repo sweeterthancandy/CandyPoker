@@ -59,8 +59,8 @@ struct create_cache_driver
         using work_type = std::vector< std::vector<holdem_id> >;
 
         void run(){
-                //auto num_threads{ std::thread::hardware_concurrency()*2};
-                auto num_threads{10};
+                //auto num_threads =  std::thread::hardware_concurrency()*2;
+                auto num_threads = 10;
                 std::vector<std::thread> tg;
 
 
@@ -90,9 +90,9 @@ struct create_cache_driver
                         tg.emplace_back(
                                 [this,hw=aggregate_workspace_.make_work_handle()]()mutable
                                 {
-                                        auto calc{ std::make_shared<calculater>() };
+                                        auto calc =  std::make_shared<calculater>() ;
                                         for(;;){
-                                                auto work{holdem_hand_workspace_.pull()};
+                                                auto work = holdem_hand_workspace_.pull();
                                                 if( ! work )
                                                         break;
 
@@ -108,9 +108,9 @@ struct create_cache_driver
                         tg.emplace_back(
                                 [this,hw=aggregate_workspace_.make_work_handle()]()mutable
                                 {
-                                        auto calc{ std::make_shared<calculater>() };
+                                        auto calc =  std::make_shared<calculater>() ;
                                         for(;;){
-                                                auto work{holdem_class_workspace_.pull()};
+                                                auto work = holdem_class_workspace_.pull();
                                                 if( ! work )
                                                         break;
 
@@ -129,7 +129,7 @@ struct create_cache_driver
                         [&]()
                         {
                                 for(;;){
-                                        auto ret{ aggregate_workspace_.pull() };
+                                        auto ret =  aggregate_workspace_.pull() ;
                                         if( ! ret ){
                                                 break;
                                         }
@@ -186,7 +186,7 @@ private:
         void consumer_(){
                 calculater calc;
                 for(;;){
-                        auto work{holdem_hand_workspace_.pull()};
+                        auto work = holdem_hand_workspace_.pull();
                         if( ! work )
                                 break;
 

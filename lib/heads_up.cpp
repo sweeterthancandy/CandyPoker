@@ -39,7 +39,7 @@ equity_cacher::~equity_cacher(){}
 
 hu_result_t equity_cacher::visit_boards( std::vector<ps::holdem_id> const& players){
 
-        auto p{ permutate_for_the_better(players) };
+        auto p =  permutate_for_the_better(players) ;
         
         return do_visit_boards( std::get<0>(p), std::get<1>(p) );
 }
@@ -104,12 +104,12 @@ bool class_equity_cacher::save(std::string const& name)const{
         return true;
 }
 hu_result_t const& class_equity_cacher::visit_boards( std::vector<ps::holdem_class_id> const& players){
-        auto iter{ cache_.find( players) };
+        auto iter =  cache_.find( players) ;
         if( iter != cache_.end() ){
                 return iter->second;
         }
-        auto const& left{ holdem_class_decl::get(players[0]).get_hand_set() };
-        auto const& right{ holdem_class_decl::get(players[1]).get_hand_set() };
+        auto const& left =  holdem_class_decl::get(players[0]).get_hand_set() ;
+        auto const& right =  holdem_class_decl::get(players[1]).get_hand_set() ;
         hu_result_t ret;
         for( auto const& l : left ){
                 for( auto const& r : right ){
@@ -141,12 +141,12 @@ void equity_cacher::generate_cache(std::string const& name){
         for( auto const& c : root.children ){
                 for( auto d : c.children ){
                         ++sigma;
-                        auto p{ permutate_for_the_better(d.players) };
+                        auto p =  permutate_for_the_better(d.players) ;
                         world.insert( std::get<1>(p) );
                 }
         }
-        auto iter{world.begin()};
-        auto end{world.end()};
+        auto iter = world.begin();
+        auto end = world.end();
 
         
         std::mutex mtx;
@@ -165,10 +165,10 @@ void equity_cacher::generate_cache(std::string const& name){
                                         mtx.unlock();
                                         break;
                                 }
-                                auto first{iter};
+                                auto first = iter;
                                 const size_t batch_size{50};
                                 for(size_t c=0; c != batch_size && iter!=end;++c,++iter);
-                                auto last{iter};
+                                auto last = iter;
                                 mtx.unlock();
                                 
                                 for(;first!=last;++first){

@@ -37,7 +37,7 @@ namespace ps{
                         return ostr << detail::to_string(self, detail::hand_caster{} );
                 }
                 auto find_injective_permutation()const{
-                        auto tmp{ permutate_for_the_better(*this) };
+                        auto tmp =  permutate_for_the_better(*this) ;
                         return std::make_tuple(
                                 std::get<0>(tmp),
                                 holdem_hand_vector(std::move(std::get<1>(tmp))));
@@ -45,7 +45,7 @@ namespace ps{
                 bool disjoint()const{
                         std::set<card_id> s;
                         for( auto id : *this ){
-                                auto const& decl{holdem_hand_decl::get(id)};
+                                auto const& decl = holdem_hand_decl::get(id);
                                 s.insert( decl.first() );
                                 s.insert( decl.second() );
                         }
@@ -87,7 +87,7 @@ namespace ps{
 
                         for(size_t i=0; i!= this->size(); ++i){
                                 decltype(stack) next_stack;
-                                auto const& hand_set{ this->decl_at(i).get_hand_set() };
+                                auto const& hand_set =  this->decl_at(i).get_hand_set() ;
                                 for( size_t j=0;j!=hand_set.size(); ++j){
                                         for(size_t k=0;k!=stack.size();++k){
                                                 next_stack.push_back( stack[k] );

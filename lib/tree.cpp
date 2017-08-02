@@ -130,7 +130,7 @@ namespace ps{
                 for( auto const& p : this->players){
                         aux.emplace_back( to_hand_vector(p));
                         size_vec.push_back( aux.back().size()-1);
-                        auto cid{ to_class_id( p ) };
+                        auto cid =  to_class_id( p ) ;
                         if( cid != -1 )
                                 opt_cplayers.push_back(cid);
 

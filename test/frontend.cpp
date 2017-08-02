@@ -21,8 +21,8 @@ TEST( frontend, parse){
 }
 
 TEST( frontend, to_class_id_){
-        auto rng{ expand(percent(100)) };
-        auto prim_rng{ rng.to_primitive_range() };
+        auto rng =  expand(percent(100)) ;
+        auto prim_rng =  rng.to_primitive_range() ;
         EXPECT_EQ( prim_rng.size(), 169 );
 
         tree_range root{ std::vector<frontend::range>{rng, rng} };

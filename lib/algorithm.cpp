@@ -48,7 +48,7 @@ std::tuple<
         // where first h is greater handk the second h
         std::vector< std::tuple< size_t, std::string> > player_perm;
         for(size_t i=0;i!=players.size();++i){
-                auto h{ holdem_hand_decl::get( players[i] ) };
+                auto h =  holdem_hand_decl::get( players[i] ) ;
                 player_perm.emplace_back(i, h.first().rank().to_string() +
                                             h.second().rank().to_string() );
         }
@@ -66,7 +66,7 @@ std::tuple<
         std::array< int, 4> rev_suit_map{-1,-1,-1,-1};
         int suit_iter = 0; // using the fact we know suits \in {0,1,2,3}
         for(size_t i=0;i!=players.size();++i){
-                auto h{ holdem_hand_decl::get( players[perm[i]] ) };
+                auto h =  holdem_hand_decl::get( players[perm[i]] ) ;
 
                 // TODO pocket pair
                 if(     rev_suit_map[h.first().suit()] == -1 )
@@ -89,7 +89,7 @@ std::tuple<
         
         std::vector<ps::holdem_id> perm_hands;
         for(size_t i=0;i != players.size();++i){
-                auto h{ holdem_hand_decl::get( players[perm[i]] ) };
+                auto h =  holdem_hand_decl::get( players[perm[i]] ) ;
                 perm_hands.emplace_back( 
                         holdem_hand_decl::make_id(
                                 h.first().rank(),

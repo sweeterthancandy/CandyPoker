@@ -24,7 +24,7 @@ TEST_F( simulation, _){
 
         maker.debug();
 
-        auto ctx{maker.compile()};
+        auto ctx = maker.compile();
 
 
         sc.run(ctx);
@@ -82,7 +82,7 @@ TEST_F( simulation, _3){
 
         maker.debug();
 
-        auto ctx{maker.compile()};
+        auto ctx = maker.compile();
 
 
         sc.run(ctx);

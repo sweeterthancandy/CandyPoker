@@ -19,7 +19,7 @@ TEST(tree, _){
         EXPECT_EQ( 2, root.players.size());
         ASSERT_EQ( 1, root.children.size());
 
-        auto const& child{root.children.front()};
+        auto const& child = root.children.front();
 
         // 6 * 4 = 24
         EXPECT_EQ( 24, child.children.size());

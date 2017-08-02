@@ -37,7 +37,7 @@ namespace ps{
                         PrintWay_Debug
                 };
 
-                static auto print_way{ PrintWay_Pretty };
+                static auto print_way =  PrintWay_Pretty ;
 
 
                 struct hand{
@@ -421,10 +421,10 @@ namespace ps{
                                 >
                                 void operator()(T const& first, T const& last)const{
                                         // A5s -> A2s
-                                        auto first_x{ first.first() };
-                                        auto first_y{ first.second() };
-                                        auto last_x{ last.first() };
-                                        auto last_y{ last.second() };
+                                        auto first_x =  first.first() ;
+                                        auto first_y =  first.second() ;
+                                        auto last_x =  last.first() ;
+                                        auto last_y =  last.second() ;
                                         if( first_x != last_x )
                                                 BOOST_THROW_EXCEPTION(std::domain_error("bad range "));
                                         for( rank_id r{std::min(first_y, last_y)}; r <= std::max(first_y, last_y); ++r){

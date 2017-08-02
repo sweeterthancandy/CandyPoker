@@ -61,8 +61,8 @@ namespace ps{
                                      Board_Type const& board,
                                      Dead_Type const& dead)noexcept
                 {
-                        auto dealt{ board.size() + dead.size() };
-                        auto to_deal{ 5- dealt  };
+                        auto dealt =  board.size() + dead.size() ;
+                        auto to_deal =  5- dealt  ;
                         switch(to_deal){
                         case 1: return visit_boards_pd<Num_Players, 1>(v, players, board, dead);
                         case 2: return visit_boards_pd<Num_Players, 2>(v, players, board, dead);
@@ -93,7 +93,7 @@ namespace ps{
                         std::array<id_type, Num_Players> y;
 
                         for( size_t i{0}; i!= Num_Players;++i){
-                                auto const& p{ players[i]};
+                                auto const& p =  players[i];
                                 x[i]      = holdem_hand_decl::get(players[i]).first().id();
                                 y[i]      = holdem_hand_decl::get(players[i]).second().id();
                         }
@@ -120,9 +120,9 @@ namespace ps{
                                         ranked[i] = std::make_pair(eval_(x[i],y[i],a,b,c,d,e), i);
                                 }
                                 boost::sort( ranked, [](auto const& l, auto const& r){ return l.first < r.first; });
-                                auto winning_rank{ ranked.front().first };
+                                auto winning_rank =  ranked.front().first ;
                                 auto iter{ boost::find_if( ranked, [&](auto const& _){ return _.first != winning_rank; } ) }; 
-                                auto num_winners{ std::distance( ranked.begin(), iter) };
+                                auto num_winners =  std::distance( ranked.begin(), iter) ;
 
                                 for( auto j{ ranked.begin() }; j!=iter;++j){
                                         ++win_matrix[j->second][num_winners - 1];

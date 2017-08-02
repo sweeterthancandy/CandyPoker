@@ -99,7 +99,7 @@ struct precomputed_db{
                 return m_.count(hash);
         }
         boost::optional<precomputed_item > get(std::string const& hash)const{
-                auto iter{ m_.find(hash) };
+                auto iter =  m_.find(hash) ;
                 if( iter == m_.end())
                         return boost::none;
                 return iter->second;
@@ -145,8 +145,8 @@ void write(std::ostream& ostr, precomputed_db const& db){
 
                 bpt::ptree sim;
                 
-                auto const& players{ p.second.players };
-                auto const& result{ p.second.result };
+                auto const& players =  p.second.players ;
+                auto const& result =  p.second.result ;
 
                 sim.put("hash", p.first);
                 sim.put("n", players.size() );
@@ -258,7 +258,7 @@ void test2(){
                                 if( ! card )
                                         break;
 
-                                auto c{ card.get() };
+                                auto c =  card.get() ;
 
                                 size_t n{0};
 

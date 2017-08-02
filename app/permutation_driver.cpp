@@ -40,7 +40,7 @@ int main(){
                         auto t{ permutate_for_the_better(
                                         std::vector<ps::holdem_id>{
                                                 static_cast<ps::holdem_id>(args)...} ) };
-                        auto to{std::get<1>(t)};
+                        auto to = std::get<1>(t);
                         #if 0
                         std::cout 
                                 << to_string(from) << " => " 

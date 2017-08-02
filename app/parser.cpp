@@ -218,29 +218,29 @@ struct pokerstars_parser{
 
                  xpr::sregex rgx, tmp;
 
-                 auto header{ps::parser::make("header", ctx)};
-                 auto button_decl{ps::parser::make("button_decl",ctx)};
-                 auto call{ps::parser::make("call", ctx)};
-                 auto fold{ps::parser::make("fold", ctx)};
-                 auto bet{ps::parser::make("bet", ctx)};
-                 auto decl_deal{ps::parser::make("decl_deal", ctx)};
-                 auto decl_section{ps::parser::make("decl_section", ctx)};
-                 auto post{ps::parser::make("post", ctx)};
-                 auto seat_decl{ps::parser::make("seat_decl", ctx)};
-                 auto raise{ps::parser::make("raise", ctx)};
-                 auto mucks{ps::parser::make("mucks", ctx)};
-                 auto uncalled_bet_returned{ps::parser::make("uncalled_bet_returned", ctx)};
-                 auto check{ps::parser::make("check", ctx)};
-                 auto collected_from_pot{ps::parser::make("collected_from_pot", ctx)};
-                 auto doesnt_show_hand{ps::parser::make("doesnt_show_hand", ctx)};
-                 auto decl_total_pot{ps::parser::make("decl_total_pot", ctx)};
-                 auto decl_flop{ps::parser::make("decl_flop", ctx)};
-                 auto shows{ps::parser::make("shows", ctx)};
-                 auto decl_seat_summary{ps::parser::make("decl_seat_summary", ctx)};
-                 auto decl_finish_tournament{ps::parser::make("decl_finish_tournament", ctx)};
-                 auto decl_win_tournament{ps::parser::make("decl_win_tournament", ctx)};
-                 auto decl_connection{ps::parser::make("decl_connection", ctx)};
-                 auto decl_returned{ps::parser::make("decl_returned", ctx)};
+                 auto header = ps::parser::make("header", ctx);
+                 auto button_decl = ps::parser::make("button_decl",ctx);
+                 auto call = ps::parser::make("call", ctx);
+                 auto fold = ps::parser::make("fold", ctx);
+                 auto bet = ps::parser::make("bet", ctx);
+                 auto decl_deal = ps::parser::make("decl_deal", ctx);
+                 auto decl_section = ps::parser::make("decl_section", ctx);
+                 auto post = ps::parser::make("post", ctx);
+                 auto seat_decl = ps::parser::make("seat_decl", ctx);
+                 auto raise = ps::parser::make("raise", ctx);
+                 auto mucks = ps::parser::make("mucks", ctx);
+                 auto uncalled_bet_returned = ps::parser::make("uncalled_bet_returned", ctx);
+                 auto check = ps::parser::make("check", ctx);
+                 auto collected_from_pot = ps::parser::make("collected_from_pot", ctx);
+                 auto doesnt_show_hand = ps::parser::make("doesnt_show_hand", ctx);
+                 auto decl_total_pot = ps::parser::make("decl_total_pot", ctx);
+                 auto decl_flop = ps::parser::make("decl_flop", ctx);
+                 auto shows = ps::parser::make("shows", ctx);
+                 auto decl_seat_summary = ps::parser::make("decl_seat_summary", ctx);
+                 auto decl_finish_tournament = ps::parser::make("decl_finish_tournament", ctx);
+                 auto decl_win_tournament = ps::parser::make("decl_win_tournament", ctx);
+                 auto decl_connection = ps::parser::make("decl_connection", ctx);
+                 auto decl_returned = ps::parser::make("decl_returned", ctx);
                  rgx =
                         *header                 |
                         *button_decl            |
@@ -286,8 +286,8 @@ struct parser{
 
         void section_parser_(std::vector<std::string>&& lines){
                 #if 0
-                auto subparser{ parser_global_factory::get()->detect(lines) };
-                auto hand{ subparser->parse(line) };
+                auto subparser =  parser_global_factory::get()->detect(lines) ;
+                auto hand =  subparser->parse(line) ;
                 hand.display();
                 #endif
                 pokerstars_parser ps;
@@ -336,7 +336,7 @@ int main(){
         std::vector<std::string> to_process;
         stack.emplace("hh/2017");
         for( ;stack.size(); ){
-                auto item{ stack.top() };
+                auto item =  stack.top() ;
                 stack.pop();
                 for(fs::directory_iterator di(item),de;di!=de;++di){
                         switch(di->status().type()){

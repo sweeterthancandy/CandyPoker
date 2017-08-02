@@ -51,14 +51,14 @@ namespace ps{
                                       Traits const& t = Traits{}){
                         std::stringstream sstr;
 
-                        auto iter{ std::begin(con) };
-                        auto end{ std::end(con) };
+                        auto iter =  std::begin(con) ;
+                        auto end =  std::end(con) ;
 
                         if( iter == end ){
                                 sstr << t.start() << t.end();
                                 return sstr.str();
                         }
-                        auto prev{ std::prev(end) };
+                        auto prev =  std::prev(end) ;
 
                         sstr << t.start();
 

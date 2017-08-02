@@ -203,7 +203,7 @@ struct hu_strategy{
                 std::array<size_t, 13> widths;
 
                 for(size_t i{0};i!=169;++i){
-                        auto const& decl{ holdem_class_decl::get(i) };
+                        auto const& decl =  holdem_class_decl::get(i) ;
                         size_t x{decl.first().id()};
                         size_t y{decl.second().id()};
                         // inverse

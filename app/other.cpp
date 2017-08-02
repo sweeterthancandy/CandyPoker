@@ -28,12 +28,12 @@ double do_simulation( equity_cacher& ec,
                 long double sim{0.0};
                 std::vector<card_id> deal;
                 for(;deal.size() < 4;){
-                        auto c{ deck(gen) };
+                        auto c =  deck(gen) ;
                         if( boost::find(deal, c) == deal.end())
                                 deal.emplace_back(c);
                 }
-                auto const& sb_hand{holdem_hand_decl::get( deal[0], deal[1] ) };
-                auto const& bb_hand{holdem_hand_decl::get( deal[2], deal[3] ) };
+                auto const& sb_hand = holdem_hand_decl::get( deal[0], deal[1] ) ;
+                auto const& bb_hand = holdem_hand_decl::get( deal[2], deal[3] ) ;
                 
                 #if 0
                 if( i % 100 == 0 )
@@ -48,7 +48,7 @@ double do_simulation( equity_cacher& ec,
                         ev += ( +bb );
                         continue;
                 }
-                auto ret{ ec.visit_boards( std::vector<holdem_id>{ sb_hand.id(), bb_hand.id()})};
+                auto ret =  ec.visit_boards( std::vector<holdem_id>{ sb_hand.id(), bb_hand.id()});
                 ev += ( eff_stack * ( 2 * ret.equity() - 1 ) );
         }
         PRINT_SEQ((n)(e_ev)(ev / i));
@@ -94,7 +94,7 @@ double simulation( equity_cacher& ec,
         double sigma{0.0};
         for(auto& r : results){
                 r.wait();
-                auto ev_sim{r.get()};
+                auto ev_sim = r.get();
                 PRINT(ev_sim);
                 sigma += ev_sim / num_threads;
         }
@@ -122,7 +122,7 @@ int main(){
         #endif
                         
         #if 1
-        auto sb_strat{solve_hu_push_fold_sb(cec, eff_stack, sb, bb)};
+        auto sb_strat = solve_hu_push_fold_sb(cec, eff_stack, sb, bb);
         auto bb_strat{solve_hu_push_fold_bb_maximal_exploitable(cec,
                                                                 sb_strat,
                                                                 eff_stack,
@@ -155,7 +155,7 @@ int main(){
         size_t n{1000};
         for(;;n*=2){
                 boost::timer::auto_cpu_timer at;
-                auto ev{simulation(ec, cec, sb_strat, bb_strat, eff_stack, sb, bb, n)};
+                auto ev = simulation(ec, cec, sb_strat, bb_strat, eff_stack, sb, bb, n);
                 PRINT_SEQ((n)(ev));
         }
         #endif

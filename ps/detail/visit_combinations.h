@@ -58,7 +58,7 @@ namespace detail{
 		}
                 template<int N, class V, class F, class Upper, class... Args>
 		std::enable_if_t<N!=0> visit_exclusive_combinations(V v, F f, Upper upper, Args&&... args){
-			for(auto iter{ deref_or_get(upper, N-1)+1};iter!=0;){
+			for(auto iter = deref_or_get(upper, N-1)+1;iter!=0;){
 				--iter;
 				if( ! f(iter) )
 					continue;

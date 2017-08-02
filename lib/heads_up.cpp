@@ -115,8 +115,8 @@ hu_result_t const& class_equity_cacher::visit_boards( std::vector<ps::holdem_cla
                 for( auto const& r : right ){
                         if( ! disjoint(l, r) )
                                 continue;
-                        auto const& cr{ ec_->visit_boards(
-                                std::vector<ps::holdem_id>{l,r} ) };
+                        auto const& cr = ec_->visit_boards(
+                                std::vector<ps::holdem_id>{l,r} );
                         ret.win  += cr.win;
                         ret.lose += cr.lose;
                         ret.draw += cr.draw;

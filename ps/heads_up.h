@@ -235,7 +235,7 @@ struct hu_strategy{
                                                       })->size();
                 }
 
-                auto pad{ [](auto const& s, size_t w){
+                auto pad= [](auto const& s, size_t w){
                         size_t padding{ w - s.size()};
                         size_t left_pad{padding/2};
                         size_t right_pad{padding - left_pad};
@@ -246,7 +246,7 @@ struct hu_strategy{
                         if(right_pad)
                                ret += std::string(right_pad,' ');
                         return std::move(ret);
-                }};
+                };
                 
                 std::cout << "   ";
                 for(size_t i{0};i!=13;++i){

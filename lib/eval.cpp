@@ -92,14 +92,14 @@ struct detail_eval: detail_eval_impl{
                 generate(*this);
                 detail::visit_combinations<6>(
                         [this](long a, long b, long c, long d, long e, long f){
-                                auto m{  map_rank(rank_device_[a],rank_device_[b],rank_device_[c],
-                                                  rank_device_[d],rank_device_[e],rank_device_[f])  };
-                                auto f_aux{ flush_device_[a] * 
+                                auto m =  map_rank(rank_device_[a],rank_device_[b],rank_device_[c],
+                                                  rank_device_[d],rank_device_[e],rank_device_[f]);
+                                auto f_aux = flush_device_[a] * 
                                             flush_device_[b] * 
                                             flush_device_[c] * 
                                             flush_device_[d] * 
                                             flush_device_[e] * 
-                                            flush_device_[f] };
+                                            flush_device_[f];
                                 if( (f_aux % (2*2*2*2*2)) == 0 ||
                                     (f_aux % (3*3*3*3*3)) == 0 ||
                                     (f_aux % (5*5*5*5*5)) == 0 ||
@@ -195,9 +195,9 @@ struct detail_eval: detail_eval_impl{
         }
         std::uint32_t operator()(long a, long b, long c, long d, long e, long f, long g)const{
                 //return eval_brute(a,b,c,d,e,f,g);
-                auto f_aux{ flush_device_[a] * flush_device_[b] * flush_device_[c] * 
+                auto f_aux = flush_device_[a] * flush_device_[b] * flush_device_[c] * 
                             flush_device_[d] * flush_device_[e] * flush_device_[f] * 
-                            flush_device_[g] };
+                            flush_device_[g];
 
                 if( (f_aux % (2*2*2*2*2)) == 0 ||
                     (f_aux % (3*3*3*3*3)) == 0 ||

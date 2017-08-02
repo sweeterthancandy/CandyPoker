@@ -2,6 +2,7 @@
 #include <fstream>
 #include <regex>
 #include <locale>
+#include <map>
 #include <codecvt>
 
 #include <boost/optional.hpp>
@@ -50,11 +51,11 @@ struct permuation_view : calculation{
         {}
         view_type eval()override{
                 auto const& result =  fut_.get() ;
-                auto ret{ view_type{
+                auto ret = view_type{
                         result.n(), 
                         result.sigma(), 
                         support::array_view<size_t>{ result.data(), result.n() * result.n()},
-                        perm_ } };
+                        perm_ };
                 return ret;
         }
 private:

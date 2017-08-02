@@ -328,19 +328,19 @@ hu_strategy solve_hu_push_fold_sb(ps::class_equity_cacher& cec,
         for(size_t i=0;;++i){
                 boost::timer::auto_cpu_timer at;
 
-                auto bb_me{solve_hu_push_fold_bb_maximal_exploitable(cec,
+                auto bb_me = solve_hu_push_fold_bb_maximal_exploitable(cec,
                                                                      sb_strat,
                                                                      eff_stack,
                                                                      sb,
-                                                                     bb)};
+                                                                     bb);
 
-                double ev{calc(cec, sb_strat, bb_me, eff_stack, sb, bb)};
+                double ev = calc(cec, sb_strat, bb_me, eff_stack, sb, bb);
 
-                auto sb_me{solve_hu_push_fold_sb_maximal_exploitable(cec,
-                                                                     bb_me,
-                                                                     eff_stack,
-                                                                     sb,
-                                                                     bb)};
+                auto sb_me = solve_hu_push_fold_sb_maximal_exploitable(cec,
+                                                                       bb_me,
+                                                                       eff_stack,
+                                                                       sb,
+                                                                       bb);
                 #if 0
                 auto sb_me{solve_hu_push_fold_sb_maximal_exploitable(cec,
                                                                      bb_me,
@@ -435,11 +435,11 @@ void make_heads_up_table(){
                 std::get<1>(r).wait();
                 auto eff_stack =  std::get<0>(r) ;
                 auto sb_strat =  std::get<1>(r).get() ;
-                auto bb_strat{solve_hu_push_fold_bb_maximal_exploitable(cec,
-                                                                        sb_strat,
-                                                                        eff_stack,
-                                                                        sb,
-                                                                        bb)};
+                auto bb_strat = solve_hu_push_fold_bb_maximal_exploitable(cec,
+                                                                          sb_strat,
+                                                                          eff_stack,
+                                                                          sb,
+                                                                          bb);
                 for(size_t i{0};i!=169;++i){
                         if( sb_strat[i] < 1e-3 )
                                 continue;

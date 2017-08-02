@@ -175,11 +175,9 @@ private:
                                 holdem_hand_decl::get( hand_sets[Ints]->operator[](args).id())...
                                     ) )
                         {
-                                auto result{
-                                        this_->impl_->calculate(std::array<ps::holdem_id, N>{
-                                                                holdem_hand_decl::get( hand_sets[Ints]->operator[](args).id())...
-                                                                 })
-                                           };
+                                auto result = this_->impl_->calculate(std::array<ps::holdem_id, N>{
+                                        holdem_hand_decl::get( hand_sets[Ints]->operator[](args).id())...
+                                });
 
                                 observer.append(result);
                         }

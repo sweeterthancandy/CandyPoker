@@ -6,7 +6,6 @@ set(CMAKE_CXX_FLAGS "-std=c++14  -Wno-switch")
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -ggdb3")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
 
-find_package(GTest REQUIRED)
 
 
 #set(Boost_USE_STATIC_LIBS        ON) # only find static libs
@@ -31,8 +30,9 @@ add_executable(_ps ps.cpp )
 target_link_libraries(_ps pthread )
 target_link_libraries(_ps ${Boost_LIBRARIES})
 target_link_libraries(_ps ps_lib )
-target_link_libraries(_ps stdc++fs )
+#target_link_libraries(_ps stdc++fs )
 
+find_package(GTest REQUIRED)
 add_executable(ps_test ${test_sources})
 target_link_libraries(ps_test GTest::GTest GTest::Main)
 target_link_libraries(ps_test ps_lib )

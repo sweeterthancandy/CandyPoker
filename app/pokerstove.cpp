@@ -55,9 +55,8 @@ namespace ps{
                                         lines.back().emplace_back( boost::lexical_cast<std::string>(pv.nwin(i)));
                                 }
 
-                                auto draw_sigma{
-                                        (pv.equity() - static_cast<double>(pv.win())/pv.sigma())*pv.sigma()
-                                };
+                                auto draw_sigma = 
+                                        (pv.equity() - static_cast<double>(pv.win())/pv.sigma())*pv.sigma();
                                 lines.back().emplace_back( str(boost::format("%.2f%%") % ( draw_sigma )));
                                 lines.back().emplace_back( boost::lexical_cast<std::string>(pv.lose()) );
                                 lines.back().emplace_back( boost::lexical_cast<std::string>(pv.sigma()) );
@@ -69,7 +68,7 @@ namespace ps{
                                         widths[i] = std::max(line[i].size(), widths[i]);
                                 }
                         }
-                        auto pad{ [](auto const& s, size_t w){
+                        auto pad= [](auto const& s, size_t w){
                                 size_t padding{ w - s.size()};
                                 size_t left_pad{padding/2};
                                 size_t right_pad{padding - left_pad};
@@ -80,7 +79,7 @@ namespace ps{
                                 if(right_pad)
                                        ret += std::string(right_pad,' ');
                                 return std::move(ret);
-                        }};
+                        };
                         for( auto const& line : lines){
                                 if( line.size() >= 1 && line[0] == "__break__" ){
                                         for(size_t i=0;i!=widths.size();++i){

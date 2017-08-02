@@ -115,7 +115,7 @@ namespace ps{
         }
         double holdem_hand_decl::prob(holdem_id c0, holdem_id c1){
                 // static
-                static auto aux{ [](){
+                static auto aux = [](){
                         size_t count{0};
                         for(size_t i{0};i!=holdem_hand_decl::max_id;++i){
                                 for(size_t j{0};j!=holdem_hand_decl::max_id;++j){
@@ -125,14 +125,14 @@ namespace ps{
                                 }
                         }
                         return count;
-                }()};
+                }();
                 return 
                         1.0 / aux;
         }
 
         holdem_class_id holdem_class_decl::make_id(holdem_class_type cat, rank_id x, rank_id y){
                 using std::get;
-                static auto aux{[](){
+                static auto aux = [](){
                         std::vector<std::tuple<int,rank_id, rank_id, holdem_class_id> > vec;
                         holdem_class_id id{0};
                         for(rank_id a{13};a!=0;){
@@ -149,7 +149,7 @@ namespace ps{
                         }
                         boost::sort(vec);
                         return std::move(vec);
-                }()};
+                }();
                 if( x < y )
                         std::swap(x,y);
                  

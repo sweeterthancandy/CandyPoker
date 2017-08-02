@@ -32,6 +32,9 @@ namespace ps{
 
 
         struct calculator_impl{
+
+                using view_t = detailed_view_type;
+
                 calculator_impl():
                         ecd_{},
                         _2_{&ecd_},
@@ -160,10 +163,10 @@ namespace ps{
         calculater& calculater::operator=(calculater&& that)=default;
 
 
-        view_t calculater::calculate_hand_equity_(support::array_view<holdem_id> const& players){
+        calculater::view_t calculater::calculate_hand_equity_(support::array_view<holdem_id> const& players){
                 return impl_->calculate_hand_equity(players);
         }
-        view_t calculater::calculate_class_equity_(support::array_view<holdem_id> const& players){
+        calculater::view_t calculater::calculate_class_equity_(support::array_view<holdem_id> const& players){
                 return impl_->calculate_class_equity(players);
         }
 

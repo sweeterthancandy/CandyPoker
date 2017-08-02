@@ -22,6 +22,9 @@ namespace ps{
          */
 
         struct pretty_printer{
+
+                using view_t = detailed_view_type;
+
                 void operator()(std::ostream& ostr, view_t result, std::vector<std::string> const& players){
                         std::vector<
                                 std::vector<std::string>

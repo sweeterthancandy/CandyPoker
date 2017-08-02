@@ -1,7 +1,7 @@
-#include "ps/calculator_detail.h"
-#include "ps/calculator.h"
+#include "ps/eval/calculator_detail.h"
+#include "ps/eval/calculator.h"
 #include "ps/heads_up.h"
-#include "ps/frontend.h"
+#include "ps/base/frontend.h"
 
 #include "ps/support/push_pull.h"
 

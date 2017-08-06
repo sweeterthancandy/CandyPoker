@@ -28,39 +28,22 @@ struct _6_card_map : _5_card_map{
                                 //PRINT_SEQ((a)(b)(c)(d)(e)(f)(m)(cache_6_[m]));
                 }, detail::true_, 51);
         }
-        ranking const&  rank_brute(long a, long b, long c, long d, long e, long f)const{
-                return reinterpret_cast<_5_card_map const*>(this)
-                        ->rank(a,b,c,d,e,f);
-        }
-        ranking const&  rank_brute(long a, long b, long c, long d, long e, long f, long g)const{
-                return reinterpret_cast<_5_card_map const*>(this)
-                        ->rank(a,b,c,d,e,f,g);
-        }
-        ranking const& rank(long a, long b, long c, long d, long e)const override{
-                auto f_aux =  flush_device_[a] * flush_device_[b] * flush_device_[c] * flush_device_[d] * flush_device_[e] ;
-                std::uint32_t m = map_rank( rank_device_[a],
-                                            rank_device_[b], 
-                                            rank_device_[c],
-                                            rank_device_[d], 
-                                            rank_device_[e]);
-                ranking const* ret;
+        _6_card_map(_6_card_map const&)=delete;
+        _6_card_map(_6_card_map&&)=delete;
+        _6_card_map& operator=(_6_card_map const&)=delete;
+        _6_card_map& operator=(_6_card_map&)=delete;
 
 
-                switch(f_aux){
-                case 2*2*2*2*2:
-                case 3*3*3*3*3:
-                case 5*5*5*5*5:
-                case 7*7*7*7*7:
-                        ret = &eval_flush(m);
-                        break;
-                default:
-                        ret = &eval_rank(m);
-                        break;
-                }
-                //PRINT_SEQ((a)(b)(c)(d)(e)(ret));
-                return *ret;
+        // some sugar
+        ranking_t  rank_brute(long a, long b, long c, long d, long e, long f)const{
+                return _5_card_map::rank(a,b,c,d,e,f);
         }
-        ranking const& rank(long a, long b, long c, long d, long e, long f)const override{
+        ranking_t  rank_brute(long a, long b, long c, long d, long e, long f, long g)const{
+                return _5_card_map::rank(a,b,c,d,e,f,g);
+        }
+
+        // only override rank or 6,7
+        ranking_t rank(long a, long b, long c, long d, long e, long f)const override{
                 //return rank_brute(a,b,c,d,e,f);
                 auto f_aux =  flush_device_[a] * flush_device_[b] * flush_device_[c] * flush_device_[d] * flush_device_[e] * flush_device_[f] ;
 
@@ -90,7 +73,7 @@ struct _6_card_map : _5_card_map{
 
                 return cache_6_[m];
         }
-        ranking const& operator()(long a, long b, long c, long d, long e, long f, long g)const{
+        ranking_t rank(long a, long b, long c, long d, long e, long f, long g)const override{
                 //return rank_brute(a,b,c,d,e,f,g);
                 auto f_aux = flush_device_[a] * flush_device_[b] * flush_device_[c] * 
                             flush_device_[d] * flush_device_[e] * flush_device_[f] * 
@@ -112,19 +95,16 @@ struct _6_card_map : _5_card_map{
                         rank_device_[f],
                         rank_device_[g]
                 };
-                std::array<ranking const*, 7> aux = {
-                        &cache_6_[ map_rank(      r[1], r[2], r[3], r[4], r[5], r[6]) ],
-                        &cache_6_[ map_rank(r[0]      , r[2], r[3], r[4], r[5], r[6]) ],
-                        &cache_6_[ map_rank(r[0], r[1]      , r[3], r[4], r[5], r[6]) ],
-                        &cache_6_[ map_rank(r[0], r[1], r[2]      , r[4], r[5], r[6]) ],
-                        &cache_6_[ map_rank(r[0], r[1], r[2], r[3]      , r[5], r[6]) ],
-                        &cache_6_[ map_rank(r[0], r[1], r[2], r[3], r[4]      , r[6]) ],
-                        &cache_6_[ map_rank(r[0], r[1], r[2], r[3], r[4], r[5]      ) ]
+                std::array<ranking_t, 7> aux = {
+                        cache_6_[ map_rank(      r[1], r[2], r[3], r[4], r[5], r[6]) ],
+                        cache_6_[ map_rank(r[0]      , r[2], r[3], r[4], r[5], r[6]) ],
+                        cache_6_[ map_rank(r[0], r[1]      , r[3], r[4], r[5], r[6]) ],
+                        cache_6_[ map_rank(r[0], r[1], r[2]      , r[4], r[5], r[6]) ],
+                        cache_6_[ map_rank(r[0], r[1], r[2], r[3]      , r[5], r[6]) ],
+                        cache_6_[ map_rank(r[0], r[1], r[2], r[3], r[4]      , r[6]) ],
+                        cache_6_[ map_rank(r[0], r[1], r[2], r[3], r[4], r[5]      ) ]
                 };
-                return ** std::min_element(aux.begin(), aux.end(), [](auto const& l,
-                                                                      auto const& r){
-                                           return *l < *r;
-                        });
+                return * std::min_element(aux.begin(), aux.end());
 #if 0
 
                 if( aux.front() != rank_brute(a,b,c,d,e,f,g)){
@@ -141,7 +121,7 @@ struct _6_card_map : _5_card_map{
 #endif
         }
 private:
-        std::vector<ranking> cache_6_;
+        std::vector<ranking_t> cache_6_;
 };
 
 } // ps 

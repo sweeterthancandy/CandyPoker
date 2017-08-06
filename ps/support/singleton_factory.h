@@ -1,7 +1,10 @@
 #ifndef PS_SUPPORT_SINGLETON_FACTORY_H
 #define PS_SUPPORT_SINGLETON_FACTORY_H
 
+#include <boost/exception/all.hpp>
 #include <map>
+#include <functional>
+#include <memory>
 
 namespace ps{
 namespace support{
@@ -47,10 +50,10 @@ namespace support{
                 }
 
                 template<class U>
-                static void register_( std::string const& name ){
+                static void register_( std::string const& name  = "__default__"){
                         get_inst()->template register_impl<U>(name);
                 }
-                static T& get(std::string const& name){
+                static T& get(std::string const& name = "__default__"){
                         return get_inst()->get_impl(name);
                 }
 

@@ -23,6 +23,9 @@ namespace ps{
                 };
         }
 
+        /*
+                Hand vector is a vector of hands
+         */
         struct holdem_hand_vector : std::vector<ps::holdem_id>{
                 template<class... Args>
                 holdem_hand_vector(Args&&... args)

@@ -9,6 +9,7 @@
 
 #include "ps/base/range.h"
 #include "ps/eval/eval.h"
+#include "ps/eval/rank_world.h"
 
 using namespace ps;
 
@@ -69,6 +70,11 @@ int main(){
 
 int main(){
         using namespace decl;
-        auto const& eval{evaluater_factory::get("5_card_map")};
-        PRINT( eval.rank( _Ah, _Kd, _Qh, _Jh, _Th ) );
+        auto const& eval = evaluater_factory::get("6_card_map");
+        auto const& rm = rank_word_factory::get();
+        PRINT( rm[eval.rank( _Ah, _Kh, _Qh, _Jh, _Th )] );
+        PRINT( rm[eval.rank( _Ah, _Kd, _Qh, _Jh, _Th )] );
+        PRINT( rm[eval.rank( _Ah, _Kd, _Qh, _Jh, _Th, _2c )] );
+        PRINT( rm[eval.rank( _Ah, _Kd, _Qh, _Jh, _Th, _2c, _Ad )] );
+        PRINT( rm[eval.rank( _Ah, _Ad, _Qh, _Jh, _Th )] );
 }

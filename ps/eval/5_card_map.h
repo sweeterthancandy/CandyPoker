@@ -13,7 +13,7 @@
 namespace ps{
 
 struct _5_card_map : evaluater{
-        _5_card_map():order_{1}{
+        _5_card_map(){
                 flush_map_.resize( 37 * 37 * 37 * 37 * 31 +1 );
                 rank_map_.resize( 37 * 37 * 37 * 37 * 31 +1 );
 
@@ -24,22 +24,20 @@ struct _5_card_map : evaluater{
                 }
                 generate(*this);
         }
+        void begin(std::string const&){}
+        void end(){}
         void next( bool f, long a, long b, long c, long d, long e){
                 auto m = map_rank(a,b,c,d,e);
                 if( f )
-                        flush_map_[m].assign(order_, name_);
+                        flush_map_[m] = order_;
                 else
-                        rank_map_[m].assign(order_, name_);
+                        rank_map_[m] = order_;
                 ++order_;
         }
-        void begin(std::string const& name){
-                name_ = name;
-        }
-        void end(){}
-        ranking const& eval_flush(std::uint32_t m)const noexcept{
+        ranking_t eval_flush(std::uint32_t m)const noexcept{
                 return flush_map_[m];
         }
-        ranking const& eval_flush(long a, long b, long c, long d, long e)const noexcept{
+        ranking_t eval_flush(long a, long b, long c, long d, long e)const noexcept{
                 std::uint32_t m = map_rank( rank_device_[a],rank_device_[b],
                                             rank_device_[c],rank_device_[d],
                                             rank_device_[e]);
@@ -47,16 +45,16 @@ struct _5_card_map : evaluater{
         }
 
 
-        ranking const& eval_rank(std::uint32_t m)const noexcept{
+        ranking_t eval_rank(std::uint32_t m)const noexcept{
                 return rank_map_[m];
         }
-        ranking const& eval_rank(long a, long b, long c, long d, long e)const noexcept{
+        ranking_t eval_rank(long a, long b, long c, long d, long e)const noexcept{
                 std::uint32_t m = map_rank( rank_device_[a],rank_device_[b],
                                             rank_device_[c],rank_device_[d],
                                             rank_device_[e]);
                 return eval_rank(m);
         }
-        ranking const& eval_rank(long a, long b, long c, long d, long e, long f)const noexcept{
+        ranking_t eval_rank(long a, long b, long c, long d, long e, long f)const noexcept{
                 std::uint32_t m = map_rank( rank_device_[a],rank_device_[b],
                                             rank_device_[c],rank_device_[d],
                                             rank_device_[e],rank_device_[f]);
@@ -75,14 +73,14 @@ struct _5_card_map : evaluater{
         }
 
         // public interface
-        ranking const& rank(long a, long b, long c, long d, long e)const override{
+        ranking_t rank(long a, long b, long c, long d, long e)const override{
                 auto f_aux =  flush_device_[a] * flush_device_[b] * flush_device_[c] * flush_device_[d] * flush_device_[e] ;
                 std::uint32_t m = map_rank( rank_device_[a],
                                             rank_device_[b], 
                                             rank_device_[c],
                                             rank_device_[d], 
                                             rank_device_[e]);
-                ranking const* ret;
+                ranking_t ret;
 
 
                 switch(f_aux){
@@ -90,52 +88,45 @@ struct _5_card_map : evaluater{
                 case 3*3*3*3*3:
                 case 5*5*5*5*5:
                 case 7*7*7*7*7:
-                        ret = &eval_flush(m);
+                        ret = eval_flush(m);
                         break;
                 default:
-                        ret = &eval_rank(m);
+                        ret = eval_rank(m);
                         break;
                 }
                 //PRINT_SEQ((a)(b)(c)(d)(e)(ret));
-                return *ret;
+                return ret;
         }
-        ranking const& rank(long a, long b, long c, long d, long e, long f)const override{
-                std::array<ranking const*, 6> aux { 
-                        &rank(  b,c,d,e,f),
-                        &rank(a,  c,d,e,f),
-                        &rank(a,b,  d,e,f),
-                        &rank(a,b,c,  e,f),
-                        &rank(a,b,c,d,  f),
-                        &rank(a,b,c,d,e  )
+        ranking_t rank(long a, long b, long c, long d, long e, long f)const override{
+                std::array<ranking_t, 6> aux { 
+                        rank(  b,c,d,e,f),
+                        rank(a,  c,d,e,f),
+                        rank(a,b,  d,e,f),
+                        rank(a,b,c,  e,f),
+                        rank(a,b,c,d,  f),
+                        rank(a,b,c,d,e  )
                 };
-                return ** std::min_element(aux.begin(), aux.end(), [](auto const& l,
-                                                                      auto const& r){
-                                           return *l < *r;
-                        });
+                return * std::min_element(aux.begin(), aux.end());
         }
-        ranking const& rank(long a, long b, long c, long d, long e, long f, long g)const override{
-                std::array<ranking const*, 7> aux = {
-                        &rank(  b,c,d,e,f,g),
-                        &rank(a,  c,d,e,f,g),
-                        &rank(a,b,  d,e,f,g),
-                        &rank(a,b,c,  e,f,g),
-                        &rank(a,b,c,d,  f,g),
-                        &rank(a,b,c,d,e,  g),
-                        &rank(a,b,c,d,e,f  )
+        ranking_t rank(long a, long b, long c, long d, long e, long f, long g)const override{
+                std::array<ranking_t, 7> aux = {
+                        rank(  b,c,d,e,f,g),
+                        rank(a,  c,d,e,f,g),
+                        rank(a,b,  d,e,f,g),
+                        rank(a,b,c,  e,f,g),
+                        rank(a,b,c,d,  f,g),
+                        rank(a,b,c,d,e,  g),
+                        rank(a,b,c,d,e,f  )
                 };
-                return ** std::min_element(aux.begin(), aux.end(), [](auto const& l,
-                                                                      auto const& r){
-                                           return *l < *r;
-                        });
+                return * std::min_element(aux.begin(), aux.end());
         }
 protected:
         std::array<int, 52> flush_device_;
         std::array<int, 52> rank_device_;
 private:
-        size_t order_;
-        std::string name_;
-        std::vector<ranking> flush_map_;
-        std::vector<ranking> rank_map_;
+        size_t order_ = 1;
+        std::vector<ranking_t> flush_map_;
+        std::vector<ranking_t> rank_map_;
 };
 
 } // ps

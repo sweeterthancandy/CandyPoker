@@ -23,6 +23,7 @@
 #include <boost/property_tree/json_parser.hpp>
 #endif
 
+#if 0
 namespace ps{
 
         /*
@@ -193,3 +194,4 @@ namespace ps{
         }
 
 } // ps
+#endif

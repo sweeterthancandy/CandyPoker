@@ -546,7 +546,7 @@ namespace ps{
 
                 struct primitive_range{
                         explicit primitive_range(std::vector<primitive_t> const& vec):
-                                vec_{vec}
+                                vec_(vec)
                         {}
                         friend std::ostream& operator<<(std::ostream& ostr, primitive_range const& self){
                                 using printer = detail::operator_left_shift;

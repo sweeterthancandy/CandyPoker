@@ -2,6 +2,6 @@
 
 namespace ps{
 namespace{
-int reg = ( evaluater_factory::register_<_6_card_map>("6_card_map"),0);
+int reg = ( evaluator_factory::register_<_6_card_map>("6_card_map"),0);
 } // anon
 } // ps

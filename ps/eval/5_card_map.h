@@ -1,4 +1,4 @@
-#include "ps/eval/eval.h"
+#include "ps/eval/evaluator.h"
 
 #include <sstream>
 #include <mutex>
@@ -12,7 +12,7 @@
 
 namespace ps{
 
-struct _5_card_map : evaluater{
+struct _5_card_map : evaluator{
         _5_card_map(){
                 flush_map_.resize( 37 * 37 * 37 * 37 * 31 +1 );
                 rank_map_.resize( 37 * 37 * 37 * 37 * 31 +1 );

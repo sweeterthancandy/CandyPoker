@@ -1,5 +1,5 @@
-#ifndef PS_EVAL_EVALUATOR_H
-#define PS_EVAL_EVALUATOR_H
+#ifndef PS_EVAL_EQUITY_EVALUATOR_H
+#define PS_EVAL_EQUITY_EVALUATOR_H
 
 #include <vector>
 #include <ostream>
@@ -72,10 +72,45 @@ struct equity_eval_result{
         auto player(size_t idx)const{
                 return player_view_t(n_,
                                      sigma_,
-                                     support::array_view<size_t>(&data_[0] + n_ , n_ ));
+                                     support::array_view<size_t>(&data_[0] + idx * n_, n_ ));
         }
 
         auto n()const{ return n_; }
+        
+        friend std::ostream& operator<<(std::ostream& ostr, equity_eval_result const& self){
+                PRINT(detail::to_string(self.data_));
+                std::vector<std::vector<std::string> > line_buffer;
+                std::vector<size_t> widths(self.n_, 0);
+                ostr << self.sigma() << "\n";
+                for(size_t i=0;i!=self.n_;++i){
+                        line_buffer.emplace_back();
+                        for(size_t j=0;j!=self.n_;++j){
+                                line_buffer.back().emplace_back(
+                                        boost::lexical_cast<std::string>(
+                                                self.player(i).nwin(j)));
+                                widths[j] = std::max(widths[j], line_buffer.back().back().size());
+                        }
+                }
+                for(size_t i=0;i!=self.n_;++i){
+                        for(size_t j=0;j!=self.n_;++j){
+                                auto const& tok(line_buffer[i][j]);
+                                size_t padding{widths[j]-tok.size()};
+                                size_t left_pad{padding/2};
+                                size_t right_pad{padding - left_pad};
+                                if( j != 0 ){
+                                        ostr << " | ";
+                                }
+                                if( left_pad )
+                                        ostr << std::string(left_pad,' ');
+                                ostr << tok;
+                                if( right_pad )
+                                        ostr << std::string(right_pad,' ');
+
+                        }
+                        ostr << "\n";
+                }
+                return ostr;
+        }
         
 private:
         size_t sigma_ = 0;
@@ -99,4 +134,4 @@ using equity_evaluator_factory = support::singleton_factory<equity_evaluator>;
 
 } // ps
 
-#endif // #ifndef PS_EVAL_EVALUATOR_H
+#endif // #ifndef PS_EVAL_EQUITY_EVALUATOR_H

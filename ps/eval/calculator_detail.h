@@ -24,7 +24,6 @@
 #include "ps/eval/calculator_result.h"
 
 
-#if 0
 /*
         For equity calculations, creating pre-computation
         databases is important, which leads to a situation of
@@ -232,4 +231,3 @@ private:
 } // ps
 
 #endif // PS_CALCULATOR_DETAIL_H
-#endif

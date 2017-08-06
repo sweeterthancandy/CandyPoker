@@ -5,7 +5,6 @@
 
 namespace ps{
 
-
 template<class N>
 struct basic_result_type{
 

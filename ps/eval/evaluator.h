@@ -1,5 +1,5 @@
-#ifndef PS_EVAL_H
-#define PS_EVAL_H
+#ifndef PS_EVAL_EVALUATOR_H
+#define PS_EVAL_EVALUATOR_H
 
 #include <array>
 
@@ -21,4 +21,4 @@ using evaluator_factory = support::singleton_factory<evaluator>;
 
 } // namespace ps
 
-#endif // #ifndef PS_EVAL_H
+#endif // #ifndef PS_EVAL_EVALUATOR_H

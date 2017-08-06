@@ -10,6 +10,7 @@
 #include "ps/base/range.h"
 #include "ps/eval/evaluator.h"
 #include "ps/eval/rank_world.h"
+#include "ps/eval/equity_evaulator.h"
 
 using namespace ps;
 
@@ -68,6 +69,7 @@ int main(){
 }
 #endif
 
+#if 0
 int main(){
         using namespace decl;
         auto const& eval = evaluator_factory::get("6_card_map");
@@ -77,4 +79,15 @@ int main(){
         PRINT( rm[eval.rank( _Ah, _Kd, _Qh, _Jh, _Th, _2c )] );
         PRINT( rm[eval.rank( _Ah, _Kd, _Qh, _Jh, _Th, _2c, _Ad )] );
         PRINT( rm[eval.rank( _Ah, _Ad, _Qh, _Jh, _Th )] );
+}
+#endif
+
+
+struct equity_evaulator_impl : equity_evaluator{
+        equity_eval_result evaluate(std::vector<holdem_id> const& players)const override{
+        }
+};
+
+int main(){
+        using namespace decl;
 }

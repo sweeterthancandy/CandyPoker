@@ -1,13 +1,22 @@
 #ifndef PS_EVAL_EQUITY_CALCULATOR_IMPL_H
 #define PS_EVAL_EQUITY_CALCULATOR_IMPL_H
 
-#include "ps/eval/equity_evaulator.h"
+#include <boost/range/algorithm.hpp>
 
-struct equity_evaulator_impl : public equity_evaluator{
-        equity_eval_result evaluate(std::vector<holdem_id> const& players)const override{
+#include "ps/base/cards.h"
+#include "ps/base/board_combination_iterator.h"
+
+#include "ps/eval/evaluator.h"
+#include "ps/eval/equity_evaluator.h"
+#include "ps/eval/equity_breakdown_matrix.h"
+
+namespace ps{
+
+struct equity_evaulator_principal : public equity_evaluator{
+        std::shared_ptr<equity_breakdown> evaluate(std::vector<holdem_id> const& players)const override{
                 // we first need to enumerate every run of the board,
                 // for this we can create a mapping [0,51-n*2] -> [0,51],
-                equity_eval_result result{2};
+                auto result = std::make_shared<equity_breakdown_matrix>(2);
 
                 // vector of first and second card
                 std::vector<card_id> x,y;
@@ -45,14 +54,16 @@ struct equity_evaulator_impl : public equity_evaluator{
                         }
                         for(size_t i=0;i!=ranked.size();++i){
                                 if( ranked[i] == lowest ){
-                                        ++result.data_access(i,count-1);
+                                        ++result->data_access(i,count-1);
                                 }
                         }
-                        ++result.sigma();
+                        ++result->sigma();
                 }
 
-                return std::move(result);
+                return result;
         }
 };
+
+}
 
 #endif // PS_EVAL_EQUITY_CALCULATOR_IMPL_H

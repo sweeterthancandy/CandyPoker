@@ -21,7 +21,7 @@ set(base_sources lib/base/cards.cpp lib/base/board_combination_iterator.cpp)
 add_library(base_lib SHARED ${base_sources}) 
 target_link_libraries(base_lib ${Boost_LIBRARIES})
 
-set(eval_sources lib/eval/5_card_map.cpp lib/eval/6_card_map.cpp lib/eval/rank_world.cpp)
+set(eval_sources lib/eval/5_card_map.cpp lib/eval/6_card_map.cpp lib/eval/rank_world.cpp lib/eval/equity_evaluator_principal.cpp)
 add_library(eval_lib SHARED ${eval_sources}) 
 target_link_libraries(eval_lib ${Boost_LIBRARIES})
 

@@ -15,7 +15,7 @@
 #include "ps/base/board_combination_iterator.h"
 #include "ps/eval/evaluator.h"
 #include "ps/eval/rank_world.h"
-#include "ps/eval/equity_evaulator.h"
+#include "ps/eval/equity_evaluator.h"
 
 
 using namespace ps;
@@ -109,9 +109,9 @@ int main(){
                 holdem_hand_decl::parse("Ts8h"),
                 holdem_hand_decl::parse("7c6c")
         };
-        equity_evaulator_impl ee;
+        auto const& ee = equity_evaluator_factory::get("principal");
         auto ret = ee.evaluate(p);
-        std::cout << ret << "\n";
+        std::cout << *ret << "\n";
         //std::cout << ret << "\n";
 }
 #endif

@@ -17,7 +17,7 @@ include_directories(${Boost_INCLUDE_DIRS})
 include_directories(.)
 
 #aux_source_directory(lib/base base_sources)
-set(base_sources lib/base/cards.cpp)
+set(base_sources lib/base/cards.cpp lib/base/board_combination_iterator.cpp)
 add_library(base_lib SHARED ${base_sources}) 
 target_link_libraries(base_lib ${Boost_LIBRARIES})
 

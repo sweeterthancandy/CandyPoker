@@ -5,6 +5,8 @@ set(CMAKE_CXX_FLAGS "-std=c++14 -frtti -Wno-switch")
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -ggdb3")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
 
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall  -pedantic -Wno-sign-compare -Wno-unused-variable")
+
 
 #set(Boost_USE_STATIC_LIBS        ON) # only find static libs
 #set(Boost_USE_MULTITHREADED      ON)
@@ -17,11 +19,23 @@ include_directories(${Boost_INCLUDE_DIRS})
 include_directories(.)
 
 #aux_source_directory(lib/base base_sources)
-set(base_sources lib/base/cards.cpp lib/base/board_combination_iterator.cpp)
+set(base_sources
+        lib/base/algorithm.cpp
+        lib/base/cards.cpp
+        lib/base/board_combination_iterator.cpp
+)
 add_library(base_lib SHARED ${base_sources}) 
 target_link_libraries(base_lib ${Boost_LIBRARIES})
 
-set(eval_sources lib/eval/5_card_map.cpp lib/eval/6_card_map.cpp lib/eval/rank_world.cpp lib/eval/equity_evaluator_principal.cpp)
+set(
+        eval_sources 
+        
+        lib/eval/5_card_map.cpp
+        lib/eval/6_card_map.cpp
+        lib/eval/rank_world.cpp
+        lib/eval/equity_evaluator_principal.cpp 
+        lib/eval/equity_evaluator_cached.cpp
+)
 add_library(eval_lib SHARED ${eval_sources}) 
 target_link_libraries(eval_lib ${Boost_LIBRARIES})
 

@@ -28,6 +28,23 @@ namespace ps{
                 virtual equity_breakdown_player const& player(size_t idx)const=0;
 
         };
+
+        struct equity_breakdown_permutation_view : equity_breakdown{
+                equity_breakdown_permutation_view(std::shared_ptr<equity_breakdown const> impl, std::vector<int> perm)
+                        : impl_{impl}
+                        , perm_{perm}
+                {
+                        PRINT( detail::to_string(perm_));
+                }
+                size_t sigma()const override{ return impl_->sigma(); }
+                size_t n()    const override{ return impl_->n(); }
+                equity_breakdown_player const& player(size_t idx)const override{
+                        return impl_->player( perm_[idx] );
+                }
+        private:
+                std::shared_ptr<equity_breakdown const> impl_;
+                std::vector<int> perm_;
+        }; 
                 
         inline std::ostream& operator<<(std::ostream& ostr, equity_breakdown const& self){
                 std::vector<std::vector<std::string> > line_buffer;

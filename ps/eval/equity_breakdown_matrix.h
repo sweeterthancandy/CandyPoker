@@ -14,6 +14,7 @@ struct equity_breakdown_player_matrix : equity_breakdown_player{
         explicit equity_breakdown_player_matrix(size_t n, size_t sigma, support::array_view<size_t> data)
                 :n_{n}, sigma_{sigma}, data_{data}
         {}
+
         double equity()const override{
                 double result{0.0};
                 for(size_t i=0;i!=n_;++i){
@@ -41,6 +42,11 @@ private:
 
 
 struct equity_breakdown_matrix : equity_breakdown{
+        
+        equity_breakdown_matrix(equity_breakdown_matrix const&)=delete;
+        equity_breakdown_matrix(equity_breakdown_matrix&&)=delete;
+        equity_breakdown_matrix& operator=(equity_breakdown_matrix const&)=delete;
+        equity_breakdown_matrix& operator=(equity_breakdown_matrix&&)=delete;
 
         // only if all convertiable to size_t
         equity_breakdown_matrix(size_t n):
@@ -76,6 +82,7 @@ struct equity_breakdown_matrix : equity_breakdown{
         size_t& sigma(){ return sigma_; }
 
         equity_breakdown_player const& player(size_t idx)const override{
+                PRINT(idx);
                 return players_[idx];
         }
 
@@ -93,6 +100,7 @@ private:
         // need to allocate these
         std::vector< equity_breakdown_player_matrix> players_;
 };
+
 
 } // ps
 

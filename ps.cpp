@@ -106,10 +106,10 @@ int main(){
         // Hand 0: 	60.228%  	59.34% 	00.89% 	       1016051 	    15248.00   { Ts8h }
         // Hand 1: 	39.772%  	38.88% 	00.89% 	        665767 	    15248.00   { 7c6c }
         std::vector<holdem_id> p{ 
-                holdem_hand_decl::parse("Ts8h"),
-                holdem_hand_decl::parse("7c6c")
+                holdem_hand_decl::parse("7c6c"),
+                holdem_hand_decl::parse("Ts8h")
         };
-        auto const& ee = equity_evaluator_factory::get("principal");
+        auto const& ee = equity_evaluator_factory::get("cached");
         auto ret = ee.evaluate(p);
         std::cout << *ret << "\n";
         //std::cout << ret << "\n";

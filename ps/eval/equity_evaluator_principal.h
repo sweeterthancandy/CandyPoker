@@ -38,7 +38,7 @@ struct equity_evaulator_principal : public equity_evaluator{
                         auto const& b(*iter);
 
                         std::vector<ranking_t> ranked;
-                        for( int i=0;i!=n;++i){
+                        for( size_t i=0;i!=n;++i){
                                 ranked.push_back(eval.rank(x[i], y[i],
                                                             b[0], b[1], b[2], b[3], b[4]) );
                         }

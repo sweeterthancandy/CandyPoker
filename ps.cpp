@@ -12,13 +12,13 @@
 
 #include "ps/base/range.h"
 #include "ps/base/card_vector.h"
+#include "ps/base/frontend.h"
 #include "ps/base/board_combination_iterator.h"
 #include "ps/eval/evaluator.h"
 #include "ps/eval/rank_world.h"
 #include "ps/eval/equity_evaluator.h"
 #include "ps/eval/class_equity_evaluator.h"
 #include "ps/eval/equity_breakdown_matrix.h"
-
 
 using namespace ps;
 
@@ -57,104 +57,47 @@ void cross_product_vec( V v, Vec& vec){
         }
 }
 
-#if 0
-int main(){
-        range hero, villian;
-        hero.set_class( holdem_class_decl::parse("KK"));
-        hero.set_class( holdem_class_decl::parse("QQ"));
-        villian.set_hand( holdem_hand_decl::parse("As2h"));
-        villian.set_class( holdem_class_decl::parse("22"));
-
-        std::vector<range> aux{ hero, villian };
-
-        cross_product_vec([](auto const& v){
-                PRINT_SEQ((v[0].class_())(v[1].class_()));
-                cross_product_vec([](auto const& v){
-                              PRINT_SEQ((v[0].decl())(v[1].decl()));
-                }, v);
-        }, aux);
-
-}
-#endif
-
-#if 0
-int main(){
-        using namespace decl;
-        auto const& eval = evaluator_factory::get("6_card_map");
-        auto const& rm = rank_word_factory::get();
-        PRINT( rm[eval.rank( _Ah, _Kh, _Qh, _Jh, _Th )] );
-        PRINT( rm[eval.rank( _Ah, _Kd, _Qh, _Jh, _Th )] );
-        PRINT( rm[eval.rank( _Ah, _Kd, _Qh, _Jh, _Th, _2c )] );
-        PRINT( rm[eval.rank( _Ah, _Kd, _Qh, _Jh, _Th, _2c, _Ad )] );
-        PRINT( rm[eval.rank( _Ah, _Ad, _Qh, _Jh, _Th )] );
-}
-#endif
-
-
-#if 0
-int main(){
-        size_t count=0;
-        for(board_combination_iterator iter(3, std::vector<card_id>{0,2,4,5}),end;iter!=end;++iter){
-                ++count;
+holdem_range convert_to_range(frontend::range const& rng){
+        holdem_range result;
+        for( auto id : expand(rng).to_holdem_vector()){
+                result.set_hand(id);
         }
-        PRINT(count);
+        return std::move(result);
 }
-#endif
+holdem_range parse_holdem_range(std::string const& s){
+        return convert_to_range( frontend::parse(s));
+}
 
-
-#if 0
 int main(){
-        using namespace decl;
-        // Hand 0: 	60.228%  	59.34% 	00.89% 	       1016051 	    15248.00   { Ts8h }
-        // Hand 1: 	39.772%  	38.88% 	00.89% 	        665767 	    15248.00   { 7c6c }
-        std::vector<holdem_id> p{ 
-                holdem_hand_decl::parse("7c6c"),
-                holdem_hand_decl::parse("Ts8h")
-        };
-        auto const& ee = equity_evaluator_factory::get("cached");
-        auto ret = ee.evaluate(p);
-        std::cout << *ret << "\n";
-        //std::cout << ret << "\n";
-}
-#endif
+        std::vector<holdem_range> vec;
+        #if 0
+        //equity 	win 	tie 	      pots won 	pots tied	
+        //Hand 0: 	29.676%  	26.07% 	03.60% 	     849118284 	117404490.00   { AKo }
+        //Hand 1: 	23.784%  	20.18% 	03.60% 	     657207792 	117404490.00   { ATs+ }
+        //Hand 2: 	46.541%  	46.43% 	00.11% 	    1512273672 	  3517896.00   { 99-77 }
+        vec.push_back(parse_holdem_range("AKo"));
+        vec.push_back(parse_holdem_range("ATs+"));
+        vec.push_back(parse_holdem_range("99-77"));
+        #endif
+	//equity 	win 	tie 	      pots won 	pots tied	
+        //Hand 0: 	70.040%  	69.80% 	00.24% 	     372923544 	  1257870.00   { 99+, AKs, AKo }
+        //Hand 1: 	29.960%  	29.72% 	00.24% 	     158799564 	  1257870.00   { 55 }
+        vec.push_back(parse_holdem_range(" 99+, AKs, AKo "));
+        vec.push_back(parse_holdem_range("55"));
+        
+        auto const& ec = equity_evaluator_factory::get("cached");
+        auto result = std::make_shared<equity_breakdown_matrix_aggregator>(2);
 
-template<class Vec>
-std::tuple<
-        std::vector<size_t>,
-        Vec
->
-make_injective_vector_permutation(Vec const& vec){
-
-        // sort vector
-        Vec sorted(vec);
-        boost::sort( sorted );
-
-        // now match up to a perm
-        std::vector<size_t> perm;
-        for(size_t from=0;from!=vec.size();++from){
-                for(size_t to=0;to!=vec.size();++to){
-                        if( vec[from] == sorted[to] &&
-                            boost::find(perm, to) == perm.end()){
-                                perm.emplace_back(to);
+        cross_product_vec([&](auto const& byclass){
+                cross_product_vec([&](auto const& byhand){
+                        holdem_hand_vector v;
+                        for( auto iter : byhand ){
+                                v.push_back( (*iter).hand().id() );
                         }
-                }
-        }
-        return std::make_tuple(
-                std::move(perm),
-                std::move(sorted)
-        );
-}
+                        result->append(*ec.evaluate( v ));
+                }, byclass);
+        }, vec);
+        std::cout << *result << "\n";
 
 
-int main(){
-        // Hand 0: 	65.771%  	65.55% 	00.22% 	      26939748 	    89034.00   { 77 }
-        // Hand 1: 	34.229%  	34.01% 	00.22% 	      13977480 	    89034.00   { A5s }
-        holdem_hand_vector p{ 
-                holdem_class_decl::parse("77"),
-                holdem_class_decl::parse("A5s")
-        };
-        auto const& ee = class_equity_evaluator_factory::get("principal");
-        auto ret = ee.evaluate(p);
-        std::cout << *ret << "\n";
-        //std::cout << ret << "\n";
 }

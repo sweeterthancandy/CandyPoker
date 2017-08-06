@@ -8,18 +8,18 @@
 namespace ps{
 
 
-struct range{
+template<class Traits>
+struct basic_holdem_range{
         
-        static constexpr const double _1 = 1.0;
-
+        using attr_t = typename Traits::attr_t;
 
         struct subrange{
 
-                using mask_t = std::map<holdem_id, double>;
+                using mask_t = std::map<holdem_id, attr_t>;
 
                 struct const_iterator{
 
-                        using impl_t = mask_t::const_iterator;
+                        using impl_t = typename mask_t::const_iterator;
 
                         const_iterator(subrange const* _this_,
                                        impl_t iter):
@@ -28,13 +28,9 @@ struct range{
                         {}
                         const_iterator& operator++(){
                                 ++iter_;
-                                #if 0
-                                for( ; iter_ != this_->mask_.end() &&
-                                       iter_ == 0.0 ; ++iter_);
-                                       #endif
                                 return *this;
                         }
-                        double weight()const{
+                        attr_t const& attr()const{
                                 return iter_->second;
                         }
                         holdem_id id()const{
@@ -46,9 +42,26 @@ struct range{
                         friend bool operator==(const_iterator const& l, const_iterator const& r){
                                 return l.iter_  == r.iter_;
                         }
+                        friend bool operator!=(const_iterator const& l, const_iterator const& r){
+                                return l.iter_  != r.iter_;
+                        }
+                        struct proxy{
+                                proxy(holdem_id id, attr_t const& attr):id_{id}, attr_{&attr}{}
+                                holdem_hand_decl const& hand()const{ return holdem_hand_decl::get(id_); }
+                                holdem_class_decl const& class_()const{
+                                        return holdem_class_decl::get(hand().class_());
+                                }
+                                attr_t const& attr(){return *attr_; }
+                        private:
+                                holdem_id id_;
+                                attr_t const* attr_;
+                        };
+                        proxy operator*(){
+                                return proxy(id(), attr());
+                        }
                 private:
                         subrange const* this_;
-                        mask_t::const_iterator iter_;
+                        impl_t iter_;
                 };
 
                 explicit subrange(holdem_class_id id):
@@ -56,21 +69,19 @@ struct range{
                 {
                 }
         
-                void set_hand(holdem_id id, double weight = _1){
-                        mask_[id] = weight;
+                void set_hand(holdem_id id, attr_t attr = Traits::default_() ){
+                        mask_[id] = attr;
                 }
 
                 
                 auto begin()const{
                         auto iter = mask_.begin();
-                        #if 0
-                        for(; iter != mask_.end() && *iter == 0.0; ++iter);
-                        #endif
                         return const_iterator(this, std::move(iter));
                 }
                 auto end()const{
                         return const_iterator(this, mask_.end());
                 }
+                holdem_class_decl const& class_()const{ return holdem_class_decl::get(id_); }
 
         private:
                 holdem_class_id id_;
@@ -81,9 +92,9 @@ struct range{
 
 
         struct const_iterator{
-                using impl_t = bucket_t::const_iterator;
+                using impl_t = typename bucket_t::const_iterator;
 
-                const_iterator(range const* _this_, impl_t iter):
+                const_iterator(basic_holdem_range const* _this_, impl_t iter):
                         this_(_this_), iter_(iter)
                 {}
 
@@ -104,39 +115,42 @@ struct range{
                 friend bool operator==(const_iterator const& l, const_iterator const& r){
                         return l.iter_  == r.iter_;
                 }
+                friend bool operator!=(const_iterator const& l, const_iterator const& r){
+                        return l.iter_  != r.iter_;
+                }
         private:
-                range const* this_;
+                basic_holdem_range const* this_;
                 impl_t iter_;
         };
 
 
-        range(range const&)=default;
-        range()=default;
+        basic_holdem_range(basic_holdem_range const&)=default;
+        basic_holdem_range()=default;
 
-        void set_hand(holdem_id id, double weight = _1){
+        void set_hand(holdem_id id, attr_t attr = Traits::default_()){
                 auto iter = buckets_.find(holdem_hand_decl::get(id).class_());
                 if( iter == buckets_.end() ){
                         buckets_.emplace( holdem_hand_decl::get(id).class_(), holdem_hand_decl::get(id).class_());
-                        return this->set_hand(id, _1);
+                        return this->set_hand(id, Traits::default_());
                 }
-                iter->second.set_hand(id, weight);
+                iter->second.set_hand(id, attr);
         }
-        void set_hand(holdem_hand_decl const& decl, double weight = _1){
-                this->set_hand( decl.id(), weight);
+        void set_hand(holdem_hand_decl const& decl, attr_t attr = Traits::default_()){
+                this->set_hand( decl.id(), attr);
         }
-        void set_hand(card_id a, card_id b, double weight = _1){
-                this->set_hand( holdem_hand_decl::get(a, b), weight);
+        void set_hand(card_id a, card_id b, attr_t attr = Traits::default_()){
+                this->set_hand( holdem_hand_decl::get(a, b), attr);
         }
 
 
-        void set_class(holdem_class_id id, double weight = _1){
+        void set_class(holdem_class_id id, attr_t attr = Traits::default_()){
                 auto const& c = holdem_class_decl::get(id);
                 for( auto const& h : c.get_hand_set() ){
-                        this->set_hand(h, weight);
+                        this->set_hand(h, attr);
                 }
         }
-        void set_class(holdem_class_decl const& decl, double weight = _1){
-                this->set_class( decl.id(), weight);
+        void set_class(holdem_class_decl const& decl, attr_t attr = Traits::default_()){
+                this->set_class( decl.id(), attr);
         }
 
         const_iterator begin()const{
@@ -146,9 +160,45 @@ struct range{
                 return const_iterator(this, buckets_.end());
         }
 
+        basic_holdem_range& append(basic_holdem_range const& that){
+                for( auto byclass : that ){
+                        for( auto byhand : byclass ){
+                                this->set_hand(byhand.hand().id());
+                        }
+                }
+                return *this;
+        }
+
+        friend std::ostream& operator<<(std::ostream& ostr, basic_holdem_range const& self){
+                ostr << "{";
+                bool first = true;
+                for( auto byclass : self ){
+                        for( auto byhand : byclass ){
+                                if( first) first = false;
+                                else ostr << ", ";
+                                ostr << byhand.hand();
+                        }
+                }
+                ostr << "}";
+                return ostr;
+        }
 private:
         bucket_t buckets_;
 };
+
+namespace detail{
+        struct boolean_range_traits{
+                using attr_t = bool;
+                static attr_t default_(){ return true; }
+        };
+        struct weighted_range_traits{
+                using attr_t = double;
+                static attr_t default_(){ return 1.0; }
+        };
+} // detail
+
+using holdem_range          = basic_holdem_range<detail::boolean_range_traits>;
+using holdem_weighted_range = basic_holdem_range<detail::weighted_range_traits>;
 
 } // ps
 

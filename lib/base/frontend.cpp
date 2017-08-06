@@ -43,6 +43,41 @@ namespace ps{ namespace frontend{
                 boost::copy( subs, std::back_inserter(result.subs_));
                 return std::move(result);
         }
+/*
+        range         -> sub_range_seq
+                
+        sub_range_seq -> sub_range
+                         sub_range sub_range_seq
+                         sub_range,sub_range_seq
+                         sub_range;sub_range_seq
+        
+        sub_range     -> hand
+                      -> class_decl
+
+        hand          -> rank suit rank suit
+
+        rank          -> rRcChHdD
+
+        suit          -> 23456789tTjJqQkKaA
+
+        class_decl    -> class
+                         interval
+                         plus
+
+        interval      -> class - class
+
+        plus          -> class +
+
+        class         -> rank rank 
+                         rank rank suit_decl
+
+        suit_decl     -> oOsS
+
+        class_x       -> rank x
+                         rank X
+
+                 
+ */
 
         namespace detail{
                 template<class Iter_Type>

@@ -22,6 +22,7 @@ include_directories(.)
 set(base_sources
         lib/base/algorithm.cpp
         lib/base/cards.cpp
+        lib/base/frontend.cpp
         lib/base/board_combination_iterator.cpp
         lib/base/hand_vector.cpp
 )

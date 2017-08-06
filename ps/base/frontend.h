@@ -570,6 +570,15 @@ namespace ps{
                 private:
                         std::vector<primitive_t> vec_;
                 };
+                
+                template<class T>
+                auto to_hand_vector(T const& val)->decltype( val.i_am_a_duck__to_hand_vector()){
+                        return val.i_am_a_duck__to_hand_vector();
+                }
+                inline
+                auto to_hand_vector(primitive_t const& prim){
+                        return boost::apply_visitor( detail::to_hand_vector(), prim);
+                }
 
                 struct range{
                         #if 0
@@ -605,6 +614,17 @@ namespace ps{
                                         vec.emplace_back( boost::apply_visitor(detail::primitive_cast(), e));
                                 }
                                 return primitive_range{std::move(vec)};
+                        }
+                        auto to_holdem_vector()const{
+                                holdem_hand_vector result;
+                                for( auto const& e : subs_){
+                                        auto prim = boost::apply_visitor(detail::primitive_cast(), e);
+                                        auto hv = to_hand_vector(prim);
+                                        for( auto id : hv ){
+                                                boost::copy( hv, std::back_inserter(result));
+                                        }
+                                }
+                                return std::move(result);
                         }
                 private:
                         std::vector<sub_range_t> subs_;
@@ -650,14 +670,6 @@ namespace ps{
 
                 range parse(std::string const& str);
 
-                template<class T>
-                auto to_hand_vector(T const& val)->decltype( val.i_am_a_duck__to_hand_vector()){
-                        return val.i_am_a_duck__to_hand_vector();
-                }
-                inline
-                auto to_hand_vector(primitive_t const& prim){
-                        return boost::apply_visitor( detail::to_hand_vector(), prim);
-                }
 
                 template<class T>
                 auto to_class_id(T const& val){

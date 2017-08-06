@@ -82,7 +82,6 @@ struct equity_breakdown_matrix : equity_breakdown{
         size_t& sigma(){ return sigma_; }
 
         equity_breakdown_player const& player(size_t idx)const override{
-                PRINT(idx);
                 return players_[idx];
         }
 
@@ -99,6 +98,23 @@ private:
 
         // need to allocate these
         std::vector< equity_breakdown_player_matrix> players_;
+};
+        
+struct equity_breakdown_matrix_aggregator : equity_breakdown_matrix{
+
+        explicit equity_breakdown_matrix_aggregator(size_t n)
+                : equity_breakdown_matrix{n}
+        {}
+
+        void append(equity_breakdown const& breakdown){
+                assert( breakdown.n() == n() && "precondition failed");
+                sigma() += breakdown.sigma();
+                for(size_t i=0;i!=n();++i){
+                        for(size_t j=0;j!=n();++j){
+                                data_access(i, j) += breakdown.player(i).nwin(j);
+                        }
+                }
+        }
 };
 
 

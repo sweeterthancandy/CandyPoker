@@ -239,6 +239,9 @@ namespace ps{
                         }
                         break;
                 }
+                for( auto const& d : hand_set_ ){
+                        hand_id_set_.emplace_back(d.id());
+                }
         }
 
         std::string holdem_class_decl::to_string()const{
@@ -316,4 +319,5 @@ namespace ps{
                 }
                 return holdem_class_decl::make_id(type, first().rank().id(), second().rank().id());
         }
+
 } // 

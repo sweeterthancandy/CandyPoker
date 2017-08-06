@@ -16,6 +16,8 @@
 #include "ps/eval/evaluator.h"
 #include "ps/eval/rank_world.h"
 #include "ps/eval/equity_evaluator.h"
+#include "ps/eval/class_equity_evaluator.h"
+#include "ps/eval/equity_breakdown_matrix.h"
 
 
 using namespace ps;
@@ -100,7 +102,7 @@ int main(){
 #endif
 
 
-#if 1
+#if 0
 int main(){
         using namespace decl;
         // Hand 0: 	60.228%  	59.34% 	00.89% 	       1016051 	    15248.00   { Ts8h }
@@ -115,3 +117,44 @@ int main(){
         //std::cout << ret << "\n";
 }
 #endif
+
+template<class Vec>
+std::tuple<
+        std::vector<size_t>,
+        Vec
+>
+make_injective_vector_permutation(Vec const& vec){
+
+        // sort vector
+        Vec sorted(vec);
+        boost::sort( sorted );
+
+        // now match up to a perm
+        std::vector<size_t> perm;
+        for(size_t from=0;from!=vec.size();++from){
+                for(size_t to=0;to!=vec.size();++to){
+                        if( vec[from] == sorted[to] &&
+                            boost::find(perm, to) == perm.end()){
+                                perm.emplace_back(to);
+                        }
+                }
+        }
+        return std::make_tuple(
+                std::move(perm),
+                std::move(sorted)
+        );
+}
+
+
+int main(){
+        // Hand 0: 	65.771%  	65.55% 	00.22% 	      26939748 	    89034.00   { 77 }
+        // Hand 1: 	34.229%  	34.01% 	00.22% 	      13977480 	    89034.00   { A5s }
+        holdem_hand_vector p{ 
+                holdem_class_decl::parse("77"),
+                holdem_class_decl::parse("A5s")
+        };
+        auto const& ee = class_equity_evaluator_factory::get("principal");
+        auto ret = ee.evaluate(p);
+        std::cout << *ret << "\n";
+        //std::cout << ret << "\n";
+}

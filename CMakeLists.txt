@@ -23,6 +23,7 @@ set(base_sources
         lib/base/algorithm.cpp
         lib/base/cards.cpp
         lib/base/board_combination_iterator.cpp
+        lib/base/hand_vector.cpp
 )
 add_library(base_lib SHARED ${base_sources}) 
 target_link_libraries(base_lib ${Boost_LIBRARIES})
@@ -35,6 +36,7 @@ set(
         lib/eval/rank_world.cpp
         lib/eval/equity_evaluator_principal.cpp 
         lib/eval/equity_evaluator_cached.cpp
+        lib/eval/class_equity_evaluator_principal.cpp 
 )
 add_library(eval_lib SHARED ${eval_sources}) 
 target_link_libraries(eval_lib ${Boost_LIBRARIES})

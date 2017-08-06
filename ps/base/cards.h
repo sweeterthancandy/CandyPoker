@@ -8,6 +8,7 @@
 #include "ps/base/cards_fwd.h"
 #include "ps/detail/void_t.h"
 #include "ps/detail/print.h"
+#include "ps/base/hand_vector.h"
 
 
 namespace ps{
@@ -155,6 +156,7 @@ namespace ps{
                                   rank_decl const& a,
                                   rank_decl const& b);
                 auto const& get_hand_set()const{ return hand_set_; }
+                auto const& get_hand_vector()const{ return hand_id_set_; }
                 auto id()const{ return id_; }
                 auto category()const{ return cat_; }
                 std::string to_string()const;
@@ -200,6 +202,7 @@ namespace ps{
                 rank_decl second_;
                 std::vector<holdem_hand_decl> hand_set_;
                 std::vector<holdem_id> hand_id_vec_;
+                holdem_hand_vector hand_id_set_;
         };
 
 

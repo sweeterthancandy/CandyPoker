@@ -34,7 +34,7 @@ namespace ps{
                         : impl_{impl}
                         , perm_{perm}
                 {
-                        PRINT( detail::to_string(perm_));
+                        //PRINT( detail::to_string(perm_));
                 }
                 size_t sigma()const override{ return impl_->sigma(); }
                 size_t n()    const override{ return impl_->n(); }
@@ -45,6 +45,7 @@ namespace ps{
                 std::shared_ptr<equity_breakdown const> impl_;
                 std::vector<int> perm_;
         }; 
+        
                 
         inline std::ostream& operator<<(std::ostream& ostr, equity_breakdown const& self){
                 std::vector<std::vector<std::string> > line_buffer;

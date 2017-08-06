@@ -1,6 +1,8 @@
 #ifndef PS_CARDS_FWD_H
 #define PS_CARDS_FWD_H
 
+#include <string>
+
 namespace ps{
 
         #if 0
@@ -41,6 +43,7 @@ namespace ps{
         struct rank_decl;
         struct holdem_hand_decl;
         struct holdem_class_decl;
+        
 } // ps
 
 #endif // PS_CARDS_FWD_H

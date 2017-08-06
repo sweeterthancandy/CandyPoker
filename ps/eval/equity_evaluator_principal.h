@@ -16,7 +16,7 @@ struct equity_evaulator_principal : public equity_evaluator{
         std::shared_ptr<equity_breakdown> evaluate(std::vector<holdem_id> const& players)const override{
                 // we first need to enumerate every run of the board,
                 // for this we can create a mapping [0,51-n*2] -> [0,51],
-                auto result = std::make_shared<equity_breakdown_matrix>(2);
+                auto result = std::make_shared<equity_breakdown_matrix>(players.size());
 
                 // vector of first and second card
                 std::vector<card_id> x,y;

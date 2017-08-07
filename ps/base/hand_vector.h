@@ -23,20 +23,6 @@ namespace ps{
                 bool disjoint()const;
         };
 
-        #if 0
-        struct holdem_hand_vector_permutation : holdem_hand_vector{
-                using perm_type = std::vector<int>;
-                template<class... Args>
-                holdem_hand_vector_permutation(perm_type perm, Args&&... args)
-                        : holdem_hand_vector{ std::forwards<Args>(args)... }
-                        , perms_(std::move(perm))
-                {}
-        private:
-                std::vector<int> perm_;
-        };
-        #endif
-
-
         struct holdem_class_vector : std::vector<ps::holdem_class_id>{
                 template<class... Args>
                 holdem_class_vector(Args&&... args)

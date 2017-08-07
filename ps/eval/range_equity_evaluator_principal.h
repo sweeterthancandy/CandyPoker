@@ -13,7 +13,7 @@ struct range_equity_evaluator_principal : range_equity_evaluator{
 
         std::shared_ptr<equity_breakdown> evaluate(std::vector<holdem_range>const& players)const override{
                 auto const& ec = equity_evaluator_factory::get("cached");
-                auto result = std::make_shared<equity_breakdown_matrix_aggregator>(2);
+                auto result = std::make_shared<equity_breakdown_matrix_aggregator>(players.size());
 
                 detail::cross_product_vec([&](auto const& byclass){
                         detail::cross_product_vec([&](auto const& byhand){

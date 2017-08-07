@@ -23,21 +23,16 @@
 
 using namespace ps;
 
+struct computational_work{
+};
 
-holdem_range convert_to_range(frontend::range const& rng){
-        holdem_range result;
-        for( auto id : expand(rng).to_holdem_vector()){
-                result.set_hand(id);
-        }
-        return std::move(result);
-}
-holdem_range parse_holdem_range(std::string const& s){
-        return convert_to_range( frontend::parse(s));
-}
+struct execution_strategy{
+};
+
 
 int main(){
         std::vector<holdem_range> vec;
-        #if 0
+        #if 1
         //equity 	win 	tie 	      pots won 	pots tied	
         //Hand 0: 	29.676%  	26.07% 	03.60% 	     849118284 	117404490.00   { AKo }
         //Hand 1: 	23.784%  	20.18% 	03.60% 	     657207792 	117404490.00   { ATs+ }

@@ -6,21 +6,18 @@
 #include <list>
 #include <algorithm>
 
+#include <boost/format.hpp>
+#include <boost/range/algorithm.hpp>
 #include <boost/variant.hpp>
 #include <boost/variant/multivisitors.hpp>
-#include <boost/format.hpp>
-
-
 #include <boost/mpl/vector.hpp>
 #include <boost/mpl/contains.hpp>
-
-#include <boost/range/algorithm.hpp>
 
 #include "ps/detail/print.h"
 #include "ps/detail/visit_combinations.h"
 
-
 #include "ps/base/cards.h"
+#include "ps/base/range.h"
 
 /*
         The point of the frontend is just
@@ -696,6 +693,20 @@ namespace ps{
                 #endif
 
         } // frontend
+
+        inline
+        holdem_range convert_to_range(frontend::range const& rng){
+                holdem_range result;
+                for( auto id : expand(rng).to_holdem_vector()){
+                        result.set_hand(id);
+                }
+                return std::move(result);
+        }
+
+        inline
+        holdem_range parse_holdem_range(std::string const& s){
+                return convert_to_range( frontend::parse(s));
+        }
 } // ps
 
 #include "ps/base/frontend_decl.h"

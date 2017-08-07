@@ -12,7 +12,7 @@ namespace ps{
 struct range_equity_evaluator{
         virtual ~range_equity_evaluator()=default;
 
-        virtual std::shared_ptr<equity_breakdown> evaluate(std::vector<range>const& players)const=0;
+        virtual std::shared_ptr<equity_breakdown> evaluate(std::vector<holdem_range>const& players)const=0;
 };
 
 

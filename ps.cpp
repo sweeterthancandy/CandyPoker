@@ -19,43 +19,10 @@
 #include "ps/eval/equity_evaluator.h"
 #include "ps/eval/class_equity_evaluator.h"
 #include "ps/eval/equity_breakdown_matrix.h"
+#include "ps/eval/range_equity_evaluator.h"
 
 using namespace ps;
 
-template<class V, class Vec>
-void cross_product_vec( V v, Vec& vec){
-
-        using iter_t = decltype(vec.front().begin());
-
-        size_t const sz = vec.size();
-
-        std::vector<iter_t> proto_vec;
-        std::vector<iter_t> iter_vec;
-        std::vector<iter_t> end_vec;
-
-
-        for( auto& e : vec){
-                proto_vec.emplace_back( e.begin() );
-                end_vec.emplace_back(e.end());
-        }
-        iter_vec = proto_vec;
-
-        for(;;){
-                v(iter_vec);
-
-                size_t cursor = sz - 1;
-                for(;;){
-                        if( ++iter_vec[cursor] == end_vec[cursor]){
-                                if( cursor == 0 )
-                                        return;
-                                iter_vec[cursor] = proto_vec[cursor];
-                                --cursor;
-                                continue;
-                        }
-                        break;
-                }
-        }
-}
 
 holdem_range convert_to_range(frontend::range const& rng){
         holdem_range result;
@@ -78,25 +45,17 @@ int main(){
         vec.push_back(parse_holdem_range("AKo"));
         vec.push_back(parse_holdem_range("ATs+"));
         vec.push_back(parse_holdem_range("99-77"));
-        #endif
+        #else
 	//equity 	win 	tie 	      pots won 	pots tied	
         //Hand 0: 	70.040%  	69.80% 	00.24% 	     372923544 	  1257870.00   { 99+, AKs, AKo }
         //Hand 1: 	29.960%  	29.72% 	00.24% 	     158799564 	  1257870.00   { 55 }
         vec.push_back(parse_holdem_range(" 99+, AKs, AKo "));
         vec.push_back(parse_holdem_range("55"));
+        #endif
         
-        auto const& ec = equity_evaluator_factory::get("cached");
-        auto result = std::make_shared<equity_breakdown_matrix_aggregator>(2);
+        auto const& ec = range_equity_evaluator_factory::get("principal");
 
-        cross_product_vec([&](auto const& byclass){
-                cross_product_vec([&](auto const& byhand){
-                        holdem_hand_vector v;
-                        for( auto iter : byhand ){
-                                v.push_back( (*iter).hand().id() );
-                        }
-                        result->append(*ec.evaluate( v ));
-                }, byclass);
-        }, vec);
+        auto result = ec.evaluate( vec );
         std::cout << *result << "\n";
 
 

@@ -76,6 +76,8 @@ int main(){
         }
         auto result = std::make_shared<equity_breakdown_matrix_aggregator>(players.size());
         for( auto& t : world ){
+                                std::get<1>(t).get();
+                                std::get<1>(t).get();
                 result->append(
                         *std::make_shared<equity_breakdown_permutation_view>(
                                 std::get<1>(t).get(),

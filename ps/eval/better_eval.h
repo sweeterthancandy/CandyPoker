@@ -87,7 +87,7 @@ struct calculation_context{
         using view_type = detailed_view_type;
         using observer_type = dyn_observer_type;
 
-
+        std::vector<
                 std::packaged_task<result_type(equity_calc_detail*)>
         > work;
 

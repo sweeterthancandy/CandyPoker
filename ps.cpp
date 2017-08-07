@@ -6,6 +6,10 @@
 #include <codecvt>
 #include <type_traits>
 #include <functional>
+#include <type_traits>
+#include <functional>
+#include <iostream>
+#include <future>
 
 #include <boost/range/algorithm.hpp>
 #include "ps/detail/visit_combinations.h"
@@ -13,6 +17,7 @@
 #include "ps/base/range.h"
 #include "ps/base/card_vector.h"
 #include "ps/base/frontend.h"
+#include "ps/base/algorithm.h"
 #include "ps/base/board_combination_iterator.h"
 #include "ps/eval/evaluator.h"
 #include "ps/eval/rank_world.h"
@@ -31,26 +36,53 @@ struct execution_strategy{
 
 
 int main(){
-        std::vector<holdem_range> vec;
-        #if 1
-        //equity 	win 	tie 	      pots won 	pots tied	
-        //Hand 0: 	29.676%  	26.07% 	03.60% 	     849118284 	117404490.00   { AKo }
-        //Hand 1: 	23.784%  	20.18% 	03.60% 	     657207792 	117404490.00   { ATs+ }
-        //Hand 2: 	46.541%  	46.43% 	00.11% 	    1512273672 	  3517896.00   { 99-77 }
-        vec.push_back(parse_holdem_range("AKo"));
-        vec.push_back(parse_holdem_range("ATs+"));
-        vec.push_back(parse_holdem_range("99-77"));
-        #else
-	//equity 	win 	tie 	      pots won 	pots tied	
-        //Hand 0: 	70.040%  	69.80% 	00.24% 	     372923544 	  1257870.00   { 99+, AKs, AKo }
-        //Hand 1: 	29.960%  	29.72% 	00.24% 	     158799564 	  1257870.00   { 55 }
-        vec.push_back(parse_holdem_range(" 99+, AKs, AKo "));
-        vec.push_back(parse_holdem_range("55"));
-        #endif
+        holdem_class_vector players;
+        players.push_back(holdem_class_decl::parse("A2o"));
+        players.push_back(holdem_class_decl::parse("88"));
+        players.push_back(holdem_class_decl::parse("QJs"));
         
-        auto const& ec = range_equity_evaluator_factory::get("principal");
+        std::map<
+                holdem_hand_vector,
+                std::shared_future<std::shared_ptr<equity_breakdown> >
+        > cache;
+        std::list<
+                std::tuple<
+                        std::vector<int>,
+                        std::shared_future<std::shared_ptr<equity_breakdown> >
+                >
+        > world;
 
-        auto result = ec.evaluate( vec );
+        auto const& eval = equity_evaluator_factory::get("principal");
+
+        for( auto hv : players.get_hand_vectors()){
+                auto p =  permutate_for_the_better(hv) ;
+                auto& perm = std::get<0>(p);
+                auto const& perm_players = std::get<1>(p);
+                
+                auto iter = cache.find(perm_players);
+                if( iter == cache.end()){
+
+                        std::packaged_task<std::shared_ptr<equity_breakdown>()> task(
+                                [perm_players,&eval](){
+                                return eval.evaluate(perm_players);
+                        });
+                        cache.emplace(perm_players, std::move(task.get_future()));
+                        iter = cache.find(perm_players);
+                        PRINT(iter == cache.end());
+                        std::thread(std::move(task)).detach();
+                }
+
+                world.emplace_back( perm, iter->second );
+        }
+        auto result = std::make_shared<equity_breakdown_matrix_aggregator>(players.size());
+        for( auto& t : world ){
+                result->append(
+                        *std::make_shared<equity_breakdown_permutation_view>(
+                                std::get<1>(t).get(),
+                                std::get<0>(t)));
+        }
+        std::cout << *result << "\n";
+        std::cout << *result << "\n";
         std::cout << *result << "\n";
 
 

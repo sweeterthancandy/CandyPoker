@@ -56,8 +56,6 @@ namespace ps{ namespace frontend{
 
         hand          -> rank suit rank suit
 
-        rank          -> rRcChHdD
-
         suit          -> 23456789tTjJqQkKaA
 
         class_decl    -> class

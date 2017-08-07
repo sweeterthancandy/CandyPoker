@@ -5,6 +5,7 @@
 #include <map>
 #include <functional>
 #include <memory>
+#include <mutex>
 
 namespace ps{
 namespace support{
@@ -22,7 +23,9 @@ namespace support{
                         {}
                         T& get(){
                                 if( ! ptr_ ){
-                                        ptr_ = maker_();
+                                        if( ! ptr_ ){
+                                                ptr_ = maker_();
+                                        }
                                 }
                                 return *ptr_;
                         }
@@ -54,6 +57,8 @@ namespace support{
                         get_inst()->template register_impl<U>(name);
                 }
                 static T& get(std::string const& name = "__default__"){
+                        static std::mutex mtx;
+                        std::lock_guard<std::mutex> lock(mtx);
                         return get_inst()->get_impl(name);
                 }
 

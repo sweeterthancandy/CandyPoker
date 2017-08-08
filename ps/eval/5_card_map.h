@@ -17,7 +17,7 @@ struct _5_card_map : evaluator{
                 flush_map_.resize( 37 * 37 * 37 * 37 * 31 +1 );
                 rank_map_.resize( 37 * 37 * 37 * 37 * 31 +1 );
 
-                std::array<int,4> suit_map{ 2,3,5,7 };
+                std::array<int,4> suit_map = { 2,3,5,7 };
                 for( size_t i{0};i!=52;++i){
                         flush_device_[i] = suit_map[card_decl::get(i).suit().id()];
                         rank_device_[i] = card_decl::get(i).rank().id();

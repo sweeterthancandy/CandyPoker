@@ -35,7 +35,7 @@ namespace support{
                 };
                 template<class U>
                 void register_impl( std::string const& name ){
-                        m_.emplace(name, [](){ return std::make_unique<U>(); });
+                        m_.emplace(name, item([](){ return std::make_unique<U>(); }));
                 }
                 T& get_impl(std::string const& name){
                         auto iter = m_.find(name);

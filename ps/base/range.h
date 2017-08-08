@@ -130,7 +130,7 @@ struct basic_holdem_range{
         void set_hand(holdem_id id, attr_t attr = Traits::default_()){
                 auto iter = buckets_.find(holdem_hand_decl::get(id).class_());
                 if( iter == buckets_.end() ){
-                        buckets_.emplace( holdem_hand_decl::get(id).class_(), holdem_hand_decl::get(id).class_());
+                        buckets_.emplace( holdem_hand_decl::get(id).class_(), subrange(holdem_hand_decl::get(id).class_()));
                         return this->set_hand(id, Traits::default_());
                 }
                 iter->second.set_hand(id, attr);

@@ -13,7 +13,7 @@ int main(){
         holdem_class_range_vector players;
         players.emplace_back("99+, AJs+, AQo+");
         players.emplace_back("55");
-        auto const& ec = class_range_equity_evaluator_factory::get("principle");
+        auto const& ec = class_range_equity_evaluator_factory::get("principal");
         std::cout << *ec.evaluate(players) << "\n";
 
 }

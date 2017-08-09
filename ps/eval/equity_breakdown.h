@@ -46,6 +46,10 @@ namespace ps{
                 std::vector<int> perm_;
         }; 
         
+        template<class Archive>
+        void serialize(Archive & ar, equity_breakdown& eb, const unsigned int version){
+        }
+
                 
         inline std::ostream& operator<<(std::ostream& ostr, equity_breakdown const& self){
                 std::vector<std::vector<std::string> > line_buffer;

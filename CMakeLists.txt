@@ -41,6 +41,7 @@ set(
         lib/eval/equity_evaluator_principal.cpp 
         lib/eval/equity_evaluator_cached.cpp
         lib/eval/class_equity_evaluator_principal.cpp 
+        lib/eval/class_equity_evaluator_proc.cpp 
         lib/eval/range_equity_evaluator_principal.cpp 
 )
 add_library(eval_lib SHARED ${eval_sources}) 

@@ -6,6 +6,8 @@
 #include <thread>
 #include <condition_variable>
 
+#include <boost/optional.hpp>
+
 namespace ps{
 
 /*
@@ -68,6 +70,10 @@ struct push_pull{
                 --workers_working_;
                 this->pull_cond_.notify_all();
         }
+        auto size()const{
+                std::unique_lock<std::mutex> lock(this->mtx_);
+                return this->work_.size();
+        }
         void push(work_type const& work){
                 std::unique_lock<std::mutex> lock(this->mtx_);
                 if( this->work_.size() > max_work_ ){
@@ -78,7 +84,12 @@ struct push_pull{
                 this->pull_cond_.notify_one();
         }
         
-        
+        boost::optional<work_type> pull_no_wait(){
+                std::unique_lock<std::mutex> lock(this->mtx_);
+                if( this->work_.empty() )
+                        return boost::none;
+                return pull_impl_();
+        }
         /*
          * Pullers interface
          */
@@ -101,6 +112,9 @@ struct push_pull{
 
                         break; // <-------------
                 }
+                return pull_impl_();
+        }
+        boost::optional<work_type> pull_impl_(){
                 //PRINT_SEQ(( workers_working_)( work_.size()) );
                 auto work = std::move(this->work_.back());
                 this->work_.pop_back();
@@ -112,7 +126,7 @@ private:
 
         std::atomic_int         workers_working_;
 
-        std::mutex              mtx_;
+        mutable std::mutex              mtx_;
         std::vector<work_type>  work_;
         std::condition_variable pull_cond_;
         std::condition_variable push_cond_;

@@ -109,6 +109,13 @@ std::tuple<
         std::vector<int>,
         std::vector<ps::holdem_id>
 > permutate_for_the_better( std::vector<ps::holdem_id> const& players );
+
+#if 0
+std::tuple<
+        std::vector<int>,
+        holdem_hand_vector
+> permutate_for_the_better( holdem_hand_vector const& players );
+#endif
 } // ps
 
 #endif // PS_ALGORITHM_H

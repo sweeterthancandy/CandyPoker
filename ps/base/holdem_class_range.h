@@ -1,6 +1,12 @@
 #ifndef PS_BASE_HOLDEM_CLASS_RANGE_H
 #define PS_BASE_HOLDEM_CLASS_RANGE_H
 
+#include <vector>
+
+#include "ps/base/cards.h"
+#include "ps/base/frontend.h"
+#include "ps/detail/print.h"
+
 namespace ps{
 
         struct holdem_class_range : std::vector<ps::holdem_class_id>{

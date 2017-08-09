@@ -18,6 +18,8 @@
 
 #include "ps/base/cards.h"
 #include "ps/base/range.h"
+#include "ps/base/holdem_hand_vector.h"
+#include "ps/base/holdem_class_vector.h"
 
 /*
         The point of the frontend is just
@@ -576,6 +578,14 @@ namespace ps{
                 auto to_hand_vector(primitive_t const& prim){
                         return boost::apply_visitor( detail::to_hand_vector(), prim);
                 }
+                template<class T>
+                auto to_class_id(T const& val){
+                        return boost::apply_visitor( detail::to_class_id(), val);
+                }
+                template<class T>
+                auto to_class_id(T const& val)->decltype( val.i_am_a_duck__to_class_id() ){
+                        return val.i_am_a_duck__to_class_id();
+                }
 
                 struct range{
                         #if 0
@@ -620,6 +630,15 @@ namespace ps{
                                         for( auto id : hv ){
                                                 boost::copy( hv, std::back_inserter(result));
                                         }
+                                }
+                                return std::move(result);
+                        }
+                        auto to_class_vector()const{
+                                holdem_class_vector result;
+                                for( auto const& e : subs_){
+                                        auto prim = boost::apply_visitor(detail::primitive_cast(), e);
+                                        auto id = to_class_id(prim);
+                                        result.push_back(id);
                                 }
                                 return std::move(result);
                         }
@@ -668,14 +687,6 @@ namespace ps{
                 range parse(std::string const& str);
 
 
-                template<class T>
-                auto to_class_id(T const& val){
-                        return boost::apply_visitor( detail::to_class_id(), val);
-                }
-                template<class T>
-                auto to_class_id(T const& val)->decltype( val.i_am_a_duck__to_class_id() ){
-                        return val.i_am_a_duck__to_class_id();
-                }
 
 
                 #if 0

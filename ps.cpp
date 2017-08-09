@@ -1,5 +1,5 @@
 #include <iostream>
-#include "ps/base/hand_vector.h"
+#include "ps/base/holdem_class_vector.h"
 #include "ps/base/frontend.h"
 #include "ps/eval/class_equity_evaluator.h"
 

@@ -2,7 +2,7 @@
 #define PS_EVAL_CLASS_EQUITY_EVALUATOR_H
 
 #include "ps/support/singleton_factory.h"
-#include "ps/base/hand_vector.h"
+#include "ps/base/holdem_class_vector.h"
 #include "ps/eval/equity_breakdown.h"
 
 

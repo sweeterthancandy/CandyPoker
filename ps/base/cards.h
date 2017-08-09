@@ -8,7 +8,7 @@
 #include "ps/base/cards_fwd.h"
 #include "ps/detail/void_t.h"
 #include "ps/detail/print.h"
-#include "ps/base/hand_vector.h"
+#include "ps/base/holdem_hand_vector.h"
 
 
 namespace ps{

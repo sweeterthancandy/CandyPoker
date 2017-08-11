@@ -10,40 +10,43 @@
 using namespace ps;
 
 struct class_equity_future{
+        using result_t = std::shared_future<
+                std::shared_ptr<equity_breakdown>
+        >;
         class_equity_future()
-                : impl_{ &equity_evaluator_factory::get("principal") }
         {
         }
-        std::shared_ptr<equity_breakdown> evaluate(holdem_class_vector const& players)const{
-                support::processor proc;
-                for( size_t i=0; i!= std::thread::hardware_concurrency();++i)
-                        proc.spawn();
+        result_t schedual_group(support::processor::process_group& pg, holdem_class_vector const& players){
                 
-                using result_t = std::shared_future<
-                        std::shared_ptr<equity_breakdown>
-                >;
                 std::vector< std::tuple< std::vector<int>, result_t > > items;
 
                 for( auto hv : players.get_hand_vectors()){
                         auto p =  permutate_for_the_better(hv) ;
                         auto& perm = std::get<0>(p);
                         auto const& perm_players = std::get<1>(p);
-                        auto fut = ef_.schedual(proc, perm_players);
+                        auto fut = ef_.schedual_group(pg, perm_players);
                         items.emplace_back(perm, fut);
                 }
-                proc.join();
-                auto result = std::make_shared<equity_breakdown_matrix_aggregator>(players.size());
-                for( auto& t : items ){
-                        result->append(
-                                *std::make_shared<equity_breakdown_permutation_view>(
-                                        std::get<1>(t).get(),
-                                        std::get<0>(t)));
-                }
-                return result;
+                pg.sequence_point();
+                auto task = std::make_shared<std::packaged_task<std::shared_ptr<equity_breakdown>()> >(
+                        [n_=players.size(),items_=std::move(items),this](){
+                        auto result = std::make_shared<equity_breakdown_matrix_aggregator>(n_);
+                        for( auto& t : items_ ){
+                                result->append(
+                                        *std::make_shared<equity_breakdown_permutation_view>(
+                                                std::get<1>(t).get(),
+                                                std::get<0>(t)));
+                        }
+                        return result;
+                });
+                result_t fut = task->get_future();
+                m_.emplace(players, fut);
+                pg.push([task]()mutable{ (*task)(); });
+                return fut;
         }
 private:
-        equity_evaluator const* impl_;
         mutable equity_future ef_;
+        std::map< holdem_hand_vector, result_t > m_;
 };
 
 #if 0
@@ -77,7 +80,20 @@ int main(){
 #endif
 
 int main(){
-        #if 1
+        support::processor proc;
+        for( size_t i=0; i!= std::thread::hardware_concurrency();++i){
+                proc.spawn();
+        }
+        holdem_class_vector players;
+        players.push_back("99");
+        players.push_back("55");
+        class_equity_future ef;
+        auto pg = std::make_unique<support::processor::process_group>();
+        auto ret = ef.schedual_group(*pg, players);
+        proc.accept(std::move(pg));
+        proc.join();
+        std::cout << *(ret.get()) << "\n";
+        #if 0
         holdem_class_vector players;
         players.push_back("99");
         players.push_back("55");

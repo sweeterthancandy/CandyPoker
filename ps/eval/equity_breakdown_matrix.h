@@ -73,6 +73,23 @@ struct equity_breakdown_matrix : equity_breakdown{
                                      support::array_view<size_t>(&data_[0] + i * n_, n_ ));
                 }
         }
+        // copy
+        equity_breakdown_matrix(equity_breakdown const& that)
+                : n_(that.n())
+        {
+                data_.resize(n_*n_);
+                for(size_t i=0;i!=n_;++i){
+                        auto const& p = that.player(i);
+                        for(size_t j=0;j!=n_;++j){
+                                this->data_access(i,j) += p.nwin(j);
+                        }
+                }
+                for(size_t i=0;i!=n_;++i){
+                        players_.emplace_back(n_,
+                                     sigma_,
+                                     support::array_view<size_t>(&data_[0] + i * n_, n_ ));
+                }
+        }
         size_t const& data_access(size_t i, size_t j)const{
                 return data_.at(i * n_ + j);
                 //return data_[i * n_ + j];
@@ -99,18 +116,13 @@ struct equity_breakdown_matrix : equity_breakdown{
         template<class Archive>
         void save(Archive &ar, const unsigned int version)const
         {
-                #if 0
-                ar & boost::serialization::base_object<equity_breakdown>(*this);
                 ar & sigma_;
                 ar & n_;
                 ar & data_;
-                #endif
         }
         template<class Archive>
         void load(Archive &ar, const unsigned int version)
         {
-                #if 0
-                ar & boost::serialization::base_object<equity_breakdown>(*this);
                 ar & sigma_;
                 ar & n_;
                 ar & data_;
@@ -120,7 +132,6 @@ struct equity_breakdown_matrix : equity_breakdown{
                                               sigma_,
                                               support::array_view<size_t>(&data_[0] + i * n_, n_ ));
                 }
-                #endif
 
         }
         BOOST_SERIALIZATION_SPLIT_MEMBER()

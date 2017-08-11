@@ -17,6 +17,7 @@ int main(){
         players.push_back("55");
         class_equity_evaluator_cache ec;
 
+        ec.load("cache.bin");
         std::cout << *ec.evaluate(players) << "\n";
         ec.save("cache.bin");
 

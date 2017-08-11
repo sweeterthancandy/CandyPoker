@@ -1,7 +1,7 @@
 #ifndef PS_EVAL_EQUITY_CALCULATOR_PROC_H
 #define PS_EVAL_EQUITY_CALCULATOR_PROC_H
 
-#include "ps/support/proc.h"
+#include "ps/support/processor.h"
 #include "ps/base/algorithm.h"
 #include "ps/eval/equity_future.h"
 #include "ps/eval/equity_breakdown_matrix.h"
@@ -17,7 +17,7 @@ struct class_equity_evaluator_proc : class_equity_evaluator{
         {
         }
         std::shared_ptr<equity_breakdown> evaluate(holdem_class_vector const& players)const override{
-                support::single_processor proc;
+                support::processor proc;
                 for( size_t i=0; i!= std::thread::hardware_concurrency();++i)
                         proc.spawn();
                 

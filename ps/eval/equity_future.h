@@ -4,7 +4,7 @@
 #include <functional>
 #include <future>
 
-#include "ps/support/proc.h"
+#include "ps/support/processor.h"
 #include "ps/base/algorithm.h"
 #include "ps/eval/equity_evaluator.h"
 
@@ -18,7 +18,7 @@ struct equity_future{
         equity_future()
                 : impl_{ &equity_evaluator_factory::get("principal") }
         {}
-        result_t schedual(support::single_processor& proc, holdem_hand_vector const& players){
+        result_t schedual_group(support::processor::process_group& pg, holdem_hand_vector const& players){
                 auto iter = m_.find(players);
                 if( iter != m_.end() ){
                         return iter->second;
@@ -29,11 +29,18 @@ struct equity_future{
                 });
                 m_.emplace(players, std::move(task->get_future()));
 
-                support::single_processor::work_t w = [task]()mutable{
+                // yuk
+                auto w = [task]()mutable{
                         (*task)();
                 };
-                proc.add(std::move(w));
-                return schedual(proc, players);
+                pg.push(std::move(w));
+                return schedual_group(pg, players);
+        }
+        result_t schedual(support::processor& proc, holdem_hand_vector const& players){
+                auto pg = std::make_unique<support::processor::process_group>();
+                auto ret = this->schedual_group(*pg, players);
+                proc.accept(std::move(pg));
+                return std::move(ret);
         }
 private:
         equity_evaluator* impl_;

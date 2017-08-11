@@ -9,174 +9,44 @@
 
 using namespace ps;
 
-// The idea here is that there are two types of multi-threaded
-// computation that I want to carry out, those disjoint computations,
-// but also joint computations.
-//
-//
-struct processor{
-
-        using work_t = std::function<void()>;
-
-        struct process_group{
-
-                struct sequenced_group{
-                        sequenced_group():done_{0}{}
-                        void push(work_t w){
-                                vec_.push_back([_w=std::move(w),this](){
-                                        _w();
-                                        ++done_;
-                                });
-                        }
-                        work_t pop(){
-                                assert( iter_ != vec_.size() && "preconditon failed");
-                                return std::move(vec_[iter_++]);
-                        }
-                        // left to schedule
-                        auto tasks_left()const{
-                                return vec_.size() - iter_;
-                        }
-                        // left to actually finish
-                        bool all_tasks_finished()const{
-                                return done_ == vec_.size();
-                        }
-                private:
-                        std::atomic_int done_;
-                        std::vector<work_t> vec_;
-                        size_t iter_ = 0;
-                };
-
-                process_group(){
-                        sequence_point();
-                }
-
-                /////////////////////////////////////////////////////////
-                //
-                //           Creational interface
-                //
-                /////////////////////////////////////////////////////////
-                void sequence_point(){
-                        seq_.emplace_back(std::make_unique<sequenced_group>());
-                }
-                void push(work_t w){
-                        seq_.back()->push(std::move(w));
-                }
-
-
-                /////////////////////////////////////////////////////////
-                //
-                //           Interface for schedular 
-                //
-                /////////////////////////////////////////////////////////
-                auto groups_left()const{
-                        return seq_.size() - iter_;
-                }
-                auto& head(){
-                        return *seq_[iter_];
-                }
-                void pop(){
-                        assert( iter_ < seq_.size() && "precondition failed");
-                        ++iter_;
-                }
-        private:
-                std::vector< std::unique_ptr<sequenced_group> > seq_;
-                size_t iter_ = 0;
-        };
-
-        processor()
+struct class_equity_future{
+        class_equity_future()
+                : impl_{ &equity_evaluator_factory::get("principal") }
         {
         }
-        ~processor(){
-                join(); // maybe
-        }
-        void join(){
-                //std::cout << "join()\n";
-                running_ = false;
-                no_work_barrier_.notify_all();
-                if( threads_.size() ){
-                        for( auto& t : threads_ )
-                                t.join();
-                        threads_.clear();
+        std::shared_ptr<equity_breakdown> evaluate(holdem_class_vector const& players)const{
+                support::processor proc;
+                for( size_t i=0; i!= std::thread::hardware_concurrency();++i)
+                        proc.spawn();
+                
+                using result_t = std::shared_future<
+                        std::shared_ptr<equity_breakdown>
+                >;
+                std::vector< std::tuple< std::vector<int>, result_t > > items;
+
+                for( auto hv : players.get_hand_vectors()){
+                        auto p =  permutate_for_the_better(hv) ;
+                        auto& perm = std::get<0>(p);
+                        auto const& perm_players = std::get<1>(p);
+                        auto fut = ef_.schedual(proc, perm_players);
+                        items.emplace_back(perm, fut);
                 }
-        }
-        void accept( std::unique_ptr<process_group> group ){
-                //std::cout << "accept()\n";
-                std::unique_lock<std::mutex> lock(mtx_);
-                groups_.emplace_back(std::move(group));
-                no_work_barrier_.notify_all();
-        }
-        void spawn(){
-                //std::cout << "spawn()\n";
-                threads_.emplace_back(
-                        [this]()mutable{
-                        __main__();
-                });
+                proc.join();
+                auto result = std::make_shared<equity_breakdown_matrix_aggregator>(players.size());
+                for( auto& t : items ){
+                        result->append(
+                                *std::make_shared<equity_breakdown_permutation_view>(
+                                        std::get<1>(t).get(),
+                                        std::get<0>(t)));
+                }
+                return result;
         }
 private:
-        boost::optional<work_t> schedule_(){
-                //std::cout << "schedule_()\n";
-                using GI = decltype(groups_.begin());
-
-                // I could go return this->schedule_() rather than goto,
-                // but then we can get stack overflow
-                retry_:;
-
-                // go thought the groups, FIFO, to find a group with a task
-                // to schedual
-                for( GI iter(groups_.begin()), end(groups_.end());iter!=end;++iter){
-                        for(;;){
-                                process_group& pg(**iter);
-                                if( pg.groups_left() == 0 ){
-                                        // Here the group is done,
-                                        groups_.erase(iter);
-                                        no_work_barrier_.notify_all();
-                                        goto retry_;
-                                }
-
-                                // we have an active group
-                                if( pg.head().tasks_left() != 0 ){
-                                        auto ret = pg.head().pop();
-                                        return std::move(ret);
-                                }
-
-                                if( pg.head().all_tasks_finished() ){
-                                        pg.pop();
-                                        continue;
-                                }
-                                break;
-                        }
-                }
-                return boost::none;
-        }
-        void __main__(){
-                //std::cout << "__main__()\n";
-                for(;;){
-                        decltype(this->schedule_()) work;
-                        {
-                                //std::cout << "locking()\n";
-                                std::unique_lock<std::mutex> lock(mtx_);
-                                work = schedule_();
-                                //std::cout << "schedule_() => " << work.operator bool() << "\n";
-                                if( ! work ){
-                                        if( ! running_ && groups_.size() == 0 )
-                                                return;
-                                        //std::cout << "waiting\n";
-                                        no_work_barrier_.wait(lock);
-                                        continue;
-                                }
-                        }
-                        work.get()();
-                        no_work_barrier_.notify_all();
-                }
-        }
-        std::mutex mtx_;
-        std::condition_variable no_work_barrier_;
-        std::thread schedular_thread_;
-        std::vector<std::thread> threads_;
-        std::list<std::unique_ptr<process_group>> groups_;
-        std::atomic_bool running_{true};
+        equity_evaluator const* impl_;
+        mutable equity_future ef_;
 };
 
+#if 0
 auto make_proto(std::string const& tok){
         auto a = std::make_unique<processor::process_group>();
         a->push( [tok](){
@@ -203,7 +73,11 @@ int main(){
         proc.accept(make_proto("c"));
         #endif
         proc.join();
-        #if 0
+}
+#endif
+
+int main(){
+        #if 1
         holdem_class_vector players;
         players.push_back("99");
         players.push_back("55");

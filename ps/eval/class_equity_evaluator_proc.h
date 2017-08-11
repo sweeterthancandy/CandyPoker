@@ -1,6 +1,7 @@
 #ifndef PS_EVAL_EQUITY_CALCULATOR_PROC_H
 #define PS_EVAL_EQUITY_CALCULATOR_PROC_H
 
+#include "ps/support/proc.h"
 #include "ps/base/algorithm.h"
 #include "ps/eval/equity_future.h"
 #include "ps/eval/equity_breakdown_matrix.h"
@@ -16,8 +17,7 @@ struct class_equity_evaluator_proc : class_equity_evaluator{
         {
         }
         std::shared_ptr<equity_breakdown> evaluate(holdem_class_vector const& players)const override{
-                equity_future ef;
-                processor proc;
+                support::single_processor proc;
                 for( size_t i=0; i!= std::thread::hardware_concurrency();++i)
                         proc.spawn();
                 
@@ -30,7 +30,7 @@ struct class_equity_evaluator_proc : class_equity_evaluator{
                         auto p =  permutate_for_the_better(hv) ;
                         auto& perm = std::get<0>(p);
                         auto const& perm_players = std::get<1>(p);
-                        auto fut = ef.schedual(proc, perm_players);
+                        auto fut = ef_.schedual(proc, perm_players);
                         items.emplace_back(perm, fut);
                 }
                 proc.join();
@@ -45,6 +45,7 @@ struct class_equity_evaluator_proc : class_equity_evaluator{
         }
 private:
         equity_evaluator const* impl_;
+        mutable equity_future ef_;
 };
 
 

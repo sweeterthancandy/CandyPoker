@@ -4,6 +4,8 @@
 #include <atomic>
 #include <mutex>
 #include <thread>
+#include <iostream>
+#include <vector>
 #include <condition_variable>
 
 #include <boost/optional.hpp>
@@ -54,7 +56,10 @@ struct push_pull{
                 push_pull* This_;
         };
 
-        push_pull(size_t max_work = 0):max_work_{max_work},workers_working_{0}{}
+        explicit push_pull(size_t max_work = 0)
+                :max_work_{max_work}
+                ,workers_working_{0}
+        {}
 
         handle make_work_handle(){ return handle{this}; }
         /*
@@ -74,6 +79,15 @@ struct push_pull{
                 std::unique_lock<std::mutex> lock(this->mtx_);
                 return this->work_.size();
         }
+        bool try_push(work_type const& work){
+                std::unique_lock<std::mutex> lock(this->mtx_);
+                if( this->work_.size() > max_work_ ){
+                        return false;
+                }
+                this->work_.push_back(work);
+                this->pull_cond_.notify_one();
+                return true;
+        }
         void push(work_type const& work){
                 std::unique_lock<std::mutex> lock(this->mtx_);
                 if( this->work_.size() > max_work_ ){
@@ -82,6 +96,20 @@ struct push_pull{
                 }
                 this->work_.push_back(work);
                 this->pull_cond_.notify_one();
+        }
+        /*
+                If I want process groups, ie do task a,b,c and
+                THEN do d after all three are complete. For this
+                I want to select which task to push only after
+                the last one is finished
+
+                It's only logical to do this if a worker is
+                waiting for work
+        
+         */
+        void maybe_wait(){
+                std::unique_lock<std::mutex> lock(this->mtx_);
+
         }
         
         boost::optional<work_type> pull_no_wait(){
@@ -105,7 +133,9 @@ struct push_pull{
                                         return boost::none;
                                 }
 
+                                ++workers_waiting_;
                                 this->pull_cond_.wait( lock );
+                                --workers_waiting_;
                                 continue;
                         }
 
@@ -125,6 +155,7 @@ private:
         size_t max_work_;
 
         std::atomic_int         workers_working_;
+        std::atomic_int         workers_waiting_;
 
         mutable std::mutex              mtx_;
         std::vector<work_type>  work_;

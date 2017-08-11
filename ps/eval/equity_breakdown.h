@@ -3,6 +3,10 @@
 
 #include <vector>
 #include <boost/lexical_cast.hpp>
+#include <boost/serialization/list.hpp>
+#include <boost/serialization/string.hpp>
+#include <boost/serialization/version.hpp>
+#include <boost/serialization/split_member.hpp>
 
 namespace ps{
 
@@ -27,7 +31,14 @@ namespace ps{
                 virtual size_t n()const=0;
                 virtual equity_breakdown_player const& player(size_t idx)const=0;
 
+                template<class Archive>
+                void serialize(Archive &ar, const unsigned int version)
+                {
+                        // nop
+                        //
+                }
         };
+
 
         struct equity_breakdown_permutation_view : equity_breakdown{
                 equity_breakdown_permutation_view(std::shared_ptr<equity_breakdown const> impl, std::vector<int> perm)
@@ -46,9 +57,6 @@ namespace ps{
                 std::vector<int> perm_;
         }; 
         
-        template<class Archive>
-        void serialize(Archive & ar, equity_breakdown& eb, const unsigned int version){
-        }
 
                 
         inline std::ostream& operator<<(std::ostream& ostr, equity_breakdown const& self){
@@ -86,5 +94,6 @@ namespace ps{
         }
 
 } // ps
+        
 
 #endif // PS_EVAL_EQUITY_BREAKDOWN_H

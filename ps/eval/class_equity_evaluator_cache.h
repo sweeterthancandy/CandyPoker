@@ -3,12 +3,23 @@
 
 #include "ps/base/algorithm.h"
 #include "ps/eval/equity_future.h"
-#include "ps/eval/equity_breakdown_matrix.h"
 #include "ps/eval/equity_evaluator.h"
 #include "ps/eval/equity_breakdown_matrix.h"
 #include "ps/eval/class_equity_evaluator.h"
 
+#include <fstream>
+
+#include <boost/serialization/map.hpp>
+#include <boost/serialization/vector.hpp>
+#include <boost/serialization/array.hpp>
+#include <boost/serialization/shared_ptr.hpp>
+#include <boost/serialization/export.hpp>
+
+BOOST_SERIALIZATION_ASSUME_ABSTRACT(ps::equity_breakdown)
+BOOST_CLASS_EXPORT(ps::equity_breakdown_matrix)
+
 namespace ps{
+
 
 struct class_equity_evaluator_cache : class_equity_evaluator{
         class_equity_evaluator_cache()
@@ -45,11 +56,23 @@ struct class_equity_evaluator_cache : class_equity_evaluator{
                 return ret;
                 #endif
         }
-        bool load(std::string const& name);
-        bool save(std::string const& name)const;
-
+        bool load(std::string const& name){
+                std::ifstream is(name);
+                if( ! is.is_open() )
+                        return false;
+                boost::archive::text_iarchive ia(is);
+                ia >> *this;
+                return true;
+        }
+        bool save(std::string const& name)const{
+                std::ofstream of(name);
+                boost::archive::text_oarchive oa(of);
+                oa << *this;
+                return true;
+        }
         template<class Archive>
         void serialize(Archive& ar, unsigned int){
+                ar.register_type(static_cast<equity_breakdown_matrix *>(NULL));
                 ar & cache_;
         }
 private:

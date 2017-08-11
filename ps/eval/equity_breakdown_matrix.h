@@ -8,6 +8,16 @@
 #include "ps/eval/equity_breakdown.h"
 #include "ps/support/array_view.h"
 
+#include <boost/archive/tmpdir.hpp>
+
+#include <boost/archive/text_iarchive.hpp>
+#include <boost/archive/text_oarchive.hpp>
+
+#include <boost/serialization/base_object.hpp>
+#include <boost/serialization/utility.hpp>
+#include <boost/serialization/list.hpp>
+#include <boost/serialization/assume_abstract.hpp>
+
 namespace ps{
 
 struct equity_breakdown_player_matrix : equity_breakdown_player{
@@ -33,7 +43,7 @@ struct equity_breakdown_player_matrix : equity_breakdown_player{
         size_t draw()const override{ return nwin(1); }
         size_t lose()const override{ return sigma_ - std::accumulate( data_.begin(), data_.end(), 0); }
         size_t sigma()const override{ return sigma_; }
-
+        
 private:
         size_t n_;
         size_t sigma_;
@@ -42,6 +52,10 @@ private:
 
 
 struct equity_breakdown_matrix : equity_breakdown{
+
+        equity_breakdown_matrix():
+                n_{0}
+        {}
         
         equity_breakdown_matrix(equity_breakdown_matrix const&)=delete;
         equity_breakdown_matrix(equity_breakdown_matrix&&)=delete;
@@ -72,11 +86,6 @@ struct equity_breakdown_matrix : equity_breakdown{
         }
         size_t const* data()const{ return reinterpret_cast<size_t const*>(&data_.front()); }
 
-        template<class Archive>
-        void serialize(Archive& ar, unsigned int){
-                ar & sigma_;
-                ar & data_;
-        }
 
         size_t sigma()const override{ return sigma_; }
         size_t& sigma(){ return sigma_; }
@@ -87,6 +96,34 @@ struct equity_breakdown_matrix : equity_breakdown{
 
         size_t n()const override{ return n_; }
         
+        template<class Archive>
+        void save(Archive &ar, const unsigned int version)const
+        {
+                #if 0
+                ar & boost::serialization::base_object<equity_breakdown>(*this);
+                ar & sigma_;
+                ar & n_;
+                ar & data_;
+                #endif
+        }
+        template<class Archive>
+        void load(Archive &ar, const unsigned int version)
+        {
+                #if 0
+                ar & boost::serialization::base_object<equity_breakdown>(*this);
+                ar & sigma_;
+                ar & n_;
+                ar & data_;
+                players_.clear();
+                for(size_t i=0;i!=n_;++i){
+                        players_.emplace_back(n_,
+                                              sigma_,
+                                              support::array_view<size_t>(&data_[0] + i * n_, n_ ));
+                }
+                #endif
+
+        }
+        BOOST_SERIALIZATION_SPLIT_MEMBER()
         
 private:
         size_t sigma_ = 0;

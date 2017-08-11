@@ -1,3 +1,2 @@
-rewrite permutate_for_the_better to not cause an allocation
-consolidate hand and class equity calculator
-add mechinism to make result of calculation a std::futurer
+write serializer for class equity
+rewrite pokerstove

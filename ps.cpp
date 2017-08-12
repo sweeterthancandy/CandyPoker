@@ -314,6 +314,11 @@ struct processor{
                         this->sequence_point();
                         return std::move(group_);
                 }
+                void push(std::unique_ptr<process_group> pg){
+                        working_stack_.push_back(
+                                pg->compile()
+                        );
+                }
         private:
                 std::shared_ptr<sequenced_group> group_;
                 std::vector< std::shared_ptr<schedulable> > working_stack_;
@@ -403,15 +408,18 @@ auto make_proto(std::string const& tok){
 
 int main(){
         processor proc;
-        #if 0
+        #if 1
         for(int i=0;i!=100;++i)
                 proc.spawn();
                 #endif
         proc.spawn();
         #if 1
-        proc.accept(make_proto("a"));
-        proc.accept(make_proto("b"));
-        proc.accept(make_proto("c"));
+        auto g = std::make_unique<processor::process_group>();
+        g->push( make_proto("a"));
+        g->push( make_proto("b"));
+        g->sequence_point();
+        g->push( make_proto("c"));
+        proc.accept(std::move(g));
         #endif
         proc.join();
 }

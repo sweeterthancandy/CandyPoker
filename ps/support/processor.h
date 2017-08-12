@@ -183,4 +183,34 @@ private:
 } // support
 } // ps
 
+#if 0
+auto make_proto(std::string const& tok){
+        auto a = std::make_unique<processor::process_group>();
+        a->push( [tok](){
+                std::cout << tok << "::1\n";
+        });
+        a->push( [tok](){
+                std::cout << tok << "::2\n";
+        });
+        a->sequence_point();
+        a->sequence_point();
+        a->push( [tok](){
+                std::cout << tok << "::3\n";
+        });
+        return std::move(a);
+}
+
+int main(){
+        processor proc;
+        for(int i=0;i!=100;++i)
+                proc.spawn();
+        #if 1
+        proc.accept(make_proto("a"));
+        proc.accept(make_proto("b"));
+        proc.accept(make_proto("c"));
+        #endif
+        proc.join();
+}
+#endif
+
 #endif // PS_SUPPORT_PROCESSOR_H

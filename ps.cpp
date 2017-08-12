@@ -419,6 +419,11 @@ int main(){
         g->push( make_proto("b"));
         g->sequence_point();
         g->push( make_proto("c"));
+        auto h = std::make_unique<processor::process_group>();
+        h->push(std::move(g));
+        h->sequence_point();
+        h->push([]{std::cout << "Finished\n"; });
+
         proc.accept(std::move(g));
         #endif
         proc.join();

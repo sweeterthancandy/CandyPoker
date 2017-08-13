@@ -245,6 +245,9 @@ int main(){
         boost::timer::auto_cpu_timer at;
         holdem_class_range_vector players;
         #if 1
+        // Hand 0:  30.845%   28.23%  02.61%      3213892992  297127032.00   { TT+, AQs+, AQo+ }
+        // Hand 1:  43.076%   40.74%  02.33%      4637673516  265584984.00   { QQ+, AKs, AKo }
+        // Hand 2:  26.079%   25.68%  00.40%      2923177728   45324924.00   { TT }
         players.push_back(" TT+, AQs+, AQo+ ");
         players.push_back(" QQ+, AKs, AKo ");
         players.push_back("TT");
@@ -271,21 +274,11 @@ int main(){
         proc.accept(std::move(g));
         proc.join();
         auto const n = players.size();
-        equity_breakdown_matrix result(n);
+        equity_breakdown_matrix_aggregator result(n);
         for( auto const& t : working){
                 auto const& eb  = std::get<0>(t).get();
                 auto const& mat = std::get<1>(t);
-                std::cout << *eb << "\n";
-                for( int i =0; i!= n;++i){
-                        auto& player = eb->player(i);
-
-                        for( int j =0;j!=n;++j){
-                                for( int k =0;k!=n;++k){
-                                        result.data_access(j,k) += eb->player(i).nwin(k) * mat[ i * n + j];
-                                        PRINT_SEQ((j)(k)(eb->player(i).nwin(k))(mat[ i * n + j]));
-                                }
-                        }
-                }
+                result.append_matrix( *eb, mat);
         }
         std::cout << result << "\n";
 

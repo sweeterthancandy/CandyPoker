@@ -155,11 +155,24 @@ struct equity_breakdown_matrix_aggregator : equity_breakdown_matrix{
         {}
 
         void append(equity_breakdown const& breakdown){
-                assert( breakdown.n() == n() && "precondition failed");
+                assert( breakdown.n() == n()     && "precondition failed");
                 sigma() += breakdown.sigma();
                 for(size_t i=0;i!=n();++i){
                         for(size_t j=0;j!=n();++j){
                                 data_access(i, j) += breakdown.player(i).nwin(j);
+                        }
+                }
+        }
+        void append_matrix(equity_breakdown const& breakdown, std::vector<int> const& mat){
+                assert( breakdown.n() == n()     && "precondition failed");
+                assert( mat.size()    == n()*n() && "precondition failed");
+                sigma() += breakdown.sigma();
+                for( int i =0; i!= n();++i){
+                        auto& p = breakdown.player(i);
+                        for( int j =0;j!=n();++j){
+                                for( int k =0;k!=n();++k){
+                                        data_access(j,k) += p.nwin(k) * mat[ i * n() + j];
+                                }
                         }
                 }
         }

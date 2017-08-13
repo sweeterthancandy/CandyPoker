@@ -33,5 +33,16 @@ namespace ps{
                 }
                 return s.size() == this->size()*2;
         }
+
+        bool holdem_hand_vector::is_standard_form()const{
+                auto p =  permutate_for_the_better(*this);
+                auto const& perm = std::get<0>(p);
+                // TODO, need to make sure AA KK KK QQ persevers order etc
+                for( int i=0;i!=perm.size();++i){
+                        if( perm[i] != i )
+                                return false;
+                }
+                return true;
+        }
                 
 } // ps

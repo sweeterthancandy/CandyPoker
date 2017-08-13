@@ -20,6 +20,7 @@ namespace ps{
                 friend std::ostream& operator<<(std::ostream& ostr, holdem_hand_vector const& self);
                 auto find_injective_permutation()const;
                 bool disjoint()const;
+                bool is_standard_form()const;
         };
 
 } // ps

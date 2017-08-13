@@ -2,6 +2,7 @@
 #define PS_BASE_HOLDEM_CLASS_VECTOR_H
 
 #include <vector>
+#include <map>
 
 #include "ps/base/cards.h"
 #include "ps/base/holdem_hand_vector.h"
@@ -39,33 +40,13 @@ namespace ps{
                 std::tuple<
                         std::vector<int>,
                         holdem_class_vector
-                > to_standard_form()const{
-                        std::vector<std::tuple<holdem_class_id, int> > aux;
-                        for(int i=0;i!=size();++i){
-                                aux.emplace_back( (*this)[i], i);
-                        }
-                        boost::sort( aux, [](auto const& l, auto const& r){
-                                return std::get<0>(l) < std::get<1>(r);
-                        });
-                        std::vector<int> perm;
-                        holdem_class_vector vec;
-                        for( auto const& t : aux){
-                                vec.push_back(std::get<0>(t));
-                                perm.push_back( std::get<1>(t));
-                        }
-                        return std::make_tuple(
-                                std::move(perm),
-                                std::move(vec)
-                        );
-                }
+                > to_standard_form()const;
+                
+                std::vector<
+                       std::tuple< std::vector<int>, holdem_hand_vector >
+                > to_standard_form_hands()const;
 
-                bool is_standard_form()const{
-                        for( size_t idx = 1; idx < size();++idx){
-                                if( (*this)[idx-1] > (*this)[idx] )
-                                        return false; 
-                        }
-                        return true;
-                }
+                bool is_standard_form()const;
         };
 } // ps
 

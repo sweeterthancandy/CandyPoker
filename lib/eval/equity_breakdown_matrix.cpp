@@ -1,11 +1,11 @@
 #include "ps/eval/equity_breakdown_matrix.h"
 
 namespace ps{
-        equity_breakdown_player_matrix::equity_breakdown_player_matrix(size_t n, size_t sigma, support::array_view<size_t> data)
+        equity_breakdown_matrix::equity_breakdown_player_matrix::equity_breakdown_player_matrix(size_t n, size_t sigma, support::array_view<size_t> data)
                 :n_{n}, sigma_{sigma}, data_{data}
         {}
 
-        double equity_breakdown_player_matrix::equity()const {
+        double equity_breakdown_matrix::equity_breakdown_player_matrix::equity()const {
                 double result{0.0};
                 for(size_t i=0;i!=n_;++i){
                         result += nwin(i) / (i+1);
@@ -16,13 +16,13 @@ namespace ps{
         // nwin(1) -> draws to split pot 2 ways
         // nwin(2) -> draws to split pot 3 ways
         // ...
-        size_t equity_breakdown_player_matrix::nwin(size_t idx)const {
+        size_t equity_breakdown_matrix::equity_breakdown_player_matrix::nwin(size_t idx)const {
                 return data_[idx];
         }
-        size_t equity_breakdown_player_matrix::win()const {  return nwin(0); }
-        size_t equity_breakdown_player_matrix::draw()const { return nwin(1); }
-        size_t equity_breakdown_player_matrix::lose()const { return sigma_ - std::accumulate( data_.begin(), data_.end(), 0); }
-        size_t equity_breakdown_player_matrix::sigma()const { return sigma_; }
+        size_t equity_breakdown_matrix::equity_breakdown_player_matrix::win()const {  return nwin(0); }
+        size_t equity_breakdown_matrix::equity_breakdown_player_matrix::draw()const { return nwin(1); }
+        size_t equity_breakdown_matrix::equity_breakdown_player_matrix::lose()const { return sigma_ - std::accumulate( data_.begin(), data_.end(), 0); }
+        size_t equity_breakdown_matrix::equity_breakdown_player_matrix::sigma()const { return sigma_; }
         
         equity_breakdown_matrix::equity_breakdown_matrix():
                 n_{0}

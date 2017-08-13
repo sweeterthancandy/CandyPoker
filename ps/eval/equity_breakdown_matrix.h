@@ -20,27 +20,29 @@
 
 namespace ps{
 
-struct equity_breakdown_player_matrix : equity_breakdown_player{
-        explicit equity_breakdown_player_matrix(size_t n, size_t sigma, support::array_view<size_t> data);
-
-        double equity()const override;
-        // nwin(0) -> wins
-        // nwin(1) -> draws to split pot 2 ways
-        // nwin(2) -> draws to split pot 3 ways
-        // ...
-        size_t nwin(size_t idx)const override;
-        size_t win()const override;
-        size_t draw()const override;
-        size_t lose()const override;
-        size_t sigma()const override;
-private:
-        size_t n_;
-        size_t sigma_;
-        support::array_view<size_t> data_;
-};
 
 
 struct equity_breakdown_matrix : equity_breakdown{
+
+        struct equity_breakdown_player_matrix : equity_breakdown::player_t
+        {
+                explicit equity_breakdown_player_matrix(size_t n, size_t sigma, support::array_view<size_t> data);
+
+                double equity()const override;
+                // nwin(0) -> wins
+                // nwin(1) -> draws to split pot 2 ways
+                // nwin(2) -> draws to split pot 3 ways
+                // ...
+                size_t nwin(size_t idx)const override;
+                size_t win()const override;
+                size_t draw()const override;
+                size_t lose()const override;
+                size_t sigma()const override;
+        private:
+                size_t n_;
+                size_t sigma_;
+                support::array_view<size_t> data_;
+        };
 
         equity_breakdown_matrix();
         

@@ -50,6 +50,8 @@ set(
         lib/eval/range_equity_evaluator_principal.cpp 
         lib/eval/class_range_equity_evaluator_principal.cpp 
         lib/eval/class_equity_evaluator_cache.cpp
+        lib/eval/equity_breakdown.cpp
+        lib/eval/equity_breakdown_matrix.cpp
 )
 add_library(eval_lib SHARED ${eval_sources}) 
 target_link_libraries(eval_lib ${Boost_LIBRARIES})

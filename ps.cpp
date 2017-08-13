@@ -2,16 +2,18 @@
 #include <string>
 #include <type_traits>
 #include <chrono>
+#include "ps/support/processor.h"
 #include "ps/base/holdem_class_vector.h"
 #include "ps/base/holdem_class_range_vector.h"
 #include "ps/eval/class_equity_evaluator_cache.h"
 #include "ps/eval/class_range_equity_evaluator.h"
 #include "ps/eval/class_equity_future.h"
+#include "ps/detail/cross_product.h"
 
 using namespace ps;
 
 
-#if 0
+#if 1
 struct class_range_equity_future{
         using result_t = std::shared_future<
                 std::shared_ptr<equity_breakdown>
@@ -19,7 +21,8 @@ struct class_range_equity_future{
         class_range_equity_future()
         {
         }
-        result_t schedual_group(support::processor::process_group& pg, holdem_class_range_vector const& players){
+        result_t schedual_group(support::processor::process_group& pg, holdem_class_vector const& players){
+                std::cout << "schedual_group(" << players << "\n";
                 
                 std::vector< std::tuple< std::vector<int>, result_t > > items;
 
@@ -30,9 +33,8 @@ struct class_range_equity_future{
                         auto fut = ef_.schedual_group(pg, perm_players);
                         items.emplace_back(perm, fut);
                 }
-                pg.sequence_point();
                 auto task = std::make_shared<std::packaged_task<std::shared_ptr<equity_breakdown>()> >(
-                        [n_=players.size(),items_=std::move(items),this](){
+                        [n_=players.size(),items_=std::move(items)](){
                         auto result = std::make_shared<equity_breakdown_matrix_aggregator>(n_);
                         for( auto& t : items_ ){
                                 result->append(
@@ -44,22 +46,33 @@ struct class_range_equity_future{
                 });
                 result_t fut = task->get_future();
                 m_.emplace(players, fut);
+                pg.sequence_point();
                 pg.push([task]()mutable{ (*task)(); });
                 return fut;
         }
-        result_t schedual_group(std::vector<holdem_range>const& players)const override{
-                auto result = std::make_shared<equity_breakdown_matrix_aggregator>(players.size());
-
-                detail::cross_product_vec([&](auto const& byclass){
-                        detail::cross_product_vec([&](auto const& byhand){
-                                holdem_hand_vector v;
-                                for( auto iter : byhand ){
-                                        v.push_back( (*iter).hand().id() );
+        result_t schedual_group(support::processor::process_group& pg, holdem_class_range_vector const& players){
+                std::cout << "schedual_group(" << players << "\n";
+                std::vector<result_t> params;
+                for( auto const& cv : players.get_cross_product()){
+                        auto sub = std::make_unique<support::processor::process_group>();
+                        params.push_back( schedual_group(*sub, cv) );
+                        pg.push(std::move(sub));
+                }
+                auto task = std::make_shared<std::packaged_task<std::shared_ptr<equity_breakdown>()> >(
+                        [_n=players.size(),_params=std::move(params)](){
+                                std::cout << "in task\n";
+                                PRINT(_params.size());
+                                auto result = std::make_shared<equity_breakdown_matrix_aggregator>(_n);
+                                for( auto& item : _params ){
+                                        result->append(*item.get());
                                 }
-                                result->append(*ec.evaluate( v ));
-                        }, byclass);
-                }, players);
-                return result;
+                                return std::move(result);
+                        }
+                );
+                result_t fut = task->get_future();
+                pg.sequence_point();
+                pg.push([task]()mutable{ (*task)(); });
+                return fut;
         }
 private:
         mutable equity_future ef_;
@@ -67,7 +80,45 @@ private:
 };
 #endif
 
-#if 1
+int main(){
+        holdem_class_range_vector players;
+        #if 1
+        players.push_back("99+, AJs+, AQo+");
+        players.push_back("55");
+        #endif
+        // Hand 0: 	81.547%  	81.33% 	00.22% 	      50134104 	   133902.00   { AA }
+        // Hand 1: 	18.453%  	18.24% 	00.22% 	      11241036 	   133902.00   { QQ }
+        #if 0
+        players.push_back("AA");
+        players.push_back("QQ");
+        #endif
+
+        #if 0
+        PRINT(players);
+        for( auto const& p : players.get_cross_product()){
+                for( auto const& hv : p.get_hand_vectors()){
+                        PRINT(hv);
+                }
+        }
+        #endif
+        
+        #if 1
+        class_range_equity_future cef;
+        
+        support::processor proc;
+        for( size_t i=0; i!= std::thread::hardware_concurrency();++i){
+                proc.spawn();
+        }
+        auto g = std::make_unique<support::processor::process_group>();
+        //auto ret = cef.schedual_group(*g, players.get_cross_product().front());
+        auto ret = cef.schedual_group(*g, players);
+        proc.accept(std::move(g));
+        proc.join();
+        std::cout << *ret.get() << "\n";
+        #endif
+}
+
+#if 0
 int main(){
         support::processor proc;
         for( size_t i=0; i!= std::thread::hardware_concurrency();++i){

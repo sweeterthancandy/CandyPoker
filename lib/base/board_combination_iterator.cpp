@@ -37,8 +37,6 @@ board_combination_iterator::board_combination_iterator(size_t n, std::vector<car
                 }
                 next_[id] = cand;
         }
-        PRINT(detail::to_string(removed_));
-        PRINT(detail::to_string(next_));
         
         for(card_id id{52};id!=0 && board_.size() < n_;){
                 --id;
@@ -51,7 +49,6 @@ board_combination_iterator::board_combination_iterator(size_t n, std::vector<car
         if( board_.size() != n_ )
                 BOOST_THROW_EXCEPTION(std::domain_error("unable to construct board of size n"));
 
-        PRINT(last_);
 
 }
 board_combination_iterator& board_combination_iterator::operator++(){

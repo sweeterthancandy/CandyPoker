@@ -145,6 +145,19 @@ struct equity_future_eval{
         >
         foo(asio::io_service& io, holdem_class_vector const& vec){
                 
+                auto impl = std::make_shared<aggregator_something>(vec.size());
+                std::vector<int> identity;
+                identity.resize(vec.size());
+                for(int i=0;i!=vec.size();++i)
+                        identity[i] = 1;
+                auto ret = foo_impl_(io, vec, impl, identity);
+                impl->start();
+                return ret;
+        }
+        std::shared_future<
+                std::shared_ptr<equity_breakdown>
+        >
+        foo_impl_(asio::io_service& io, holdem_class_vector const& vec, std::shared_ptr<aggregator_something> agg, std::vector<int> const& mat){
 
                 auto stdvec = vec.to_standard_form();
                 auto const& perm     = std::get<0>(stdvec);
@@ -165,8 +178,6 @@ struct equity_future_eval{
                 }
                 #endif
                 
-                auto impl = std::make_shared<aggregator_something>(vec.size());
-
                 auto stdhands = perm_vec.to_standard_form_hands(); 
                 for( auto const& stdhand : stdhands ){
 
@@ -175,39 +186,38 @@ struct equity_future_eval{
 
                         PRINT( hand_vec );
 
-                        impl->up();
-                        io.post( [impl, hand_perm, hand_vec]()mutable{
+                        agg->up();
+                        io.post( [agg, hand_perm, hand_vec]()mutable{
                                  auto const& eval = equity_evaluator_factory::get("principal");
                                  auto ret = eval.evaluate(hand_vec);
-                                 impl->append( *ret, hand_perm);
+                                 agg->append( *ret, hand_perm);
                         });
                 }
 
-                impl->start();
                 
                 auto ret_prom = std::make_shared<std::promise<std::shared_ptr<equity_breakdown> > >();
                 std::shared_future<std::shared_ptr<equity_breakdown> > fut(ret_prom->get_future());
 
                 
                 // set return value
-                impl->push_post_hook(
-                        [ret_prom, perm,impl]()mutable
+                agg->push_post_hook(
+                        [ret_prom, perm,agg]()mutable
                         {
                                 ret_prom->set_value(
                                         std::make_shared<equity_breakdown_permutation_view>(
-                                                impl->get_future().get(),
+                                                agg->get_future().get(),
                                                 perm));
 
                         }
                 );
                 #if 0
                 // add to cache
-                impl->push_post_hook(
-                        [impl,this,perm_vec]()mutable
+                agg->push_post_hook(
+                        [agg,this,perm_vec]()mutable
                         {
                                 if( class_cache_ ){
                                         std::unique_lock<holdem_class_eval_cache> lock(*class_cache_);
-                                        class_cache_->commit(perm_vec, *impl->get_future().get() );
+                                        class_cache_->commit(perm_vec, *agg->get_future().get() );
                                 }
                         }
                 );

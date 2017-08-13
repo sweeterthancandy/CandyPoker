@@ -43,7 +43,7 @@ namespace ps{
                         aux.emplace_back( (*this)[i], i);
                 }
                 boost::sort( aux, [](auto const& l, auto const& r){
-                        return std::get<0>(l) < std::get<1>(r);
+                        return std::get<0>(l) < std::get<0>(r);
                 });
                 std::vector<int> perm;
                 holdem_class_vector vec;

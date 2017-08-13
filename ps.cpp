@@ -14,6 +14,40 @@
 
 using namespace ps;
 
+struct equity_future{
+        using result_t = std::shared_future<
+                std::shared_ptr<equity_breakdown>
+        >;
+        equity_future()
+                : impl_{ &equity_evaluator_factory::get("principal") }
+        {}
+        result_t schedual_group(support::processor::process_group& pg, holdem_hand_vector const& players){
+                std::cout << "schedual_group(" << players << "\n";
+
+                auto iter = m_.find(players);
+                if( iter != m_.end() ){
+                        return iter->second;
+                }
+                auto task = std::make_shared<std::packaged_task<std::shared_ptr<equity_breakdown>()> >(
+                        [players,this](){
+                        return impl_->evaluate(players);
+                });
+                m_.emplace(players, std::move(task->get_future()));
+
+                // yuk
+                auto w = [task]()mutable{
+                        (*task)();
+                };
+                pg.push(std::move(w));
+                return schedual_group(pg, players);
+        }
+private:
+        equity_evaluator* impl_;
+        // only cache those in standard form
+        std::map< holdem_hand_vector, result_t > m_;
+};
+
+#if 0
 using shared_fut_t = std::shared_future<
         std::shared_ptr<equity_breakdown>
 >;
@@ -170,21 +204,95 @@ struct class_range_equity_future{
 private:
         ::class_equity_future cef_;
 };
+#endif
+
+
+struct compiler{
+        std::vector<
+               std::tuple< std::vector<int>, holdem_hand_vector >
+        > compile( holdem_class_range_vector const& players){
+
+                auto const n = players.size();
+
+                std::map<holdem_hand_vector, std::vector<int>  > result;
+
+                for( auto const& cv : players.get_cross_product()){
+                        for( auto hv : cv.get_hand_vectors()){
+
+                                auto p =  permutate_for_the_better(hv) ;
+                                auto& perm = std::get<0>(p);
+                                auto const& perm_players = std::get<1>(p);
+
+                                if( result.count(perm_players) == 0 ){
+                                        result[perm_players].resize(n*n);
+                                }
+                                auto& item = result.find(perm_players)->second;
+                                for(int i=0;i!=n;++i){
+                                        ++item[i*n + perm[i]];
+                                }
+                        }
+                }
+                std::vector< std::tuple< std::vector<int>, holdem_hand_vector > > ret;
+                for( auto& m : result ){
+                        ret.emplace_back( std::move(m.second), std::move(m.first));
+                }
+                return std::move(ret);
+        }
+};
+
 
 int main(){
         boost::timer::auto_cpu_timer at;
         holdem_class_range_vector players;
-        #if 0
+        #if 1
         players.push_back(" TT+, AQs+, AQo+ ");
         players.push_back(" QQ+, AKs, AKo ");
         players.push_back("TT");
-        #endif
+        #else
         // Hand 0:  81.547%   81.33%  00.22%        50134104     133902.00   { AA }
         // Hand 1:  18.453%   18.24%  00.22%        11241036     133902.00   { QQ }
         players.push_back("AA");
         players.push_back("QQ");
+        #endif
+
+        compiler cc;
+        auto ret = cc.compile(players);
+
+        support::processor proc;
+        ::equity_future ef;
+        for( size_t i=0; i!= std::thread::hardware_concurrency();++i){
+                proc.spawn();
+        }
+        auto g = std::make_unique<support::processor::process_group>();
+        std::vector< std::tuple< ::equity_future::result_t, std::vector<int> > > working;
+        for( auto const& t : ret){
+                working.emplace_back( ef.schedual_group(*g, std::get<1>(t)), std::get<0>(t));
+        }
+        proc.accept(std::move(g));
+        proc.join();
+        auto const n = players.size();
+        equity_breakdown_matrix result(n);
+        for( auto const& t : working){
+                auto const& eb  = std::get<0>(t).get();
+                auto const& mat = std::get<1>(t);
+                std::cout << *eb << "\n";
+                for( int i =0; i!= n;++i){
+                        auto& player = eb->player(i);
+
+                        for( int j =0;j!=n;++j){
+                                for( int k =0;k!=n;++k){
+                                        result.data_access(j,k) += eb->player(i).nwin(k) * mat[ i * n + j];
+                                        PRINT_SEQ((j)(k)(eb->player(i).nwin(k))(mat[ i * n + j]));
+                                }
+                        }
+                }
+        }
+        std::cout << result << "\n";
+
+
+
         
-        #if 1
+        #if 0
         class_range_equity_future cef;
         
         support::processor proc;

@@ -31,7 +31,7 @@ struct equity_evaulator_principal : public equity_evaluator{
                 boost::copy( x, std::back_inserter(known));
                 boost::copy( y, std::back_inserter(known));
 
-                auto const& eval = evaluator_factory::get("5_card_map");
+                auto const& eval = evaluator_factory::get("6_card_map");
         
                 for(board_combination_iterator iter(5, known),end;iter!=end;++iter){
 

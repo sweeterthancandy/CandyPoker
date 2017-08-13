@@ -62,6 +62,7 @@ namespace ps{
                                 case PrintWay_Pretty:
                                         return ostr << holdem_hand_decl::get(self.get());
                                 case PrintWay_Debug:
+                                default:
                                         return ostr << boost::format("hand{%s}") % holdem_hand_decl::get(self.get());
                                 }
                         }
@@ -94,6 +95,7 @@ namespace ps{
                                 case PrintWay_Pretty:
                                         return ostr << rank_decl::get(self.get()) << rank_decl::get(self.get());
                                 case PrintWay_Debug:
+                                default:
                                         return ostr << boost::format("pocker_pair{%s}") % rank_decl::get(self.get());
                                 }
                         }
@@ -168,6 +170,7 @@ namespace ps{
                                 case PrintWay_Pretty:
                                         return ostr << boost::format("%s%s%s") %rank_decl::get(self.first()) % rank_decl::get(self.second()) % pretty_name;
                                 case PrintWay_Debug:
+                                default:
                                         return ostr << boost::format("%s{%s, %s}") % debug_name % rank_decl::get(self.first()) % rank_decl::get(self.second());
                                 }
                         }

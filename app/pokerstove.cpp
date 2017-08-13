@@ -1,4 +1,12 @@
 #include "ps/base/frontend.h"
+#include "ps/base/tree.h"
+#include "ps/eval/equity_breakdown.h"
+#include "ps/eval/equity_breakdown_matrix.h"
+#include "ps/base/cards.h"
+#include "ps/base/board_combination_iterator.h"
+#include "ps/eval/equity_evaluator.h"
+#include "ps/eval/class_equity_evaluator.h"
+#include "ps/eval/holdem_class_eval_cache.h"
 
 #include <type_traits>
 #include <functional>
@@ -20,9 +28,7 @@ namespace ps{
 
         struct pretty_printer{
 
-                using view_t = detailed_view_type;
-
-                void operator()(std::ostream& ostr, view_t result, std::vector<std::string> const& players){
+                void operator()(std::ostream& ostr, equity_breakdown const& breakdown , std::vector<std::string> const& players){
                         std::vector<
                                 std::vector<std::string>
                         > lines;
@@ -44,7 +50,7 @@ namespace ps{
                         lines.emplace_back();
                         lines.back().push_back("__break__");
                         for( size_t i=0;i!=players.size();++i){
-                                auto pv =  result.player(i) ;
+                                auto const& pv =  breakdown.player(i) ;
                                 lines.emplace_back();
 
                                 lines.back().emplace_back( boost::lexical_cast<std::string>(players[i]) );
@@ -103,7 +109,10 @@ namespace ps{
         int pokerstove_driver(int argc, char** argv){
                 using namespace ps::frontend;
 
-                calculater calc;
+                auto& cache_      = holdem_class_eval_cache_factory::get("main");
+                auto& eval_       = equity_evaluator_factory::get("principal");
+                auto& class_eval_ = class_equity_evaluator_factory::get("principal");
+
 
                 std::vector<std::string> players_s;
                 std::vector<frontend::range> players;
@@ -117,6 +126,7 @@ namespace ps{
                         switch(args_left){
                         default:
                         case 2:
+                                #if 0
                                 if( argv[arg_iter] == std::string{"--cache"} ){
                                         std::cerr << "Loading...\n";
 
@@ -128,6 +138,7 @@ namespace ps{
                                         arg_iter += 2;
                                         continue;
                                 }
+                                #endif
                         case 1:
                                 // we must have players now
                                 for(; arg_iter < argc;++arg_iter){
@@ -137,27 +148,26 @@ namespace ps{
                                 break;
                         }
                 }
+                tree_range root( players );
 
-                double sigma{0};
-                size_t factor{0};
-                tree_range root{ players };
-                aggregator agg;
+                auto agg = std::make_shared<equity_breakdown_matrix_aggregator>(players.size());
                 for( auto const& c : root.children ){
 
                         // this means it's a class vs class evaulation
                         if( c.opt_cplayers.size() != 0 ){
-                                auto ret =  calc.calculate_class_equity( c.opt_cplayers ) ;
-                                agg.append(ret);
+                                holdem_class_vector aux{c.opt_cplayers};
+                                agg->append(*class_eval_.evaluate(aux));
                         } else{
                                 for( auto const& d : c.children ){
-                                        auto ret =  calc.calculate_hand_equity( d.players ) ;
-                                        agg.append(ret);
+                                        holdem_hand_vector aux{d.players};
+                                        agg->append(*eval_.evaluate(aux));
                                 }
                         }
-
                 }
 
-                pretty_printer{}(std::cout, agg.make_view(), players_s);
+                std::cout << *agg << "\n";
+
+                pretty_printer{}(std::cout, *agg, players_s);
 
                 return 0;
         }

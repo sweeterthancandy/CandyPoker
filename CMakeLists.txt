@@ -33,6 +33,7 @@ set(base_sources
         lib/base/card_vector.cpp
         lib/base/holdem_class_range.cpp
         lib/base/rank_vector.cpp
+        lib/base/tree.cpp
 )
 add_library(base_lib SHARED ${base_sources}) 
 target_link_libraries(base_lib ${Boost_LIBRARIES})
@@ -62,5 +63,10 @@ add_executable(_ps ps.cpp )
 target_link_libraries(_ps pthread )
 target_link_libraries(_ps ${Boost_LIBRARIES})
 target_link_libraries(_ps base_lib eval_lib )
+
+add_executable(pokerstove app/pokerstove.cpp )
+target_link_libraries(pokerstove pthread )
+target_link_libraries(pokerstove ${Boost_LIBRARIES})
+target_link_libraries(pokerstove base_lib eval_lib )
 #target_link_libraries(_ps stdc++fs )
 

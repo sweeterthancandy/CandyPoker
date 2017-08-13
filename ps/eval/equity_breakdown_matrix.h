@@ -194,7 +194,7 @@ struct basic_equity_breakdown_matrix_aggregator : basic_equity_breakdown_matrix<
                 }
         }
         template<class T>
-        void append(basic_equity_breakdown<Primitive_Type> const& breakdown, T scalar){
+        void append_scalar(basic_equity_breakdown<Primitive_Type> const& breakdown, T scalar){
                 assert( breakdown.n() == n()     && "precondition failed");
                 sigma() += breakdown.sigma();
                 for(size_t i=0;i!=n();++i){

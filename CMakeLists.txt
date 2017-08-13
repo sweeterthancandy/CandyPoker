@@ -29,6 +29,7 @@ set(base_sources
         lib/base/board_combination_iterator.cpp
         lib/base/holdem_hand_vector.cpp
         lib/base/holdem_class_vector.cpp
+        lib/base/holdem_class_range_vector.cpp
 )
 add_library(base_lib SHARED ${base_sources}) 
 target_link_libraries(base_lib ${Boost_LIBRARIES})

@@ -14,6 +14,7 @@
 
 using namespace ps;
 
+#if 0
 struct equity_future{
         using result_t = std::shared_future<
                 std::shared_ptr<equity_breakdown>
@@ -46,6 +47,7 @@ private:
         // only cache those in standard form
         std::map< holdem_hand_vector, result_t > m_;
 };
+#endif
 
 #if 0
 using shared_fut_t = std::shared_future<
@@ -206,45 +208,58 @@ private:
 };
 #endif
 
+template<class From, class To>
+struct basic_cache_object{
+        
+        using from_t = From;
+        using to_t   = To;
 
-struct compiler{
-        std::vector<
-               std::tuple< std::vector<int>, holdem_hand_vector >
-        > compile( holdem_class_range_vector const& players){
-
-                auto const n = players.size();
-
-                std::map<holdem_hand_vector, std::vector<int>  > result;
-
-                for( auto const& cv : players.get_cross_product()){
-                        for( auto hv : cv.get_hand_vectors()){
-
-                                auto p =  permutate_for_the_better(hv) ;
-                                auto& perm = std::get<0>(p);
-                                auto const& perm_players = std::get<1>(p);
-
-                                if( result.count(perm_players) == 0 ){
-                                        result[perm_players].resize(n*n);
-                                }
-                                auto& item = result.find(perm_players)->second;
-                                for(int i=0;i!=n;++i){
-                                        ++item[i*n + perm[i]];
-                                }
-                        }
-                }
-                std::vector< std::tuple< std::vector<int>, holdem_hand_vector > > ret;
-                for( auto& m : result ){
-                        ret.emplace_back( std::move(m.second), std::move(m.first));
-                }
-                return std::move(ret);
+        // I think this is appropriate
+        to_t const* lookup(from_t const& from){
+                auto iter = cache_.find(from);
+                if( iter == cache_.end())
+                        return nullptr;
+                return &iter->second;
         }
+        void commit( from_t const& from, to_t const& to){
+                cache_.emplace(from, to);
+        }
+        #if 0
+        bool load(std::string const& name){
+                std::ifstream is(name);
+                if( ! is.is_open() )
+                        return false;
+                boost::archive::text_iarchive ia(is);
+                ia >> *this;
+                return true;
+        }
+        bool save(std::string const& name)const{
+                std::ofstream of(name);
+                boost::archive::text_oarchive oa(of);
+                oa << *this;
+                return true;
+        }
+        template<class Archive>
+        void serialize(Archive& ar, unsigned int){
+                ar & cache_;
+        }
+        #endif
+private:
+        std::map< from_t, to_t > cache_;
+};
+
+using holdem_hand_eval_cache  = basic_cache_object<holdem_hand_vector, equity_breakdown_matrix>;
+using holdem_class_eval_cache = basic_cache_object<holdem_class_vector, equity_breakdown_matrix>;
+
+
+struct cache_controller{
 };
 
 
 int main(){
         boost::timer::auto_cpu_timer at;
         holdem_class_range_vector players;
-        #if 1
+        #if 0
         // Hand 0:  30.845%   28.23%  02.61%      3213892992  297127032.00   { TT+, AQs+, AQo+ }
         // Hand 1:  43.076%   40.74%  02.33%      4637673516  265584984.00   { QQ+, AKs, AKo }
         // Hand 2:  26.079%   25.68%  00.40%      2923177728   45324924.00   { TT }
@@ -258,29 +273,49 @@ int main(){
         players.push_back("QQ");
         #endif
 
-        compiler cc;
-        auto ret = cc.compile(players);
+        support::processor proc;
+        equity_breakdown_matrix_aggregator result;
+        auto g = std::make_unique<support::processor::process_group>();
+        for( size_t i=0; i!= std::thread::hardware_concurrency();++i){
+                proc.spawn();
+        }
+        holdem_class_eval_cache class_cache;
+        for( auto const& stdclass : players.to_class_standard_form() ){
+                auto ptr = class_cache.find(std::get<1>(stdclass));
+                if( ptr != nullptr ){
+                        result->append_perm( result, std::get<0>(stdclass));
+                }
+                for( auto const& stdhand : std::get<1>(stdclass).to_standard_form()){
+                        auto ptr = 
+                }
+        }
+        proc.join();
 
+
+        #if 0
         support::processor proc;
         ::equity_future ef;
         for( size_t i=0; i!= std::thread::hardware_concurrency();++i){
                 proc.spawn();
         }
+        
         auto g = std::make_unique<support::processor::process_group>();
+        auto stdform = players.to_standard_form();
         std::vector< std::tuple< ::equity_future::result_t, std::vector<int> > > working;
-        for( auto const& t : ret){
+        for( auto const& t : stdform){
+                PRINT(std::get<1>(t));
                 working.emplace_back( ef.schedual_group(*g, std::get<1>(t)), std::get<0>(t));
         }
         proc.accept(std::move(g));
         proc.join();
         auto const n = players.size();
-        equity_breakdown_matrix_aggregator result(n);
         for( auto const& t : working){
                 auto const& eb  = std::get<0>(t).get();
                 auto const& mat = std::get<1>(t);
                 result.append_matrix( *eb, mat);
         }
         std::cout << result << "\n";
+        #endif
 
 
 

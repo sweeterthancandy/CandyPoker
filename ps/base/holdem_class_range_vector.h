@@ -2,6 +2,7 @@
 #define PS_BASE_HOLDEM_CLASS_RANGE_VECTOR_H
 
 #include "ps/base/holdem_class_range.h"
+#include "ps/base/holdem_hand_vector.h"
 #include "ps/base/holdem_class_vector.h"
 #include "ps/detail/cross_product.h"
 
@@ -21,16 +22,17 @@ namespace ps{
 
                 // Return this expand, ie 
                 //        {{AA,KK},{22}} => {AA,22}, {KK,22}
-                std::vector<holdem_class_vector> get_cross_product()const{
-                        std::vector<holdem_class_vector> ret;
-                        detail::cross_product_vec([&](auto const& byclass){
-                                ret.emplace_back();
-                                for( auto iter : byclass ){
-                                        ret.back().emplace_back(*iter);
-                                }
-                        }, *this);
-                        return std::move(ret);
-                }
+                std::vector<holdem_class_vector> get_cross_product()const;
+                // Returns this as a vector of
+                //        (matrix, standard-form-hand-vector)
+                std::vector<
+                       std::tuple< std::vector<int>, holdem_hand_vector >
+                > to_standard_form()const;
+                // Returns this as a vector of
+                //        (matrix, standard-form-class-vector)
+                std::vector<
+                       std::tuple< std::vector<int>, holdem_class_vector >
+                > to_class_standard_form()const;
 
         };
 } // ps

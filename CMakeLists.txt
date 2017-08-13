@@ -68,5 +68,9 @@ add_executable(pokerstove app/pokerstove.cpp )
 target_link_libraries(pokerstove pthread )
 target_link_libraries(pokerstove ${Boost_LIBRARIES})
 target_link_libraries(pokerstove base_lib eval_lib )
-#target_link_libraries(_ps stdc++fs )
+
+add_executable(cacher app/cacher.cpp )
+target_link_libraries(cacher pthread )
+target_link_libraries(cacher ${Boost_LIBRARIES})
+target_link_libraries(cacher base_lib eval_lib )
 

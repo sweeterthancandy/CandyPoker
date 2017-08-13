@@ -22,8 +22,7 @@ struct create_class_cache_app{
                         for(size_t i=0;i!=std::thread::hardware_concurrency();++i){
                                 tg.emplace_back( [this](){ io_.run(); } );
                         }
-                        //for(holdem_class_id i=0;i!=holdem_class_decl::max_id;++i){
-                        {     holdem_class_id i=0;
+                        for(holdem_class_id i=0;i!=holdem_class_decl::max_id;++i){
                                 for(holdem_class_id j=i;j!=holdem_class_decl::max_id;++j){
                                         ++total_;
                                         io_.post( [i,j,this]()

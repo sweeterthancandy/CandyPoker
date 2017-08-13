@@ -57,7 +57,16 @@ struct equity_breakdown_matrix : equity_breakdown{
                 n_{0}
         {}
         
-        equity_breakdown_matrix(equity_breakdown_matrix const&)=delete;
+        equity_breakdown_matrix(equity_breakdown_matrix const& that)
+                :n_{that.n_},
+                data_{that.data_}
+        {
+                for(size_t i=0;i!=n_;++i){
+                        players_.emplace_back(n_,
+                                     sigma_,
+                                     support::array_view<size_t>(&data_[0] + i * n_, n_ ));
+                }
+        }
         equity_breakdown_matrix(equity_breakdown_matrix&&)=delete;
         equity_breakdown_matrix& operator=(equity_breakdown_matrix const&)=delete;
         equity_breakdown_matrix& operator=(equity_breakdown_matrix&&)=delete;

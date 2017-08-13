@@ -13,6 +13,11 @@
 
 #include <boost/timer/timer.hpp>
 #include <boost/asio.hpp>
+#include <boost/serialization/map.hpp>
+#include <boost/serialization/vector.hpp>
+#include <boost/serialization/array.hpp>
+#include <boost/serialization/shared_ptr.hpp>
+#include <boost/serialization/export.hpp>
 
 using namespace ps;
 
@@ -34,10 +39,12 @@ struct holdem_class_eval_cache{
         }
 
         void display()const{
+                std::cout << "DISPLAY BEGIN\n";
                 for( auto const& item : cache_ ){
                         PRINT(item.first);
                         std::cout << item.second << "\n";
                 }
+                std::cout << "DISPLAY END\n";
         }
 
         // work with std::lock_guard etc
@@ -47,8 +54,32 @@ struct holdem_class_eval_cache{
         void unlock(){
                 mtx_.unlock();
         }
+        bool load(std::string const& name){
+                this->lock();
+                std::ifstream is(name);
+                if( ! is.is_open() )
+                        return false;
+                boost::archive::text_iarchive ia(is);
+                ia >> *this;
+                this->unlock();
+                return true;
+        }
+        bool save(std::string const& name){
+                this->lock();
+                std::ofstream of(name);
+                if( ! of.is_open() )
+                        return false;
+                boost::archive::text_oarchive oa(of);
+                oa << *this;
+                this->unlock();
+                return true;
+        }
+        template<class Archive>
+        void serialize(Archive& ar, unsigned int){
+                ar & cache_;
+        }
 private:
-        std::mutex mtx_;
+        mutable std::mutex mtx_;
         std::map< holdem_class_vector, equity_breakdown_matrix> cache_;
 };
 
@@ -125,6 +156,7 @@ struct equity_future_eval{
                         auto ptr = class_cache_->lookup( vec );
                         class_cache_->unlock();
                         if( !! ptr){
+                                std::cout << "CACHE HIT\n";
                                 return ptr;
                         }
                 }
@@ -170,6 +202,15 @@ struct equity_future_eval{
                                 [range_agg, agg, class_mat]()
                                 {
                                         range_agg->append(*agg->get_future().get(), class_mat);
+                                }
+                        );
+                        agg->push_post_hook(
+                                [agg,this,class_vec]()mutable
+                                {
+                                        if( class_cache_ ){
+                                                std::unique_lock<holdem_class_eval_cache> lock(*class_cache_);
+                                                class_cache_->commit(class_vec, *agg->get_future().get() );
+                                        }
                                 }
                         );
                         agg->finalize();
@@ -309,6 +350,8 @@ int main(){
         #endif
 
         auto cache = std::make_shared<holdem_class_eval_cache>();
+        cache->load("cache.bin");
+        cache->display();
 
         boost::asio::io_service io;
         //for(int i=0;i!=3;++i){
@@ -319,7 +362,9 @@ int main(){
                 std::cout << *ret.get() << "\n";
         //}
         std::cout << "cache\n";
+
         cache->display();
+        cache->save("cache.bin");
         
 
 }

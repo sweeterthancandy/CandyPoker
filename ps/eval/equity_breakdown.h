@@ -31,12 +31,6 @@ namespace ps{
                 virtual size_t n()const=0;
                 virtual equity_breakdown_player const& player(size_t idx)const=0;
 
-                template<class Archive>
-                void serialize(Archive &ar, const unsigned int version)
-                {
-                        // nop
-                        //
-                }
         };
 
 

@@ -26,6 +26,7 @@ inline bool disjoint( Args&&... args){
         return s.size() == aux.size()*2;
 }
         
+#if 0
 template<size_t N>
 std::array<int, N> injective_player_perm( support::array_view<ps::holdem_id> const& players ){
         // first create vector of n, and token_n = hh_n
@@ -103,6 +104,7 @@ std::tuple<
         }
         return std::make_tuple( perm, perm_hands);
 }
+#endif 
 
 
 std::tuple<

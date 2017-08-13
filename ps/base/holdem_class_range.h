@@ -17,19 +17,9 @@ namespace ps{
                 holdem_class_range(Args&&... args)
                 : std::vector<ps::holdem_id>{std::forward<Args>(args)...}
                 {}
-                holdem_class_range(std::string const& item){
-                        this->parse(item);
-                }
-                friend std::ostream& operator<<(std::ostream& ostr, holdem_class_range const& self){
-                        return ostr << detail::to_string(self,
-                                                         [](auto id){
-                                                                return holdem_class_decl::get(id).to_string();
-                                                         } );
-                }
-                void parse(std::string const& item){
-                        auto rep = expand(frontend::parse(item));
-                        boost::copy( rep.to_class_vector(), std::back_inserter(*this)); 
-                }
+                holdem_class_range(std::string const& item);
+                friend std::ostream& operator<<(std::ostream& ostr, holdem_class_range const& self);
+                void parse(std::string const& item);
         };
 } // ps
 #endif //  PS_BASE_HOLDEM_CLASS_RANGE_H

@@ -12,13 +12,9 @@ namespace ps{
                 holdem_class_range_vector(Args&&... args)
                 : std::vector<holdem_class_range>{std::forward<Args>(args)...}
                 {}
-                friend std::ostream& operator<<(std::ostream& ostr, holdem_class_range_vector const& self){
-                        return ostr << detail::to_string(self);
-                }
+                friend std::ostream& operator<<(std::ostream& ostr, holdem_class_range_vector const& self);
 
-                void push_back(std::string const& s){
-                        this->emplace_back(s);
-                }
+                void push_back(std::string const& s);
 
                 // Return this expand, ie 
                 //        {{AA,KK},{22}} => {AA,22}, {KK,22}

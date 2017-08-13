@@ -72,6 +72,14 @@ std::vector<
         }
         return std::move(ret);
 }
+                
+std::ostream& operator<<(std::ostream& ostr, holdem_class_range_vector const& self){
+        return ostr << detail::to_string(self);
+}
+
+void holdem_class_range_vector::push_back(std::string const& s){
+        this->emplace_back(s);
+}
 
 } // ps
 

@@ -4,7 +4,6 @@
 #include "ps/base/holdem_class_range.h"
 #include "ps/base/holdem_hand_vector.h"
 #include "ps/base/holdem_class_vector.h"
-#include "ps/detail/cross_product.h"
 
 namespace ps{
         struct holdem_class_range_vector : std::vector<holdem_class_range>{

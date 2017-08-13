@@ -2,6 +2,8 @@
 #include "ps/base/cards.h"
 #include "ps/base/algorithm.h"
 
+#include <boost/range/algorithm.hpp>
+
 namespace ps{
         std::ostream& operator<<(std::ostream& ostr, holdem_class_vector const& self){
                 return ostr << detail::to_string(self,

@@ -1,5 +1,6 @@
 #include "ps/base/holdem_class_range_vector.h"
 #include "ps/base/algorithm.h"
+#include "ps/detail/cross_product.h"
 
 namespace ps{
                 

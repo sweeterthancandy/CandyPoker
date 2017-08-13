@@ -1,5 +1,8 @@
 #include "ps/base/holdem_class_range.h"
 
+#include "ps/base/frontend.h"
+#include "ps/detail/print.h"
+
 namespace ps{
         holdem_class_range::holdem_class_range(std::string const& item){
                 this->parse(item);

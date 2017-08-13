@@ -8,8 +8,6 @@
 #include "ps/base/holdem_hand_vector.h"
 #include "ps/detail/print.h"
 
-#include <boost/range/algorithm.hpp>
-
 namespace ps{
 
         struct holdem_class_vector : std::vector<ps::holdem_class_id>{

@@ -15,6 +15,8 @@
 #include <boost/serialization/shared_ptr.hpp>
 #include <boost/serialization/export.hpp>
 
+#include <boost/range/algorithm.hpp>
+
 namespace ps{
 
 

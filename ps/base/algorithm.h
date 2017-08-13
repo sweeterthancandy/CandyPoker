@@ -3,7 +3,6 @@
 
 #include <tuple>
 #include <vector>
-#include <boost/range/algorithm.hpp>
 
 #include "ps/base/cards.h"
 #include "ps/support/array_view.h"

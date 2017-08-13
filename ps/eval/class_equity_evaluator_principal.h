@@ -9,7 +9,7 @@ namespace ps{
 
 struct class_equity_evaluator_principal : class_equity_evaluator{
         class_equity_evaluator_principal(){
-                impl_ = &equity_evaluator_factory::get("cached");
+                impl_ = &equity_evaluator_factory::get("principal");
         }
         virtual std::shared_ptr<equity_breakdown> evaluate(holdem_class_vector const& players)const override{
                 auto result = std::make_shared<equity_breakdown_matrix_aggregator>(players.size());

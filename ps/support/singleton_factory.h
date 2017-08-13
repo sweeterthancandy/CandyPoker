@@ -1,7 +1,9 @@
 #ifndef PS_SUPPORT_SINGLETON_FACTORY_H
 #define PS_SUPPORT_SINGLETON_FACTORY_H
 
+#include <boost/type_index.hpp>
 #include <boost/exception/all.hpp>
+#include <iostream>
 #include <map>
 #include <functional>
 #include <memory>
@@ -23,6 +25,7 @@ namespace support{
                         {}
                         T& get(){
                                 if( ! ptr_ ){
+                                        std::lock_guard<std::mutex> lock(mtx_);
                                         if( ! ptr_ ){
                                                 ptr_ = maker_();
                                         }
@@ -32,16 +35,17 @@ namespace support{
                 private:
                         std::unique_ptr<T> ptr_;
                         maker_t maker_;
+                        std::mutex mtx_;
                 };
                 template<class U>
                 void register_impl( std::string const& name ){
-                        m_.emplace(name, item([](){ return std::make_unique<U>(); }));
+                        m_.emplace(name, std::make_unique<item>([](){ return std::make_unique<U>(); }));
                 }
                 T& get_impl(std::string const& name){
                         auto iter = m_.find(name);
                         if( iter == m_.end() )
                                 BOOST_THROW_EXCEPTION(std::domain_error("singlton " + name + " not registered"));
-                        return iter->second.get();
+                        return iter->second->get();
                 }
         public:
 
@@ -57,8 +61,7 @@ namespace support{
                         get_inst()->template register_impl<U>(name);
                 }
                 static T& get(std::string const& name = "__default__"){
-                        static std::mutex mtx;
-                        std::lock_guard<std::mutex> lock(mtx);
+                        std::cout << "getting name = " << name << " for " << boost::typeindex::type_id<T>().pretty_name() << "\n";
                         return get_inst()->get_impl(name);
                 }
 
@@ -66,7 +69,7 @@ namespace support{
         private:
                 std::map<
                         std::string,
-                        item
+                        std::unique_ptr<item>
                 > m_;
         };
 } // support

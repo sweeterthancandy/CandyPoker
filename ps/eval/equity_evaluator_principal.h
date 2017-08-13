@@ -13,6 +13,9 @@
 namespace ps{
 
 struct equity_evaulator_principal : public equity_evaluator{
+        equity_evaulator_principal()
+                :impl_{&evaluator_factory::get("6_card_map")}
+        {}
         std::shared_ptr<equity_breakdown> evaluate(std::vector<holdem_id> const& players)const override{
                 // we first need to enumerate every run of the board,
                 // for this we can create a mapping [0,51-n*2] -> [0,51],
@@ -31,7 +34,6 @@ struct equity_evaulator_principal : public equity_evaluator{
                 boost::copy( x, std::back_inserter(known));
                 boost::copy( y, std::back_inserter(known));
 
-                auto const& eval = evaluator_factory::get("6_card_map");
         
                 for(board_combination_iterator iter(5, known),end;iter!=end;++iter){
 
@@ -39,7 +41,7 @@ struct equity_evaulator_principal : public equity_evaluator{
 
                         std::vector<ranking_t> ranked;
                         for( size_t i=0;i!=n;++i){
-                                ranked.push_back(eval.rank(x[i], y[i],
+                                ranked.push_back(impl_->rank(x[i], y[i],
                                                             b[0], b[1], b[2], b[3], b[4]) );
                         }
                         auto lowest = ranked[0] ;
@@ -62,6 +64,8 @@ struct equity_evaulator_principal : public equity_evaluator{
 
                 return result;
         }
+private:
+        evaluator* impl_;
 };
 
 }

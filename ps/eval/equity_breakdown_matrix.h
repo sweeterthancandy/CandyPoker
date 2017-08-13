@@ -22,51 +22,126 @@ namespace ps{
 
 
 
-struct equity_breakdown_matrix : equity_breakdown{
+template<class Primitive_Type>
+struct basic_equity_breakdown_matrix : basic_equity_breakdown<Primitive_Type>{
 
-        struct equity_breakdown_player_matrix : equity_breakdown::player_t
-        {
-                explicit equity_breakdown_player_matrix(size_t n, size_t sigma, support::array_view<size_t> data);
+        using prim_t   = typename basic_equity_breakdown<Primitive_Type>::prim_t;
+        using player_t = typename basic_equity_breakdown<Primitive_Type>::player_t;
 
-                double equity()const override;
+        struct equity_breakdown_player_matrix : player_t{
+                explicit equity_breakdown_player_matrix(size_t n, prim_t sigma, support::array_view<prim_t> data)
+                        :n_{n}, sigma_{sigma}, data_{data}
+                {}
+
+                double equity()const override{
+                        double result{0.0};
+                        for(size_t i=0;i!=n_;++i){
+                                result += nwin(i) / (i+1);
+                        }
+                        return result / sigma_;
+                }
                 // nwin(0) -> wins
                 // nwin(1) -> draws to split pot 2 ways
                 // nwin(2) -> draws to split pot 3 ways
                 // ...
-                size_t nwin(size_t idx)const override;
-                size_t win()const override;
-                size_t draw()const override;
-                size_t lose()const override;
-                size_t sigma()const override;
+                prim_t nwin(size_t idx)const override{
+                        return data_[idx];
+                }
+                prim_t win()const override{  return nwin(0); }
+                prim_t draw()const override{ return nwin(1); }
+                prim_t lose()const override{ return sigma_ - std::accumulate( data_.begin(), data_.end(), 0); }
+                prim_t sigma()const override{ return sigma_; }
+                
         private:
                 size_t n_;
-                size_t sigma_;
-                support::array_view<size_t> data_;
+                prim_t sigma_;
+                support::array_view<prim_t> data_;
         };
 
-        equity_breakdown_matrix();
+        basic_equity_breakdown_matrix():
+                n_{0}
+        {}
         
-        equity_breakdown_matrix(equity_breakdown_matrix const& that);
-        equity_breakdown_matrix(equity_breakdown_matrix&&)=delete;
-        equity_breakdown_matrix& operator=(equity_breakdown_matrix const&)=delete;
-        equity_breakdown_matrix& operator=(equity_breakdown_matrix&&)=delete;
+        basic_equity_breakdown_matrix(basic_equity_breakdown_matrix const& that)
+                :n_{that.n_},
+                data_{that.data_}
+        {
+                for(size_t i=0;i!=n_;++i){
+                        players_.emplace_back(n_,
+                                     sigma_,
+                                     support::array_view<size_t>(&data_[0] + i * n_, n_ ));
+                }
+        }
+        basic_equity_breakdown_matrix(basic_equity_breakdown_matrix&&)=delete;
+        basic_equity_breakdown_matrix& operator=(basic_equity_breakdown_matrix const&)=delete;
+        basic_equity_breakdown_matrix& operator=(basic_equity_breakdown_matrix&&)=delete;
 
         // only if all convertiable to size_t
-        equity_breakdown_matrix(size_t n);
+        basic_equity_breakdown_matrix(size_t n):
+                n_{n},
+                data_(n*n)
+        {
+                for(size_t i=0;i!=n_;++i){
+                        players_.emplace_back(n_,
+                                     sigma_,
+                                     support::array_view<prim_t>(&data_[0] + i * n_, n_ ));
+                }
+        }
         // copy
-        equity_breakdown_matrix(equity_breakdown const& that);
-        equity_breakdown_matrix(equity_breakdown const& that, std::vector<int> const& perm);
-        size_t const& data_access(size_t i, size_t j)const;
-        size_t& data_access(size_t i, size_t j);
-        size_t const* data()const;
+        basic_equity_breakdown_matrix(basic_equity_breakdown<Primitive_Type> const& that)
+                : n_(that.n())
+        {
+                data_.resize(n_*n_);
+                for(size_t i=0;i!=n_;++i){
+                        auto const& p = that.player(i);
+                        for(size_t j=0;j!=n_;++j){
+                                this->data_access(i,j) += p.nwin(j);
+                        }
+                }
+                for(size_t i=0;i!=n_;++i){
+                        players_.emplace_back(n_,
+                                     sigma_,
+                                     support::array_view<prim_t>(&data_[0] + i * n_, n_ ));
+                }
+        }
+        basic_equity_breakdown_matrix(basic_equity_breakdown<Primitive_Type> const& that, std::vector<int> const& perm)
+                : n_(that.n())
+        {
+                data_.resize(n_*n_);
+                for(size_t i=0;i!=n_;++i){
+                        auto const& p = that.player(perm[i]);
+                        for(size_t j=0;j!=n_;++j){
+                                this->data_access(i,j) += p.nwin(j);
+                        }
+                }
+                for(size_t i=0;i!=n_;++i){
+                        players_.emplace_back(n_,
+                                     sigma_,
+                                     support::array_view<prim_t>(&data_[0] + i * n_, n_ ));
+                }
+        }
+        prim_t const& data_access(size_t i, size_t j)const{
+                return data_.at(i * n_ + j);
+                //return data_[i * n_ + j];
+                //PRINT_SEQ((n_)(i)(j)(i * n_ + j)(data_.size()));
+        }
+        prim_t& data_access(size_t i, size_t j){
+                return const_cast<prim_t&>(
+                        reinterpret_cast<basic_equity_breakdown_matrix const*>(this)
+                                ->data_access(i,j)
+                );
+        }
+        prim_t const* data()const{ return reinterpret_cast<prim_t const*>(&data_.front()); }
 
 
-        size_t sigma()const override;
-        size_t& sigma();
+        prim_t sigma()const override{ return sigma_; }
+        prim_t& sigma(){ return sigma_; }
 
-        equity_breakdown_player const& player(size_t idx)const override;
+        equity_breakdown_player const& player(size_t idx)const override{
+                return players_[idx];
+        }
 
-        size_t n()const override;
+        size_t n()const override{ return n_; }
         
         template<class Archive>
         void save(Archive &ar, const unsigned int version)const
@@ -85,32 +160,89 @@ struct equity_breakdown_matrix : equity_breakdown{
                 for(size_t i=0;i!=n_;++i){
                         players_.emplace_back(n_,
                                               sigma_,
-                                              support::array_view<size_t>(&data_[0] + i * n_, n_ ));
+                                              support::array_view<prim_t>(&data_[0] + i * n_, n_ ));
                 }
 
         }
         BOOST_SERIALIZATION_SPLIT_MEMBER()
         
 private:
-        size_t sigma_ = 0;
+        prim_t sigma_ = 0;
         size_t n_;
 
         // access float, so can have a static view for all 
         //  2,3,...9 etc without injeritace (see view_t)
-        std::vector<size_t> data_;
+        std::vector<prim_t> data_;
 
         // need to allocate these
         std::vector< equity_breakdown_player_matrix> players_;
 };
+
         
-struct equity_breakdown_matrix_aggregator : equity_breakdown_matrix{
+template<class Primitive_Type>
+struct basic_equity_breakdown_matrix_aggregator : basic_equity_breakdown_matrix<Primitive_Type>{
 
-        explicit equity_breakdown_matrix_aggregator(size_t n);
+        explicit basic_equity_breakdown_matrix_aggregator(size_t n)
+                : basic_equity_breakdown_matrix<Primitive_Type>{n}
+        {}
 
-        void append(equity_breakdown const& breakdown);
-        void append_perm(equity_breakdown const& breakdown, std::vector<int> const& perm);
-        void append_matrix(equity_breakdown const& breakdown, std::vector<int> const& mat);
+        using basic_equity_breakdown_matrix<Primitive_Type>::sigma;
+        using basic_equity_breakdown_matrix<Primitive_Type>::data_access;
+        using basic_equity_breakdown_matrix<Primitive_Type>::n;
+
+
+        void append(basic_equity_breakdown<Primitive_Type> const& breakdown){
+                assert( breakdown.n() == n()     && "precondition failed");
+                sigma() += breakdown.sigma();
+                for(size_t i=0;i!=n();++i){
+                        for(size_t j=0;j!=n();++j){
+                                data_access(i, j) += breakdown.player(i).nwin(j);
+                        }
+                }
+        }
+        template<class T>
+        void append_scalar(basic_equity_breakdown<Primitive_Type> const& breakdown, T scalar){
+                assert( breakdown.n() == n()     && "precondition failed");
+                sigma() += breakdown.sigma();
+                for(size_t i=0;i!=n();++i){
+                        for(size_t j=0;j!=n();++j){
+                                data_access(i, j) += breakdown.player(i).nwin(j) * scalar;
+                        }
+                }
+        }
+        template<class T>
+        void append_perm(basic_equity_breakdown<Primitive_Type> const& breakdown, std::vector<T> const& perm){
+                assert( breakdown.n() == n()     && "precondition failed");
+                assert( mat.size()    == n()     && "precondition failed");
+
+                for( size_t i =0;i!=n();++i){
+                        for( size_t j =0;j!=n();++j){
+                                data_access(i,j) += player(perm[i]).nwin(j);
+                        }
+                }
+        }
+        template<class T>
+        void append_matrix(basic_equity_breakdown<Primitive_Type> const& breakdown, std::vector<T> const& mat){
+                assert( breakdown.n() == n()     && "precondition failed");
+                assert( mat.size()    == n()*n() && "precondition failed");
+                sigma() += breakdown.sigma();
+                for( size_t i =0; i!= n();++i){
+                        auto& p = breakdown.player(i);
+                        for( size_t j =0;j!=n();++j){
+                                for( size_t k =0;k!=n();++k){
+                                        data_access(j,k) += p.nwin(k) * mat[ i * n() + j];
+                                }
+                        }
+                }
+        }
 };
+
+using equity_breakdown_matrix             = basic_equity_breakdown_matrix<size_t>;
+using equity_breakdown_matrix_aggregator  = basic_equity_breakdown_matrix_aggregator<size_t>;
+using fequity_breakdown_matrix            = basic_equity_breakdown_matrix<double>;
+using fequity_breakdown_matrix_aggregator = basic_equity_breakdown_matrix_aggregator<double>;
+
+
 
 
 } // ps

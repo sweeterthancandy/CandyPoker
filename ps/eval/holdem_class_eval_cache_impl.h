@@ -21,7 +21,6 @@ struct holdem_class_eval_cache_impl : holdem_class_eval_cache{
         void commit(holdem_class_vector vec, equity_breakdown const& breakdown){
                 std::cout << "breakdown = " <<  breakdown << "\n";
                 cache_.emplace(std::move(vec), breakdown);
-                display();
         }
 
         void display()const{

@@ -41,8 +41,8 @@ target_link_libraries(base_lib ${Boost_LIBRARIES})
 set(
         eval_sources 
         
-        lib/eval/5_card_map.cpp
-        lib/eval/6_card_map.cpp
+        lib/eval/evaluator_5_card_map.cpp
+        lib/eval/evaluator_6_card_map.cpp
         lib/eval/rank_world.cpp
         lib/eval/equity_evaluator_principal.cpp 
         lib/eval/equity_evaluator_cached.cpp
@@ -74,3 +74,8 @@ target_link_libraries(_ps base_lib eval_lib )
 #target_link_libraries(cacher ${Boost_LIBRARIES})
 #target_link_libraries(cacher base_lib eval_lib )
 
+
+add_executable(heads_up_solver app/heads_up_solver.cpp )
+target_link_libraries(heads_up_solver pthread )
+target_link_libraries(heads_up_solver ${Boost_LIBRARIES})
+target_link_libraries(heads_up_solver base_lib eval_lib )

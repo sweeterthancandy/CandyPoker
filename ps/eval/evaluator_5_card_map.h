@@ -12,8 +12,8 @@
 
 namespace ps{
 
-struct _5_card_map : evaluator{
-        _5_card_map(){
+struct evaluator_5_card_map : evaluator{
+        evaluator_5_card_map(){
                 flush_map_.resize( 37 * 37 * 37 * 37 * 31 +1 );
                 rank_map_.resize( 37 * 37 * 37 * 37 * 31 +1 );
 

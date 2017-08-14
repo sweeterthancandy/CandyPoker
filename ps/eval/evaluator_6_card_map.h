@@ -1,9 +1,9 @@
-#include "5_card_map.h"
+#include "ps/eval/evaluator_5_card_map.h"
 
 namespace ps{
 
-struct _6_card_map : _5_card_map{
-        _6_card_map(){
+struct evaluator_6_card_map : evaluator_5_card_map{
+        evaluator_6_card_map(){
                 cache_6_.resize( 37*37*37*37*31*31+1);
                 detail::visit_combinations<6>(
                         [this](long a, long b, long c, long d, long e, long f){
@@ -28,18 +28,18 @@ struct _6_card_map : _5_card_map{
                                 //PRINT_SEQ((a)(b)(c)(d)(e)(f)(m)(cache_6_[m]));
                 }, detail::true_, 51);
         }
-        _6_card_map(_6_card_map const&)=delete;
-        _6_card_map(_6_card_map&&)=delete;
-        _6_card_map& operator=(_6_card_map const&)=delete;
-        _6_card_map& operator=(_6_card_map&)=delete;
+        evaluator_6_card_map(evaluator_6_card_map const&)=delete;
+        evaluator_6_card_map(evaluator_6_card_map&&)=delete;
+        evaluator_6_card_map& operator=(evaluator_6_card_map const&)=delete;
+        evaluator_6_card_map& operator=(evaluator_6_card_map&)=delete;
 
 
         // some sugar
         ranking_t  rank_brute(long a, long b, long c, long d, long e, long f)const{
-                return _5_card_map::rank(a,b,c,d,e,f);
+                return evaluator_5_card_map::rank(a,b,c,d,e,f);
         }
         ranking_t  rank_brute(long a, long b, long c, long d, long e, long f, long g)const{
-                return _5_card_map::rank(a,b,c,d,e,f,g);
+                return evaluator_5_card_map::rank(a,b,c,d,e,f,g);
         }
 
         // only override rank or 6,7

@@ -6,75 +6,52 @@
 #include "ps/eval/equity_evaluator.h"
 #include "ps/eval/equity_breakdown_matrix.h"
 #include "ps/eval/class_equity_evaluator.h"
-
-#include <fstream>
-
-#include <boost/serialization/map.hpp>
-#include <boost/serialization/vector.hpp>
-#include <boost/serialization/array.hpp>
-#include <boost/serialization/shared_ptr.hpp>
-#include <boost/serialization/export.hpp>
-
-#include <boost/range/algorithm.hpp>
+#include "ps/eval/holdem_class_eval_cache.h"
 
 namespace ps{
 
 
 struct class_equity_evaluator_cache : class_equity_evaluator{
         class_equity_evaluator_cache()
-                : impl_{ &class_equity_evaluator_factory::get("proc") }
         {
         }
         std::shared_ptr<equity_breakdown> evaluate(holdem_class_vector const& players)const override{
-                // first make permuation
-                std::vector< std::tuple< size_t, holdem_class_id> > aux;
-                for( size_t i = 0;i != players.size();++i){
-                        aux.emplace_back( i, players[i]);
+                if( ! class_cache_ ){
+                        return get_impl_()->evaluate(players);
                 }
-                boost::sort( aux, [](auto const& l, auto const& r){
-                        return std::get<1>(l) < std::get<1>(r);
-                });
-                std::vector<int> perm;
-                holdem_class_vector players_perm;
-                for( auto const& item : aux ){
-                        perm.push_back( std::get<0>(item) );
-                        players_perm.push_back( std::get<1>(item) );
-                }
-                auto iter = cache_.find(players_perm);
-                if( iter != cache_.end() ){
-                        return std::make_shared<equity_breakdown_permutation_view>(
-                                iter->second,
+                auto t = players.to_standard_form();
+                auto& perm         = std::get<0>(t);
+                auto& players_perm = std::get<1>(t);
+
+                class_cache_->lock();
+                auto ptr = class_cache_->lookup( players_perm );
+                class_cache_->unlock();
+                if( !! ptr){
+                        return std::make_shared<equity_breakdown_matrix>(
+                                *ptr,
                                 std::move(perm)
                         );
                 }
-                auto ret = impl_->evaluate(players_perm);
-                auto copy = std::make_shared<equity_breakdown_matrix>(*ret);
-                cache_.emplace( players_perm, copy);
-                return evaluate(players);
+                auto ret = get_impl_()->evaluate(players_perm);
+                class_cache_->lock();
+                class_cache_->commit(players_perm, *ret);
+                class_cache_->unlock();
+                return std::make_shared<equity_breakdown_matrix>(
+                        *ptr,
+                        perm
+                );
         }
-        bool load(std::string const& name){
-                std::ifstream is(name);
-                if( ! is.is_open() )
-                        return false;
-                boost::archive::text_iarchive ia(is);
-                ia >> *this;
-                return true;
-        }
-        bool save(std::string const& name)const{
-                std::ofstream of(name);
-                if( ! of.is_open() )
-                        return false;
-                boost::archive::text_oarchive oa(of);
-                oa << *this;
-                return true;
-        }
-        template<class Archive>
-        void serialize(Archive& ar, unsigned int){
-                ar & cache_;
+        void inject_cache(std::shared_ptr<holdem_class_eval_cache> ptr)override{
+                class_cache_ = ptr;
         }
 private:
-        mutable std::map< holdem_class_vector, std::shared_ptr<equity_breakdown_matrix> > cache_;
-        class_equity_evaluator const* impl_;
+        class_equity_evaluator const* get_impl_()const{
+                if( ! impl_ )
+                        impl_ = &class_equity_evaluator_factory::get("principal");
+                return impl_;
+        }
+        mutable class_equity_evaluator const* impl_;
+        std::shared_ptr<holdem_class_eval_cache> class_cache_;
 };
 
 

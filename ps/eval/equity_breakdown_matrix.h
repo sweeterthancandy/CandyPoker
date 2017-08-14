@@ -67,6 +67,7 @@ struct basic_equity_breakdown_matrix : basic_equity_breakdown<Primitive_Type>{
         
         basic_equity_breakdown_matrix(basic_equity_breakdown_matrix const& that)
                 :n_{that.n_},
+                sigma_{that.sigma()},
                 data_{that.data_}
         {
                 cache_players_();
@@ -84,9 +85,11 @@ struct basic_equity_breakdown_matrix : basic_equity_breakdown<Primitive_Type>{
         }
         // copy
         basic_equity_breakdown_matrix(basic_equity_breakdown<Primitive_Type> const& that)
-                : n_(that.n())
+                : n_{that.n()}
+                , sigma_{that.sigma()}
         {
                 data_.resize(n_*n_);
+
                 for(size_t i=0;i!=n_;++i){
                         auto const& p = that.player(i);
                         for(size_t j=0;j!=n_;++j){
@@ -97,6 +100,7 @@ struct basic_equity_breakdown_matrix : basic_equity_breakdown<Primitive_Type>{
         }
         basic_equity_breakdown_matrix(basic_equity_breakdown<Primitive_Type> const& that, std::vector<int> const& perm)
                 : n_(that.n())
+                , sigma_{ that.sigma() }
         {
                 data_.resize(n_*n_);
                 for(size_t i=0;i!=n_;++i){
@@ -160,8 +164,8 @@ private:
                 }
         }
 
-        prim_t sigma_ = 0;
         size_t n_;
+        prim_t sigma_ = 0;
 
         // access float, so can have a static view for all 
         //  2,3,...9 etc without injeritace (see view_t)
@@ -207,6 +211,7 @@ struct basic_equity_breakdown_matrix_aggregator : basic_equity_breakdown_matrix<
         void append_perm(basic_equity_breakdown<Primitive_Type> const& breakdown, std::vector<T> const& perm){
                 assert( breakdown.n() == n()     && "precondition failed");
                 assert( mat.size()    == n()     && "precondition failed");
+                sigma() += breakdown.sigma();
 
                 for( size_t i =0;i!=n();++i){
                         for( size_t j =0;j!=n();++j){
@@ -218,7 +223,15 @@ struct basic_equity_breakdown_matrix_aggregator : basic_equity_breakdown_matrix<
         void append_matrix(basic_equity_breakdown<Primitive_Type> const& breakdown, std::vector<T> const& mat){
                 assert( breakdown.n() == n()     && "precondition failed");
                 assert( mat.size()    == n()*n() && "precondition failed");
-                sigma() += breakdown.sigma();
+                /*
+                        TODO
+
+                        proper way to fix this is a lose column
+
+                        If we have mat = P0 + P1 + P2  + ... + Pn, for a sequence of n
+                        permutation matrixies, then this will work
+                 */
+                sigma() += ( breakdown.sigma() * std::accumulate(mat.begin(), mat.end(), 0) / n() );
                 for( size_t i =0; i!= n();++i){
                         auto& p = breakdown.player(i);
                         for( size_t j =0;j!=n();++j){

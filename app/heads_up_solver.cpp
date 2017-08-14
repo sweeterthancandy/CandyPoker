@@ -211,6 +211,33 @@ struct calc_context{
 
  */
 
+
+struct hu_class_evaluator{
+        explicit hu_class_evaluator(std::string fn){
+                auto& eval = class_equity_evaluator_factory::get("cached");
+                auto& cache = holdem_class_eval_cache_factory::get("main");
+                cache.load("cache.bin");
+                eval.inject_cache( std::shared_ptr<holdem_class_eval_cache>(&cache, [](auto){}));
+                for(holdem_class_id hero{0};hero != holdem_class_decl::max_id; ++hero){
+                        for(holdem_class_id villian{0};villian != holdem_class_decl::max_id; ++villian){
+                                holdem_class_vector vec;
+                                vec.push_back(hero);
+                                vec.push_back(villian);
+                                auto ret = eval.evaluate(vec);
+                                cache_[ linear_map_(hero, villian) ] = ret->player(0).equity();
+                        }
+                }
+        }
+        double evaluate(holdem_class_id hero, holdem_class_id villian)const{
+                return cache_[ linear_map_(hero, villian) ];
+        }
+private:
+        size_t linear_map_(holdem_class_id hero, holdem_class_id villian)const{
+                return hero * 169 + villian;
+        }
+        std::array< double, 169*169 > cache_;
+};
+
 // given hands
 //    {sb_id, bb_id}
 double calc_detail(calc_context& ctx)
@@ -228,9 +255,8 @@ double calc_detail(calc_context& ctx)
         struct sb_push{
                 struct sb_push__bb_call{
                         double operator()(calc_context& ctx)const{
-                                static auto const& eval = class_equity_evaluator_factory::get("principal");
-                                auto ret = eval.evaluate( holdem_class_vector{  ctx.sb_id,ctx.bb_id } );
-                                auto equity = ret->player(0).equity();
+                                static hu_class_evaluator eval("cache.bin");
+                                auto equity = eval.evaluate(ctx.sb_id,ctx.bb_id );
                                 return ctx.eff_stack * ( 2 * equity - 1 );
                         }
                 };
@@ -317,23 +343,23 @@ holdem_class_strategy solve_hu_push_fold_bb_maximal_exploitable( holdem_class_st
         };
         struct call{
                 double operator()(calc_context& ctx)const{
-                        static auto const& eval = class_equity_evaluator_factory::get("principal");
-                        auto agg = std::make_shared<equity_breakdown_matrix_aggregator>(2);
+                        static auto const& eval = hu_class_evaluator("cache.bin");
+                        double sigma = 0;
                         for(holdem_class_id sb_id{0}; sb_id != 169;++sb_id){
-                                auto ret = eval.evaluate( holdem_class_vector{  ctx.sb_id,ctx.bb_id } );
+                                auto equity = eval.evaluate(ctx.sb_id,ctx.bb_id );
                                 auto weight = ctx.sb_push_strat[sb_id];
-                                agg->append_scalar(*ret, weight);
-                                
 
+                                sigma += equity * weight;
+                                
                         }
 
                         // edge case, can return anything here probably
-                        if( agg->sigma() == 0 )
+                        if( sigma == 0 )
                                 return 0.0;
                         
                         //PRINT_SEQ((ctx.eff_stack)(ctx.sb)(ctx.bb));
 
-                        double ev{ ctx.eff_stack * 2 * agg->player(0).equity() - ( ctx.eff_stack - ctx.bb ) };
+                        double ev{ ctx.eff_stack   *   2   *  sigma - ( ctx.eff_stack - ctx.bb ) };
                         //         \----equity of pot to win -----/   \------cost of bet-------/
 
                         return ev;
@@ -379,9 +405,8 @@ holdem_class_strategy solve_hu_push_fold_sb_maximal_exploitable( holdem_class_st
 {
         struct sb_push__bb_call{
                 double operator()(calc_context& ctx)const{
-                        static auto const& eval = class_equity_evaluator_factory::get("principal");
-                        auto ret = eval.evaluate( holdem_class_vector{  ctx.sb_id,ctx.bb_id } );
-                        auto equity = ret->player(0).equity();
+                        static hu_class_evaluator eval("cache.bin");
+                        auto equity = eval.evaluate(  ctx.sb_id,ctx.bb_id  );
                         return ctx.eff_stack * 2 *  equity - ( ctx.eff_stack -  ctx.sb );
                         //     \- reuity of pot to win  -/   \--- cost of bet  --------/
                 }

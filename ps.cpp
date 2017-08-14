@@ -35,6 +35,7 @@ int main(){
         vec.push_back("AA");
         vec.push_back("KK");
         std::cout << *eval.evaluate(vec) << "\n";
+        cache.save("better_result.bin");
 
         
 }

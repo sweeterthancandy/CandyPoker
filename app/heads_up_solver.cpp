@@ -640,7 +640,7 @@ void make_heads_up_table(){
 
 int main(){
         try{
-                solve_hu_push_fold_sb( 5, .5, 1);
+                make_heads_up_table();
         } catch(std::exception const& e){
                 std::cerr << "Caught exception: " << e.what() << "\n";
         }

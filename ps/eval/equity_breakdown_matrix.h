@@ -40,7 +40,7 @@ struct basic_equity_breakdown_matrix : basic_equity_breakdown<Primitive_Type>{
                                 result += nwin(i) / (i+1);
                         }
                         result /= sigma();
-                        PRINT(result);
+                        //PRINT(result);
                         return result;
                 }
                 // nwin(0) -> wins
@@ -128,7 +128,7 @@ struct basic_equity_breakdown_matrix : basic_equity_breakdown<Primitive_Type>{
         prim_t sigma()const override{ return sigma_; }
         prim_t& sigma(){ return sigma_; }
 
-        equity_breakdown_player const& player(size_t idx)const override{
+        equity_breakdown_player_matrix const& player(size_t idx)const override{
                 return players_[idx];
         }
 
@@ -160,7 +160,7 @@ private:
                 for(size_t i=0;i!=n_;++i){
                         players_.emplace_back(n_,
                                      &sigma_,
-                                     support::array_view<size_t>(&data_[0] + i * n_, n_ ));
+                                     support::array_view<prim_t>(&data_[0] + i * n_, n_ ));
                 }
         }
 
@@ -197,10 +197,10 @@ struct basic_equity_breakdown_matrix_aggregator : basic_equity_breakdown_matrix<
                         }
                 }
         }
-        template<class T>
-        void append_scalar(basic_equity_breakdown<Primitive_Type> const& breakdown, T scalar){
+        template<class OtherPrimitive_Type, class T>
+        void append_scalar(basic_equity_breakdown<OtherPrimitive_Type> const& breakdown, T scalar){
                 assert( breakdown.n() == n()     && "precondition failed");
-                sigma() += breakdown.sigma();
+                sigma() += breakdown.sigma() * scalar;
                 for(size_t i=0;i!=n();++i){
                         for(size_t j=0;j!=n();++j){
                                 data_access(i, j) += breakdown.player(i).nwin(j) * scalar;

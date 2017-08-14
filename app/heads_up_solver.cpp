@@ -224,18 +224,18 @@ struct hu_class_evaluator{
                                 vec.push_back(hero);
                                 vec.push_back(villian);
                                 auto ret = eval.evaluate(vec);
-                                cache_[ linear_map_(hero, villian) ] = ret->player(0).equity();
+                                cache_[ linear_map_(hero, villian) ] = ret;
                         }
                 }
         }
-        double evaluate(holdem_class_id hero, holdem_class_id villian)const{
+        std::shared_ptr<equity_breakdown>  evaluate(holdem_class_id hero, holdem_class_id villian)const{
                 return cache_[ linear_map_(hero, villian) ];
         }
 private:
         size_t linear_map_(holdem_class_id hero, holdem_class_id villian)const{
                 return hero * 169 + villian;
         }
-        std::array< double, 169*169 > cache_;
+        std::array< std::shared_ptr<equity_breakdown>, 169 * 169 > cache_;
 };
 
 // given hands
@@ -256,7 +256,7 @@ double calc_detail(calc_context& ctx)
                 struct sb_push__bb_call{
                         double operator()(calc_context& ctx)const{
                                 static hu_class_evaluator eval("cache.bin");
-                                auto equity = eval.evaluate(ctx.sb_id,ctx.bb_id );
+                                auto equity = eval.evaluate(ctx.sb_id,ctx.bb_id )->player(0).equity();
                                 return ctx.eff_stack * ( 2 * equity - 1 );
                         }
                 };
@@ -344,22 +344,24 @@ holdem_class_strategy solve_hu_push_fold_bb_maximal_exploitable( holdem_class_st
         struct call{
                 double operator()(calc_context& ctx)const{
                         static auto const& eval = hu_class_evaluator("cache.bin");
-                        double sigma = 0;
+                        auto agg = std::make_shared<fequity_breakdown_matrix_aggregator>(2);
                         for(holdem_class_id sb_id{0}; sb_id != 169;++sb_id){
-                                auto equity = eval.evaluate(ctx.sb_id,ctx.bb_id );
+                                auto eb = eval.evaluate(ctx.bb_id, sb_id );
                                 auto weight = ctx.sb_push_strat[sb_id];
 
-                                sigma += equity * weight;
-                                
+                                agg->append_scalar(*eb, weight);
+
                         }
 
+                        auto equity = agg->player(0).equity();
+
                         // edge case, can return anything here probably
-                        if( sigma == 0 )
+                        if( equity == 0 )
                                 return 0.0;
                         
                         //PRINT_SEQ((ctx.eff_stack)(ctx.sb)(ctx.bb));
 
-                        double ev{ ctx.eff_stack   *   2   *  sigma - ( ctx.eff_stack - ctx.bb ) };
+                        double ev{ ctx.eff_stack   *   2   * equity - ( ctx.eff_stack - ctx.bb ) };
                         //         \----equity of pot to win -----/   \------cost of bet-------/
 
                         return ev;
@@ -406,7 +408,7 @@ holdem_class_strategy solve_hu_push_fold_sb_maximal_exploitable( holdem_class_st
         struct sb_push__bb_call{
                 double operator()(calc_context& ctx)const{
                         static hu_class_evaluator eval("cache.bin");
-                        auto equity = eval.evaluate(  ctx.sb_id,ctx.bb_id  );
+                        auto equity = eval.evaluate(  ctx.sb_id,ctx.bb_id  )->player(0).equity();
                         return ctx.eff_stack * 2 *  equity - ( ctx.eff_stack -  ctx.sb );
                         //     \- reuity of pot to win  -/   \--- cost of bet  --------/
                 }
@@ -638,7 +640,7 @@ void make_heads_up_table(){
 
 int main(){
         try{
-                solve_hu_push_fold_sb( 10, .5, 1);
+                solve_hu_push_fold_sb( 5, .5, 1);
         } catch(std::exception const& e){
                 std::cerr << "Caught exception: " << e.what() << "\n";
         }

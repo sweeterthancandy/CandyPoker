@@ -12,7 +12,6 @@
 #include <functional>
 #include <iostream>
 
-#include <boost/timer/timer.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/format.hpp>
 
@@ -117,7 +116,6 @@ namespace ps{
                 std::vector<std::string> players_s;
                 std::vector<frontend::range> players;
 
-                boost::timer::auto_cpu_timer at;
 
                 int arg_iter = 1;
 

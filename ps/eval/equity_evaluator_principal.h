@@ -14,7 +14,7 @@ namespace ps{
 
 struct equity_evaulator_principal : public equity_evaluator{
         equity_evaulator_principal()
-                :impl_{&evaluator_factory::get("6_card_map")}
+                :impl_{&evaluator_factory::get("5_card_map")}
         {}
         std::shared_ptr<equity_breakdown> evaluate(std::vector<holdem_id> const& players)const override{
                 // we first need to enumerate every run of the board,

@@ -3,17 +3,21 @@
 
 #include <tuple>
 #include <vector>
+#include <type_traits>
 
 #include "ps/base/cards.h"
 #include "ps/support/array_view.h"
 
 namespace ps{
         
-template<class... Args,
-         class = detail::void_t<
+template<class... Args
+#if 0
+	,
+         class _ = detail::void_t<
                  std::enable_if_t<
                         std::is_same<std::decay_t<Args>, holdem_hand_decl>::value>...
         >
+#endif
 >
 inline bool disjoint( Args&&... args){
         std::array< holdem_hand_decl const*, sizeof...(args)> aux{ &args...};

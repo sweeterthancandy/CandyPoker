@@ -11,6 +11,8 @@
 #include <thread>
 #include <condition_variable>
 
+#include "ps/support/config.h"
+
 namespace ps{
 namespace support{
 // The idea here is that there are two types of multi-threaded
@@ -229,7 +231,7 @@ struct processor{
                                         boost::none
                                 );
                         }
-                        __builtin_unreachable();
+                        PS_UNREACHABLE();
                 }
         private:
                 std::atomic_int state_{State_ReadyToRun};
@@ -283,7 +285,7 @@ struct processor{
                                 case Ctrl_Finished:
                                         continue;
                                 }
-                                __builtin_unreachable();
+                                PS_UNREACHABLE();
                         }
                         return std::make_tuple(
                                 default_reason,
@@ -330,7 +332,7 @@ struct processor{
                                         ++iter_;
                                         continue;
                                 }
-                                __builtin_unreachable();
+                                PS_UNREACHABLE();
                         }
                         // We only get here by a sequence of zero or
                         // more Ctrl_Finished

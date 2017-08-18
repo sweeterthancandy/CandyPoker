@@ -43,6 +43,8 @@ namespace ps{
 
 
         tree_range::tree_range(std::vector<frontend::range> const& players){
+			BOOST_THROW_EXCEPTION(std::domain_error("not implemented"));
+#if 0
                 std::vector<size_t> size_vec;
                 std::vector<frontend::primitive_range> prims;
                 for(auto const& rng : players){
@@ -122,9 +124,12 @@ namespace ps{
                 default:
                         assert( 0 && " not implemented");
                 }
+#endif
         }
 
         tree_primitive_range::tree_primitive_range(std::vector<frontend::primitive_t> const& players){
+			BOOST_THROW_EXCEPTION(std::domain_error("not implemented"));
+#if 0
                 std::vector<size_t> size_vec;
                 std::vector<std::vector<holdem_id> > aux;
                 this->players = players;
@@ -342,5 +347,6 @@ namespace ps{
                 default:
                         assert( 0 && " not implemented");
                 }
+#endif
         }
 } // ps

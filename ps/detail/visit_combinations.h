@@ -73,6 +73,7 @@ namespace detail{
                         f( vecs[ar[Seq]]...);
                 }
 
+#if 0
                 template<class... Vecs, class F>
                 void visit_vector_combinations(F f, Vecs... vecs){
 
@@ -81,7 +82,7 @@ namespace detail{
                         int foldaux[] = {0, (size_vec.emplace_back(vecs.size()-1),0)...};
 
                         detail::visit_exclusive_combinations<sizeof...(vecs)>(
-                                [&](auto... idx)mutable{
+                                [&, vecs...](auto... idx)mutable{
                                         visit_vector_combinations_detail(
                                                 f,
                                                 std::make_integer_sequence<int, sizeof...(vecs)>{},
@@ -91,6 +92,8 @@ namespace detail{
                                 , detail::true_, size_vec );
 
                 }
+#endif
+
 
 #if 0
 int main(){

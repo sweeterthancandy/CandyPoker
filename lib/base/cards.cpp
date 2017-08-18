@@ -1,9 +1,11 @@
 #include "ps/base/cards.h"
 #include "ps/base/algorithm.h"
-
+#include "ps/support/singleton_factory.h"
 #include <iostream>
 
 #include <boost/range/algorithm.hpp>
+
+
 
 namespace{
         // random access, means

@@ -1,4 +1,5 @@
 #include "ps/base/frontend.h"
+#include <cctype>
 
 namespace ps{ namespace frontend{
 

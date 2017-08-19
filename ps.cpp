@@ -29,14 +29,14 @@
 
  */
 struct strict_lower_triangle_policy{
-        template<class T>
-        static void init(std::vector<T>& vec, size_t n){
+        template<class Vec>
+        static void init(Vec& vec, size_t n, size_t m){
                 vec.resize(n);
                 for(size_t i=0;i!=vec.size();++i)
                         vec[i] = i;
         }
-        template<class T>
-        static bool next(std::vector<T>& vec, size_t m){
+        template<class Vec>
+        static bool next(Vec& vec, size_t m){
                 size_t cursor = vec.size() - 1;
                 for(;cursor!=-1;){
 
@@ -71,14 +71,14 @@ struct strict_lower_triangle_policy{
 };
 
 struct lower_triangle_policy{
-        template<class T>
-        static void init(std::vector<T>& vec, size_t n){
+        template<class Vec>
+        static void init(Vec& vec, size_t n, size_t m){
                 vec.resize(n);
                 for(size_t i=0;i!=vec.size();++i)
                         vec[i] = i;
         }
-        template<class T>
-        static bool next(std::vector<T>& vec, size_t m){
+        template<class Vec>
+        static bool next(Vec& vec, size_t m){
                 size_t cursor = vec.size() - 1;
                 for(;cursor!=-1;){
 
@@ -114,14 +114,14 @@ struct lower_triangle_policy{
 };
 
 struct strict_upper_triangle_policy{
-        template<class T>
-        static void init(std::vector<T>& vec, size_t n, size_t m){
+        template<class Vec>
+        static void init(Vec& vec, size_t n, size_t m){
                 vec.resize(n);
                 for(size_t i=0;i!=vec.size();++i)
                         vec[i] = m-1-i;
         }
-        template<class T>
-        static bool next(std::vector<T>& vec, size_t m){
+        template<class Vec>
+        static bool next(Vec& vec, size_t m){
                 size_t cursor = vec.size() - 1;
                 for(;cursor!=-1;){
 
@@ -155,10 +155,12 @@ struct strict_upper_triangle_policy{
         }
 };
 
-template<class Policy>
+template<class T, class Policy, class Vec /*= std::vector<T>*/ >
 struct basic_index_iterator{
-        using integer_t = int;
-        using policy_t = Policy;
+        using integer_t = T;
+        using vector_t  = Vec;
+        using policy_t  = Policy;
+
         // construct psuedo end iterator
         basic_index_iterator():end_flag_{true}{}
 
@@ -183,15 +185,18 @@ struct basic_index_iterator{
 private:
         size_t n_;
         size_t m_;
-        std::vector<integer_t> vec_;
+        vector_t vec_;
         // flag to indicate at end
         bool end_flag_{false};
 };
 
-using index_iterator = basic_index_iterator<strict_upper_triangle_policy >;
+using namespace ps;
+
+
+using index_iterator = basic_index_iterator<holdem_class_id, lower_triangle_policy, holdem_class_vector>;
 
 int main(){
-        for( index_iterator iter(3,4),end;iter!=end;++iter){
-                PRINT( ps::detail::to_string(*iter) );
+        for( index_iterator iter(2,holdem_class_decl::max_id),end;iter!=end;++iter){
+                PRINT( *iter );
         }
 }

@@ -60,7 +60,7 @@ struct singleton_factory {
 
         template<class U>
                 static void register_(std::string const& name = "__default__") {
-                        static_assert(std::is_base_of_v<T, U>, "not a base");
+                        static_assert(std::is_base_of<T, U>::value, "not a base");
                         std::cout << "registration of " << boost::typeindex::type_id<U>().pretty_name() << " as " << name << "\n";
                         detail::singleton_controller::get_inst()->register_(boost::typeindex::type_id<T>(), std::move(name), [] { return std::make_shared<U>(); });
                 }

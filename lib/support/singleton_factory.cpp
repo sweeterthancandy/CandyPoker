@@ -1,4 +1,4 @@
-#include "ps\support\singleton_factory.h"
+#include "ps/support/singleton_factory.h"
 
 namespace ps{
 namespace support{

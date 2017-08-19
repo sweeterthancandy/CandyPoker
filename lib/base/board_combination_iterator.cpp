@@ -53,7 +53,7 @@ board_combination_iterator::board_combination_iterator(size_t n, std::vector<car
 }
 board_combination_iterator& board_combination_iterator::operator++(){
         size_t cursor = n_ - 1;
-        for(;;){
+        for(;cursor != -1;){
 
                 // First see if we can't decrement the board
                 // at the cursor

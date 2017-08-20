@@ -14,6 +14,7 @@
 
 #include <boost/lexical_cast.hpp>
 #include <boost/format.hpp>
+#include <boost/timer/timer.hpp>
 
 using namespace ps;
 
@@ -157,6 +158,7 @@ namespace ps{
                 tree_range root( players );
 
                 auto agg = std::make_shared<equity_breakdown_matrix_aggregator>(players.size());
+                boost::timer::auto_cpu_timer at;
                 for( auto const& c : root.children ){
 
                         // this means it's a class vs class evaulation

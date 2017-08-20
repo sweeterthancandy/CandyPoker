@@ -20,85 +20,17 @@
 #include "ps/support/index_sequence.h"
 #include "ps/support/config.h"
 
+#include "ps/base/rank_hasher.h"
+#include "ps/base/suit_hasher.h"
+#include "ps/base/holdem_board_decl.h"
+#include "ps/detail/dispatch.h"
+
 #include <boost/range/algorithm.hpp>
 
 
 using namespace ps;
 
-struct rank_hasher{
-        using hash_t = size_t;
 
-        hash_t create(){ return 0; }
-        hash_t create(rank_vector const& rv){
-                auto hash = create();
-                for(auto id : rv )
-                        hash = append(hash, id);
-                return hash;
-        }
-        /*
-                  +----+--+--+--+--+--+--+--+--+--+--+--+--+--+
-                  |card|A |K |Q |J |T |9 |8 |7 |6 |5 |4 |3 |2 |
-                  +----+--+--+--+--+--+--+--+--+--+--+--+--+--+
-                  |yyyy|xx|xx|xx|xx|xx|xx|xx|xx|xx|xx|xx|xx|xx|
-                  +----+--+--+--+--+--+--+--+--+--+--+--+--+--+
-                  |  1A|18|16|14|12|10| E| C| A| 8| 6| 4| 2| 0|
-                  +----+--+--+--+--+--+--+--+--+--+--+--+--+--+
-
-                  yyyy ~ value of rank with 4 cards, zero 
-                         when there warn't 4 cards
-
-                  xx   ~ bit mask to non-injective mapping for
-                         number of cards, 
-
-
-                                   n | bits
-                                   --+-----
-                                   0 | 00
-                                   1 | 01
-                                   2 | 10
-                                   3 | 11
-                                   4 | 11
-        */
-        hash_t append(hash_t hash, rank_id rank){
-                auto idx = rank * 2;
-                auto mask = ( hash & ( 0x3 << idx ) ) >> idx;
-                switch(mask){
-                case 0x0:
-                        // set the idx'th bit
-                        hash |= 0x1 << idx;
-                        break;
-                case 0x1:
-                        // unset the idx'th bit
-                        hash &= ~(0x1 << idx);
-                        // set the (idx+1)'th bit
-                        hash |= 0x1 << (idx+1);
-                        break;
-                case 0x2:
-                        // set the idx'th bit
-                        hash |= 0x1 << idx;
-                        break;
-                case 0x3:
-                        // set the special part of mask for the fourth card
-                        hash |= (rank + 1) << 0x1A;
-                        break;
-                default:
-                        PS_UNREACHABLE();
-                }
-                return hash;
-        }
-};
-
-struct suit_hasher{
-        
-
-        using hash_t = size_t;
-
-        hash_t create(){ return 1; }
-        hash_t append(hash_t hash, rank_id rank){
-                static constexpr const std::array<int,4> suit_map = { 2,3,5,7 };
-                return hash * suit_map[rank];
-        }
-};
 
 
 namespace working{
@@ -161,13 +93,6 @@ struct evaluator_7_card_map : evaluator
         mutable std::atomic_int miss{0};
         mutable std::atomic_int hit{0};
         ranking_t rank(card_vector const& cv, size_t suit_hash, size_t rank_hash, long a, long b)const {
-                #if 0
-                PRINT(suit_hash);
-                PRINT(suit_hash % (2*2*2*2*2));
-                PRINT(suit_hash % (3*3*3*3*3));
-                PRINT(suit_hash % (5*5*5*5*5));
-                PRINT(suit_hash % (7*7*7*7*7));
-                #endif
 
                 if( (suit_hash % (2*2*2*2*2)) == 0 ||
                     (suit_hash % (3*3*3*3*3)) == 0 ||
@@ -228,6 +153,7 @@ private:
         }
         size_t make_hash_(long a, long b, long c, long d, long e, long f, long g)const{
                 static rank_hasher rh;
+                return rh.create(a,b,c,d,e,f,g);
                 auto hash = rh.create();
                 hash = rh.append(hash, a);
                 hash = rh.append(hash, b);
@@ -247,30 +173,6 @@ private:
         std::array<int, 52> rank_device_;
 };
 
-namespace detail{
-        struct dispatch_ranked_vector{
-                void operator()(equity_breakdown_matrix& result, 
-                                std::vector<ranking_t> const& ranked)const
-                {
-                        auto lowest = ranked[0] ;
-                        size_t count{1};
-                        for(size_t i=1;i<ranked.size();++i){
-                                if( ranked[i] == lowest ){
-                                        ++count;
-                                } else if( ranked[i] < lowest ){
-                                        lowest = ranked[i]; 
-                                        count = 1;
-                                }
-                        }
-                        for(size_t i=0;i!=ranked.size();++i){
-                                if( ranked[i] == lowest ){
-                                        ++result.data_access(i,count-1);
-                                }
-                        }
-                        ++result.sigma();
-                }
-        };
-} // detail
 
 template<class Impl_Type>
 struct equity_evaulator_principal_tpl : public ps::equity_evaluator{
@@ -325,73 +227,24 @@ struct equity_evaulator_principal
 } // working
 
 
-struct board_world{
-        struct layout{
-                layout(card_vector vec)
-                        :vec_{std::move(vec)}
-                {
-                        static suit_hasher sh;
-                        static rank_hasher rh;
-                                
-                        rank_hash_ = rh.create();
-                        suit_hash_ = sh.create();
 
-                        for( auto id : vec_ ){
-                                auto const& hand{ card_decl::get(id) };
-
-                                rank_hash_ = rh.append(rank_hash_, hand.rank() );
-                                suit_hash_ = sh.append(suit_hash_, hand.suit() );
-                        }
-                        mask_ = vec_.mask();
-                }
-                size_t mask()const{ return mask_; }
-                size_t rank_hash()const{ return rank_hash_; }
-                size_t suit_hash()const{ return suit_hash_; }
-                card_vector const& board()const{ return vec_; }
-        private:
-                size_t mask_;
-                card_vector vec_;
-                size_t rank_hash_{0};
-                size_t suit_hash_{0};
-        };
-
-        board_world(){
-                for(board_combination_iterator iter(5),end;iter!=end;++iter){
-                        world_.emplace_back( *iter );
-                }
-                PRINT(world_.size());
-        }
-        auto begin()const{ return world_.begin(); }
-        auto end()const{ return world_.end(); }
-
-private:
-        std::vector<layout> world_;
-};
-
-auto from_bitmask(size_t mask){
-        card_vector vec;
-        for(size_t i=0;i!=52;++i){
-                if( mask & card_decl::get(i).mask() ){
-                        vec.push_back(i);
-                }
-        }
-        return std::move(vec);
-}
 int main(){
         working::equity_evaulator_principal ec;
         working::evaluator_7_card_map ev;
         holdem_class_vector cv;
-        board_world w;
+        holdem_board_decl w;
         rank_hasher rh;
         suit_hasher sh;
-        #if 0
+        #if 1
         cv.push_back("AA");
         cv.push_back("KK");
         #endif
+        #if 0
         cv.push_back("AKs");
         cv.push_back("QJs");
         cv.push_back("T9s");
         cv.push_back("87s");
+        #endif
 
         boost::timer::auto_cpu_timer at;
         auto result = std::make_shared<equity_breakdown_matrix_aggregator>(cv.size());
@@ -452,17 +305,10 @@ int main(){
 
                                 ranked[i] = ev.rank(b.board(),
                                                     suit_hash, rank_hash,
-                                                    #if 0
-                                                    b.board()[0],
-                                                    b.board()[1],
-                                                    b.board()[2],
-                                                    b.board()[3],
-                                                    b.board()[4],
-                                                    #endif
                                                     hv_first[i],
                                                     hv_second[i]);
                         }
-                        working::detail::dispatch_ranked_vector{}(*sub, ranked);
+                        detail::dispatch_ranked_vector{}(*sub, ranked);
 
                 }
                 PRINT(board_count);

@@ -10,6 +10,8 @@
 #include "ps/eval/equity_evaluator.h"
 #include "ps/eval/equity_breakdown_matrix.h"
 
+#include "ps/detail/dispatch.h"
+
 namespace ps{
 
 template<class Impl_Type>
@@ -32,32 +34,18 @@ struct equity_evaulator_principal_tpl : public equity_evaluator{
                 boost::copy( x, std::back_inserter(known));
                 boost::copy( y, std::back_inserter(known));
 
+                std::vector<ranking_t> ranked(players.size());
         
                 for(board_combination_iterator iter(5, known),end;iter!=end;++iter){
 
                         auto const& b(*iter);
 
-                        std::vector<ranking_t> ranked;
                         for( size_t i=0;i!=n;++i){
-                                ranked.push_back(impl_->rank(x[i], y[i],
-                                                            b[0], b[1], b[2], b[3], b[4]) );
+                                ranked[i] = impl_->rank(x[i], y[i],
+                                                        b[0], b[1], b[2], b[3], b[4]);
                         }
-                        auto lowest = ranked[0] ;
-                        size_t count{1};
-                        for(size_t i=1;i<ranked.size();++i){
-                                if( ranked[i] == lowest ){
-                                        ++count;
-                                } else if( ranked[i] < lowest ){
-                                        lowest = ranked[i]; 
-                                        count = 1;
-                                }
-                        }
-                        for(size_t i=0;i!=ranked.size();++i){
-                                if( ranked[i] == lowest ){
-                                        ++result->data_access(i,count-1);
-                                }
-                        }
-                        ++result->sigma();
+                        
+                        detail::dispatch_ranked_vector{}(*result, ranked);
                 }
 
                 return result;

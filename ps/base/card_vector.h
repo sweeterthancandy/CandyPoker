@@ -20,6 +20,7 @@ namespace ps{
                         }
                         return m;
                 }
+                static card_vector from_bitmask(size_t mask);
 
                 friend std::ostream& operator<<(std::ostream& ostr, card_vector const& self);
         };

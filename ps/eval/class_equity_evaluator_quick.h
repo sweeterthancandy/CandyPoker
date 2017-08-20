@@ -1,17 +1,17 @@
 #ifndef PS_EVAL_CLASS_EQUITY_EVALUATOR_QUICK_H
 #define PS_EVAL_CLASS_EQUITY_EVALUATOR_QUICK_H
 
-#include "ps/eval/evaluator_7_card_map.h"
+#include "ps/eval/evaluator_6_card_map.h"
 #include "ps/eval/equity_evaluator_principal.h"
 #include "ps/eval/class_equity_evaluator_principal.h"
 
 namespace ps{
         struct equity_evaulator_quick
-                : equity_evaulator_principal_tpl<evaluator_7_card_map>
+                : equity_evaulator_principal_tpl<evaluator_6_card_map>
         {
                 equity_evaulator_quick()
                 {
-                        impl_ = new evaluator_7_card_map;
+                        impl_ = new evaluator_6_card_map;
                 }
         };
 

@@ -7,4 +7,13 @@ namespace ps{
                         return card_decl::get(id).to_string();
                 });
         }
+        card_vector card_vector::from_bitmask(size_t mask){
+                card_vector vec;
+                for(size_t i=0;i!=52;++i){
+                        if( mask & card_decl::get(i).mask() ){
+                                vec.push_back(i);
+                        }
+                }
+                return std::move(vec);
+        }
 } // ps

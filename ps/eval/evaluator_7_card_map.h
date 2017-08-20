@@ -3,6 +3,7 @@
 
 #include <bitset>
 
+#include "ps/detail/print.h"
 #include "ps/eval/evaluator.h"
 #include "ps/support/config.h"
 
@@ -11,8 +12,13 @@ namespace ps{
 struct evaluator_7_card_map : evaluator
 {
         evaluator_7_card_map(){
-                impl_ = &evaluator_factory::get("5_card_map");
+                impl_ = &evaluator_factory::get("6_card_map");
                 card_map_7_.resize( make_hash_(12,12,12,12, 11,11,11));
+                std::array<int,4> suit_map = { 2,3,5,7 };
+                for( size_t i{0};i!=52;++i){
+                        flush_device_[i] = suit_map[card_decl::get(i).suit().id()];
+                        rank_device_[i] = card_decl::get(i).rank().id();
+                }
 
                 for(size_t i=0;i!=52;++i){
                         card_rank_device_[i] = card_decl::get(i).rank().id();
@@ -21,25 +27,9 @@ struct evaluator_7_card_map : evaluator
                 using iter_t = basic_index_iterator<
                         int, ordered_policy, rank_vector
                 >;
-                for(iter_t iter(3,3),end;iter!=end;++iter){
-                        std::cout << detail::to_string(*iter) << "\n";
-                }
 
                 for(iter_t iter(7,13),end;iter!=end;++iter){
                         maybe_add_(*iter);
-
-                        auto b{*iter};
-                        if( impl_->rank( b[0], b[1], b[2], b[3], b[4], b[5], b[6] ) !=
-                             this->rank( b[0], b[1], b[2], b[3], b[4], b[5], b[6] ) )
-                        {
-                                auto hash{ make_hash_( b[0], b[1], b[2], b[3], b[4], b[5], b[6]) };
-                        }
-
-                        #if 0
-                        if( debugger_.size() == 20 ){
-                                return;
-                        }
-                        #endif
                 }
         }
         ranking_t rank(long a, long b, long c, long d, long e)const override{
@@ -49,18 +39,50 @@ struct evaluator_7_card_map : evaluator
                 return impl_->rank(a,b,c,d,e,f);
         }
         ranking_t rank(long a, long b, long c, long d, long e, long f, long g)const override{
-                #if 0
-                return impl_->rank(a,b,c,d,e,f,g);
-                #endif
-                return card_map_7_[make_hash_(card_rank_device_[a],
-                                              card_rank_device_[b],
-                                              card_rank_device_[c],
-                                              card_rank_device_[d],
-                                              card_rank_device_[e],
-                                              card_rank_device_[f],
-                                              card_rank_device_[g])];
+
+                auto f_aux =  flush_device_[a] * flush_device_[b] *
+                              flush_device_[c] * flush_device_[d] *
+                              flush_device_[e] * flush_device_[f] *
+                              flush_device_[g];
+
+                if( (f_aux % (2*2*2*2*2)) == 0 ||
+                    (f_aux % (3*3*3*3*3)) == 0 ||
+                    (f_aux % (5*5*5*5*5)) == 0 ||
+                    (f_aux % (7*7*7*7*7)) == 0 )
+                {
+                        //++miss;
+                        return impl_->rank(a,b,c,d,e,f,g);
+                }
+
+                auto ret = card_map_7_[make_hash_(card_rank_device_[a],
+                                                  card_rank_device_[b],
+                                                  card_rank_device_[c],
+                                                  card_rank_device_[d],
+                                                  card_rank_device_[e],
+                                                  card_rank_device_[f],
+                                                  card_rank_device_[g])];
+
+                return ret;
         }
 private:
+        ranking_t rank_from_rank_impl_(long a, long b, long c, long d, long e, long f, long g)const{
+                return impl_->rank( card_decl::make_id(0,a),
+                                    card_decl::make_id(0,b),
+                                    card_decl::make_id(0,c),
+                                    card_decl::make_id(0,d),
+                                    card_decl::make_id(1,e),
+                                    card_decl::make_id(1,f),
+                                    card_decl::make_id(1,g) );
+        }
+        ranking_t rank_from_rank_(long a, long b, long c, long d, long e, long f, long g)const{
+                return this->rank( card_decl::make_id(0,a),
+                                   card_decl::make_id(0,b),
+                                   card_decl::make_id(0,c),
+                                   card_decl::make_id(0,d),
+                                   card_decl::make_id(1,e),
+                                   card_decl::make_id(1,f),
+                                   card_decl::make_id(1,g) );
+        }
         void maybe_add_(rank_vector const& b){
                 // first check we don't have more than 4 of each card
                 std::array<int, 13> aux = {0};
@@ -79,7 +101,7 @@ private:
                 }
                 debugger_.emplace(hash, b);
 
-                auto val  = impl_->rank( b[0], b[1], b[2], b[3], b[4], b[5], b[6] );
+                auto val  = rank_from_rank_impl_( b[0], b[1], b[2], b[3], b[4], b[5], b[6] );
 
                 //std::cout << detail::to_string(aux) << " - " << detail::to_string(b) << " => " << std::bitset<30>(static_cast<unsigned long long>(hash)).to_string() << "\n";
                 //
@@ -153,6 +175,9 @@ private:
         evaluator* impl_;
         std::array<size_t, 52> card_rank_device_;
         std::vector<ranking_t> card_map_7_;
+                
+        std::array<int, 52> flush_device_;
+        std::array<int, 52> rank_device_;
 };
 
 } // ps

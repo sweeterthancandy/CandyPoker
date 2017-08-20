@@ -30,7 +30,7 @@ struct create_class_cache_app{
                 {
                         boost::asio::io_service::work w(io_);
                         //size_t num_threads = std::thread::hardware_concurrency();
-                        size_t num_threads = 4;
+                        size_t num_threads = 1;
                         for(size_t i=0;i!=num_threads;++i){
                                 tg.emplace_back( [this](){ io_.run(); } );
                         }
@@ -59,6 +59,7 @@ private:
                 std::string fmt = str(boost::format("%-11s took %%w seconds (%d/%d %.2f%%)")
                                       % vec % done_ % total_ % (static_cast<double>(done_)/total_*100));
                 std::cout << timer.format(2, fmt) << "\n";
+                std::cout << *ret << "\n";
         }
         std::mutex mtx_;
         boost::asio::io_service io_;

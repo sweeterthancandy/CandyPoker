@@ -12,10 +12,8 @@
 
 namespace ps{
 
-struct equity_evaulator_principal : public equity_evaluator{
-        equity_evaulator_principal()
-                :impl_{&evaluator_factory::get("5_card_map")}
-        {}
+template<class Impl_Type>
+struct equity_evaulator_principal_tpl : public equity_evaluator{
         std::shared_ptr<equity_breakdown> evaluate(std::vector<holdem_id> const& players)const override{
                 // we first need to enumerate every run of the board,
                 // for this we can create a mapping [0,51-n*2] -> [0,51],
@@ -64,10 +62,20 @@ struct equity_evaulator_principal : public equity_evaluator{
 
                 return result;
         }
-private:
-        evaluator* impl_;
+protected:
+        Impl_Type* impl_;
 };
 
-}
+struct equity_evaulator_principal
+        : equity_evaulator_principal_tpl<evaluator>
+{
+        equity_evaulator_principal()
+        {
+                impl_ = &evaluator_factory::get("5_card_map");
+        }
+};
+        
+
+} // ps
 
 #endif // PS_EVAL_EQUITY_CALCULATOR_IMPL_H

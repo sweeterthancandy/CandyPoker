@@ -7,22 +7,31 @@
 #include "ps/eval/holdem_class_eval_cache.h"
 #include "ps/base/holdem_class_vector.h"
 #include "ps/support/index_sequence.h"
+#include "ps/eval/class_equity_evaluator_quick.h"
+#include "ps/support/index_sequence.h"
+
 
 #include <boost/timer/timer.hpp>
 #include <boost/asio.hpp>
 
 using namespace ps;
 
+
+
+
 struct create_class_cache_app{
         create_class_cache_app(){
                 cache_ = &holdem_class_eval_cache_factory::get("main");
-                eval_ =  &class_equity_evaluator_factory::get("principal");
+                eval_ = new class_equity_evaluator_quick;
         }
         void run(){
+                boost::timer::auto_cpu_timer at;
                 std::vector<std::thread> tg;
                 {
                         boost::asio::io_service::work w(io_);
-                        for(size_t i=0;i!=std::thread::hardware_concurrency();++i){
+                        //size_t num_threads = std::thread::hardware_concurrency();
+                        size_t num_threads = 4;
+                        for(size_t i=0;i!=num_threads;++i){
                                 tg.emplace_back( [this](){ io_.run(); } );
                         }
                         for( holdem_class_iterator iter(2),end;iter!=end;++iter){
@@ -42,7 +51,9 @@ private:
         void calc_(holdem_class_vector const& vec){
                 boost::timer::cpu_timer timer;
                 auto ret = eval_->evaluate(vec);
+                cache_->lock();
                 cache_->commit(vec, *ret);
+                cache_->unlock();
                 std::unique_lock<std::mutex> lock(mtx_);
                 ++done_;
                 std::string fmt = str(boost::format("%-11s took %%w seconds (%d/%d %.2f%%)")

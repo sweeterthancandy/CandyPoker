@@ -7,10 +7,8 @@
 
 namespace ps{
 
-struct class_equity_evaluator_principal : class_equity_evaluator{
-        class_equity_evaluator_principal(){
-                impl_ = &equity_evaluator_factory::get("principal");
-        }
+template<class Impl_Type>
+struct class_equity_evaluator_principal_tpl : class_equity_evaluator{
         virtual std::shared_ptr<equity_breakdown> evaluate(holdem_class_vector const& players)const override{
                 auto result = std::make_shared<equity_breakdown_matrix_aggregator>(players.size());
                 for( auto hv : players.get_hand_vectors()){
@@ -18,8 +16,16 @@ struct class_equity_evaluator_principal : class_equity_evaluator{
                 }
                 return result;
         }
-private:
-        equity_evaluator const* impl_;
+protected:
+        Impl_Type* impl_;
+};
+
+struct class_equity_evaluator_principal
+        : class_equity_evaluator_principal_tpl<equity_evaluator>
+{
+        class_equity_evaluator_principal(){
+                impl_ = &equity_evaluator_factory::get("principal");
+        }
 };
 
 } // ps

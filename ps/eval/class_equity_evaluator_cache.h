@@ -50,7 +50,7 @@ private:
                         impl_ = &class_equity_evaluator_factory::get("principal");
                 return impl_;
         }
-		mutable class_equity_evaluator const* impl_{ nullptr };
+        mutable class_equity_evaluator const* impl_{ nullptr };
         std::shared_ptr<holdem_class_eval_cache> class_cache_;
 };
 

@@ -440,6 +440,26 @@ int main(){
                 // put this here
                 std::vector<ranking_t> ranked(hv.size());
 
+                // cache stuff
+
+                std::vector<card_id> hv_first(hv.size());
+                std::vector<card_id> hv_second(hv.size());
+                std::vector<rank_id> hv_first_rank(hv.size());
+                std::vector<rank_id> hv_second_rank(hv.size());
+                std::vector<suit_id> hv_first_suit(hv.size());
+                std::vector<suit_id> hv_second_suit(hv.size());
+                        
+                for(size_t i=0;i!=hv.size();++i){
+                        auto const& hand{holdem_hand_decl::get(hv[i])};
+
+                        hv_first[i]       = hand.first().id();
+                        hv_first_rank[i]  = hand.first().rank().id();
+                        hv_first_suit[i]  = hand.first().suit().id();
+                        hv_second[i]      = hand.second().id();
+                        hv_second_rank[i] = hand.second().rank().id();
+                        hv_second_suit[i] = hand.second().suit().id();
+                }
+
                 auto sub = std::make_shared<equity_breakdown_matrix_aggregator>(cv.size());
                 size_t board_count = 0;
                 for(auto const& b : w ){
@@ -454,27 +474,24 @@ int main(){
 
 
                         for(size_t i=0;i!=hv.size();++i){
-                                auto const& hand{holdem_hand_decl::get(hv[i])};
 
                                 auto rank_hash = rank_proto;
                                 auto suit_hash = suit_proto;
 
-                                rank_hash = rh.append(rank_hash, hand.first().rank());
-                                rank_hash = rh.append(rank_hash, hand.second().rank());
+                                rank_hash = rh.append(rank_hash, hv_first_rank[i]);
+                                rank_hash = rh.append(rank_hash, hv_second_rank[i]);
 
-                                suit_hash = sh.append(suit_hash, hand.first().suit());
-                                suit_hash = sh.append(suit_hash, hand.second().suit());
+                                suit_hash = sh.append(suit_hash, hv_first_suit[i] );
+                                suit_hash = sh.append(suit_hash, hv_second_suit[i] );
 
-                                #if 1
                                 ranked[i] = ev.rank(suit_hash, rank_hash,
                                                     b.board()[0],
                                                     b.board()[1],
                                                     b.board()[2],
                                                     b.board()[3],
                                                     b.board()[4],
-                                                    hand.first().id(),
-                                                    hand.second().id());
-                                                    #endif
+                                                    hv_first[i],
+                                                    hv_second[i]);
                         }
                         working::detail::dispatch_ranked_vector{}(*sub, ranked);
 

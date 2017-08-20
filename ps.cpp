@@ -134,16 +134,26 @@ struct evaluator_7_card_map : evaluator
 
                 return ret;
         }
-        ranking_t rank(size_t suit_hash, size_t rank_hash, long a, long b, long c, long d, long e, long f, long g)const {
+        mutable std::atomic_int miss{0};
+        mutable std::atomic_int hit{0};
+        ranking_t rank(card_vector const& cv, size_t suit_hash, size_t rank_hash, long a, long b)const {
+                #if 0
+                PRINT(suit_hash);
+                PRINT(suit_hash % (2*2*2*2*2));
+                PRINT(suit_hash % (3*3*3*3*3));
+                PRINT(suit_hash % (5*5*5*5*5));
+                PRINT(suit_hash % (7*7*7*7*7));
+                #endif
 
                 if( (suit_hash % (2*2*2*2*2)) == 0 ||
                     (suit_hash % (3*3*3*3*3)) == 0 ||
                     (suit_hash % (5*5*5*5*5)) == 0 ||
                     (suit_hash % (7*7*7*7*7)) == 0 )
                 {
-                        //++miss;
-                        return impl_->rank(a,b,c,d,e,f,g);
+                        ++miss;
+                        return impl_->rank(a,b,cv[0], cv[1], cv[2], cv[3], cv[4]);
                 }
+                ++hit;
 
                 auto ret = card_map_7_[rank_hash];
                 return ret;
@@ -367,6 +377,9 @@ struct board_world{
                 {
                         static suit_hasher sh;
                         static rank_hasher rh;
+                                
+                        rank_hash_ = rh.create();
+                        suit_hash_ = sh.create();
 
                         for( auto id : vec_ ){
                                 auto const& hand{ card_decl::get(id) };
@@ -484,12 +497,16 @@ int main(){
                                 suit_hash = sh.append(suit_hash, hv_first_suit[i] );
                                 suit_hash = sh.append(suit_hash, hv_second_suit[i] );
 
-                                ranked[i] = ev.rank(suit_hash, rank_hash,
+
+                                ranked[i] = ev.rank(b.board(),
+                                                    suit_hash, rank_hash,
+                                                    #if 0
                                                     b.board()[0],
                                                     b.board()[1],
                                                     b.board()[2],
                                                     b.board()[3],
                                                     b.board()[4],
+                                                    #endif
                                                     hv_first[i],
                                                     hv_second[i]);
                         }
@@ -506,4 +523,6 @@ int main(){
                 #endif
         }
         std::cout << *result << "\n";
+        auto r = static_cast<double>(ev.hit)/(ev.miss+ev.hit);
+        PRINT_SEQ((ev.hit)(ev.miss)(r));
 }

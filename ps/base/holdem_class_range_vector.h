@@ -1,6 +1,8 @@
 #ifndef PS_BASE_HOLDEM_CLASS_RANGE_VECTOR_H
 #define PS_BASE_HOLDEM_CLASS_RANGE_VECTOR_H
 
+#include "ps/support/index_sequence.h"
+
 #include "ps/base/holdem_class_range.h"
 #include "ps/base/holdem_hand_vector.h"
 #include "ps/base/holdem_class_vector.h"
@@ -30,5 +32,6 @@ namespace ps{
                 > to_class_standard_form()const;
 
         };
+
 } // ps
 #endif // PS_BASE_HOLDEM_CLASS_RANGE_VECTOR_H

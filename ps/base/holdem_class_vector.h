@@ -46,6 +46,26 @@ namespace ps{
 
                 bool is_standard_form()const;
         };
+        
+        struct holdem_class_iterator :
+                basic_index_iterator<
+                holdem_class_id,
+                lower_triangle_policy,
+                holdem_class_vector
+                >
+        {
+                using impl_t = 
+                        basic_index_iterator<
+                        holdem_class_id,
+                lower_triangle_policy,
+                holdem_class_vector
+                        >
+                        ;
+                holdem_class_iterator():impl_t{}{}
+                holdem_class_iterator(size_t n):
+                        impl_t(n, holdem_class_decl::max_id)
+                {}
+        };
 } // ps
 
 #endif // PS_BASE_HOLDEM_CLASS_VECTOR_H

@@ -11,7 +11,6 @@ struct equity_evaluator_cached : public equity_evaluator{
                 : impl_{ &equity_evaluator_factory::get("principal") }
         {}
         std::shared_ptr<equity_breakdown> evaluate(std::vector<holdem_id> const& players)const override{
-                std::cout << "equity_evaluator_cached::evaluate\n";
                 auto p =  permutate_for_the_better(players) ;
                 auto& perm = std::get<0>(p);
                 auto const& perm_players = std::get<1>(p);

@@ -89,10 +89,10 @@ add_executable(pokerstove app/pokerstove.cpp )
 target_link_libraries(pokerstove ${Boost_LIBRARIES})
 target_link_libraries(pokerstove support_lib base_lib eval_lib )
 
-#add_executable(cacher app/cacher.cpp )
-#target_link_libraries(cacher pthread )
-#target_link_libraries(cacher ${Boost_LIBRARIES})
-#target_link_libraries(cacher base_lib eval_lib )
+add_executable(cacher app/cacher.cpp )
+target_link_libraries(cacher pthread )
+target_link_libraries(cacher ${Boost_LIBRARIES})
+target_link_libraries(cacher base_lib eval_lib )
 
 
 #add_executable(heads_up_solver app/heads_up_solver.cpp )

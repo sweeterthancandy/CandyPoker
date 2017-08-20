@@ -5,7 +5,10 @@
 #include "ps/base/board_combination_iterator.h"
 #include "ps/eval/class_equity_evaluator.h"
 #include "ps/eval/holdem_class_eval_cache.h"
+#include "ps/base/holdem_class_vector.h"
+#include "ps/support/index_sequence.h"
 
+#include <boost/timer/timer.hpp>
 #include <boost/asio.hpp>
 
 using namespace ps;
@@ -22,32 +25,31 @@ struct create_class_cache_app{
                         for(size_t i=0;i!=std::thread::hardware_concurrency();++i){
                                 tg.emplace_back( [this](){ io_.run(); } );
                         }
-                        for(holdem_class_id i=0;i!=holdem_class_decl::max_id;++i){
-                                for(holdem_class_id j=i;j!=holdem_class_decl::max_id;++j){
-                                        ++total_;
-                                        io_.post( [i,j,this]()
-                                        {
-                                                main_(i,j);
-                                        });
-                                }
+                        for( holdem_class_iterator iter(2),end;iter!=end;++iter){
+                                ++total_;
+                                io_.post( [vec=*iter,this]()
+                                {
+                                        calc_(vec);
+                                });
                         }
                 }
                 for( auto& t : tg )
                         t.join();
-                cache_->save("result.bin");
+                //cache_->save("result.bin");
         }
 private:
 
-        void main_(holdem_class_id i, holdem_class_id j){
-                holdem_class_vector vec{i,j};
-                PRINT( vec.is_standard_form() );
+        void calc_(holdem_class_vector const& vec){
+                boost::timer::cpu_timer timer;
                 auto ret = eval_->evaluate(vec);
-                PRINT(vec);
-                std::cout << *ret << "\n";
                 cache_->commit(vec, *ret);
+                std::unique_lock<std::mutex> lock(mtx_);
                 ++done_;
-                std::cout << boost::format("%s/%s (%.2f%%)") % done_ % total_ % ( static_cast<double>(done_)/total_*100) << std::endl;
+                std::string fmt = str(boost::format("%-11s took %%w seconds (%d/%d %.2f%%)")
+                                      % vec % done_ % total_ % (static_cast<double>(done_)/total_*100));
+                std::cout << timer.format(2, fmt) << "\n";
         }
+        std::mutex mtx_;
         boost::asio::io_service io_;
         holdem_class_eval_cache* cache_;
         class_equity_evaluator* eval_;

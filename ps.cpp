@@ -266,8 +266,8 @@ private:
 
 namespace detail{
         struct dispatch_ranked_vector{
-                void operator()(std::shared_ptr<equity_breakdown_matrix> result, 
-                                std::vector<ranking_t> ranked)const
+                void operator()(equity_breakdown_matrix& result, 
+                                std::vector<ranking_t> const& ranked)const
                 {
                         auto lowest = ranked[0] ;
                         size_t count{1};
@@ -281,10 +281,10 @@ namespace detail{
                         }
                         for(size_t i=0;i!=ranked.size();++i){
                                 if( ranked[i] == lowest ){
-                                        ++result->data_access(i,count-1);
+                                        ++result.data_access(i,count-1);
                                 }
                         }
-                        ++result->sigma();
+                        ++result.sigma();
                 }
         };
 } // detail
@@ -321,7 +321,7 @@ struct equity_evaulator_principal_tpl : public ps::equity_evaluator{
                                 ranked.push_back(impl_->rank(x[i], y[i],
                                                             b[0], b[1], b[2], b[3], b[4]) );
                         }
-                        detail::dispatch_ranked_vector{}(result, ranked);
+                        detail::dispatch_ranked_vector{}(*result, ranked);
                         #if 0
                         auto lowest = ranked[0] ;
                         size_t count{1};
@@ -374,13 +374,14 @@ struct board_world{
                                 rank_hash_ = rh.append(rank_hash_, hand.rank() );
                                 suit_hash_ = sh.append(suit_hash_, hand.suit() );
                         }
+                        mask_ = vec_.mask();
                 }
-                size_t mask()const{ return vec_.mask(); }
+                size_t mask()const{ return mask_; }
                 size_t rank_hash()const{ return rank_hash_; }
                 size_t suit_hash()const{ return suit_hash_; }
                 card_vector const& board()const{ return vec_; }
         private:
-
+                size_t mask_;
                 card_vector vec_;
                 size_t rank_hash_{0};
                 size_t suit_hash_{0};
@@ -416,8 +417,6 @@ auto from_bitmask(size_t mask){
 int main(){
         working::equity_evaulator_principal ec;
         working::evaluator_7_card_map ev;
-        auto const& impl = &evaluator_factory::get("5_card_map");
-        boost::timer::auto_cpu_timer at;
         holdem_class_vector cv;
         board_world w;
         rank_hasher rh;
@@ -429,80 +428,33 @@ int main(){
         cv.push_back("78o");
         #endif
 
-        #if 0
-        for(size_t id= 0;id!=52;++id){
-                //PRINT_SEQ((id)(card_decl::get(id)));
-                std::cout << std::bitset<52>(card_decl::get(id).mask()) << "\n";
-        }
-        return 0;
-        #endif
+        boost::timer::auto_cpu_timer at;
         auto result = std::make_shared<equity_breakdown_matrix_aggregator>(cv.size());
         for( auto hvt : cv.to_standard_form_hands()){
                 auto const& perm = std::get<0>(hvt);
                 auto const& hv   = std::get<1>(hvt);
                 PRINT( hv );
-                PRINT(std::bitset<52>(hv.mask()));
-                PRINT(hv.decl_at(0).first().id());
-                PRINT(hv.decl_at(0).second().id());
-                PRINT(hv.decl_at(1).first().id());
-                PRINT(hv.decl_at(1).second().id());
-                #if 0
+                auto hv_mask = hv.mask();
+                #if 1
+                        
+                // put this here
+                std::vector<ranking_t> ranked(hv.size());
 
                 auto sub = std::make_shared<equity_breakdown_matrix_aggregator>(cv.size());
                 size_t board_count = 0;
                 for(auto const& b : w ){
 
-
-                        bool flag = true;
-                        for( auto id : hv ){
-                                auto const& hand{holdem_hand_decl::get(id)};
-                                std::set<int> aux;
-                                aux.insert(b.board()[0]);
-                                aux.insert(b.board()[1]);
-                                aux.insert(b.board()[2]);
-                                aux.insert(b.board()[3]);
-                                aux.insert(b.board()[4]);
-                                aux.insert(hand.first().id());
-                                aux.insert(hand.second().id());
-                                if( aux.size() != 7 )
-                                        flag = false;
-                        }
-
-                        bool cond = (b.mask() & hv.to_card_vector().mask() ) == 0;
-                        if( cond != flag ){
-                                std::cout << "__ERR BEGIN\n";
-                                PRINT(cond);
-                                PRINT(flag);
-                                PRINT(std::bitset<52>(b .mask()));
-                                PRINT(from_bitmask(b.board().mask()));
-                                PRINT(std::bitset<52>(hv.mask()));
-                                auto val______ = b.mask() & hv.to_card_vector().mask();
-                                PRINT(std::bitset<52>(val______));
-                                PRINT(b.board());
-                                PRINT(hv);
-                                PRINT(hv.to_card_vector());
-                                auto hv_mask__ = hv.to_card_vector().mask();
-                                PRINT(std::bitset<52>(hv_mask__));
-                                PRINT(from_bitmask(b .mask()));
-                                PRINT(from_bitmask(hv.mask()));
-                                std::cout << "__ERR END\n";
-                        }
+                        bool cond = (b.mask() & hv_mask ) == 0;
                         if(!cond){
-                                #if 0
-                                PRINT(std::bitset<52>(b.mask()));
-                                PRINT(std::bitset<52>(hv.mask()));
-                                #endif
                                 continue;
                         }
                         ++board_count;
                         auto rank_proto = b.rank_hash();
                         auto suit_proto = b.suit_hash();
 
-                        std::vector<ranking_t> ranked;
 
-                        for( auto id : hv ){
-                                auto const& hand{holdem_hand_decl::get(id)};
-                                #if 0
+                        for(size_t i=0;i!=hv.size();++i){
+                                auto const& hand{holdem_hand_decl::get(hv[i])};
 
                                 auto rank_hash = rank_proto;
                                 auto suit_hash = suit_proto;
@@ -512,47 +464,19 @@ int main(){
 
                                 suit_hash = sh.append(suit_hash, hand.first().suit());
                                 suit_hash = sh.append(suit_hash, hand.second().suit());
-                                #endif
 
-                                #if 0
-                                ranked.push_back( ev.rank(suit_hash, rank_hash,
-                                                               b.board()[0],
-                                                               b.board()[1],
-                                                               b.board()[2],
-                                                               b.board()[3],
-                                                               b.board()[4],
-                                                               hand.first().id(),
-                                                               hand.second().id()));
-                                                               #endif
-                                #if 0
-                                static int counter = 0;
-                                PRINT(++counter);
-                                #endif
-                                std::set<int> aux;
-                                aux.insert(b.board()[0]);
-                                aux.insert(b.board()[1]);
-                                aux.insert(b.board()[2]);
-                                aux.insert(b.board()[3]);
-                                aux.insert(b.board()[4]);
-                                aux.insert(hand.first().id());
-                                aux.insert(hand.second().id());
-
-                                if( aux.size() != 7){
-                                        PRINT(aux.size());
-                                        PRINT(std::bitset<52>(hv.mask()));
-                                        PRINT(std::bitset<52>(b.mask()));
-                                        std::cerr << "ERR\n";
-                                }
-                                ranked.push_back( impl->rank(
-                                                               b.board()[0],
-                                                               b.board()[1],
-                                                               b.board()[2],
-                                                               b.board()[3],
-                                                               b.board()[4],
-                                                               hand.first().id(),
-                                                               hand.second().id()));
+                                #if 1
+                                ranked[i] = ev.rank(suit_hash, rank_hash,
+                                                    b.board()[0],
+                                                    b.board()[1],
+                                                    b.board()[2],
+                                                    b.board()[3],
+                                                    b.board()[4],
+                                                    hand.first().id(),
+                                                    hand.second().id());
+                                                    #endif
                         }
-                        working::detail::dispatch_ranked_vector{}(sub, ranked);
+                        working::detail::dispatch_ranked_vector{}(*sub, ranked);
 
                 }
                 PRINT(board_count);

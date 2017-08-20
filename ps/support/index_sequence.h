@@ -6,6 +6,91 @@
 
 namespace ps{
 
+/*
+                00
+                01
+                10
+                11
+ */
+struct range_policy{
+        template<class Vec>
+        static void init(Vec& vec, size_t n, size_t m){
+                vec.resize(n);
+                for(size_t i=0;i!=vec.size();++i)
+                        vec[i] = 0;
+        }
+        template<class Vec>
+        static bool next(Vec& vec, size_t m){
+                size_t cursor = vec.size() - 1;
+                for(;cursor!=-1;){
+                        if( vec[cursor] + 1 == m ){
+                                --cursor;
+                                continue;
+                        }
+
+                        break; // <----------------------
+                }
+                if( cursor == -1 ){
+                        // at end
+                        return false; 
+                }
+                ++vec[cursor];
+                ++cursor;
+                for(;cursor != vec.size();++cursor){
+                        vec[cursor] = 0;
+                }
+                return true;
+        }
+};
+
+/*
+                00
+                01
+                11
+ */
+struct ordered_policy{
+        template<class Vec>
+        static void init(Vec& vec, size_t n, size_t m){
+                vec.resize(n);
+                for(size_t i=0;i!=vec.size();++i)
+                        vec[i] = 0;
+        }
+        template<class Vec>
+        static bool next(Vec& vec, size_t m){
+                size_t cursor = vec.size() - 1;
+                for(;cursor!=-1;){
+
+                        // First see if we can't decrement the board
+                        // at the cursor
+                        if( cursor == vec.size() -1 ){
+                                if( vec[cursor] + 1 == m ){
+                                        // case XXXX0
+                                        --cursor;
+                                        continue;
+                                }
+                        } else {
+                                if( vec[cursor] == vec[cursor+1] )
+                                {
+                                        // case XXX10
+                                        --cursor;
+                                        continue;
+                                }
+                        }
+                        break;
+                }
+                if( cursor == -1 ){
+                        // at end
+                        return false; 
+                }
+                ++vec[cursor];
+                ++cursor;
+                for(;cursor != vec.size();++cursor){
+                        vec[cursor] = vec[cursor-1];
+                }
+                return true;
+        }
+};
+
 struct strict_lower_triangle_policy{
         template<class Vec>
         static void init(Vec& vec, size_t n, size_t m){
@@ -133,7 +218,7 @@ struct strict_upper_triangle_policy{
         }
 };
 
-template<class T, class Policy, class Vec /*= std::vector<T>*/ >
+template<class T, class Policy, class Vec = std::vector<T> >
 struct basic_index_iterator{
         using integer_t = T;
         using vector_t  = Vec;

@@ -1,43 +1,12 @@
-#include <iostream>
-#include <thread>
-#include <atomic>
-#include <numeric>
+#ifndef PS_EVAL_EVALUATOR_7_CARD_MAP_H
+#define PS_EVAL_EVALUATOR_7_CARD_MAP_H
+
 #include <bitset>
-#include <future>
-#include <boost/format.hpp>
-#include "ps/base/cards.h"
-#include "ps/detail/print.h"
-#include "ps/base/board_combination_iterator.h"
-#include "ps/eval/class_equity_evaluator.h"
-#include "ps/eval/equity_breakdown_matrix.h"
+
 #include "ps/eval/evaluator.h"
-#include "ps/sim/holdem_class_strategy.h"
-#include "ps/support/index_sequence.h"
 #include "ps/support/config.h"
 
-
-/*
-                Strategy in the form 
-                        vpip/fold
- */
-#include <boost/range/algorithm.hpp>
-
-/*
-        Need to,
-
-                iterate over boards
-                        abcde  where a < b < c < d < e ( think strict lower triangle )
-                iterator over hands
-                        ab  where a <= b               ( think lower triable )
-
-
- */
-
-
-
-using namespace ps;
-
-
+namespace ps{
 
 struct evaluator_7_card_map : evaluator
 {
@@ -50,7 +19,7 @@ struct evaluator_7_card_map : evaluator
                 }
 
                 using iter_t = basic_index_iterator<
-                        int, ordered_policy
+                        int, ordered_policy, rank_vector
                 >;
                 for(iter_t iter(3,3),end;iter!=end;++iter){
                         std::cout << detail::to_string(*iter) << "\n";
@@ -63,11 +32,11 @@ struct evaluator_7_card_map : evaluator
                         if( impl_->rank( b[0], b[1], b[2], b[3], b[4], b[5], b[6] ) !=
                              this->rank( b[0], b[1], b[2], b[3], b[4], b[5], b[6] ) )
                         {
-                                std::cout << "ERROR\n";
+                                auto hash{ make_hash_( b[0], b[1], b[2], b[3], b[4], b[5], b[6]) };
                         }
 
                         #if 0
-                        if( assert_set.size() == 20 ){
+                        if( debugger_.size() == 20 ){
                                 return;
                         }
                         #endif
@@ -80,10 +49,19 @@ struct evaluator_7_card_map : evaluator
                 return impl_->rank(a,b,c,d,e,f);
         }
         ranking_t rank(long a, long b, long c, long d, long e, long f, long g)const override{
+                #if 0
                 return impl_->rank(a,b,c,d,e,f,g);
+                #endif
+                return card_map_7_[make_hash_(card_rank_device_[a],
+                                              card_rank_device_[b],
+                                              card_rank_device_[c],
+                                              card_rank_device_[d],
+                                              card_rank_device_[e],
+                                              card_rank_device_[f],
+                                              card_rank_device_[g])];
         }
 private:
-        void maybe_add_(std::vector<int> const& b){
+        void maybe_add_(rank_vector const& b){
                 // first check we don't have more than 4 of each card
                 std::array<int, 13> aux = {0};
                 for(size_t i=0;i!=7;++i){
@@ -95,11 +73,11 @@ private:
                 }
                 auto hash = make_hash_( b[0], b[1], b[2], b[3], b[4], b[5], b[6] );
 
-                if( assert_set.count(hash) !=0  ){
+                if( debugger_.count(hash) !=0  ){
                         //std::cout << "not injective\n";
                         return;
                 }
-                assert_set.insert(hash);
+                debugger_.emplace(hash, b);
 
                 auto val  = impl_->rank( b[0], b[1], b[2], b[3], b[4], b[5], b[6] );
 
@@ -171,12 +149,12 @@ private:
                         PS_UNREACHABLE();
                 }
         }
-        std::set<size_t> assert_set;
+        std::map<size_t, rank_vector> debugger_;
         evaluator* impl_;
         std::array<size_t, 52> card_rank_device_;
         std::vector<ranking_t> card_map_7_;
 };
 
-int main(){
-        evaluator_7_card_map m;
-}
+} // ps
+
+#endif // PS_EVAL_EVALUATOR_7_CARD_MAP_H

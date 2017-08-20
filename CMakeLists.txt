@@ -54,7 +54,6 @@ set(base_sources
 )
 add_library(base_lib SHARED ${base_sources}) 
 target_link_libraries(base_lib ${Boost_LIBRARIES})
-target_link_libraries(base_lib support_lib)
 
 set(
         eval_sources 
@@ -74,7 +73,6 @@ set(
 )
 add_library(eval_lib SHARED ${eval_sources}) 
 target_link_libraries(eval_lib ${Boost_LIBRARIES})
-target_link_libraries(eval_lib support_lib base_lib )
 
 
 add_executable(_ps ps.cpp )
@@ -92,7 +90,7 @@ target_link_libraries(pokerstove support_lib base_lib eval_lib )
 add_executable(cacher app/cacher.cpp )
 target_link_libraries(cacher pthread )
 target_link_libraries(cacher ${Boost_LIBRARIES})
-target_link_libraries(cacher base_lib eval_lib )
+target_link_libraries(cacher support_lib base_lib eval_lib )
 
 
 #add_executable(heads_up_solver app/heads_up_solver.cpp )

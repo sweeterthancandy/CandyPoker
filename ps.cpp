@@ -35,6 +35,30 @@ struct rank_hasher{
                         hash = append(hash, id);
                 return hash;
         }
+        /*
+                  +----+--+--+--+--+--+--+--+--+--+--+--+--+--+
+                  |card|A |K |Q |J |T |9 |8 |7 |6 |5 |4 |3 |2 |
+                  +----+--+--+--+--+--+--+--+--+--+--+--+--+--+
+                  |yyyy|xx|xx|xx|xx|xx|xx|xx|xx|xx|xx|xx|xx|xx|
+                  +----+--+--+--+--+--+--+--+--+--+--+--+--+--+
+                  |  1A|18|16|14|12|10| E| C| A| 8| 6| 4| 2| 0|
+                  +----+--+--+--+--+--+--+--+--+--+--+--+--+--+
+
+                  yyyy ~ value of rank with 4 cards, zero 
+                         when there warn't 4 cards
+
+                  xx   ~ bit mask to non-injective mapping for
+                         number of cards, 
+
+
+                                   n | bits
+                                   --+-----
+                                   0 | 00
+                                   1 | 01
+                                   2 | 10
+                                   3 | 11
+                                   4 | 11
+        */
         hash_t append(hash_t hash, rank_id rank){
                 auto idx = rank * 2;
                 auto mask = ( hash & ( 0x3 << idx ) ) >> idx;
@@ -151,7 +175,6 @@ struct evaluator_7_card_map : evaluator
                     (suit_hash % (7*7*7*7*7)) == 0 )
                 {
                         ++miss;
-                        return 0;
                         return impl_->rank(a,b,cv[0], cv[1], cv[2], cv[3], cv[4]);
                 }
                 ++hit;
@@ -203,69 +226,18 @@ private:
 
                 card_map_7_[hash] = val;
         }
-        /*
-                  +----+--+--+--+--+--+--+--+--+--+--+--+--+--+
-                  |card|A |K |Q |J |T |9 |8 |7 |6 |5 |4 |3 |2 |
-                  +----+--+--+--+--+--+--+--+--+--+--+--+--+--+
-                  |yyyy|xx|xx|xx|xx|xx|xx|xx|xx|xx|xx|xx|xx|xx|
-                  +----+--+--+--+--+--+--+--+--+--+--+--+--+--+
-                  |  1A|18|16|14|12|10| E| C| A| 8| 6| 4| 2| 0|
-                  +----+--+--+--+--+--+--+--+--+--+--+--+--+--+
-
-                  yyyy ~ value of rank with 4 cards, zero 
-                         when there warn't 4 cards
-
-                  xx   ~ bit mask to non-injective mapping for
-                         number of cards, 
-
-
-                                   n | bits
-                                   --+-----
-                                   0 | 00
-                                   1 | 01
-                                   2 | 10
-                                   3 | 11
-                                   4 | 11
-        */
         size_t make_hash_(long a, long b, long c, long d, long e, long f, long g)const{
-                size_t hash = 0;
-
-                hash_add_(hash, a);
-                hash_add_(hash, b);
-                hash_add_(hash, c);
-                hash_add_(hash, d);
-                hash_add_(hash, e);
-                hash_add_(hash, f);
-                hash_add_(hash, g);
-
+                static rank_hasher rh;
+                auto hash = rh.create();
+                hash = rh.append(hash, a);
+                hash = rh.append(hash, b);
+                hash = rh.append(hash, c);
+                hash = rh.append(hash, d);
+                hash = rh.append(hash, e);
+                hash = rh.append(hash, f);
+                hash = rh.append(hash, g);
                 return hash;
         } 
-        void hash_add_(size_t& hash, size_t rank)const{
-                auto idx = rank * 2;
-                auto mask = ( hash & ( 0x3 << idx ) ) >> idx;
-                switch(mask){
-                case 0x0:
-                        // set the idx'th bit
-                        hash |= 0x1 << idx;
-                        break;
-                case 0x1:
-                        // unset the idx'th bit
-                        hash &= ~(0x1 << idx);
-                        // set the (idx+1)'th bit
-                        hash |= 0x1 << (idx+1);
-                        break;
-                case 0x2:
-                        // set the idx'th bit
-                        hash |= 0x1 << idx;
-                        break;
-                case 0x3:
-                        // set the special part of mask for the fourth card
-                        hash |= (rank + 1) << 0x1A;
-                        break;
-                default:
-                        PS_UNREACHABLE();
-                }
-        }
         std::map<size_t, rank_vector> debugger_;
         evaluator* impl_;
         std::array<size_t, 52> card_rank_device_;
@@ -412,12 +384,14 @@ int main(){
         board_world w;
         rank_hasher rh;
         suit_hasher sh;
+        #if 0
         cv.push_back("AA");
         cv.push_back("KK");
-        #if 0
-        cv.push_back("AKo");
-        cv.push_back("78o");
         #endif
+        cv.push_back("AKs");
+        cv.push_back("QJs");
+        cv.push_back("T9s");
+        cv.push_back("87s");
 
         boost::timer::auto_cpu_timer at;
         auto result = std::make_shared<equity_breakdown_matrix_aggregator>(cv.size());

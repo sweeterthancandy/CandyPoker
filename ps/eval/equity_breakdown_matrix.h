@@ -210,7 +210,7 @@ struct basic_equity_breakdown_matrix_aggregator : basic_equity_breakdown_matrix<
         template<class T>
         void append_perm(basic_equity_breakdown<Primitive_Type> const& breakdown, std::vector<T> const& perm){
                 assert( breakdown.n() == n()     && "precondition failed");
-                assert( mat.size()    == n()     && "precondition failed");
+                assert( perm.size()    == n()    && "precondition failed");
                 sigma() += breakdown.sigma();
 
                 for( size_t i =0;i!=n();++i){

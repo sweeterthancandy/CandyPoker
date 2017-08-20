@@ -44,5 +44,23 @@ namespace ps{
                 }
                 return true;
         }
+        card_vector holdem_hand_vector::to_card_vector()const{
+                card_vector vec;
+                for( auto id : *this ){
+                        auto const& hand = holdem_hand_decl::get(id);
+                        vec.push_back(hand.first().id());
+                        vec.push_back(hand.second().id());
+                }
+                return std::move(vec);
+        }
+        size_t holdem_hand_vector::mask()const{
+                size_t m = 0;
+                for( auto id : *this ){
+                        auto const& hand = holdem_hand_decl::get(id);
+                        m |= (static_cast<size_t>(1) << hand.first().id() );
+                        m |= (static_cast<size_t>(1) << hand.second().id() );
+                }
+                return m;
+        }
                 
 } // ps

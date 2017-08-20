@@ -55,7 +55,7 @@ struct evaluator_6_card_map : evaluator_5_card_map{
                         return rank_brute(a,b,c,d,e,f);
                 }
                 auto m = map_rank( rank_device_[a],rank_device_[b], rank_device_[c],rank_device_[d], rank_device_[e], rank_device_[f]);
-                assert( cache_6_[m] && "unmapped value");
+                //assert( cache_6_[m] && "unmapped value");
 
                 #if 0
                 bool aux{ cache_6_[m] == rank_brute(a,b,c,d,e,f)};

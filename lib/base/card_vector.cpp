@@ -1,4 +1,5 @@
 #include "ps/base/card_vector.h"
+#include "ps/base/cards.h"
 
 namespace ps{
         std::ostream& operator<<(std::ostream& ostr, card_vector const& self){

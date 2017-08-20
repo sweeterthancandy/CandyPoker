@@ -62,7 +62,7 @@ namespace ps{
                         ,suit_{s}, rank_{r}
                 {}
                 auto id()const{ return id_; }
-                size_t mask()const{ return 1 << id(); }
+                size_t mask()const{ return static_cast<size_t>(1) << id(); }
                 std::string to_string()const{
                         return rank_.to_string() + 
                                suit_.to_string();

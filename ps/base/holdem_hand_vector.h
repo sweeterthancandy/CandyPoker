@@ -5,6 +5,7 @@
 
 #include "ps/support/index_sequence.h"
 #include "ps/base/cards_fwd.h"
+#include "ps/base/card_vector.h"
 #include "ps/detail/print.h"
 
 namespace ps{
@@ -22,6 +23,8 @@ namespace ps{
                 auto find_injective_permutation()const;
                 bool disjoint()const;
                 bool is_standard_form()const;
+                size_t mask()const;
+                card_vector to_card_vector()const;
         };
 
         struct holdem_hand_iterator :

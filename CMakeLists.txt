@@ -65,6 +65,7 @@ set(
         lib/eval/equity_evaluator_cached.cpp
         lib/eval/class_equity_evaluator_principal.cpp 
         lib/eval/class_equity_evaluator_proc.cpp 
+        lib/eval/class_equity_evaluator_quick.cpp 
         lib/eval/range_equity_evaluator_principal.cpp 
         lib/eval/class_range_equity_evaluator_principal.cpp 
         lib/eval/class_equity_evaluator_cache.cpp

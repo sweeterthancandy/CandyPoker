@@ -73,7 +73,7 @@ namespace detail{
                         f( vecs[ar[Seq]]...);
                 }
 
-#if 0
+#if 1
                 template<class... Vecs, class F>
                 void visit_vector_combinations(F f, Vecs... vecs){
 

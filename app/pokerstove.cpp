@@ -109,8 +109,7 @@ namespace ps{
                 using namespace ps::frontend;
 
                 auto& cache_      = holdem_class_eval_cache_factory::get("main");
-                auto& eval_       = equity_evaluator_factory::get("principal");
-                auto& class_eval_ = class_equity_evaluator_factory::get("principal");
+                std::string engine = "principal";
 
 
                 std::vector<std::string> players_s;
@@ -124,6 +123,11 @@ namespace ps{
                         switch(args_left){
                         default:
                         case 2:
+                                if( argv[arg_iter] == std::string{"--engine"} ){
+                                        engine = argv[arg_iter+1];
+                                        arg_iter += 2;
+                                        continue;
+                                }
                                 #if 0
                                 if( argv[arg_iter] == std::string{"--cache"} ){
                                         std::cerr << "Loading...\n";
@@ -146,6 +150,10 @@ namespace ps{
                                 break;
                         }
                 }
+
+                auto& eval_       = equity_evaluator_factory::get("principal");
+                auto& class_eval_ = class_equity_evaluator_factory::get(engine);
+
                 tree_range root( players );
 
                 auto agg = std::make_shared<equity_breakdown_matrix_aggregator>(players.size());
@@ -162,8 +170,6 @@ namespace ps{
                                 }
                         }
                 }
-
-                std::cout << *agg << "\n";
 
                 pretty_printer{}(std::cout, *agg, players_s);
 

@@ -151,6 +151,7 @@ struct evaluator_7_card_map : evaluator
                     (suit_hash % (7*7*7*7*7)) == 0 )
                 {
                         ++miss;
+                        return 0;
                         return impl_->rank(a,b,cv[0], cv[1], cv[2], cv[3], cv[4]);
                 }
                 ++hit;
@@ -332,24 +333,6 @@ struct equity_evaulator_principal_tpl : public ps::equity_evaluator{
                                                             b[0], b[1], b[2], b[3], b[4]) );
                         }
                         detail::dispatch_ranked_vector{}(*result, ranked);
-                        #if 0
-                        auto lowest = ranked[0] ;
-                        size_t count{1};
-                        for(size_t i=1;i<ranked.size();++i){
-                                if( ranked[i] == lowest ){
-                                        ++count;
-                                } else if( ranked[i] < lowest ){
-                                        lowest = ranked[i]; 
-                                        count = 1;
-                                }
-                        }
-                        for(size_t i=0;i!=ranked.size();++i){
-                                if( ranked[i] == lowest ){
-                                        ++result->data_access(i,count-1);
-                                }
-                        }
-                        ++result->sigma();
-                        #endif
                 }
                 PRINT(board_count);
 
@@ -417,11 +400,6 @@ auto from_bitmask(size_t mask){
         card_vector vec;
         for(size_t i=0;i!=52;++i){
                 if( mask & card_decl::get(i).mask() ){
-                        #if 0
-                        PRINT(std::bitset<52>(mask));
-                        PRINT_SEQ((i)(card_decl::get(i).id()));
-                        PRINT(std::bitset<52>(card_decl::get(i).mask()));
-                        #endif
                         vec.push_back(i);
                 }
         }

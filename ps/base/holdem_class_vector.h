@@ -50,15 +50,15 @@ namespace ps{
         struct holdem_class_iterator :
                 basic_index_iterator<
                 holdem_class_id,
-                lower_triangle_policy,
+                ordered_policy,
                 holdem_class_vector
                 >
         {
                 using impl_t = 
                         basic_index_iterator<
-                        holdem_class_id,
-                lower_triangle_policy,
-                holdem_class_vector
+                                holdem_class_id,
+                                ordered_policy,
+                                holdem_class_vector
                         >
                         ;
                 holdem_class_iterator():impl_t{}{}

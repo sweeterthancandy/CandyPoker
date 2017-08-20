@@ -29,12 +29,11 @@ struct create_class_cache_app{
                 std::vector<std::thread> tg;
                 {
                         boost::asio::io_service::work w(io_);
-                        //size_t num_threads = std::thread::hardware_concurrency();
-                        size_t num_threads = 1;
+                        size_t num_threads = std::thread::hardware_concurrency();
                         for(size_t i=0;i!=num_threads;++i){
                                 tg.emplace_back( [this](){ io_.run(); } );
                         }
-                        for( holdem_class_iterator iter(2),end;iter!=end;++iter){
+                        for( holdem_class_iterator iter(3),end;iter!=end;++iter){
                                 ++total_;
                                 io_.post( [vec=*iter,this]()
                                 {
@@ -44,11 +43,12 @@ struct create_class_cache_app{
                 }
                 for( auto& t : tg )
                         t.join();
-                //cache_->save("result.bin");
+                cache_->save("result_3.bin");
         }
 private:
 
         void calc_(holdem_class_vector const& vec){
+                boost::timer::auto_cpu_timer at;
                 boost::timer::cpu_timer timer;
                 auto ret = eval_->evaluate(vec);
                 cache_->lock();

@@ -62,6 +62,7 @@ namespace ps{
                         ,suit_{s}, rank_{r}
                 {}
                 auto id()const{ return id_; }
+                size_t mask()const{ return 1 << id(); }
                 std::string to_string()const{
                         return rank_.to_string() + 
                                suit_.to_string();
@@ -100,6 +101,9 @@ namespace ps{
                 {
                 }
                 auto id()const{ return id_; }
+                size_t mask()const{
+                        return first().mask() | second().mask();
+                }
                 std::string to_string()const{
                         return first_.to_string() + 
                                second_.to_string();
@@ -110,8 +114,8 @@ namespace ps{
                 bool operator<(holdem_hand_decl const& that)const{
                         return id_ < that.id_;
                 }
-                decltype(auto) first()const{ return first_; }
-                decltype(auto) second()const{ return second_; }
+                card_decl const& first()const{ return first_; }
+                card_decl const& second()const{ return second_; }
                 static holdem_hand_decl const& get(holdem_id id);
                 static holdem_hand_decl const& get(card_id x, card_id y){
                         return get( make_id(x,y) );
@@ -143,6 +147,26 @@ namespace ps{
                 operator holdem_id()const{ return id_; }
                 holdem_class_id class_()const;
                 static double prob(holdem_id c0, holdem_id c1);
+                template<class... Args,
+                        class _ = detail::void_t<
+                                        std::enable_if_t<
+                                                std::is_same<std::decay_t<Args>, holdem_hand_decl>::value>...
+                        >
+                >
+                static bool disjoint(Args&&... args){
+                        size_t mask{0};
+                        int aux[] = {0, ( mask |= args.mask(), 0)...};
+                        return __builtin_popcount(mask)*2 == sizeof...(args);
+                }
+                template<class... Args,
+                        class _ = detail::void_t<
+                                        std::enable_if_t<
+                                                std::is_integral<std::decay_t<Args> >::value>...
+                        >
+                >
+                static bool disjoint_id(Args&&... args){
+                        return disjoint( holdem_hand_decl::get(args)... );
+                }
         private:
                 holdem_id id_;
                 card_decl first_;

@@ -5,25 +5,31 @@
 #include <cstdint>
 
 namespace ps{
+        #if 1
+        using id_type         = std::uint_fast16_t;
+        using suit_id         = std::uint_fast8_t;
+        using rank_id         = std::uint_fast8_t; 
+        using card_id         = std::uint_fast8_t; 
+        using holdem_id       = std::uint_fast16_t;
+        using holdem_class_id = std::uint_fast8_t; 
+        #endif
 
         #if 0
-        using id_type         =  std::uint16_t;
-
+        using id_type         = std::uint16_t;
         using suit_id         = std::uint8_t;
         using rank_id         = std::uint8_t; 
         using card_id         = std::uint8_t; 
         using holdem_id       = std::uint16_t;
         using holdem_class_id = std::uint8_t; 
-        #else
+        #endif
 
-        using id_type =  unsigned;
-
-        using suit_id   = std::uint_fast8_t;
-        using rank_id   = std::uint_fast8_t;
-        using card_id   = std::uint_fast8_t;
-        using holdem_id = unsigned;
+        #if 0
+        using id_type         = unsigned;
+        using suit_id         = unsigned;
+        using rank_id         = unsigned;
+        using card_id         = unsigned;
+        using holdem_id       = unsigned;
         using holdem_class_id = unsigned;
-
         #endif
 
 

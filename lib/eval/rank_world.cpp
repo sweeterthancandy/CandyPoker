@@ -7,7 +7,7 @@ namespace {
                 rank_world_aux(){
                         result.emplace_back(); // dummy one because we start at 1
                 }
-                void next( bool f, ranking_t a, ranking_t b, ranking_t c, ranking_t d, ranking_t e){
+                void next( bool f, rank_id a, rank_id b, rank_id c, rank_id d, rank_id e){
                         rank_vector aux{a,b,c,d,e};
                         result.emplace_back(order_, f, name_proto_, std::move(aux));
                         ++order_;

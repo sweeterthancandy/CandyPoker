@@ -2,6 +2,7 @@
 #define PS_CARDS_FWD_H
 
 #include <string>
+#include <cstdint>
 
 namespace ps{
 
@@ -17,9 +18,9 @@ namespace ps{
 
         using id_type =  unsigned;
 
-        using suit_id   = unsigned;
-        using rank_id   = unsigned;
-        using card_id   = unsigned;
+        using suit_id   = std::uint_fast8_t;
+        using rank_id   = std::uint_fast8_t;
+        using card_id   = std::uint_fast8_t;
         using holdem_id = unsigned;
         using holdem_class_id = unsigned;
 

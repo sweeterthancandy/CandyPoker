@@ -58,7 +58,7 @@ board_combination_iterator& board_combination_iterator::operator++(){
                 // First see if we can't decrement the board
                 // at the cursor
                 if( cursor == n_ -1 ){
-                        if( next_[board_[cursor]] == -1 ){
+                        if( next_[board_[cursor]] == static_cast<card_id>(-1) ){
                                 // case XXXX0
                                 --cursor;
                                 continue;

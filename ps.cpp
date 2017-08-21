@@ -195,6 +195,11 @@ struct equity_evaulator_principal
 struct card_chain{};
 
 int main(){
+        #if 0
+        for(board_combination_iterator iter(5),end;iter!=end;++iter){
+                std::cout << *iter << "\n";
+        }
+        #endif
         working::equity_evaulator_principal ec;
         working::evaluator_7_card_map ev;
         holdem_class_vector cv;

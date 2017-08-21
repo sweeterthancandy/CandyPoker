@@ -3,6 +3,7 @@
 
 namespace ps{
 
+#if 0
 struct holdem_board_decl{
         struct layout{
                 layout(card_vector vec)
@@ -44,6 +45,7 @@ struct holdem_board_decl{
 private:
         std::vector<layout> world_;
 };
+#endif
 
 } // ps
 

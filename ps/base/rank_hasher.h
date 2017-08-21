@@ -6,18 +6,27 @@ namespace ps{
 struct rank_hasher{
         using hash_t = size_t;
 
-        hash_t create(){ return 0; }
-        hash_t create(rank_vector const& rv){
+        hash_t create()const noexcept{ return 0; }
+        hash_t create(rank_vector const& rv)const noexcept{
                 auto hash = create();
                 for(auto id : rv )
                         hash = append(hash, id);
                 return hash;
         }
         template<class... Args>
-        hash_t create(Args... args){
+        hash_t create(Args... args)const noexcept{
                 auto hash = create();
                 int _[] = {0,  (hash = append(hash, args),0)...};
                 return hash;
+        }
+        template<class... Args>
+        hash_t create_from_cards(Args... args)const noexcept{
+                auto hash = create();
+                int _[] = {0,  (hash = append(hash, card_decl::get(args).rank()),0)...};
+                return hash;
+        }
+        const hash_t max()const noexcept{
+                return create(12,12,12,12,11,11,11);
         }
         /*
                   +----+--+--+--+--+--+--+--+--+--+--+--+--+--+
@@ -43,7 +52,7 @@ struct rank_hasher{
                                    3 | 11
                                    4 | 11
         */
-        hash_t append(hash_t hash, rank_id rank){
+        hash_t append(hash_t hash, rank_id rank)const noexcept{
                 auto idx = rank * 2;
                 auto mask = ( hash & ( 0x3 << idx ) ) >> idx;
                 switch(mask){

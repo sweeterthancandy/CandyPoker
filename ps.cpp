@@ -39,12 +39,7 @@ struct evaluator_7_card_map : evaluator
 {
         evaluator_7_card_map(){
                 impl_ = &evaluator_factory::get("6_card_map");
-                card_map_7_.resize( make_hash_(12,12,12,12, 11,11,11));
-                std::array<int,4> suit_map = { 2,3,5,7 };
-                for( size_t i{0};i!=52;++i){
-                        flush_device_[i] = suit_map[card_decl::get(i).suit().id()];
-                        rank_device_[i] = card_decl::get(i).rank().id();
-                }
+                card_map_7_.resize(rhasher_.max());
 
                 for(size_t i=0;i!=52;++i){
                         card_rank_device_[i] = card_decl::get(i).rank().id();
@@ -66,27 +61,15 @@ struct evaluator_7_card_map : evaluator
         }
         ranking_t rank(long a, long b, long c, long d, long e, long f, long g)const override{
 
-                auto f_aux =  flush_device_[a] * flush_device_[b] *
-                              flush_device_[c] * flush_device_[d] *
-                              flush_device_[e] * flush_device_[f] *
-                              flush_device_[g];
+                auto shash =  shasher_.create_from_cards(a,b,c,d,e,f,g);
 
-                if( (f_aux % (2*2*2*2*2)) == 0 ||
-                    (f_aux % (3*3*3*3*3)) == 0 ||
-                    (f_aux % (5*5*5*5*5)) == 0 ||
-                    (f_aux % (7*7*7*7*7)) == 0 )
-                {
+                if( shasher_.has_flush(shash)){
                         //++miss;
                         return impl_->rank(a,b,c,d,e,f,g);
                 }
 
-                auto ret = card_map_7_[make_hash_(card_rank_device_[a],
-                                                  card_rank_device_[b],
-                                                  card_rank_device_[c],
-                                                  card_rank_device_[d],
-                                                  card_rank_device_[e],
-                                                  card_rank_device_[f],
-                                                  card_rank_device_[g])];
+                auto rhash = rhasher_.create_from_cards(a,b,c,d,e,f,g);
+                auto ret = card_map_7_[rhash];
 
                 return ret;
         }
@@ -136,13 +119,7 @@ private:
                         if( aux[i] > 4 )
                                 return;
                 }
-                auto hash = make_hash_( b[0], b[1], b[2], b[3], b[4], b[5], b[6] );
-
-                if( debugger_.count(hash) !=0  ){
-                        //std::cout << "not injective\n";
-                        return;
-                }
-                debugger_.emplace(hash, b);
+                auto hash = rhasher_.create( b[0], b[1], b[2], b[3], b[4], b[5], b[6] );
 
                 auto val  = rank_from_rank_impl_( b[0], b[1], b[2], b[3], b[4], b[5], b[6] );
 
@@ -153,7 +130,6 @@ private:
         }
         size_t make_hash_(long a, long b, long c, long d, long e, long f, long g)const{
                 static rank_hasher rh;
-                return rh.create(a,b,c,d,e,f,g);
                 auto hash = rh.create();
                 hash = rh.append(hash, a);
                 hash = rh.append(hash, b);
@@ -164,13 +140,11 @@ private:
                 hash = rh.append(hash, g);
                 return hash;
         } 
-        std::map<size_t, rank_vector> debugger_;
+        rank_hasher rhasher_;
+        suit_hasher shasher_;
         evaluator* impl_;
         std::array<size_t, 52> card_rank_device_;
         std::vector<ranking_t> card_map_7_;
-                
-        std::array<int, 52> flush_device_;
-        std::array<int, 52> rank_device_;
 };
 
 

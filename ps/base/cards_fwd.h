@@ -44,6 +44,14 @@ namespace ps{
         struct holdem_hand_decl;
         struct holdem_class_decl;
         
+        
+        inline card_id card_suit_from_id(card_id id){
+                return id & 0x3;
+        }
+        inline card_id card_rank_from_id(card_id id){
+                return id >> 2;
+        }
+        
 } // ps
 
 #endif // PS_CARDS_FWD_H

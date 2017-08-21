@@ -22,7 +22,7 @@ struct rank_hasher{
         template<class... Args>
         hash_t create_from_cards(Args... args)const noexcept{
                 auto hash = create();
-                int _[] = {0,  (hash = append(hash, card_decl::get(args).rank()),0)...};
+                int _[] = {0,  (hash = append(hash, card_rank_from_id(args)),0)...};
                 return hash;
         }
         const hash_t max()const noexcept{

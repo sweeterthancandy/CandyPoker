@@ -16,7 +16,7 @@ struct suit_hasher{
         template<class... Args>
         hash_t create_from_cards(Args... args)const noexcept{
                 auto hash = create();
-                int _[] = {0,  (hash = append(hash, card_decl::get(args).suit()),0)...};
+                int _[] = {0,  (hash = append(hash, card_suit_from_id(args)),0)...};
                 return hash;
         }
         bool has_flush(hash_t hash)const noexcept{

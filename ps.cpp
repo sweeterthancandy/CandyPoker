@@ -77,16 +77,11 @@ struct evaluator_7_card_map : evaluator
         mutable std::atomic_int hit{0};
         ranking_t rank(card_vector const& cv, size_t suit_hash, size_t rank_hash, long a, long b)const {
 
-                if( (suit_hash % (2*2*2*2*2)) == 0 ||
-                    (suit_hash % (3*3*3*3*3)) == 0 ||
-                    (suit_hash % (5*5*5*5*5)) == 0 ||
-                    (suit_hash % (7*7*7*7*7)) == 0 )
-                {
+                if( shasher_.has_flush(suit_hash) ){
                         ++miss;
                         return impl_->rank(a,b,cv[0], cv[1], cv[2], cv[3], cv[4]);
                 }
                 ++hit;
-
                 auto ret = card_map_7_[rank_hash];
                 return ret;
         }
@@ -128,18 +123,6 @@ private:
 
                 card_map_7_[hash] = val;
         }
-        size_t make_hash_(long a, long b, long c, long d, long e, long f, long g)const{
-                static rank_hasher rh;
-                auto hash = rh.create();
-                hash = rh.append(hash, a);
-                hash = rh.append(hash, b);
-                hash = rh.append(hash, c);
-                hash = rh.append(hash, d);
-                hash = rh.append(hash, e);
-                hash = rh.append(hash, f);
-                hash = rh.append(hash, g);
-                return hash;
-        } 
         rank_hasher rhasher_;
         suit_hasher shasher_;
         evaluator* impl_;
@@ -201,6 +184,15 @@ struct equity_evaulator_principal
 } // working
 
 
+/*
+        Idea here is that I'm not concerned about
+        creating an object representing 5 cards,
+        so that we create another object after adding
+        2 more cards, ie, 
+
+
+ */
+struct card_chain{};
 
 int main(){
         working::equity_evaulator_principal ec;
@@ -209,6 +201,16 @@ int main(){
         holdem_board_decl w;
         rank_hasher rh;
         suit_hasher sh;
+        #if 0
+        for(int i=0;i!=52;++i){
+                auto const& card{ card_decl::get(i) };
+                std::cout << card 
+                        << " - " << (int)card.suit() << " - " << (int)(i & 0x3 )
+                        << " / " << (int)card.rank() << " - " << (int)(i >> 2 )
+                        << "\n";
+        }
+        return 0;
+        #endif
         #if 1
         cv.push_back("AA");
         cv.push_back("KK");

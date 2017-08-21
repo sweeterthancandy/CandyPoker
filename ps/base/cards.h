@@ -56,6 +56,7 @@ namespace ps{
                 char sym_;
         };
 
+
         struct card_decl{
                 card_decl( suit_decl const& s, rank_decl const& r):
                         id_{make_id(s.id(),r.id())}
@@ -67,7 +68,9 @@ namespace ps{
                         return rank_.to_string() + 
                                suit_.to_string();
                 }
+                // id & 0x3
                 suit_decl const& suit()const{ return suit_; }
+                // id >> 2
                 rank_decl const& rank()const{ return rank_; }
                 friend std::ostream& operator<<(std::ostream& ostr, card_decl const& self){
                         return ostr << self.to_string();

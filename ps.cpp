@@ -93,92 +93,73 @@ private:
         std::vector<layout> world_;
 };
 
-struct evaluator_5_card_map : evaluator{
-        evaluator_5_card_map(){
-                flush_map_.resize( 37 * 37 * 37 * 37 * 31 +1 );
-                rank_map_.resize( 37 * 37 * 37 * 37 * 31 +1 );
-
-                std::array<int,4> suit_map = { 2,3,5,7 };
-                for( size_t i{0};i!=52;++i){
-                        flush_device_[i] = suit_map[card_decl::get(i).suit().id()];
-                        rank_device_[i] = card_decl::get(i).rank().id();
+namespace detail{
+        struct hash_ranker{
+                using hash_t = rank_hasher::hash_t;
+                hash_ranker(){
+                        rank_map_.resize(rhasher_.max());
+                        flush_map_.resize(rhasher_.max());
+                        std::cout << "systems are go\n";
                 }
-                generate(*this);
-        }
-        void begin(std::string const&){}
-        void end(){}
-        void next( bool f, long a, long b, long c, long d, long e){
-                auto m = map_rank(a,b,c,d,e);
-                if( f )
-                        flush_map_[m] = order_;
-                else
-                        rank_map_[m] = order_;
-                ++order_;
-        }
-        ranking_t eval_flush(std::uint32_t m)const noexcept{
-                return flush_map_[m];
-        }
-        ranking_t eval_flush(long a, long b, long c, long d, long e)const noexcept{
-                std::uint32_t m = map_rank( rank_device_[a],rank_device_[b],
-                                            rank_device_[c],rank_device_[d],
-                                            rank_device_[e]);
-                return eval_flush(m);
-        }
-
-
-        ranking_t eval_rank(std::uint32_t m)const noexcept{
-                return rank_map_[m];
-        }
-        ranking_t eval_rank(long a, long b, long c, long d, long e)const noexcept{
-                std::uint32_t m = map_rank( rank_device_[a],rank_device_[b],
-                                            rank_device_[c],rank_device_[d],
-                                            rank_device_[e]);
-                return eval_rank(m);
-        }
-        ranking_t eval_rank(long a, long b, long c, long d, long e, long f)const noexcept{
-                std::uint32_t m = map_rank( rank_device_[a],rank_device_[b],
-                                            rank_device_[c],rank_device_[d],
-                                            rank_device_[e],rank_device_[f]);
-                return eval_rank(m);
-        }
-
-        std::uint32_t map_rank(long a, long b, long c, long d, long e)const{
-                //                                 2 3 4 5  6  7  8  9  T  J  Q  K  A
-                static std::array<std::uint32_t, 13> p = {2,3,5,7,11,13,17,19,23,27,29,31,37};
-                return p[a] * p[b] * p[c] * p[d] * p[e];
-        }
-        std::uint32_t map_rank(long a, long b, long c, long d, long e, long f)const{
-                //                                 2 3 4 5  6  7  8  9  T  J  Q  K  A
-                static std::array<std::uint32_t, 13> p = {2,3,5,7,11,13,17,19,23,27,29,31,37};
-                return p[a] * p[b] * p[c] * p[d] * p[e] * p[f];
-        }
-
-        // public interface
-        ranking_t rank(long a, long b, long c, long d, long e)const override{
-                auto f_aux =  flush_device_[a] * flush_device_[b] * flush_device_[c] * flush_device_[d] * flush_device_[e] ;
-                std::uint32_t m = map_rank( rank_device_[a],
-                                            rank_device_[b], 
-                                            rank_device_[c],
-                                            rank_device_[d], 
-                                            rank_device_[e]);
-                ranking_t ret;
-
-
-                switch(f_aux){
-                case 2*2*2*2*2:
-                case 3*3*3*3*3:
-                case 5*5*5*5*5:
-                case 7*7*7*7*7:
-                        ret = eval_flush(m);
-                        break;
-                default:
-                        ret = eval_rank(m);
-                        break;
+                void rank_commit(hash_t hash, ranking_t r)noexcept{
+                        rank_map_[hash] = r;
                 }
-                //PRINT_SEQ((a)(b)(c)(d)(e)(ret));
-                return ret;
+                void flush_commit(hash_t hash, ranking_t r)noexcept{
+                        flush_map_[hash] = r;
+                }
+                ranking_t rank_eval(hash_t hash)const noexcept{
+                        return rank_map_[hash];
+                }
+                ranking_t flush_eval(hash_t hash)const noexcept{
+                        return flush_map_[hash];
+                }
+        private:
+                suit_hasher shasher_;
+                rank_hasher rhasher_;
+                std::vector<ranking_t> flush_map_;
+                std::vector<ranking_t> rank_map_;
+        };
+
+        struct hash_ranker_gen_5{
+                void operator()(hash_ranker& hr){
+                        struct hash_ranker_maker_detail{
+                                hash_ranker_maker_detail(hash_ranker* ptr):ptr_{ptr}{}
+                                void begin(std::string const&){}
+                                void end(){}
+                                void next( bool f, card_id a, card_id b, card_id c, card_id d, card_id e){
+                                        auto rhash = rhasher_.create(a,b,c,d,e);
+                                        if( f )
+                                                ptr_->flush_commit(rhash, order_);
+                                        else
+                                                ptr_->rank_commit(rhash, order_);
+                                        ++order_;
+                                }
+                                hash_ranker* ptr_;
+                                size_t order_{1};
+                                suit_hasher shasher_;
+                                rank_hasher rhasher_;
+                        };
+                        hash_ranker_maker_detail aux(&hr);
+                        generate(aux);
+                        PRINT(aux.order_);
+                }
+        };
+
+}
+
+
+struct evaluator_5_card_hash{
+        evaluator_5_card_hash(){
+                detail::hash_ranker_gen_5{}(impl_);
         }
-        ranking_t rank(long a, long b, long c, long d, long e, long f)const override{
+        ranking_t rank(card_id a, card_id b, card_id c, card_id d, card_id e)const noexcept{
+                auto shash = shasher_.create_from_cards(a,b,c,d,e);
+                auto rhash = rhasher_.create_from_cards(a,b,c,d,e);
+                if( shasher_.has_flush(shash) )
+                        return impl_.flush_eval(rhash);
+                return impl_.rank_eval(rhash);
+        }
+        ranking_t rank(card_id a, card_id b, card_id c, card_id d, card_id e, card_id f)const noexcept{
                 std::array<ranking_t, 6> aux { 
                         rank(  b,c,d,e,f),
                         rank(a,  c,d,e,f),
@@ -189,7 +170,7 @@ struct evaluator_5_card_map : evaluator{
                 };
                 return * std::min_element(aux.begin(), aux.end());
         }
-        ranking_t rank(long a, long b, long c, long d, long e, long f, long g)const override{
+        ranking_t rank(card_id a, card_id b, card_id c, card_id d, card_id e, card_id f, card_id g)const noexcept{
                 std::array<ranking_t, 7> aux = {
                         rank(  b,c,d,e,f,g),
                         rank(a,  c,d,e,f,g),
@@ -201,14 +182,12 @@ struct evaluator_5_card_map : evaluator{
                 };
                 return * std::min_element(aux.begin(), aux.end());
         }
-protected:
-        std::array<int, 52> flush_device_;
-        std::array<int, 52> rank_device_;
 private:
-        size_t order_ = 1;
-        std::vector<ranking_t> flush_map_;
-        std::vector<ranking_t> rank_map_;
+        suit_hasher shasher_;
+        rank_hasher rhasher_;
+        detail::hash_ranker impl_;
 };
+
 
 struct evaluator_7_card_map : evaluator
 {
@@ -299,74 +278,19 @@ private:
         }
         rank_hasher rhasher_;
         suit_hasher shasher_;
-        evaluator_5_card_map impl_;
+        evaluator_5_card_hash impl_;
         std::array<size_t, 52> card_rank_device_;
         std::vector<ranking_t> card_map_7_;
 };
 
 
-template<class Impl_Type>
-struct equity_evaulator_principal_tpl : public ps::equity_evaluator{
-        std::shared_ptr<equity_breakdown> evaluate(std::vector<holdem_id> const& players)const override{
-                // we first need to enumerate every run of the board,
-                // for this we can create a mapping [0,51-n*2] -> [0,51],
-                auto result = std::make_shared<equity_breakdown_matrix>(players.size());
 
-                // vector of first and second card
-                std::vector<card_id> x,y;
-                std::vector<card_id> known;
-
-                for( auto const& p : players){
-                        x.push_back(holdem_hand_decl::get(p).first().id());
-                        y.push_back(holdem_hand_decl::get(p).second().id());
-                }
-                auto n = players.size();
-
-                boost::copy( x, std::back_inserter(known));
-                boost::copy( y, std::back_inserter(known));
-
-        
-                size_t board_count = 0;
-                for(board_combination_iterator iter(5, known),end;iter!=end;++iter){
-                        ++board_count;
-
-                        auto const& b(*iter);
-
-                        std::vector<ranking_t> ranked;
-                        for( size_t i=0;i!=n;++i){
-                                ranked.push_back(impl_->rank(x[i], y[i],
-                                                            b[0], b[1], b[2], b[3], b[4]) );
-                        }
-                        detail::dispatch_ranked_vector{}(*result, ranked);
-                }
-                PRINT(board_count);
-
-                return result;
-        }
-protected:
-        Impl_Type* impl_;
-};
-
-struct equity_evaulator_principal
-        : equity_evaulator_principal_tpl<evaluator_7_card_map>
-{
-        equity_evaulator_principal()
-        {
-                impl_ = new evaluator_7_card_map;
-        }
-};
 } // working
 
 
 
 int main(){
-        #if 0
-        for(board_combination_iterator iter(5),end;iter!=end;++iter){
-                std::cout << *iter << "\n";
-        }
-        #endif
-        working::equity_evaulator_principal ec;
-        working::evaluator_7_card_map ev;
+        working::evaluator_5_card_hash ev;
         holdem_class_vector cv;
         working::holdem_board_decl w;
         rank_hasher rh;
@@ -449,10 +373,20 @@ int main(){
                                 suit_hash = sh.append(suit_hash, hv_second_suit[i] );
 
 
+                                #if 0
                                 ranked[i] = ev.rank(b.board(),
                                                     suit_hash, rank_hash,
                                                     hv_first[i],
                                                     hv_second[i]);
+                                                    #endif
+                                ranked[i] = ev.rank(b.board()[0],
+                                                    b.board()[1],
+                                                    b.board()[2],
+                                                    b.board()[3],
+                                                    b.board()[4],
+                                                    hv_first[i],
+                                                    hv_second[i]);
+
                         }
                         detail::dispatch_ranked_vector{}(*sub, ranked);
 
@@ -467,6 +401,8 @@ int main(){
                 #endif
         }
         std::cout << *result << "\n";
+        #if 0
         auto r = static_cast<double>(ev.hit)/(ev.miss+ev.hit);
         PRINT_SEQ((ev.hit)(ev.miss)(r));
+        #endif
 }

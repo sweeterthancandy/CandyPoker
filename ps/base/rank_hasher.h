@@ -25,8 +25,12 @@ struct rank_hasher{
                 int _[] = {0,  (hash = append(hash, card_rank_from_id(args)),0)...};
                 return hash;
         }
-        const hash_t max()const noexcept{
-                return create(12,12,12,12,11,11,11);
+        const hash_t max(size_t n = 7)const noexcept{
+                switch(n){
+                case 7:
+                default:
+                        return create(12,12,12,12,11,11,11);
+                }
         }
         /*
                   +----+--+--+--+--+--+--+--+--+--+--+--+--+--+

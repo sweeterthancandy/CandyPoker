@@ -246,56 +246,56 @@ private:
 };
 
 
-        struct hash_ranker{
-                using hash_t = rank_hasher::hash_t;
-                hash_ranker(){
-                        rank_map_.resize(rhasher_.max());
-                        flush_map_.resize(rhasher_.max());
-                        std::cout << "systems are go\n";
+struct hash_ranker{
+        hash_ranker(){
+                rank_map_ .resize(rank_hash_max(7));
+                flush_map_.resize(rank_hash_max(7));
+        }
+        void rank_commit(rank_hash_t hash, ranking_t r)noexcept{
+                rank_map_[hash] = r;
+        }
+        void flush_commit(rank_hash_t hash, ranking_t r)noexcept{
+                flush_map_[hash] = r;
+        }
+        ranking_t rank_eval(rank_hash_t hash)const noexcept{
+                return rank_map_[hash];
+        }
+        ranking_t flush_eval(rank_hash_t hash)const noexcept{
+                return flush_map_[hash];
+        }
+        void display(){
+                for(size_t i=0;i < rank_map_.size();++i){
+                        if( flush_map_[i] != 0 )
+                                PRINT_SEQ((i)(flush_map_[i]));
                 }
-                void rank_commit(hash_t hash, ranking_t r)noexcept{
-                        rank_map_[hash] = r;
-                }
-                void flush_commit(hash_t hash, ranking_t r)noexcept{
-                        flush_map_[hash] = r;
-                }
-                ranking_t rank_eval(hash_t hash)const noexcept{
-                        return rank_map_[hash];
-                }
-                ranking_t flush_eval(hash_t hash)const noexcept{
-                        return flush_map_[hash];
-                }
-        private:
-                suit_hasher shasher_;
-                rank_hasher rhasher_;
-                std::vector<ranking_t> flush_map_;
-                std::vector<ranking_t> rank_map_;
-        };
+        }
+private:
+        std::vector<ranking_t> flush_map_;
+        std::vector<ranking_t> rank_map_;
+};
 
-        struct hash_ranker_gen_5{
-                void operator()(hash_ranker& hr){
-                        struct hash_ranker_maker_detail{
-                                hash_ranker_maker_detail(hash_ranker* ptr):ptr_{ptr}{}
-                                void begin(std::string const&){}
-                                void end(){}
-                                void next( bool f, card_id a, card_id b, card_id c, card_id d, card_id e){
-                                        auto rhash = rhasher_.create(a,b,c,d,e);
-                                        if( f )
-                                                ptr_->flush_commit(rhash, order_);
-                                        else
-                                                ptr_->rank_commit(rhash, order_);
-                                        ++order_;
-                                }
-                                hash_ranker* ptr_;
-                                size_t order_{1};
-                                suit_hasher shasher_;
-                                rank_hasher rhasher_;
-                        };
-                        hash_ranker_maker_detail aux(&hr);
-                        generate(aux);
-                        PRINT(aux.order_);
-                }
-        };
+struct hash_ranker_gen_5{
+        void operator()(hash_ranker& hr){
+                struct hash_ranker_maker_detail{
+                        hash_ranker_maker_detail(hash_ranker* ptr):ptr_{ptr}{}
+                        void begin(std::string const&){}
+                        void end(){}
+                        void next( bool f, rank_id a, rank_id b, rank_id c, rank_id d, rank_id e){
+                                auto hash = rank_hash_create(a,b,c,d,e);
+                                if( f )
+                                        ptr_->flush_commit(hash, order_);
+                                else
+                                        ptr_->rank_commit(hash, order_);
+                                ++order_;
+                        }
+                        hash_ranker* ptr_;
+                        size_t order_{1};
+                };
+                hash_ranker_maker_detail aux(&hr);
+                generate(aux);
+                PRINT(aux.order_);
+        }
+};
 
 
 
@@ -306,11 +306,10 @@ struct evaluator_5_card_hash{
                 hash_ranker_gen_5{}(impl_);
         }
         ranking_t rank(card_id a, card_id b, card_id c, card_id d, card_id e)const noexcept{
-                auto shash = shasher_.create_from_cards(a,b,c,d,e);
-                auto rhash = rhasher_.create_from_cards(a,b,c,d,e);
-                if( shasher_.has_flush(shash) )
-                        return impl_.flush_eval(rhash);
-                return impl_.rank_eval(rhash);
+                auto hash = card_hash_create_from_cards(a,b,c,d,e);
+                if( suit_hash_has_flush(card_hash__detail__get_suit(hash) ) )
+                        return impl_.flush_eval(card_hash__detail__get_rank(hash));
+                return impl_.rank_eval(hash);
         }
         ranking_t rank(card_id a, card_id b, card_id c, card_id d, card_id e, card_id f)const noexcept{
                 std::array<ranking_t, 6> aux { 
@@ -333,11 +332,10 @@ struct evaluator_5_card_hash{
                         rank(a,b,c,d,e,  g),
                         rank(a,b,c,d,e,f  )
                 };
+                //PRINT( ::detail::to_string(aux) );
                 return * std::min_element(aux.begin(), aux.end());
         }
 private:
-        suit_hasher shasher_;
-        rank_hasher rhasher_;
         hash_ranker impl_;
 };
 
@@ -519,6 +517,7 @@ int main(){
                                                                       b.board()[3],
                                                                       b.board()[4]);
                                 
+                        #if 0
                         PRINT( std::bitset<64>(hash_proto) );
                         PRINT( std::bitset<64>(hash_other) );
                         PRINT( std::bitset<32>(card_hash__detail__get_suit(hash_proto)));
@@ -529,6 +528,7 @@ int main(){
                         PRINT( rank_hash_get_vector(card_hash__detail__get_rank(hash_other)));
                         PRINT( b.board() );
                         std::cout << "---------------\n";
+                        #endif
 
                         for(size_t i=0;i!=hv.size();++i){
                                 
@@ -567,12 +567,6 @@ int main(){
                                 PRINT( std::bitset<64>(card_hash) );
                                 #endif
 
-                                #if 0
-                                ranked[i] = ev.rank(b.board(),
-                                                    suit_hash, rank_hash,
-                                                    hv_first[i],
-                                                    hv_second[i]);
-                                                    #endif
                                 ranked[i] = ev.rank(b.board()[0],
                                                     b.board()[1],
                                                     b.board()[2],

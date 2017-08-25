@@ -51,34 +51,186 @@ namespace working{
 struct card_chain{
 };
 
+
+
+using suit_hash_t = std::uint32_t;
+
+suit_hash_t suit_hash_create(){
+        return static_cast<suit_hash_t>(1);
+}
+suit_hash_t suit_hash_append(suit_hash_t hash, rank_id rank)noexcept{
+        static constexpr const std::array<suit_id,4> suit_map = { 2,3,5,7 };
+        return hash * suit_map[rank];
+}
+
+template<class... Args>
+suit_hash_t suit_hash_create_from_cards(Args... args){
+        auto hash = suit_hash_create();
+        int dummy[] = {0,  (hash = suit_hash_append(hash, card_suit_from_id(args)),0)...};
+        return hash;
+}
+bool suit_hash_has_flush(suit_hash_t hash){
+        if( hash == 0 )
+                return false;
+        return 
+            ((hash % (2*2*2*2*2))*
+             (hash % (3*3*3*3*3))*
+             (hash % (5*5*5*5*5))*
+             (hash % (7*7*7*7*7))) == 0;
+}
+
+using rank_hash_t = std::uint32_t;
+
+/*
+          +----+--+--+--+--+--+--+--+--+--+--+--+--+--+
+          |card|A |K |Q |J |T |9 |8 |7 |6 |5 |4 |3 |2 |
+          +----+--+--+--+--+--+--+--+--+--+--+--+--+--+
+          |yyyy|xx|xx|xx|xx|xx|xx|xx|xx|xx|xx|xx|xx|xx|
+          +----+--+--+--+--+--+--+--+--+--+--+--+--+--+
+          |  1A|18|16|14|12|10| E| C| A| 8| 6| 4| 2| 0|
+          +----+--+--+--+--+--+--+--+--+--+--+--+--+--+
+
+          yyyy ~ value of rank with 4 cards, zero 
+                 when there warn't 4 cards
+
+          xx   ~ bit mask to non-injective mapping for
+                 number of cards, 
+
+
+                           n | bits
+                           --+-----
+                           0 | 00
+                           1 | 01
+                           2 | 10
+                           3 | 11
+                           4 | 11
+*/
+rank_hash_t rank_hash_append(rank_hash_t hash, rank_id rank)noexcept{
+        auto idx = rank * 2;
+        auto mask = ( hash & ( 0x3 << idx ) ) >> idx;
+        switch(mask){
+        case 0x0:
+                // set the idx'th bit
+                hash |= 0x1 << idx;
+                break;
+        case 0x1:
+                // unset the idx'th bit
+                hash &= ~(0x1 << idx);
+                // set the (idx+1)'th bit
+                hash |= 0x1 << (idx+1);
+                break;
+        case 0x2:
+                // set the idx'th bit
+                hash |= 0x1 << idx;
+                break;
+        case 0x3:
+                // set the special part of mask for the fourth card
+                hash |= (rank + 1) << 0x1A;
+                // zero out for ease of reverse parsing
+                hash &= ~(0x3 << idx);
+                break;
+        default:
+                PS_UNREACHABLE();
+        }
+        return hash;
+}
+rank_vector rank_hash_get_vector(rank_hash_t hash){
+        rank_vector ret;
+
+        auto fourth = hash >> 0x1A;
+        if( fourth ){
+                ret.push_back( fourth -1 );
+        }
+        for(size_t rank=0;rank!=13;++rank){
+                auto idx = rank * 2;
+                auto mask = ( hash & ( 0x3 << idx ) ) >> idx;
+                for(;mask;--mask){
+                        ret.push_back(rank);
+                }
+        }
+        return std::move(ret);
+}
+
+rank_hash_t rank_hash_create()noexcept{ return 0; }
+rank_hash_t rank_hash_create(rank_vector const& rv)noexcept{
+        auto hash = rank_hash_create();
+        for(auto id : rv )
+                hash = rank_hash_append(hash, id);
+        return hash;
+}
+template<class... Args>
+rank_hash_t rank_hash_create(Args... args)noexcept{
+        auto hash = rank_hash_create();
+        int _[] = {0,  (hash = rank_hash_append(hash, args),0)...};
+        return hash;
+}
+template<class... Args>
+rank_hash_t rank_hash_create_from_cards(Args... args)noexcept{
+        auto hash = rank_hash_create();
+        int _[] = {0,  (hash = rank_hash_append(hash, card_rank_from_id(args)),0)...};
+        return hash;
+}
+const rank_hash_t rank_hash_max(size_t n = 7)noexcept{
+        switch(n){
+        case 7:
+        default:
+                return rank_hash_create(12,12,12,12,11,11,11);
+        }
+}
+
+using card_hash_t = std::uint64_t;
+
+card_hash_t card_hash__detail__pack(suit_hash_t sh, rank_hash_t rh){
+        return 
+                (static_cast<card_hash_t>(sh) << 32) |
+                 static_cast<card_hash_t>(rh)
+        ;
+}
+suit_hash_t card_hash__detail__get_suit(card_hash_t hash){
+        return static_cast<suit_hash_t>( hash >> 32 ); 
+}
+rank_hash_t card_hash__detail__get_rank(card_hash_t hash){
+        return static_cast<rank_hash_t>( hash & 0xffffffff); 
+}
+card_hash_t card_hash_create(){
+        return card_hash__detail__pack(
+                suit_hash_create(),
+                rank_hash_create());
+}
+card_hash_t card_hash_append(card_hash_t hash, card_id id){
+        return card_hash__detail__pack(
+                suit_hash_append( card_hash__detail__get_suit(hash), card_suit_from_id(id)),
+                rank_hash_append( card_hash__detail__get_rank(hash), card_rank_from_id(id)));
+}
+template<class... Args>
+card_hash_t card_hash_create_from_cards(Args... cards){
+        return card_hash__detail__pack(
+                suit_hash_create_from_cards(cards...),
+                rank_hash_create_from_cards(cards...));
+}
+card_hash_t card_hash_create_from_cards(card_vector const& cards){
+        auto hash = card_hash_create();
+        for( auto id : cards){
+                hash = card_hash_append(hash, id);
+        }
+        return hash;
+}
+
+
 struct holdem_board_decl{
         struct layout{
                 layout(card_vector vec)
                         :vec_{std::move(vec)}
-                {
-                        static suit_hasher sh;
-                        static rank_hasher rh;
-                                
-                        rank_hash_ = rh.create();
-                        suit_hash_ = sh.create();
-
-                        for( auto id : vec_ ){
-                                auto const& hand{ card_decl::get(id) };
-
-                                rank_hash_ = rh.append(rank_hash_, hand.rank() );
-                                suit_hash_ = sh.append(suit_hash_, hand.suit() );
-                        }
-                        mask_ = vec_.mask();
-                }
+                        ,mask_{vec_.mask()}
+                        ,hash_{card_hash_create_from_cards(vec_)}
+                {}
                 size_t mask()const{ return mask_; }
-                size_t rank_hash()const{ return rank_hash_; }
-                size_t suit_hash()const{ return suit_hash_; }
+                size_t hash()const{ return hash_; }
                 card_vector const& board()const{ return vec_; }
         private:
-                size_t mask_;
                 card_vector vec_;
-                size_t rank_hash_{0};
-                size_t suit_hash_{0};
+                size_t mask_;
+                card_hash_t hash_{0};
         };
 
         holdem_board_decl(){
@@ -92,147 +244,6 @@ struct holdem_board_decl{
 private:
         std::vector<layout> world_;
 };
-
-
-        using suit_hash_t = std::uint32_t;
-
-        suit_hash_t suit_hash_create(){
-                return static_cast<suit_hash_t>(1);
-        }
-        suit_hash_t suit_hash_append(suit_hash_t hash, rank_id rank)noexcept{
-                static constexpr const std::array<suit_id,4> suit_map = { 2,3,5,7 };
-                return hash * suit_map[rank];
-        }
-
-        template<class... Args>
-        suit_hash_t suit_hash_create_from_cards(Args... args){
-                auto hash = suit_hash_create();
-                int dummy[] = {0,  (hash = suit_hash_append(hash, card_suit_from_id(args)),0)...};
-                return hash;
-        }
-        bool suit_hash_has_flush(suit_hash_t hash){
-                if( hash == 0 )
-                        return false;
-                return 
-                    ((hash % (2*2*2*2*2))*
-                     (hash % (3*3*3*3*3))*
-                     (hash % (5*5*5*5*5))*
-                     (hash % (7*7*7*7*7))) == 0;
-        }
-
-        using rank_hash_t = std::uint32_t;
-        
-        /*
-                  +----+--+--+--+--+--+--+--+--+--+--+--+--+--+
-                  |card|A |K |Q |J |T |9 |8 |7 |6 |5 |4 |3 |2 |
-                  +----+--+--+--+--+--+--+--+--+--+--+--+--+--+
-                  |yyyy|xx|xx|xx|xx|xx|xx|xx|xx|xx|xx|xx|xx|xx|
-                  +----+--+--+--+--+--+--+--+--+--+--+--+--+--+
-                  |  1A|18|16|14|12|10| E| C| A| 8| 6| 4| 2| 0|
-                  +----+--+--+--+--+--+--+--+--+--+--+--+--+--+
-
-                  yyyy ~ value of rank with 4 cards, zero 
-                         when there warn't 4 cards
-
-                  xx   ~ bit mask to non-injective mapping for
-                         number of cards, 
-
-
-                                   n | bits
-                                   --+-----
-                                   0 | 00
-                                   1 | 01
-                                   2 | 10
-                                   3 | 11
-                                   4 | 11
-        */
-        rank_hash_t rank_hash_append(rank_hash_t hash, rank_id rank)noexcept{
-                auto idx = rank * 2;
-                auto mask = ( hash & ( 0x3 << idx ) ) >> idx;
-                switch(mask){
-                case 0x0:
-                        // set the idx'th bit
-                        hash |= 0x1 << idx;
-                        break;
-                case 0x1:
-                        // unset the idx'th bit
-                        hash &= ~(0x1 << idx);
-                        // set the (idx+1)'th bit
-                        hash |= 0x1 << (idx+1);
-                        break;
-                case 0x2:
-                        // set the idx'th bit
-                        hash |= 0x1 << idx;
-                        break;
-                case 0x3:
-                        // set the special part of mask for the fourth card
-                        hash |= (rank + 1) << 0x1A;
-                        break;
-                default:
-                        PS_UNREACHABLE();
-                }
-                return hash;
-        }
-
-        rank_hash_t rank_hash_create()noexcept{ return 0; }
-        rank_hash_t rank_hash_create(rank_vector const& rv)noexcept{
-                auto hash = rank_hash_create();
-                for(auto id : rv )
-                        hash = rank_hash_append(hash, id);
-                return hash;
-        }
-        template<class... Args>
-        rank_hash_t rank_hash_create(Args... args)noexcept{
-                auto hash = rank_hash_create();
-                int _[] = {0,  (hash = rank_hash_append(hash, args),0)...};
-                return hash;
-        }
-        template<class... Args>
-        rank_hash_t rank_hash_create_from_cards(Args... args)noexcept{
-                auto hash = rank_hash_create();
-                int _[] = {0,  (hash = rank_hash_append(hash, card_rank_from_id(args)),0)...};
-                return hash;
-        }
-        const rank_hash_t rank_hash_max(size_t n = 7)noexcept{
-                switch(n){
-                case 7:
-                default:
-                        return rank_hash_create(12,12,12,12,11,11,11);
-                }
-        }
-        
-        using card_hash_t = std::uint64_t;
-
-        card_hash_t card_hash__detail__pack(suit_hash_t sh, rank_hash_t rh){
-                return 
-                        (static_cast<card_hash_t>(sh) << 32) |
-                         static_cast<card_hash_t>(rh)
-                ;
-        }
-        suit_hash_t card_hash__detail__get_suit(card_hash_t hash){
-                return static_cast<suit_hash_t>( hash >> 32 ); 
-        }
-        rank_hash_t card_hash__detail__get_rank(card_hash_t hash){
-                return static_cast<rank_hash_t>( hash & 0xffffffff); 
-        }
-        card_hash_t card_hash_create(){
-                return card_hash__detail__pack(
-                        suit_hash_create(),
-                        rank_hash_create());
-        }
-        card_hash_t card_hash_append(card_hash_t hash, card_id id){
-                return card_hash__detail__pack(
-                        suit_hash_append( card_hash__detail__get_suit(hash), card_suit_from_id(id)),
-                        rank_hash_create( card_hash__detail__get_rank(hash), card_rank_from_id(id)));
-        }
-        template<class... Args>
-        card_hash_t card_hash_create_from_cards(Args... cards){
-                return card_hash__detail__pack(
-                        suit_hash_create_from_cards(cards...),
-                        rank_hash_create_from_cards(cards...));
-        }
-
-
 
 
         struct hash_ranker{
@@ -493,28 +504,45 @@ int main(){
                 auto sub = std::make_shared<equity_breakdown_matrix_aggregator>(cv.size());
                 size_t board_count = 0;
                 for(auto const& b : w ){
+                                
+                        using namespace working;
 
                         bool cond = (b.mask() & hv_mask ) == 0;
                         if(!cond){
                                 continue;
                         }
                         ++board_count;
-                        auto rank_proto = b.rank_hash();
-                        auto suit_proto = b.suit_hash();
-
+                        auto hash_proto = b.hash();
+                        auto hash_other = card_hash_create_from_cards(b.board()[0],
+                                                                      b.board()[1],
+                                                                      b.board()[2],
+                                                                      b.board()[3],
+                                                                      b.board()[4]);
+                                
+                        PRINT( std::bitset<64>(hash_proto) );
+                        PRINT( std::bitset<64>(hash_other) );
+                        PRINT( std::bitset<32>(card_hash__detail__get_suit(hash_proto)));
+                        PRINT( std::bitset<32>(card_hash__detail__get_suit(hash_other)));
+                        PRINT( std::bitset<32>(card_hash__detail__get_rank(hash_proto)));
+                        PRINT( std::bitset<32>(card_hash__detail__get_rank(hash_other)));
+                        PRINT( rank_hash_get_vector(card_hash__detail__get_rank(hash_proto)));
+                        PRINT( rank_hash_get_vector(card_hash__detail__get_rank(hash_other)));
+                        PRINT( b.board() );
+                        std::cout << "---------------\n";
 
                         for(size_t i=0;i!=hv.size();++i){
+                                
 
-                                auto rank_hash = rank_proto;
-                                auto suit_hash = suit_proto;
+                                auto _____hash = 
+                                        card_hash_append(
+                                                card_hash_append(
+                                                        hash_proto, 
+                                                        hv_first[i]
+                                                ),
+                                                hv_second[i]
+                                        );
 
-                                rank_hash = rh.append(rank_hash, hv_first_rank[i]);
-                                rank_hash = rh.append(rank_hash, hv_second_rank[i]);
 
-                                suit_hash = sh.append(suit_hash, hv_first_suit[i] );
-                                suit_hash = sh.append(suit_hash, hv_second_suit[i] );
-
-                                using namespace working;
 
                                 #if 0
                                 auto card_hash = working::card_hash_create_from_cards(b.board()[0],
@@ -525,20 +553,6 @@ int main(){
                                                                                       hv_first[i],
                                                                                       hv_second[i]);
                                                                                       #endif
-                                auto suithash2 = suit_hash_create_from_cards(b.board()[0],
-                                                                             b.board()[1],
-                                                                             b.board()[2],
-                                                                             b.board()[3],
-                                                                             b.board()[4],
-                                                                             hv_first[i],
-                                                                             hv_second[i]);
-                                auto rankhash2 = rank_hash_create_from_cards(b.board()[0],
-                                                                             b.board()[1],
-                                                                             b.board()[2],
-                                                                             b.board()[3],
-                                                                             b.board()[4],
-                                                                             hv_first[i],
-                                                                             hv_second[i]);
                                 auto card_hash = card_hash_create_from_cards(b.board()[0],
                                                                              b.board()[1],
                                                                              b.board()[2],
@@ -548,11 +562,10 @@ int main(){
                                                                              hv_second[i]);
 
 
-                                PRINT( std::bitset<32>(rank_hash) );
-                                PRINT( std::bitset<32>(rankhash2) );
-                                PRINT( std::bitset<32>(suit_hash) );
-                                PRINT( std::bitset<32>(suithash2) );
+                                #if 0
+                                PRINT( std::bitset<64>(_____hash) );
                                 PRINT( std::bitset<64>(card_hash) );
+                                #endif
 
                                 #if 0
                                 ranked[i] = ev.rank(b.board(),

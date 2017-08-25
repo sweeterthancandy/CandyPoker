@@ -274,28 +274,63 @@ private:
         std::vector<ranking_t> rank_map_;
 };
 
-struct hash_ranker_gen_5{
-        void operator()(hash_ranker& hr){
-                struct hash_ranker_maker_detail{
-                        hash_ranker_maker_detail(hash_ranker* ptr):ptr_{ptr}{}
-                        void begin(std::string const&){}
-                        void end(){}
-                        void next( bool f, rank_id a, rank_id b, rank_id c, rank_id d, rank_id e){
-                                auto hash = rank_hash_create(a,b,c,d,e);
-                                if( f )
-                                        ptr_->flush_commit(hash, order_);
-                                else
-                                        ptr_->rank_commit(hash, order_);
-                                ++order_;
+void hash_ranker_gen_5(hash_ranker& hr){
+        struct hash_ranker_maker_detail{
+                hash_ranker_maker_detail(hash_ranker* ptr):ptr_{ptr}{}
+                void begin(std::string const&){}
+                void end(){}
+                void next( bool f, rank_id a, rank_id b, rank_id c, rank_id d, rank_id e){
+                        auto hash = rank_hash_create(a,b,c,d,e);
+                        if( f )
+                                ptr_->flush_commit(hash, order_);
+                        else
+                                ptr_->rank_commit(hash, order_);
+                        ++order_;
+                }
+                hash_ranker* ptr_;
+                size_t order_{1};
+        };
+        hash_ranker_maker_detail aux(&hr);
+        generate(aux);
+}
+
+void hash_ranker_gen_rank_n(hash_ranker& hr, size_t n){
+        // need to do all this fancy work, because I want to 
+        // go thought every permutation
+        //      abcdefg,
+        // where a <= b <= ..., a,b,c...\in{2,3,4,5,...,K,A},
+        // but also that no more than 4 or each
+        //
+        using iter_t = basic_index_iterator<
+                int, ordered_policy, rank_vector
+        >;
+        for(iter_t iter(n,13),end;iter!=end;++iter){
+                [&](){
+                        auto const& b = *iter;
+                        std::array<int, 13> aux = {0};
+                        for(size_t i=0;i!=b.size();++i){
+                                ++aux[b[i]];
                         }
-                        hash_ranker* ptr_;
-                        size_t order_{1};
-                };
-                hash_ranker_maker_detail aux(&hr);
-                generate(aux);
-                PRINT(aux.order_);
+                        for(size_t i=0;i!=aux.size();++i){
+                                if( aux[i] > 4 )
+                                        return;
+                        }
+
+                        std::vector<ranking_t> rankings;
+                        for(size_t i=0;i!=b.size();++i){
+                                rank_vector rv;
+                                for(size_t j=0;j!=b.size();++j){
+                                        if(j!=i){
+                                                rv.push_back(b[j]);
+                                        }
+                                }
+                                rankings.push_back( hr.rank_eval( rank_hash_create(rv) ) );
+                        }
+                        auto lowest = * std::min_element(rankings.begin(), rankings.end());
+                        hr.rank_commit( rank_hash_create(b), lowest);
+                }();
         }
-};
+}
 
 
 
@@ -303,7 +338,9 @@ struct hash_ranker_gen_5{
 
 struct evaluator_5_card_hash{
         evaluator_5_card_hash(){
-                hash_ranker_gen_5{}(impl_);
+                hash_ranker_gen_5(impl_);
+                hash_ranker_gen_rank_n(impl_, 6);
+                hash_ranker_gen_rank_n(impl_, 7);
         }
         ranking_t rank(card_id a, card_id b, card_id c, card_id d, card_id e)const noexcept{
                 auto hash = card_hash_create_from_cards(a,b,c,d,e);
@@ -312,6 +349,10 @@ struct evaluator_5_card_hash{
                 return impl_.rank_eval(hash);
         }
         ranking_t rank(card_id a, card_id b, card_id c, card_id d, card_id e, card_id f)const noexcept{
+                auto hash = card_hash_create_from_cards(a,b,c,d,e,f);
+                if( ! suit_hash_has_flush(card_hash__detail__get_suit(hash) ) ){
+                        return impl_.rank_eval(hash);
+                }
                 std::array<ranking_t, 6> aux { 
                         rank(  b,c,d,e,f),
                         rank(a,  c,d,e,f),
@@ -323,6 +364,10 @@ struct evaluator_5_card_hash{
                 return * std::min_element(aux.begin(), aux.end());
         }
         ranking_t rank(card_id a, card_id b, card_id c, card_id d, card_id e, card_id f, card_id g)const noexcept{
+                auto hash = card_hash_create_from_cards(a,b,c,d,e,f,g);
+                if( ! suit_hash_has_flush(card_hash__detail__get_suit(hash) ) ){
+                        return impl_.rank_eval(hash);
+                }
                 std::array<ranking_t, 7> aux = {
                         rank(  b,c,d,e,f,g),
                         rank(a,  c,d,e,f,g),

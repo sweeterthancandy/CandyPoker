@@ -68,6 +68,7 @@ set(
         lib/eval/class_equity_evaluator_quick.cpp 
         lib/eval/range_equity_evaluator_principal.cpp 
         lib/eval/class_range_equity_evaluator_principal.cpp 
+        lib/eval/better_class_equity_evaluator.cpp
         lib/eval/class_equity_evaluator_cache.cpp
         lib/eval/equity_breakdown.cpp
         lib/eval/holdem_class_eval_cache_impl.cpp

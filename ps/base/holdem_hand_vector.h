@@ -25,6 +25,10 @@ namespace ps{
                 bool is_standard_form()const;
                 size_t mask()const;
                 card_vector to_card_vector()const;
+                template<class Archive>
+                void serialize(Archive& ar, unsigned int){
+                        ar & (*reinterpret_cast<std::vector<ps::holdem_id>*>(this));
+                }
         };
 
         struct holdem_hand_iterator :

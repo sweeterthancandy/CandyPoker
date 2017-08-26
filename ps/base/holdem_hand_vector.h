@@ -20,7 +20,10 @@ namespace ps{
                 {}
                 holdem_hand_decl const& decl_at(size_t i)const;
                 friend std::ostream& operator<<(std::ostream& ostr, holdem_hand_vector const& self);
-                auto find_injective_permutation()const;
+                std::tuple<
+                       std::vector<int>,
+                       holdem_hand_vector
+                > to_standard_form()const;
                 bool disjoint()const;
                 bool is_standard_form()const;
                 size_t mask()const;

@@ -2,6 +2,7 @@
 #define PS_EVAL_HOLDEM_EVAL_CACHE_IMPL_H
 
 #include <fstream>
+#include <atomic>
 
 #include "ps/support/singleton_factory.h"
 #include "ps/eval/holdem_eval_cache.h"
@@ -15,8 +16,11 @@ struct holdem_eval_cache_impl : holdem_eval_cache{
 
         equity_breakdown* lookup(holdem_hand_vector const& vec){
                 auto iter = cache_.find(vec);
-                if( iter == cache_.end())
+                if( iter == cache_.end()){
+                        ++miss_;
                         return nullptr;
+                }
+                ++hit_;
                 return &iter->second;
         }
         void commit(holdem_hand_vector vec, equity_breakdown const& breakdown){
@@ -29,6 +33,8 @@ struct holdem_eval_cache_impl : holdem_eval_cache{
                         PRINT(item.first);
                         std::cout << item.second << "\n";
                 }
+                auto r = ( static_cast<double>(hit_)/(hit_ +miss_));
+                PRINT_SEQ((hit_)(miss_)(r));
                 std::cout << "DISPLAY END\n";
         }
 
@@ -47,6 +53,8 @@ struct holdem_eval_cache_impl : holdem_eval_cache{
         }
 private:
         mutable std::mutex mtx_;
+        std::atomic_int hit_;
+        std::atomic_int miss_;
         std::map< holdem_hand_vector, equity_breakdown_matrix> cache_;
 };
 

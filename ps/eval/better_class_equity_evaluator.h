@@ -186,11 +186,29 @@ private:
 struct better_class_equity_evaluator : class_equity_evaluator{
         std::shared_ptr<equity_breakdown> evaluate(holdem_class_vector const& cv)const{
 
+
+                if( class_cache_ ){
+                        auto ptr = class_cache_->try_lookup_perm(cv);
+                        if( ptr )
+                                return ptr;
+                }
+                
+                auto t = cv.to_standard_form();
+
                 auto result = std::make_shared<equity_breakdown_matrix_aggregator>(cv.size());
-                for( auto hvt : cv.to_standard_form_hands()){
+                for( auto hvt : std::get<1>(t).to_standard_form_hands()){
                         auto const& perm = std::get<0>(hvt);
                         auto const& hv   = std::get<1>(hvt);
                         auto hv_mask = hv.mask();
+
+                        if( cache_ ){
+                                auto ptr = cache_->try_lookup_perm(hv);
+                                if( ptr ){
+                                        result->append_matrix(*ptr, perm );
+                                        continue;
+                                }
+                        }
+
                                 
                         // put this here
                         std::vector<ranking_t> ranked(hv.size());
@@ -233,13 +251,35 @@ struct better_class_equity_evaluator : class_equity_evaluator{
                                 detail::dispatch_ranked_vector{}(*sub, ranked);
 
                         }
+
+                        if( cache_ ){
+                                cache_->lock();
+                                cache_->commit( hv, *sub);
+                                cache_->unlock();
+                        }
+
                         result->append_matrix(*sub, perm );
                 }
-                return result;
+                        
+                if( class_cache_ ){
+                        class_cache_->lock();
+                        class_cache_->commit( std::get<1>(t), *result);
+                        class_cache_->unlock();
+                }
+                
+                return std::make_shared<equity_breakdown_matrix>(*result, std::get<0>(t));;
+        }
+        void inject_class_cache(std::shared_ptr<holdem_class_eval_cache> ptr)override{
+                class_cache_ = ptr;
+        }
+        void inject_cache(std::shared_ptr<holdem_eval_cache> ptr)override{
+                cache_ = ptr;
         }
 private:
         evaluator_5_card_hash ev;
         holdem_board_decl w;
+        std::shared_ptr<holdem_eval_cache>  cache_;
+        std::shared_ptr<holdem_class_eval_cache>  class_cache_;
 };
 
 } // ps

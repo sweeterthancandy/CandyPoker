@@ -41,7 +41,7 @@ struct class_equity_evaluator_cache : class_equity_evaluator{
                         perm
                 );
         }
-        void inject_cache(std::shared_ptr<holdem_class_eval_cache> ptr)override{
+        void inject_class_cache(std::shared_ptr<holdem_class_eval_cache> ptr)override{
                 class_cache_ = ptr;
         }
 private:

@@ -6,7 +6,7 @@
 #include "ps/support/singleton_factory.h"
 
 #include "ps/eval/equity_breakdown.h"
-#include "ps/eval/holdem_class_eval_cache.h"
+#include "ps/eval/holdem_eval_cache.h"
 
 namespace ps{
         

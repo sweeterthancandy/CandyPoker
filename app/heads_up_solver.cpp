@@ -56,7 +56,7 @@ struct hu_class_evaluator{
                 auto& eval = class_equity_evaluator_factory::get("cached");
                 auto& cache = holdem_class_eval_cache_factory::get("main");
                 cache.load("cache.bin");
-                eval.inject_cache( std::shared_ptr<holdem_class_eval_cache>(&cache, [](auto){}));
+                eval.inject_class_cache( std::shared_ptr<holdem_class_eval_cache>(&cache, [](auto){}));
                 for(holdem_class_id hero{0};hero != holdem_class_decl::max_id; ++hero){
                         for(holdem_class_id villian{0};villian != holdem_class_decl::max_id; ++villian){
                                 holdem_class_vector vec;

@@ -18,7 +18,10 @@ namespace ps{
                                                         return holdem_hand_decl::get(id).to_string();
                                                  } );
         }
-        auto holdem_hand_vector::find_injective_permutation()const{
+        std::tuple<
+               std::vector<int>,
+               holdem_hand_vector
+        > holdem_hand_vector::to_standard_form()const{
                 auto tmp =  permutate_for_the_better(*this) ;
                 return std::make_tuple(
                         std::get<0>(tmp),

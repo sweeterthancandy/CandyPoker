@@ -8,6 +8,7 @@
 #include <boost/format.hpp>
 #include <boost/timer/timer.hpp>
 
+#include "ps/support/config.h"
 #include "ps/base/cards.h"
 #include "ps/eval/class_equity_evaluator.h"
 #include "ps/eval/equity_evaluator.h"
@@ -15,6 +16,12 @@
 
 #include <boost/range/algorithm.hpp>
 #include <boost/format.hpp>
+
+#include <boost/accumulators/accumulators.hpp>
+#include <boost/accumulators/statistics/stats.hpp>
+#include <boost/accumulators/statistics/mean.hpp>
+#include <boost/accumulators/statistics/moment.hpp>
+
 #include <random>
 
 
@@ -257,7 +264,13 @@ struct game_context{
                 next_();
         }
         void display(std::ostream& ostr = std::cout)const{
-                for(size_t i=1;i<=n();++i){
+                size_t start = 1;
+                size_t end = n() + 1;
+                if( n() == 2 ){
+                        start = 0;
+                        end = n();
+                }
+                for(size_t i=start;i<end;++i){
                         size_t offset = ( btn_ + i) % n();
                         ostr << str(boost::format("    %-5s - %s") % format_pos_(i % n()) % players_[offset]) << "\n";
                 }
@@ -281,12 +294,24 @@ private:
                 sstr << ", active_count_ " << active_count_;
                 sstr << ", allin_count_ " << allin_count_;
                 sstr << ", btn_ " << btn_;
+                sstr << ", sb_offset " << sb_offset();
+                sstr << ", bb_offset " << bb_offset();
                 return sstr.str();
         }
         std::string format_pos_(size_t offset)const{
+                if( n() == 2 ){
+                        switch(offset){
+                        case 0:
+                                return "SB";
+                        case 1:
+                                return "BB";
+                        default:
+                                PS_UNREACHABLE();
+                        }
+                }
                 switch(offset){
                 case 0:
-                        return ( n() == 2 ? "BB" : "BTN" );
+                        return "BTN";
                 case 1:
                         return "SB";
                 case 2:
@@ -387,7 +412,7 @@ struct holdem_class_strat_player : player_strat{
                                 act =  PlayerAction_Push;
                         }
                 }
-                PRINT_SEQ((holdem_hand_decl::get(id))(PlayerAction_to_string(act)));
+                //PRINT_SEQ((holdem_hand_decl::get(id))(PlayerAction_to_string(act)));
                 return act;
 
         }
@@ -396,6 +421,8 @@ private:
         holdem_class_strategy bb_strat_;
 };
 
+namespace ba = boost::accumulators;
+
 struct dealer{
         explicit dealer(size_t n)
                 :n_{n}
@@ -403,13 +430,20 @@ struct dealer{
         {}
         size_t shuffle_and_deal_btn(){
                 removed_ = 0;
-                return btn_dist_(gen_);
+                auto btn = btn_dist_(gen_);
+                btn_acc_(btn);
+                #if 0
+                std::cout << "BTN Mean:   " << ba::mean(btn_acc_) << std::endl;
+                std::cout << "CRD Mean:   " << ba::mean(card_acc_) << std::endl;
+                #endif
+                return btn;
         }
         holdem_id deal(){
                 auto x = deal_card_();
                 auto y = deal_card_();
                 auto id = holdem_hand_decl::make_id(x, y);
                 //PRINT_SEQ((card_decl::get(x))(card_decl::get(y))(holdem_hand_decl::get(id)));
+                card_acc_(id);
                 return id;
         }
         size_t deck_size()const{
@@ -432,6 +466,9 @@ private:
         std::uniform_int_distribution<card_id> deck_{0,52-1};
         std::uniform_int_distribution<size_t> btn_dist_;
         size_t removed_{0};
+
+        ba::accumulator_set<double, ba::stats<ba::tag::mean >> btn_acc_;
+        ba::accumulator_set<double, ba::stats<ba::tag::mean >> card_acc_;
 };
 
 /*
@@ -441,7 +478,11 @@ private:
  */
 struct game_evaluator{
         game_evaluator(){
-                cev_ =  &equity_evaluator_factory::get("principal");
+                cev_ =  &equity_evaluator_factory::get("better");
+                auto cache_ = &holdem_eval_cache_factory::get("main");
+                auto class_cache_ = &holdem_class_eval_cache_factory::get("main");
+                cev_->inject_cache( std::shared_ptr<holdem_eval_cache>(cache_, [](auto){}));
+                cache_->load("cache_4.bin");
         }
         // returns a vector of the EV for the stacks
         std::vector<double> eval(game_context const& ctx, std::vector<holdem_id> const& deal){
@@ -477,15 +518,17 @@ struct game_evaluator{
 
                         auto equity = cev_->evaluate(aux);
                         for(size_t i=0;i!=p.size();++i){
-                                d[p[i]] = ( ctx.pot() * equity->player(i).equity() ) - ctx.get_decl().get_stacks()[p[i]];
+                                d[p[i]] = ( ctx.pot() * equity->player(i).equity() ) - ctx.get_decl().stack(i);
                                 //        \------equity in pot -----------/   \----- cost of bet -------------/
                         }
                         
+                        #if 1
                         // need to deduced blinds if they arn't part of the allin
                         if( ctx.get_player(ctx.sb_offset()).state() != PlayerState_AllIn )
                                 d[ctx.sb_offset()] -= ctx.get_decl().get_sb();
                         if( ctx.get_player(ctx.bb_offset()).state() != PlayerState_AllIn )
                                 d[ctx.bb_offset()] -= ctx.get_decl().get_bb();
+                                #endif
                 }while(0);
                 return std::move(d);
         }
@@ -522,7 +565,7 @@ struct simultation_context{
                         auto act = p_[ctx.cursor()]->act(ctx, deal[ctx.cursor()]);
                         ctx.post(act);
                 }
-                ctx.display();
+                //ctx.display();
 
                 auto ret = ge_.eval(ctx, deal);
 
@@ -556,10 +599,16 @@ void run_simulation_test(){
         sb_strat.display();
         bb_strat.display();
 
+        #if 0
         auto pf_strat = std::make_shared<holdem_class_strat_player>(sb_strat, bb_strat);
 
         pv.push_back(pf_strat);
         pv.push_back(pf_strat);
+        #endif
+        #if 1
+        pv.push_back(std::make_shared<fold_player_strat>());
+        pv.push_back(std::make_shared<push_player_strat>());
+        #endif
 
         simultation_context sim(decl, pv);
 
@@ -567,10 +616,12 @@ void run_simulation_test(){
         std::vector<double> d(2);
 
         
-        for(size_t i=0;i!=200;++i){
-                auto ret =sim.simulate();
-                for(size_t j=0;j!=2;++j){
-                        d[j] += ret[j];
+        for(;;){
+                for(size_t i=0;i!=10000;++i){
+                        auto r =sim.simulate();
+                        for(size_t j=0;j!=2;++j){
+                                d[j] += r[j];
+                        }
                 }
                 PRINT(detail::to_string(d));
         }

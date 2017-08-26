@@ -149,10 +149,18 @@ struct game_context{
         }
         auto btn()const          { return btn_; }
         auto active_count()const{ return active_count_; }
+        auto cursor()const{ return cursor_; }
         auto allin_count()const { return allin_count_; }
+        auto players_size()const{ return decl_.players_size(); }
         std::vector<action_decl> const& get_history()const{ return history_; }
         game_decl const& get_decl()const{ return decl_; }
         
+        void post_blinds(){
+                post(PlayerAction_PostSB);
+                if( ! players_left_to_act() )
+                        return;
+                post(PlayerAction_PostBB);
+        }
         void post(PlayerAction pa){
                 action_decl act(pa,  (cursor_ + decl_.players_size() - btn_ )%  decl_.players_size());
 
@@ -220,6 +228,9 @@ struct game_context{
                 }
                 std::cout << std::string(20,'-') << format_state_() << std::string(20,'-') << "\n";
         }
+        bool players_left_to_act()const{
+                return ! end_flag_;
+        }
         friend std::ostream& operator<<(std::ostream& ostr, game_context const& self){
                 self.display(ostr);
                 return ostr;
@@ -282,30 +293,79 @@ private:
 };
 
 // {{{
-#if 0
 struct player_strat{
         virtual ~player_strat()=default;
-        PlayerAction act(game_context const& ctx)=0;
+        virtual PlayerAction act(game_context const& ctx, card_id id)=0;
+};
+struct push_player_strat : player_strat{
+        PlayerAction act(game_context const& ctx, card_id id)override{
+                return PlayerAction_Push;
+        }
 };
 
-// this has all the players strategyies
-struct players{
-        std::vector<std::shared_ptr<player_strat> > vec_;
+struct dealer{
+        explicit dealer(size_t n)
+                :n_{n}
+                ,btn_dist_{0,n_-1}
+        {}
+        size_t shuffle_and_deal_btn(){
+                removed_ = 0;
+                return btn_dist_(gen_);
+        }
+        holdem_id deal(){
+                auto x = deal_card_();
+                auto y = deal_card_();
+                return holdem_hand_decl::make_id(x, y);
+        }
+        size_t deck_size()const{
+                return 52 - __builtin_popcount(removed_);
+        }
+private:
+        card_id deal_card_(){
+                for(;;){
+                        auto cand = deck_(gen_);
+                        auto mask = ( static_cast<size_t>(1) << cand);
+                        if( !(removed_ & mask )){
+                                removed_ |= mask;
+                                return cand;
+                        }
+                }
+        }
+        size_t n_;
+        std::default_random_engine gen_;
+        std::uniform_int_distribution<card_id> deck_{0,52-1};
+        std::uniform_int_distribution<size_t> btn_dist_;
+        size_t removed_{0};
 };
 
-
-
-// 
 struct simultation_context{
-        simultation_context(game_decl const& decl, players const& p)
-                :n_{ctx_.size()}
-                ,decl_{decl}
+        simultation_context(game_decl const& decl, std::vector<std::shared_ptr<player_strat> > const& p)
+                :decl_{decl}
                 ,p_{p}
+                ,dealer_{decl_.players_size()}
         {
-
         }
         void simulate(){
-                std::default_random_engine gen_;
+                auto btn = dealer_.shuffle_and_deal_btn();
+                game_context ctx(decl_, btn);
+
+                ctx.post_blinds();
+
+                std::vector<holdem_id> deal(ctx.players_size());
+                for(size_t i=0;i!=deal.size(); ++i){
+                        deal[i] = dealer_.deal();
+                }
+
+                for( ; ctx.players_left_to_act();){
+                        auto act = p_[ctx.cursor()]->act(ctx, deal[ctx.cursor()]);
+                        ctx.post(act);
+                }
+                ctx.display();
+                
+
+
+
+                #if 0
                 std::uniform_real_distribution<double> zero_one_dist{.0,1.0};
                 std::uniform_real_distribution<double> button_dist{0,n_-1};
                 
@@ -338,34 +398,38 @@ struct simultation_context{
                                 break;
                         }
                 }
+                #endif
         }
 private:
-        size_t n_;
         game_decl decl_;
-        players p_;
+        std::vector<std::shared_ptr<player_strat> > p_;
+        dealer dealer_;
+                
 };
 
 void run_simulation_test(){
         game_decl decl(0.5, 1);
-        decl.push_player(10);
-        decl.push_player(10);
+        decl.push_stack(10);
+        decl.push_stack(10);
 
-        players p;
-        p.push_strat(std::make_shared<pf_strat>(holdem_class_strategy(1.0)));
-        p.push_strat(std::make_shared<pf_strat>(holdem_class_strategy(1.0)));
+        std::vector<std::shared_ptr<player_strat>> pv;
+        pv.push_back(std::make_shared<push_player_strat>());
+        pv.push_back(std::make_shared<push_player_strat>());
 
-        simultation_context sim(decl, p);
+        simultation_context sim(decl, pv);
 
         for(size_t i=0;i!=10000;++i)
                 sim.simulate();
 
-        auto result = sim.result();
+        //auto result = sim.result();
 }
-#endif
 /// }}}
 
-
 int main(){
+        run_simulation_test();
+}
+
+void game_context_test(){
         game_decl decl(0.5, 1.0);
         decl.push_stack(10);
         decl.push_stack(10);

@@ -266,7 +266,7 @@ private:
         std::string format_pos_(size_t offset)const{
                 switch(offset){
                 case 0:
-                        return "BTN";
+                        return ( n() == 2 ? "BB" : "BTN" );
                 case 1:
                         return "SB";
                 case 2:
@@ -351,7 +351,8 @@ private:
                 }
         }
         size_t n_;
-        std::default_random_engine gen_;
+        //std::default_random_engine gen_;
+        std::random_device gen_;
         std::uniform_int_distribution<card_id> deck_{0,52-1};
         std::uniform_int_distribution<size_t> btn_dist_;
         size_t removed_{0};
@@ -427,7 +428,8 @@ struct simultation_context{
 
                 ctx.post_blinds();
 
-                std::vector<holdem_id> deal(ctx.players_size());
+                holdem_hand_vector deal;
+                deal.resize(ctx.n());
                 for(size_t i=0;i!=deal.size(); ++i){
                         deal[i] = dealer_.deal();
                 }
@@ -438,44 +440,14 @@ struct simultation_context{
                 }
                 ctx.display();
 
+                auto ret = ge_.eval(ctx, deal);
+
+                PRINT(deal);
+                PRINT( detail::to_string(ret));
+
                 
 
 
-
-                #if 0
-                std::uniform_real_distribution<double> zero_one_dist{.0,1.0};
-                std::uniform_real_distribution<double> button_dist{0,n_-1};
-                
-                dealer d;
-                
-                auto btn = button_dist(gen_);
-                auto offset = ( n_ == 2 ? btn : btn + 3 );
-
-                game_context ctx(decl_, btn);
-
-                game_enginer engine(ctx, btn);
-
-                engine.post_sb();
-                engine.post_bb();
-
-                for(size_t cursor =0; cursor != n_;++cursor){
-                        auto hand = d.deal();
-
-                        auto c = p_.vec_[cursor + offset]->act( ctx );
-                        switch(c){
-                        case Choice_Fold:
-                                engine.fold();
-                                break;
-                        case Choice_Push:
-                                engine.push();
-                                break;
-                        }
-
-                        if( engine.no_more_action() ){
-                                break;
-                        }
-                }
-                #endif
         }
 private:
         game_decl decl_;
@@ -495,8 +467,9 @@ void run_simulation_test(){
 
         simultation_context sim(decl, pv);
 
-        for(size_t i=0;i!=10000;++i)
-                sim.simulate();
+        //for(size_t i=0;i!=10000;++i)
+
+        sim.simulate();
 
         //auto result = sim.result();
 }
@@ -517,7 +490,9 @@ void game_context_test(){
         ctx.post(PlayerAction_Push);
         ctx.post(PlayerAction_Fold);
         ctx.display();
+
+
 }
 int main(){
-        game_context_test();
+        run_simulation_test();
 }

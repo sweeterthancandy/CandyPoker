@@ -188,73 +188,60 @@ struct better_class_equity_evaluator : class_equity_evaluator_default
                                      , equity_evaluator_default
 {
         std::shared_ptr<equity_breakdown> evaluate_impl(holdem_hand_vector const& hv)const{
+                // put this here
+                std::vector<ranking_t> ranked(hv.size());
+
+                // cache stuff
+
+                std::vector<card_id> hv_first(hv.size());
+                std::vector<card_id> hv_second(hv.size());
+                std::vector<rank_id> hv_first_rank(hv.size());
+                std::vector<rank_id> hv_second_rank(hv.size());
+                std::vector<suit_id> hv_first_suit(hv.size());
+                std::vector<suit_id> hv_second_suit(hv.size());
+                        
+                for(size_t i=0;i!=hv.size();++i){
+                        auto const& hand{holdem_hand_decl::get(hv[i])};
+
+                        hv_first[i]       = hand.first().id();
+                        hv_first_rank[i]  = hand.first().rank().id();
+                        hv_first_suit[i]  = hand.first().suit().id();
+                        hv_second[i]      = hand.second().id();
+                        hv_second_rank[i] = hand.second().rank().id();
+                        hv_second_suit[i] = hand.second().suit().id();
+                }
+                        
+                auto hv_mask = hv.mask();
+
+                auto sub = std::make_shared<equity_breakdown_matrix_aggregator>(hv.size());
+                size_t board_count = 0;
+                for(auto const& b : w ){
+                                
+                        bool cond = (b.mask() & hv_mask ) == 0;
+                        if(!cond){
+                                continue;
+                        }
+                        ++board_count;
+                                
+                        for(size_t i=0;i!=hv.size();++i){
+                                
+                                ranked[i] = ev.rank_pre_7( b.pre(), hv_first[i], hv_second[i]);
+
+                        }
+                        detail::dispatch_ranked_vector{}(*sub, ranked);
+                }
+                return sub;
         }
         std::shared_ptr<equity_breakdown> evaluate_class_impl(holdem_class_vector const& cv)const{
 
                 auto result = std::make_shared<equity_breakdown_matrix_aggregator>(cv.size());
                 for( auto hvt : cv.to_standard_form_hands()){
+                        
                         auto const& perm = std::get<0>(hvt);
                         auto const& hv   = std::get<1>(hvt);
                         auto hv_mask = hv.mask();
 
-                        if( cache_ ){
-                                auto ptr = cache_->try_lookup_perm(hv);
-                                if( ptr ){
-                                        result->append_matrix(*ptr, perm );
-                                        continue;
-                                }
-                        }
-
-                                
-                        // put this here
-                        std::vector<ranking_t> ranked(hv.size());
-
-                        // cache stuff
-
-                        std::vector<card_id> hv_first(hv.size());
-                        std::vector<card_id> hv_second(hv.size());
-                        std::vector<rank_id> hv_first_rank(hv.size());
-                        std::vector<rank_id> hv_second_rank(hv.size());
-                        std::vector<suit_id> hv_first_suit(hv.size());
-                        std::vector<suit_id> hv_second_suit(hv.size());
-                                
-                        for(size_t i=0;i!=hv.size();++i){
-                                auto const& hand{holdem_hand_decl::get(hv[i])};
-
-                                hv_first[i]       = hand.first().id();
-                                hv_first_rank[i]  = hand.first().rank().id();
-                                hv_first_suit[i]  = hand.first().suit().id();
-                                hv_second[i]      = hand.second().id();
-                                hv_second_rank[i] = hand.second().rank().id();
-                                hv_second_suit[i] = hand.second().suit().id();
-                        }
-
-                        auto sub = std::make_shared<equity_breakdown_matrix_aggregator>(cv.size());
-                        size_t board_count = 0;
-                        for(auto const& b : w ){
-                                        
-                                bool cond = (b.mask() & hv_mask ) == 0;
-                                if(!cond){
-                                        continue;
-                                }
-                                ++board_count;
-                                        
-                                for(size_t i=0;i!=hv.size();++i){
-                                        
-                                        ranked[i] = ev.rank_pre_7( b.pre(), hv_first[i], hv_second[i]);
-
-                                }
-                                detail::dispatch_ranked_vector{}(*sub, ranked);
-
-                        }
-
-                        if( cache_ ){
-                                cache_->lock();
-                                cache_->commit( hv, *sub);
-                                cache_->unlock();
-                        }
-
-                        result->append_matrix(*sub, perm );
+                        result->append_matrix( *this->evaluate_impl( hv), perm);
                 }
                         
                 

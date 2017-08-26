@@ -7,14 +7,15 @@ namespace ps{
 
         struct equity_evaluator_default : equity_evaluator{
 
-                std::shared_ptr<equity_breakdown> evaluate_class(holdem_hand_vector const& cv)const override{
+                std::shared_ptr<equity_breakdown> evaluate(std::vector<holdem_id> const& hv_)const override{
+                        holdem_hand_vector hv{hv_};
                         if( cache_ ){
-                                auto ptr = cache_->try_lookup_perm(cv);
+                                auto ptr = cache_->try_lookup_perm(hv);
                                 if( ptr )
                                         return ptr;
                         }
                         
-                        auto t = cv.to_standard_form();
+                        auto t = hv.to_standard_form();
                         auto const& perm = std::get<0>(t);
                         auto const& vec  = std::get<1>(t);
 

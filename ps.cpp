@@ -10,26 +10,13 @@
 
 #include "ps/base/cards.h"
 #include "ps/eval/class_equity_evaluator.h"
+#include "ps/eval/equity_evaluator.h"
 #include "ps/sim/holdem_class_strategy.h"
 
 #include <boost/range/algorithm.hpp>
 #include <boost/format.hpp>
 #include <random>
 
-/*
-        
-                                <start>
-                                   |
-                                <deal>
-                                   |
-                          <while active players>
-                                        <get player action>
-                                   |
-                                <end>
-                                  
-                
-
- */
 
 
 using namespace ps;
@@ -47,6 +34,7 @@ struct game_decl{
         auto get_sb()const{ return sb_; }
         auto get_bb()const{ return bb_; }
         std::vector<double> const& get_stacks()const{ return stacks_; }
+        auto stack(size_t idx)const{ return stacks_[idx]; }
         auto players_size()const{
                 return stacks_.size();
         }
@@ -130,15 +118,26 @@ struct game_context{
         game_context(game_decl const& decl, size_t btn)
                 :btn_{btn}
                 ,decl_{decl}
-                ,active_count_{decl_.players_size()}
+                ,n_{decl.players_size()}
+                ,active_count_{n()}
         {
-                cursor_  = ( decl_.players_size() == 2 ? 0 : 1 );
+                assert( n() >= 2 && "precondition failed");
+
+
+                if(  n() == 2 ){
+                        // special HU case
+                        sb_offset_ = btn;
+                        cursor_ = btn;
+                } else {
+                        sb_offset_ = ( btn + 1 ) % n();
+                        cursor_ =   (sb_offset_ + 2 ) % n();
+                }
                 for(size_t i=0; i!= decl.players_size();++i){
                         players_.emplace_back( decl.get_stacks()[i] );
                 }
         }
         player_context const& get_player(size_t btn_offset)const{
-                size_t idx = ( btn_offset + btn_ ) % decl_.players_size();
+                size_t idx = ( btn_offset + btn_ ) % n();
                 return players_[idx];
         }
         player_context      & get_player(size_t btn_offset){
@@ -148,13 +147,32 @@ struct game_context{
                         );
         }
         auto btn()const          { return btn_; }
+        auto pot()const          { return pot_; }
         auto active_count()const{ return active_count_; }
+        // this is the offset of players which is the action is on
+        //
+        // for example, then the button is on player 1, in a 3 player game,
+        // at the start we have
+        //       
+        //       player | position
+        //       -------+---------
+        //            1 | btn
+        //            2 | sb
+        //            0 | bb
+        // 
+        // so that player 1 will be the active player, followed by 2,
+        // followed by 0.
+        //
         auto cursor()const{ return cursor_; }
         auto allin_count()const { return allin_count_; }
-        auto players_size()const{ return decl_.players_size(); }
+        auto players_size()const{ return n(); }
         std::vector<action_decl> const& get_history()const{ return history_; }
         game_decl const& get_decl()const{ return decl_; }
+        size_t n()const{ return n_; }
+        auto sb_offset()const{ return sb_offset_; }
+        auto bb_offset()const{ return sb_offset_+1; }
         
+
         void post_blinds(){
                 post(PlayerAction_PostSB);
                 if( ! players_left_to_act() )
@@ -162,17 +180,17 @@ struct game_context{
                 post(PlayerAction_PostBB);
         }
         void post(PlayerAction pa){
-                action_decl act(pa,  (cursor_ + decl_.players_size() - btn_ )%  decl_.players_size());
+                action_decl act(pa, cursor() );
 
                 // preprocess
                 switch(act.action()){
                 case PlayerAction_PostSB:
-                        if( players_[cursor_].stack_ <= decl_.get_sb() ){
+                        if( players_[cursor()].stack_ <= decl_.get_sb() ){
                                 act.set_action(PlayerAction_PostSBAllin);
                         }
                         break;
                 case PlayerAction_PostBB:
-                        if( players_[cursor_].stack_ <= decl_.get_bb() ){
+                        if( players_[cursor()].stack_ <= decl_.get_bb() ){
                                 act.set_action(PlayerAction_PostBBAllin);
                         }
                         break;
@@ -185,35 +203,35 @@ struct game_context{
                 switch(act.action()){
                 case PlayerAction_PostSB:
                         post_pot_( decl_.get_sb() );
-                        players_[cursor_].stack_ -= decl_.get_sb();
+                        players_[cursor()].stack_ -= decl_.get_sb();
                         break;
                 case PlayerAction_PostSBAllin:
-                        post_pot_( players_[cursor_].stack_ );
-                        players_[cursor_].state_ = PlayerState_AllIn;
-                        players_[cursor_].stack_ = 0.0; 
+                        post_pot_( players_[cursor()].stack_ );
+                        players_[cursor()].state_ = PlayerState_AllIn;
+                        players_[cursor()].stack_ = 0.0; 
                         ++allin_count_;
                         --active_count_;
                         break;
                 case PlayerAction_PostBB:
                         post_pot_( decl_.get_bb() );
-                        players_[cursor_].stack_ -= decl_.get_bb();
+                        players_[cursor()].stack_ -= decl_.get_bb();
                         break;
                 case PlayerAction_PostBBAllin:
-                        post_pot_( players_[cursor_].stack_ );
-                        players_[cursor_].state_ = PlayerState_AllIn;
-                        players_[cursor_].stack_ = 0.0; 
+                        post_pot_( players_[cursor()].stack_ );
+                        players_[cursor()].state_ = PlayerState_AllIn;
+                        players_[cursor()].stack_ = 0.0; 
                         ++allin_count_;
                         --active_count_;
                         break;
                 case PlayerAction_Push:
-                        post_pot_( players_[cursor_].stack_ );
-                        players_[cursor_].state_ = PlayerState_AllIn;
-                        players_[cursor_].stack_ = 0.0; 
+                        post_pot_( players_[cursor()].stack_ );
+                        players_[cursor()].state_ = PlayerState_AllIn;
+                        players_[cursor()].stack_ = 0.0; 
                         ++allin_count_;
                         --active_count_;
                         break;
                 case PlayerAction_Fold:
-                        players_[cursor_].state_ = PlayerState_Fold;
+                        players_[cursor()].state_ = PlayerState_Fold;
                         --active_count_;
                         break;
                 }
@@ -221,10 +239,9 @@ struct game_context{
                 next_();
         }
         void display(std::ostream& ostr = std::cout)const{
-                for(size_t i=1;i<=decl_.players_size();++i){
-                        size_t idx = ( i + btn_ ) % decl_.players_size();
-                        size_t offset = ( i %        decl_.players_size() );
-                        ostr << str(boost::format("    %-5s - %s") % format_pos_(offset) % players_[offset]) << "\n";
+                for(size_t i=1;i<=n();++i){
+                        size_t offset = ( btn_ + i) % n();
+                        ostr << str(boost::format("    %-5s - %s") % format_pos_(i % n()) % players_[offset]) << "\n";
                 }
                 std::cout << std::string(20,'-') << format_state_() << std::string(20,'-') << "\n";
         }
@@ -257,7 +274,7 @@ private:
                 default:
                         break;
                 }
-                auto rev_offset = decl_.players_size() - offset;
+                auto rev_offset = n() - offset;
                 #if 0
                 if( rev_offset < offset ){
                 } else {
@@ -274,7 +291,7 @@ private:
                 }
                 for(;;){
                         ++cursor_;
-                        cursor_ = (cursor_ % decl_.players_size());
+                        cursor_ = (cursor_ % n());
                         if( players_[cursor_].state_ == PlayerState_Active )
                                 break;
                 }
@@ -282,8 +299,10 @@ private:
 
         size_t btn_;
         // this is the player who's action is on
+        size_t sb_offset_;
         size_t cursor_;
         game_decl decl_;
+        size_t n_;
         size_t active_count_;
         size_t allin_count_{0};
         std::vector<player_context> players_;
@@ -338,6 +357,63 @@ private:
         size_t removed_{0};
 };
 
+/*
+        This is the logic which processes how happens at the end of the hand,
+        which players balances are credited/debits, and showdown is evaulated,
+        or equity is evaulated
+ */
+struct game_evaluator{
+        game_evaluator(){
+                cev_ =  &equity_evaluator_factory::get("principal");
+        }
+        // returns a vector of the EV for the stacks
+        std::vector<double> eval(game_context const& ctx, std::vector<holdem_id> const& deal){
+                std::vector<double> d(ctx.players_size());
+                
+                do{
+                        if(ctx.allin_count()==0){
+                                // case walk
+                                d[ctx.sb_offset()] -= ctx.get_decl().get_sb();
+                                d[ctx.bb_offset()] += ctx.get_decl().get_sb();
+                                break;
+                        }
+                        std::vector<size_t> p;
+                        std::vector<holdem_id> aux;
+                        for( size_t i=0; i!=ctx.players_size();++i){
+                                if(ctx.get_player(i).state() == PlayerState_AllIn){
+                                        p.push_back(i);
+                                        aux.push_back(deal[i]);
+                                }
+                        }
+
+                        if( p.size() == 1 ){
+                                // case blind steal
+                                d[ctx.sb_offset()] -= ctx.get_decl().get_sb();
+                                d[p[0]]            += ctx.get_decl().get_sb();
+                                d[ctx.bb_offset()] -= ctx.get_decl().get_bb();
+                                d[p[0]]            += ctx.get_decl().get_bb();
+                                break;
+                        }
+                        // case all in equity
+
+                        auto equity = cev_->evaluate(aux);
+                        for(size_t i=0;i!=p.size();++i){
+                                d[p[i]] = ( ctx.pot() * equity->player(i).equity() ) - ctx.get_decl().get_stacks()[p[i]];
+                                //        \------equity in pot -----------/   \----- cost of bet -------------/
+                        }
+                        
+                        // need to deduced blinds if they arn't part of the allin
+                        if( ctx.get_player(ctx.sb_offset()).state() != PlayerState_AllIn )
+                                d[ctx.sb_offset()] -= ctx.get_decl().get_sb();
+                        if( ctx.get_player(ctx.bb_offset()).state() != PlayerState_AllIn )
+                                d[ctx.bb_offset()] -= ctx.get_decl().get_bb();
+                }while(0);
+                return std::move(d);
+        }
+private:
+        equity_evaluator* cev_;
+};
+
 struct simultation_context{
         simultation_context(game_decl const& decl, std::vector<std::shared_ptr<player_strat> > const& p)
                 :decl_{decl}
@@ -361,6 +437,7 @@ struct simultation_context{
                         ctx.post(act);
                 }
                 ctx.display();
+
                 
 
 
@@ -404,7 +481,7 @@ private:
         game_decl decl_;
         std::vector<std::shared_ptr<player_strat> > p_;
         dealer dealer_;
-                
+        game_evaluator ge_;
 };
 
 void run_simulation_test(){
@@ -425,24 +502,22 @@ void run_simulation_test(){
 }
 /// }}}
 
-int main(){
-        run_simulation_test();
-}
-
 void game_context_test(){
         game_decl decl(0.5, 1.0);
-        decl.push_stack(10);
-        decl.push_stack(10);
-        decl.push_stack(10);
-        decl.push_stack(10);
-        game_context ctx(decl, 0);
+        decl.push_stack(2);
+        decl.push_stack(3);
+        decl.push_stack(4);
+        decl.push_stack(5);
+        game_context ctx(decl, 3);
         ctx.display();
         ctx.post(PlayerAction_PostSB);
         ctx.post(PlayerAction_PostBB);
-        ctx.display();
+        ctx.post(PlayerAction_Fold);
+        ctx.post(PlayerAction_Push);
+        ctx.post(PlayerAction_Push);
         ctx.post(PlayerAction_Fold);
         ctx.display();
-        ctx.post(PlayerAction_Push);
-        ctx.post(PlayerAction_Push);
-        ctx.display();
+}
+int main(){
+        game_context_test();
 }

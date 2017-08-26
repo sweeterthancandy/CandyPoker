@@ -34,6 +34,12 @@ namespace ps{
                         > lines;
 
                         lines.emplace_back();
+
+                        #if 0
+                        lines.emplace_back();
+                        lines.back().push_back("__break__");
+                        #endif
+
                         lines.back().emplace_back("range");
                         lines.back().emplace_back("equity");
                         lines.back().emplace_back("wins");
@@ -69,6 +75,11 @@ namespace ps{
                                 lines.back().emplace_back( boost::lexical_cast<std::string>(pv.sigma()) );
                         }
                         
+                        #if 0
+                        lines.emplace_back();
+                        lines.back().push_back("__break__");
+                        #endif
+
                         std::vector<size_t> widths(lines.back().size(),0);
                         for( auto const& line : lines){
                                 for(size_t i=0;i!=line.size();++i){
@@ -118,6 +129,7 @@ namespace ps{
 
 
                 int arg_iter = 1;
+                bool debug_subs = false;
 
                 for(; arg_iter < argc;){
                         int args_left{ argc - arg_iter };
@@ -127,6 +139,11 @@ namespace ps{
                                 if( argv[arg_iter] == std::string{"--engine"} ){
                                         engine = argv[arg_iter+1];
                                         arg_iter += 2;
+                                        continue;
+                                }
+                                if( argv[arg_iter] == std::string{"--debug-subs"} ){
+                                        debug_subs = true;
+                                        arg_iter += 1;
                                         continue;
                                 }
                                 #if 0
@@ -154,7 +171,7 @@ namespace ps{
 
                 auto& eval_       = equity_evaluator_factory::get("principal");
                 auto& class_eval_ = class_equity_evaluator_factory::get(engine);
-
+                pretty_printer pp;
                 tree_range root( players );
 
                 auto agg = std::make_shared<equity_breakdown_matrix_aggregator>(players.size());
@@ -164,7 +181,15 @@ namespace ps{
                         // this means it's a class vs class evaulation
                         if( c.opt_cplayers.size() != 0 ){
                                 holdem_class_vector aux{c.opt_cplayers};
-                                agg->append(*class_eval_.evaluate_class(aux));
+                                auto sub = class_eval_.evaluate_class(aux);
+                                if( debug_subs ){
+                                        std::vector<std::string> s;
+                                        for( auto id : aux ){
+                                                s.emplace_back(boost::lexical_cast<std::string>(holdem_class_decl::get(id)));
+                                        }
+                                        pp(std::cout, *sub, s);
+                                }
+                                agg->append(*sub);
                         } else{
                                 for( auto const& d : c.children ){
                                         holdem_hand_vector aux{d.players};
@@ -173,7 +198,7 @@ namespace ps{
                         }
                 }
 
-                pretty_printer{}(std::cout, *agg, players_s);
+                pp(std::cout, *agg, players_s);
 
                 return 0;
         }

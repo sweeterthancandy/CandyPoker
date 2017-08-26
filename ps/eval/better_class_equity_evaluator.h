@@ -239,11 +239,14 @@ struct better_class_equity_evaluator : class_equity_evaluator_default
                         
                         auto const& perm = std::get<0>(hvt);
                         auto const& hv   = std::get<1>(hvt);
-                        auto hv_mask = hv.mask();
 
-                        result->append_matrix( *this->evaluate_impl( hv), perm);
+                        auto ret = this->evaluate(hv);
+                        #if 0
+                        PRINT(hv);
+                        std::cout << *ret << "\n";
+                        #endif
+                        result->append_matrix( *ret, perm);
                 }
-                        
                 
                 return result;
         }

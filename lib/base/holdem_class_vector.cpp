@@ -5,6 +5,36 @@
 #include <boost/range/algorithm.hpp>
 
 namespace ps{
+namespace{
+        /*
+                A permutation matrix is of the form
+                        P = ( p0 p1 ... pn),
+                and means for for a vector
+                        V = ( v0 v1 ... vn),
+                we can apply the permutation in the form
+                        P V = ( V_{p_0} V_{p_1} ... V_{p_n} ),
+                ie trivially we have
+                        ( 0 1 ) ( a b ) = ( a b ),
+                        ( 1 0 ) ( a b ) = ( b a ),
+                and we also have
+                        ( 0 2 1 ) ( a b c ) = ( a c b ).
+                  We can also construct the inverse permutation,
+                so that P^-1 P V = P P^-1 V <=> P P^-1 = I. We
+                can decude that for
+                        P^-1 P V = P^-1 ( V_{p_0} V_{p_1} ... V_{p_n} )
+                                 = P^-1 W
+                                 = (  W_{p'_0} W_{p'_1} ... W_{p'_n}  
+
+
+         */
+        inline std::vector<int> reverse_perm(std::vector<int> const& perm){
+                std::vector<int> ret(perm.size());
+                for(size_t i=0;i!=perm.size();++i){
+                        ret[perm[i]] = i;
+                }
+                return std::move(ret);
+        }
+} // anon
         std::ostream& operator<<(std::ostream& ostr, holdem_class_vector const& self){
                 return ostr << detail::to_string(self,
                                                  [](auto id){
@@ -54,7 +84,7 @@ namespace ps{
                         perm.push_back( std::get<1>(t));
                 }
                 return std::make_tuple(
-                        std::move(perm),
+                        reverse_perm(perm),
                         std::move(vec)
                 );
         }

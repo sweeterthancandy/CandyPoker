@@ -9,6 +9,8 @@ namespace ps{
 
                 std::shared_ptr<equity_breakdown> evaluate(std::vector<holdem_id> const& hv_)const override{
                         holdem_hand_vector hv{hv_};
+
+                        //return evaluate_impl(hv);
                         if( cache_ ){
                                 auto ptr = cache_->try_lookup_perm(hv);
                                 if( ptr )

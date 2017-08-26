@@ -58,12 +58,14 @@ namespace detail{
 template<class T>
 struct singleton_factory {
 
+        using maker_t = detail::singleton_controller::maker_t;
+
         template<class U>
-                static void register_(std::string const& name = "__default__") {
-                        static_assert(std::is_base_of<T, U>::value, "not a base");
-                        //std::cout << "registration of " << boost::typeindex::type_id<U>().pretty_name() << " as " << name << "\n";
-                        detail::singleton_controller::get_inst()->register_(boost::typeindex::type_id<T>(), std::move(name), [] { return std::make_shared<U>(); });
-                }
+        static void register_(std::string const& name = "__default__", maker_t maker = [] { return std::make_shared<U>(); }) {
+                static_assert(std::is_base_of<T, U>::value, "not a base");
+                //std::cout << "registration of " << boost::typeindex::type_id<U>().pretty_name() << " as " << name << "\n";
+                detail::singleton_controller::get_inst()->register_(boost::typeindex::type_id<T>(), std::move(name), std::move(maker));
+        }
         static T* get_or_null(std::string const& name = "__default__") {
                 //std::cout << "getting name = " << name << " for " << boost::typeindex::type_id<T>().pretty_name() << "\n";
                 return reinterpret_cast<T*>(detail::singleton_controller::get_inst()->get_or_null(boost::typeindex::type_id<T>(), name));
@@ -79,81 +81,4 @@ struct singleton_factory {
 
 } // support
 } // ps
-
-#if 0
-#include <boost/type_index.hpp>
-#include <boost/exception/all.hpp>
-#include <iostream>
-#include <map>
-#include <functional>
-#include <memory>
-#include <mutex>
-
-namespace ps{
-        namespace support{
-
-                template<class T>
-                        struct singleton_factory{
-                        private:
-                                using maker_t = 
-                                        std::function<
-                                        std::unique_ptr<void>()
-                                        >;
-                                struct item{
-                                        explicit item(maker_t maker)
-                                                :maker_(std::move(maker))
-                                        {}
-                                        T& get(){
-                                                if( ! ptr_ ){
-                                                        std::lock_guard<std::mutex> lock(mtx_);
-                                                        if( ! ptr_ ){
-                                                                ptr_ = maker_();
-                                                        }
-                                                }
-                                                return *ptr_;
-                                        }
-                                private:
-                                        std::unique_ptr<void> ptr_;
-                                        maker_t maker_;
-                                        std::mutex mtx_;
-                                };
-                                template<class U>
-                                        void register_impl( std::string const& name ){
-                                                m_.emplace(name, std::make_unique<item>([](){ return std::make_unique<U>(); }));
-                                        }
-                                T& get_impl(std::string const& name){
-                                        auto iter = m_.find(name);
-                                        if( iter == m_.end() )
-                                                BOOST_THROW_EXCEPTION(std::domain_error("singlton " + name + " not registered"));
-                                        return iter->second->get();
-                                }
-                        public:
-
-                                static singleton_factory* get_inst(){
-                                        static singleton_factory* mem = nullptr;
-                                        if( mem == nullptr )
-                                                mem = new singleton_factory;
-                                        return mem;
-                                }
-
-                                template<class U>
-                                        static void register_( std::string const& name  = "__default__"){
-                                                std::cout << "registration of " << boost::typeindex::type_id<U>().pretty_name() << " as " << name << "\n";
-                                                get_inst()->template register_impl<U>(name);
-                                        }
-                                static T& get(std::string const& name = "__default__"){
-                                        std::cout << "getting name = " << name << " for " << boost::typeindex::type_id<T>().pretty_name() << "\n";
-                                        return get_inst()->get_impl(name);
-                                }
-
-
-                        private:
-                                std::map<
-                                        std::string,
-                                        std::unique_ptr<item>
-                                                > m_;
-                        };
-        } // support
-} // ps
-#endif
 #endif // PS_SUPPORT_SINGLETON_FACTORY_H

@@ -5,9 +5,11 @@ namespace support{
 namespace detail{
 
         void* singleton_controller::get_or_null(boost::typeindex::type_index const& ti, std::string const& name){
+                // find maker for the specific type
                 auto ti_iter = type_inst_map_.find(ti);
                 if( ti_iter == type_inst_map_.end())
                         return nullptr;
+                // find item for specific name
                 auto maker_iter = ti_iter->second.find(name);
                 if( maker_iter == ti_iter->second.end())
                         return nullptr;

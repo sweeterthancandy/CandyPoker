@@ -22,7 +22,7 @@ using namespace ps;
 struct create_class_cache_app{
         create_class_cache_app(){
                 cache_ = &holdem_class_eval_cache_factory::get("main");
-                eval_ = new class_equity_evaluator_quick;
+                eval_ = &class_equity_evaluator_factory::get("better");
         }
         void run(){
                 boost::timer::auto_cpu_timer at;
@@ -33,7 +33,7 @@ struct create_class_cache_app{
                         for(size_t i=0;i!=num_threads;++i){
                                 tg.emplace_back( [this](){ io_.run(); } );
                         }
-                        for( holdem_class_iterator iter(3),end;iter!=end;++iter){
+                        for( holdem_class_iterator iter(n_),end;iter!=end;++iter){
                                 ++total_;
                                 io_.post( [vec=*iter,this]()
                                 {
@@ -61,6 +61,7 @@ private:
                 std::cout << timer.format(2, fmt) << "\n";
                 std::cout << *ret << "\n";
         }
+        size_t n_{3};
         std::mutex mtx_;
         boost::asio::io_service io_;
         holdem_class_eval_cache* cache_;

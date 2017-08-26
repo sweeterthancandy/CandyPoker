@@ -30,6 +30,10 @@ struct holdem_class_eval_cache{
         virtual bool save(std::string const& name)=0;
 };
 
+struct class_cache_injectable{
+        virtual void inject_class_cache(std::shared_ptr<holdem_class_eval_cache> ptr){}
+};
+
 using holdem_class_eval_cache_factory = support::singleton_factory<holdem_class_eval_cache>;
 
 } // ps

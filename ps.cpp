@@ -346,6 +346,27 @@ struct fold_player_strat : player_strat{
                 return PlayerAction_Fold;
         }
 };
+/*
+        This should be represented by a matrix
+
+
+        n = 2
+
+            start - push - push
+                  |      \ fold
+                  \ fold
+
+        n = 3
+
+            start - push - push - push
+                  |      |      \ fold
+                  |      \ fold
+                  |
+                  \ fold - push - push
+                         |      \ fold
+                         \ fold
+
+ */
 struct holdem_class_strat_player : player_strat{
         holdem_class_strat_player(holdem_class_strategy const& sb_strat,
                                   holdem_class_strategy const& bb_strat)

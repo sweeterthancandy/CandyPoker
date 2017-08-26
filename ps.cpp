@@ -370,6 +370,7 @@ int main(){
         decl.push_stack(10);
         decl.push_stack(10);
         decl.push_stack(10);
+        decl.push_stack(10);
         game_context ctx(decl, 0);
         ctx.display();
         ctx.post(PlayerAction_PostSB);

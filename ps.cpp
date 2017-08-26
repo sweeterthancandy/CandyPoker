@@ -161,14 +161,23 @@ struct game_context{
                         players_.emplace_back( decl.get_stacks()[i] );
                 }
         }
-        player_context const& get_player(size_t btn_offset)const{
-                size_t idx = ( btn_offset + btn_ ) % n();
+        player_context const& get_player(size_t idx)const{
                 return players_[idx];
         }
-        player_context      & get_player(size_t btn_offset){
+        player_context      & get_player(size_t idx){
                 return const_cast<player_context&>(
                         reinterpret_cast<game_context const*>(this)
-                                ->get_player(btn_offset)
+                                ->get_player(idx)
+                        );
+        }
+        player_context const& get_player_from_btn(size_t btn_offset)const{
+                size_t idx = ( btn_offset + btn_ ) % n();
+                return get_player(idx);
+        }
+        player_context      & get_player_from_btn(size_t btn_offset){
+                return const_cast<player_context&>(
+                        reinterpret_cast<game_context const*>(this)
+                                ->get_player_from_btn(btn_offset)
                         );
         }
         auto btn()const          { return btn_; }
@@ -426,11 +435,14 @@ namespace ba = boost::accumulators;
 struct dealer{
         explicit dealer(size_t n)
                 :n_{n}
-                ,btn_dist_{0,n_-1}
+                //,btn_dist_{0,n_-1}
         {}
         size_t shuffle_and_deal_btn(){
                 removed_ = 0;
-                auto btn = btn_dist_(gen_);
+                //auto btn = btn_dist_(gen_);
+                auto btn = btn_;
+                ++btn_;
+                btn_ = btn_ % n_;
                 btn_acc_(btn);
                 #if 0
                 std::cout << "BTN Mean:   " << ba::mean(btn_acc_) << std::endl;
@@ -464,8 +476,9 @@ private:
         //std::default_random_engine gen_;
         std::random_device gen_;
         std::uniform_int_distribution<card_id> deck_{0,52-1};
-        std::uniform_int_distribution<size_t> btn_dist_;
+        //std::uniform_int_distribution<size_t> btn_dist_;
         size_t removed_{0};
+        size_t btn_{0};
 
         ba::accumulator_set<double, ba::stats<ba::tag::mean >> btn_acc_;
         ba::accumulator_set<double, ba::stats<ba::tag::mean >> card_acc_;
@@ -528,7 +541,7 @@ struct game_evaluator{
                                 d[ctx.sb_offset()] -= ctx.get_decl().get_sb();
                         if( ctx.get_player(ctx.bb_offset()).state() != PlayerState_AllIn )
                                 d[ctx.bb_offset()] -= ctx.get_decl().get_bb();
-                                #endif
+                        #endif
                 }while(0);
                 return std::move(d);
         }
@@ -599,13 +612,13 @@ void run_simulation_test(){
         sb_strat.display();
         bb_strat.display();
 
-        #if 0
+        #if 1
         auto pf_strat = std::make_shared<holdem_class_strat_player>(sb_strat, bb_strat);
 
         pv.push_back(pf_strat);
         pv.push_back(pf_strat);
         #endif
-        #if 1
+        #if 0
         pv.push_back(std::make_shared<fold_player_strat>());
         pv.push_back(std::make_shared<push_player_strat>());
         #endif
@@ -617,11 +630,13 @@ void run_simulation_test(){
 
         
         for(;;){
-                for(size_t i=0;i!=10000;++i){
+        //for(size_t j=0;j!=10;++j){
+                for(size_t i=0;i!=10;++i){
                         auto r =sim.simulate();
                         for(size_t j=0;j!=2;++j){
                                 d[j] += r[j];
                         }
+                        //PRINT(detail::to_string(r));
                 }
                 PRINT(detail::to_string(d));
         }

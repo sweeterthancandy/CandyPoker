@@ -10,9 +10,14 @@
 #include <boost/preprocessor.hpp>
 #include <boost/lexical_cast.hpp>
 
-#define PRINT_SEQ_detail(r, d, i, e) do{ std::cout << ( i ? ", " : "" ) << BOOST_PP_STRINGIZE(e) << " = " << (e); }while(0);
-#define PRINT_SEQ(SEQ) do{ BOOST_PP_SEQ_FOR_EACH_I( PRINT_SEQ_detail, ~, SEQ) std::cout << "\n"; }while(0)
+
+#define STREAM_SEQ_detail(r, d, i, e) do{ d << ( i ? ", " : "" ) << BOOST_PP_STRINGIZE(e) << " = " << (e); }while(0);
+#define STREAM_SEQ(STR, SEQ) do{ BOOST_PP_SEQ_FOR_EACH_I( STREAM_SEQ_detail, STR, SEQ) STR << "\n"; }while(0)
+#define STREAM_PRINT(STR, X) STREAM_SEQ(STR, (X))
+
+#define PRINT_SEQ(SEQ) STREAM_SEQ(std::cout, SEQ)
 #define PRINT(X) PRINT_SEQ((X))
+
 #define PRINT_TEST( EXPR ) do{ bool ret(EXPR); std::cout << std::setw(50) << std::left << #EXPR << std::setw(0) << ( ret ? " OK" : " FAILED" ) << "\n"; }while(0);
 
 namespace ps{

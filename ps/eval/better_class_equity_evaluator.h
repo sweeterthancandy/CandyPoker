@@ -184,7 +184,7 @@ private:
 
 
 struct better_class_equity_evaluator : class_equity_evaluator{
-        std::shared_ptr<equity_breakdown> evaluate(holdem_class_vector const& cv)const{
+        std::shared_ptr<equity_breakdown> evaluate_class(holdem_class_vector const& cv)const{
 
 
                 if( class_cache_ ){

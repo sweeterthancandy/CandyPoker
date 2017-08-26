@@ -62,7 +62,7 @@ private:
         void calc_(holdem_class_vector const& vec){
                 boost::timer::auto_cpu_timer at;
                 boost::timer::cpu_timer timer;
-                auto ret = eval_->evaluate(vec);
+                auto ret = eval_->evaluate_class(vec);
                 std::unique_lock<std::mutex> lock(mtx_);
                 ++done_;
                 std::string fmt = str(boost::format("%-11s took %%w seconds (%d/%d %.2f%%)")

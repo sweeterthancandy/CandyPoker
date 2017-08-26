@@ -62,7 +62,7 @@ struct hu_class_evaluator{
                                 holdem_class_vector vec;
                                 vec.push_back(hero);
                                 vec.push_back(villian);
-                                auto ret = eval.evaluate(vec);
+                                auto ret = eval.evaluate_class(vec);
                                 cache_[ linear_map_(hero, villian) ] = ret;
                         }
                 }

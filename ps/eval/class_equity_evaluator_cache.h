@@ -15,9 +15,9 @@ struct class_equity_evaluator_cache : class_equity_evaluator{
         class_equity_evaluator_cache()
         {
         }
-        std::shared_ptr<equity_breakdown> evaluate(holdem_class_vector const& players)const override{
+        std::shared_ptr<equity_breakdown> evaluate_class(holdem_class_vector const& players)const override{
                 if( ! class_cache_ ){
-                        return get_impl_()->evaluate(players);
+                        return get_impl_()->evaluate_class(players);
                 }
                 auto t = players.to_standard_form();
                 auto& perm         = std::get<0>(t);
@@ -32,7 +32,7 @@ struct class_equity_evaluator_cache : class_equity_evaluator{
                                 std::move(perm)
                         );
                 }
-                auto ret = get_impl_()->evaluate(players_perm);
+                auto ret = get_impl_()->evaluate_class(players_perm);
                 class_cache_->lock();
                 class_cache_->commit(players_perm, *ret);
                 class_cache_->unlock();

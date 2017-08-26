@@ -18,7 +18,7 @@ struct class_range_equity_evaluator_principal : class_range_equity_evaluator{
                         std::vector<holdem_class_id> v;
                         for( auto i : vec )
                                 v.push_back(*i);
-                        result->append(*impl_->evaluate( v ));
+                        result->append(*impl_->evaluate_class( v ));
                 }, players);
                 return result;
         }

@@ -16,7 +16,7 @@ struct class_equity_evaluator_proc : class_equity_evaluator{
                 : impl_{ &equity_evaluator_factory::get("principal") }
         {
         }
-        std::shared_ptr<equity_breakdown> evaluate(holdem_class_vector const& players)const override{
+        std::shared_ptr<equity_breakdown> evaluate_class(holdem_class_vector const& players)const override{
                 support::processor proc;
                 for( size_t i=0; i!= std::thread::hardware_concurrency();++i)
                         proc.spawn();

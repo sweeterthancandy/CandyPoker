@@ -289,7 +289,7 @@ int main(){
                 holdem_class_decl::parse("A5s")
         };
         auto const& ee = class_equity_evaluator_factory::get("principal");
-        auto ret = ee.evaluate(p);
+        auto ret = ee.evaluate_class(p);
         std::cout << *ret << "\n";
         //std::cout << ret << "\n";
 }

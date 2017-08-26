@@ -164,7 +164,7 @@ namespace ps{
                         // this means it's a class vs class evaulation
                         if( c.opt_cplayers.size() != 0 ){
                                 holdem_class_vector aux{c.opt_cplayers};
-                                agg->append(*class_eval_.evaluate(aux));
+                                agg->append(*class_eval_.evaluate_class(aux));
                         } else{
                                 for( auto const& d : c.children ){
                                         holdem_hand_vector aux{d.players};

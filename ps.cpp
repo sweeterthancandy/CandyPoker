@@ -54,6 +54,24 @@ enum PlayerAction{
         PlayerAction_Push
 };
 
+std::string PlayerAction_to_string(PlayerAction e) {
+        switch (e) {
+        case PlayerAction_PostSB:
+                return "PlayerAction_PostSB";
+        case PlayerAction_PostSBAllin:
+                return "PlayerAction_PostSBAllin";
+        case PlayerAction_PostBB:
+                return "PlayerAction_PostBB";
+        case PlayerAction_PostBBAllin:
+                return "PlayerAction_PostBBAllin";
+        case PlayerAction_Fold:
+                return "PlayerAction_Fold";
+        case PlayerAction_Push:
+                return "PlayerAction_Push";
+        default:
+                return "__unknown__";
+        }
+}
 // we need to be able see what happened
 struct action_decl{
         // idea here is that offset can be deduced later
@@ -316,17 +334,45 @@ private:
 // {{{
 struct player_strat{
         virtual ~player_strat()=default;
-        virtual PlayerAction act(game_context const& ctx, card_id id)=0;
+        virtual PlayerAction act(game_context const& ctx, holdem_id id)=0;
 };
 struct push_player_strat : player_strat{
-        PlayerAction act(game_context const& ctx, card_id id)override{
+        PlayerAction act(game_context const& ctx, holdem_id id)override{
                 return PlayerAction_Push;
         }
 };
 struct fold_player_strat : player_strat{
-        PlayerAction act(game_context const& ctx, card_id id)override{
+        PlayerAction act(game_context const& ctx, holdem_id id)override{
                 return PlayerAction_Fold;
         }
+};
+struct holdem_class_strat_player : player_strat{
+        holdem_class_strat_player(holdem_class_strategy const& sb_strat,
+                                  holdem_class_strategy const& bb_strat)
+                :sb_strat_{sb_strat}
+                ,bb_strat_{bb_strat}
+        {}
+        PlayerAction act(game_context const& ctx, holdem_id id)override{
+                PlayerAction act = PlayerAction_Fold;
+                auto class_ = holdem_hand_decl::get(id).class_();
+                if(ctx.cursor() == ctx.sb_offset()){
+                        // sb opening action
+                        if( sb_strat_[class_] >= ctx.get_decl().get_stacks()[0]){
+                                act =  PlayerAction_Push;
+                        }
+                } else{
+                        // bb facing a push
+                        if( bb_strat_[class_] >=ctx.get_decl().get_stacks()[0]){ 
+                                act =  PlayerAction_Push;
+                        }
+                }
+                PRINT_SEQ((holdem_hand_decl::get(id))(PlayerAction_to_string(act)));
+                return act;
+
+        }
+private:
+        holdem_class_strategy sb_strat_;
+        holdem_class_strategy bb_strat_;
 };
 
 struct dealer{
@@ -341,7 +387,9 @@ struct dealer{
         holdem_id deal(){
                 auto x = deal_card_();
                 auto y = deal_card_();
-                return holdem_hand_decl::make_id(x, y);
+                auto id = holdem_hand_decl::make_id(x, y);
+                //PRINT_SEQ((card_decl::get(x))(card_decl::get(y))(holdem_hand_decl::get(id)));
+                return id;
         }
         size_t deck_size()const{
                 return 52 - __builtin_popcount(removed_);
@@ -445,6 +493,11 @@ struct simultation_context{
                 }
 
                 for( ; ctx.players_left_to_act();){
+                        #if 0
+                        PRINT(ctx.cursor());
+                        PRINT(deal[ctx.cursor()]);
+                        PRINT( holdem_hand_decl::get(deal[ctx.cursor()]));
+                        #endif
                         auto act = p_[ctx.cursor()]->act(ctx, deal[ctx.cursor()]);
                         ctx.post(act);
                 }
@@ -452,8 +505,10 @@ struct simultation_context{
 
                 auto ret = ge_.eval(ctx, deal);
 
+                #if 0
                 PRINT(deal);
                 PRINT( detail::to_string(ret));
+                #endif
 
                 return std::move(ret);
         }
@@ -470,8 +525,20 @@ void run_simulation_test(){
         decl.push_stack(10);
 
         std::vector<std::shared_ptr<player_strat>> pv;
-        pv.push_back(std::make_shared<fold_player_strat>());
-        pv.push_back(std::make_shared<fold_player_strat>());
+
+        holdem_class_strategy sb_strat;
+        holdem_class_strategy bb_strat;
+
+        sb_strat.load("sb_result.bin");
+        bb_strat.load("bb_result.bin");
+
+        sb_strat.display();
+        bb_strat.display();
+
+        auto pf_strat = std::make_shared<holdem_class_strat_player>(sb_strat, bb_strat);
+
+        pv.push_back(pf_strat);
+        pv.push_back(pf_strat);
 
         simultation_context sim(decl, pv);
 

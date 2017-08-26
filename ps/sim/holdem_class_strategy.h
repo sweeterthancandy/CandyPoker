@@ -175,7 +175,7 @@ struct holdem_class_strategy{
         void serialize(Archive& ar, unsigned int){
                 ar & vec_;
         }
-        bool save(std::string const& name){
+        bool load(std::string const& name){
                 std::ifstream is(name);
                 if( ! is.is_open() ){
                         std::cerr << "Unable to open " << name << "\n";
@@ -185,7 +185,7 @@ struct holdem_class_strategy{
                 ia >> *this;
                 return true;
         }
-        bool load(std::string const& name){
+        bool save(std::string const& name){
                 std::ofstream of(name);
                 if( ! of.is_open() ){
                         std::cerr << "Unable to open " << name << "\n";

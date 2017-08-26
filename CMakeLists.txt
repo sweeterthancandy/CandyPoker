@@ -95,7 +95,7 @@ target_link_libraries(cacher ${Boost_LIBRARIES})
 target_link_libraries(cacher support_lib base_lib eval_lib )
 
 
-#add_executable(heads_up_solver app/heads_up_solver.cpp )
-#target_link_libraries(heads_up_solver pthread )
-#target_link_libraries(heads_up_solver ${Boost_LIBRARIES})
-#target_link_libraries(heads_up_solver base_lib eval_lib )
+add_executable(heads_up_solver app/heads_up_solver.cpp )
+target_link_libraries(heads_up_solver pthread )
+target_link_libraries(heads_up_solver ${Boost_LIBRARIES})
+target_link_libraries(heads_up_solver support_lib base_lib eval_lib )

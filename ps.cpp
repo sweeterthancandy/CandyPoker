@@ -170,7 +170,7 @@ struct game_context{
         game_decl const& get_decl()const{ return decl_; }
         size_t n()const{ return n_; }
         auto sb_offset()const{ return sb_offset_; }
-        auto bb_offset()const{ return sb_offset_+1; }
+        auto bb_offset()const{ return (sb_offset_+1) % n(); }
         
 
         void post_blinds(){
@@ -243,7 +243,7 @@ struct game_context{
                         size_t offset = ( btn_ + i) % n();
                         ostr << str(boost::format("    %-5s - %s") % format_pos_(i % n()) % players_[offset]) << "\n";
                 }
-                std::cout << std::string(20,'-') << format_state_() << std::string(20,'-') << "\n";
+                std::cout << std::string(10,'-') << format_state_() << std::string(10,'-') << "\n";
         }
         bool players_left_to_act()const{
                 return ! end_flag_;
@@ -258,9 +258,11 @@ private:
         }
         std::string format_state_()const{
                 std::stringstream sstr;
-                sstr << " pot " << pot_ << " - " << ( end_flag_ ? "end" : "running" );
-                sstr << ", ";
-                STREAM_SEQ(sstr, (active_count_)(allin_count_));
+                sstr << " pot " << pot_;
+                sstr << ", " << ( end_flag_ ? "end" : "running" );
+                sstr << ", active_count_ " << active_count_;
+                sstr << ", allin_count_ " << allin_count_;
+                sstr << ", btn_ " << btn_;
                 return sstr.str();
         }
         std::string format_pos_(size_t offset)const{
@@ -321,6 +323,11 @@ struct push_player_strat : player_strat{
                 return PlayerAction_Push;
         }
 };
+struct fold_player_strat : player_strat{
+        PlayerAction act(game_context const& ctx, card_id id)override{
+                return PlayerAction_Fold;
+        }
+};
 
 struct dealer{
         explicit dealer(size_t n)
@@ -374,6 +381,7 @@ struct game_evaluator{
                 do{
                         if(ctx.allin_count()==0){
                                 // case walk
+                                //PRINT("walk");
                                 d[ctx.sb_offset()] -= ctx.get_decl().get_sb();
                                 d[ctx.bb_offset()] += ctx.get_decl().get_sb();
                                 break;
@@ -389,6 +397,7 @@ struct game_evaluator{
 
                         if( p.size() == 1 ){
                                 // case blind steal
+                                //PRINT("blind steal");
                                 d[ctx.sb_offset()] -= ctx.get_decl().get_sb();
                                 d[p[0]]            += ctx.get_decl().get_sb();
                                 d[ctx.bb_offset()] -= ctx.get_decl().get_bb();
@@ -422,7 +431,8 @@ struct simultation_context{
                 ,dealer_{decl_.players_size()}
         {
         }
-        void simulate(){
+        // returns vector of equity difference
+        std::vector<double> simulate(){
                 auto btn = dealer_.shuffle_and_deal_btn();
                 game_context ctx(decl_, btn);
 
@@ -445,9 +455,7 @@ struct simultation_context{
                 PRINT(deal);
                 PRINT( detail::to_string(ret));
 
-                
-
-
+                return std::move(ret);
         }
 private:
         game_decl decl_;
@@ -462,14 +470,23 @@ void run_simulation_test(){
         decl.push_stack(10);
 
         std::vector<std::shared_ptr<player_strat>> pv;
-        pv.push_back(std::make_shared<push_player_strat>());
-        pv.push_back(std::make_shared<push_player_strat>());
+        pv.push_back(std::make_shared<fold_player_strat>());
+        pv.push_back(std::make_shared<fold_player_strat>());
 
         simultation_context sim(decl, pv);
 
-        //for(size_t i=0;i!=10000;++i)
 
-        sim.simulate();
+        std::vector<double> d(2);
+
+        
+        for(size_t i=0;i!=200;++i){
+                auto ret =sim.simulate();
+                for(size_t j=0;j!=2;++j){
+                        d[j] += ret[j];
+                }
+                PRINT(detail::to_string(d));
+        }
+
 
         //auto result = sim.result();
 }

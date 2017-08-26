@@ -2,6 +2,11 @@
 #define PS_SIM_HOLDEM_CLASS_STRATEGY_H
 
 #include "ps/base/cards.h"
+#include <fstream>
+
+#include <boost/archive/text_iarchive.hpp>
+#include <boost/archive/text_oarchive.hpp>
+#include <boost/serialization/array.hpp>
 
 namespace ps{
 
@@ -165,6 +170,30 @@ struct holdem_class_strategy{
         }
         bool operator<(holdem_class_strategy const& that)const{
                 return vec_ < that.vec_;
+        }
+        template<class Archive>
+        void serialize(Archive& ar, unsigned int){
+                ar & vec_;
+        }
+        bool save(std::string const& name){
+                std::ifstream is(name);
+                if( ! is.is_open() ){
+                        std::cerr << "Unable to open " << name << "\n";
+                        return false;
+                }
+                boost::archive::text_iarchive ia(is);
+                ia >> *this;
+                return true;
+        }
+        bool load(std::string const& name){
+                std::ofstream of(name);
+                if( ! of.is_open() ){
+                        std::cerr << "Unable to open " << name << "\n";
+                        return false;
+                }
+                boost::archive::text_oarchive oa(of);
+                oa << *this;
+                return true;
         }
 private:
         std::array<double, 169> vec_;

@@ -131,7 +131,8 @@ struct hand_context{
                         ,name_{proto.name()}
                         ,starting_stack_{proto.stack()}
                         ,stack_{proto.stack()}
-                {}
+                {
+                }
                 auto        idx()           const{ return idx_;            }
                 auto        state()         const{ return state_;          }
                 auto&       state()              { return state_;          }
@@ -139,6 +140,7 @@ struct hand_context{
                 auto        stack()         const{ return stack_;          }
                 auto&       stack()              { return stack_;          }
                 auto const& name()          const{ return name_;           }
+                // XXX made this hand or class
                 auto        hand()          const{ return hand_;           }
                 auto&       hand()               { return hand_;           }
                 friend std::ostream& operator<<(std::ostream& ostr, player_context const& self){
@@ -210,8 +212,17 @@ struct hand_context{
                 bool end_flag_{false};
         };
 
-        auto begin(){ return player_iterator{*this}; }
-        auto end()  { return player_iterator{};      }
+        auto action_begin(){ return player_iterator{*this}; }
+        auto action_end()  { return player_iterator{};      }
+
+        auto players_begin(){ return players_.begin(); }
+        auto players_end(){ return players_.end(); }
+        auto players_begin()const{ return players_.begin(); }
+        auto players_end()const{ return players_.end(); }
+        auto begin(){ return players_.begin(); }
+        auto end(){ return players_.end(); }
+        auto begin()const{ return players_.begin(); }
+        auto end()const{ return players_.end(); }
 
         hand_context(game_decl const& decl, size_t btn)
                 :sb_{decl.get_sb()}
@@ -528,10 +539,10 @@ struct hand_ledger{
         // replay the ledger from the start
         void replay(player_controller& ctrl)
         {
-                auto ctx = init_ctx_;
+                hand_context ctx = init_ctx_;
 
-                auto iter = ctx.begin();
-                auto end = ctx.end();
+                auto iter = ctx.action_begin();
+                auto end = ctx.action_end();
 
                 for(auto & a : v_){
                         a.execute(ctx, iter, ctrl);
@@ -555,8 +566,8 @@ struct hand_controller{
                         hand_ledger& ledger)
                 :ledger_{&ledger}
                 ,ctx_{&ctx}
-                ,iter_{ctx_->begin()}
-                ,end_{ctx_->end()}
+                ,iter_{ctx_->action_begin()}
+                ,end_{ctx_->action_end()}
         {}
         // execute action
         void execute(action_t a){
@@ -642,17 +653,30 @@ private:
 };
 #endif
 
+enum ButtonType{
+        ButtonType_RoundRobin,
+        ButtonType_Fixed
+};
+
 struct dealer{
-        explicit dealer(size_t n, size_t initial_btn)
+        explicit dealer(size_t n, size_t initial_btn, ButtonType btype = ButtonType_RoundRobin)
                 :n_{n}
                 ,btn_{initial_btn}
+                ,btype_{btype}
         {}
         size_t shuffle_and_deal_btn(){
                 removed_ = 0;
-                auto btn = btn_;
-                ++btn_;
-                btn_ = btn_ % n_;
-                return btn;
+                switch(btype_){
+                case ButtonType_RoundRobin:{
+                        ++btn_;
+                        btn_ = btn_ % n_;
+                        break;
+                }
+                case ButtonType_Fixed:
+                default:
+                        break;
+                }
+                return btn_;
         }
         holdem_id deal(){
                 auto x = deal_card_();
@@ -680,6 +704,7 @@ private:
         std::uniform_int_distribution<card_id> deck_{0,52-1};
         size_t removed_{0};
         size_t btn_{0};
+        ButtonType btype_;
 };
 
 void game_context_test(){
@@ -697,21 +722,49 @@ void game_context_test(){
         ctrl.execute(post_bb_);
         ctrl.execute(push_);
         ctrl.execute(push_);
-        PRINT( ctrl.eoh() );
         ctrl.execute(fold_);
-        PRINT( ctrl.eoh() );
         ctx.display();
 
         player_print_controller pp;
         ledger.replay(pp);
-
 }
 
-int main(){
-        game_context_test();
-}
+/*
+        Here, there are several things we might want to simulate
 
-#if 0
+
+                game type => {push/fold, full poker}
+
+                for a multi-street game, I might want to yeild several branches
+                on each street, or choice.
+
+                method       => {enumerate, monte-carlo}
+                enumeate     => for every button position
+                                        for every {hand,class} permutation
+                implentation => {single, multithreaded}
+
+                push/fold equity, ie releaztions of independant hands
+                        => work out equity in certain position
+                        => work out ev over a round of hands
+                probabily of ruin, ie a sequcence of (dependant) hands
+ */
+
+struct simulation_decl{
+        simulation_decl(double sb, double bb):decl_{sb,bb}{}
+        void push_player(double stack, std::string name, std::shared_ptr<player_strat> strat){
+                decl_.push_player(stack, name);
+                strats_.push_back(strat);
+        }
+        void set_button_type(ButtonType type){
+                btn_type_ = type;
+        }
+private:
+        friend class simulation;
+        game_decl decl_;
+        std::vector<std::shared_ptr<player_strat> > strats_;
+        size_t init_btn_;
+        ButtonType btn_type_{ButtonType_RoundRobin};
+};
 
 /*
         This is the logic which processes how happens at the end of the hand,
@@ -727,48 +780,54 @@ struct game_evaluator{
                 cache_->load("cache_4.bin");
         }
         // returns a vector of the EV for the stacks
-        std::vector<double> eval(hand_context const& ctx, std::vector<holdem_id> const& deal){
+        std::vector<double> eval(hand_context const& ctx){
+                // TODO split pots, and situations where a player has someone covered
                 std::vector<double> d(ctx.players_size());
                 
                 do{
                         if(ctx.allin_count()==0){
                                 // case walk
-                                //PRINT("walk");
                                 d[ctx.sb_offset()] -= ctx.sb();
                                 d[ctx.bb_offset()] += ctx.sb();
                                 break;
                         }
-                        std::vector<size_t> p;
+
+                        // when all players are all in,
+                        //      p = {0,1,2},
+                        // when when only players 1 and 2 are in
+                        //      p = {1,2}
+                        //
+                        std::vector<size_t> idx;
                         std::vector<holdem_id> aux;
-                        for( size_t i=0; i!=ctx.players_size();++i){
-                                if(ctx.get_player(i).state() == PlayerState_AllIn){
-                                        p.push_back(i);
-                                        aux.push_back(deal[i]);
+                        for( auto const& p : ctx ){
+                                if( p.state() == PlayerState_AllIn){
+                                        idx.push_back(p.idx());
+                                        aux.push_back(p.hand());
                                 }
                         }
 
-                        if( p.size() == 1 ){
+                        if( idx.size() == 1 ){
                                 // case blind steal
                                 //PRINT("blind steal");
                                 d[ctx.sb_offset()] -= ctx.sb();
-                                d[p[0]]            += ctx.sb();
+                                d[idx[0]]            += ctx.sb();
                                 d[ctx.bb_offset()] -= ctx.bb();
-                                d[p[0]]            += ctx.bb();
+                                d[idx[0]]            += ctx.bb();
                                 break;
                         }
                         // case all in equity
 
                         auto equity = cev_->evaluate(aux);
-                        for(size_t i=0;i!=p.size();++i){
-                                d[p[i]] = ( ctx.pot() * equity->player(i).equity() ) - ctx.get_decl().stack(i);
-                                //        \------equity in pot -----------/   \----- cost of bet -------------/
+                        for(size_t i=0;i!=idx.size();++i){
+                                d[idx[i]] = ( ctx.pot() * equity->player(i).equity() ) - ctx.player(i).starting_stack();
+                                //           \--------------equity in pot -----------/   \----- cost of bet ----------/
                         }
                         
                         #if 1
                         // need to deduced blinds if they arn't part of the allin
-                        if( ctx.get_player(ctx.sb_offset()).state() != PlayerState_AllIn )
+                        if( ctx.player(ctx.sb_offset()).state() != PlayerState_AllIn )
                                 d[ctx.sb_offset()] -= ctx.sb();
-                        if( ctx.get_player(ctx.bb_offset()).state() != PlayerState_AllIn )
+                        if( ctx.player(ctx.bb_offset()).state() != PlayerState_AllIn )
                                 d[ctx.bb_offset()] -= ctx.bb();
                         #endif
                 }while(0);
@@ -777,6 +836,66 @@ struct game_evaluator{
 private:
         equity_evaluator* cev_;
 };
+
+struct simulation{
+        explicit simulation(simulation_decl const& sdecl)
+                :sdecl_{sdecl}
+        {
+        }
+        std::vector<double> simulate(size_t n){
+                dealer dealer_(sdecl_.decl_.players_size(), sdecl_.init_btn_, sdecl_.btn_type_ );
+                std::vector<double> d; 
+                // XXX n should be modulas number of players
+                for(size_t count=0;count!=n;++count){
+
+                        size_t btn = dealer_.shuffle_and_deal_btn();
+                        PRINT(btn);
+
+                        hand_context ctx(sdecl_.decl_, btn);
+                        hand_ledger ledger(ctx);
+                        hand_controller ctrl(ctx, ledger);
+
+                        // deal
+                        for(size_t i=0;i!=ctx.players_size();++i){
+                                ctx.player(i).hand() = dealer_.deal();
+                        }
+                        auto iter = ctx.action_begin();
+                        auto end = ctx.action_end();
+
+                        for(; iter!= end;++iter){
+                                auto id = ctrl.cursor();
+                                auto a = sdecl_.strats_[id]->act(ctx, ledger, iter);
+                                ctrl.execute(a);
+                        }
+                        player_print_controller pp;
+                        ledger.replay(pp);
+
+                        auto r =  ge_.eval(ctx);
+
+                        ctx.display();
+                        PRINT(detail::to_string(r));
+                }
+                return std::move(d);
+        }
+private:
+        simulation_decl sdecl_;
+        game_evaluator ge_;
+};
+
+void simulator_test(){
+        simulation_decl sdecl(.05,1.);
+        sdecl.push_player(10,"hero", std::make_shared<push_player_strat>() );
+        sdecl.push_player(10,"villian", std::make_shared<push_player_strat>() );
+        simulation sim(sdecl);
+        auto ret = sim.simulate(4);
+}
+
+int main(){
+        simulator_test();
+}
+
+#if 0
+
 
 struct simultation_context{
         simultation_context(game_decl const& decl, std::vector<std::shared_ptr<player_strat> > const& p)

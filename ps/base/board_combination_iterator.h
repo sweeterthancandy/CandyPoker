@@ -5,6 +5,13 @@
 
 namespace ps{
 
+/*
+        This is for iterating over over boards in the form
+
+                A B C D E
+        where
+                A < B < C < D < E
+ */
 struct board_combination_iterator{
         // construct psuedo end iterator
         board_combination_iterator():end_flag_{true}{}

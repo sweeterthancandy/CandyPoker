@@ -9,6 +9,7 @@
 #include <boost/timer/timer.hpp>
 
 #include "ps/support/config.h"
+#include "ps/support/index_sequence.h"
 #include "ps/base/cards.h"
 #include "ps/eval/class_equity_evaluator.h"
 #include "ps/eval/equity_evaluator.h"
@@ -659,17 +660,13 @@ private:
 
 struct hand_controller{
         hand_controller(hand_context& ctx,
-                        dealer& _dealer,
                         hand_ledger& ledger)
                 :ledger_{&ledger}
                 ,ctx_{&ctx}
-                ,dealer_{&_dealer}
                 ,iter_{ctx_->action_begin()}
                 ,end_{ctx_->action_end()}
         {}
-        void deal_and_post(){
-                for( auto& p : *ctx_)
-                        p.hand() = dealer_->deal();
+        void post_blinds(){
                 execute( post_sb_ );
                 if( eoh())
                         return;
@@ -690,7 +687,6 @@ struct hand_controller{
 private:
         hand_ledger* ledger_;
         hand_context* ctx_;
-        dealer* dealer_;
         player_controller_default ctrl_;
         hand_context::player_iterator iter_;
         hand_context::player_iterator end_;
@@ -782,7 +778,7 @@ void game_context_test(){
         hand_context ctx(decl, 0);
         ctx.display();
         hand_ledger ledger(ctx);
-        hand_controller ctrl(ctx,d, ledger);
+        hand_controller ctrl(ctx, ledger);
         ctrl.execute(post_sb_);
         ctrl.execute(post_bb_);
         ctrl.execute(push_);
@@ -827,7 +823,8 @@ struct simulation_decl{
                 init_btn_ = btn;
         }
 private:
-        friend class simulation;
+        friend class monte_carlo_simulator;
+        friend class enumuration_simulator;
         game_decl decl_;
         std::vector<std::shared_ptr<player_strat> > strats_;
         size_t init_btn_;
@@ -903,8 +900,8 @@ private:
         equity_evaluator* cev_;
 };
 
-struct simulation{
-        explicit simulation(simulation_decl const& sdecl)
+struct monte_carlo_simulator{
+        explicit monte_carlo_simulator(simulation_decl const& sdecl)
                 :sdecl_{sdecl}
         {
         }
@@ -918,9 +915,10 @@ struct simulation{
 
                         hand_context ctx(sdecl_.decl_, btn);
                         hand_ledger ledger(ctx);
-                        hand_controller ctrl(ctx, dealer_, ledger);
+                        hand_controller ctrl(ctx, ledger);
 
-                        ctrl.deal_and_post();
+                        
+                        ctrl.post_blinds();
 
                         for(;!ctrl.eoh();){
                                 auto iter = ctrl.iter();
@@ -945,6 +943,53 @@ private:
         game_evaluator ge_;
 };
 
+
+#if 0
+struct enumuration_simulator{
+        explicit enumuration_simulator(simulation_decl const& sdecl)
+                :sdecl_{sdecl}
+        {
+        }
+        std::vector<double> simulate(size_t n){
+                size_t num = sdecl_.decl_.players_size();
+                std::vector<double> d( num );
+
+
+                for(size_t btn=0;btn!=num;++btn){ 
+                        for( board_combination_iterator iter(num), end;iter!=end;++iter){
+
+                                hand_context ctx(sdecl_.decl_, btn);
+                                hand_ledger ledger(ctx);
+                                hand_controller ctrl(ctx, ledger);
+
+                                
+                                ctrl.post_blinds();
+
+                                for(;!ctrl.eoh();){
+                                        auto iter = ctrl.iter();
+                                        auto a = sdecl_.strats_[iter->idx()]->act(ctx, ledger, *iter);
+                                        ctrl.execute(a);
+                                }
+                                player_print_controller pp;
+                                ledger.replay(pp);
+
+                                auto r =  ge_.eval(ctx);
+                                for( size_t i=0;i!=d.size();++i){
+                                        d[i] += r.at(i);
+                                }
+
+                                ctx.display();
+                                PRINT(detail::to_string(r));
+                        }
+                }
+                return std::move(d);
+        }
+private:
+        simulation_decl sdecl_;
+        game_evaluator ge_;
+};
+#endif
+
 void simulator_test(){
         simulation_decl sdecl(.5,1.);
         
@@ -960,10 +1005,9 @@ void simulator_test(){
         auto pf_strat = std::make_shared<holdem_class_strat_player>(sb_strat, bb_strat);
 
         //sdecl.push_player(10,"hero", std::make_shared<push_player_strat>() );
-        sdecl.push_player(10,"villian", std::make_shared<push_player_strat>() );
         sdecl.push_player(10,"hero", pf_strat);
-        sdecl.set_init_btn(1);
-        simulation sim(sdecl);
+        sdecl.push_player(10,"villian", std::make_shared<push_player_strat>() );
+        monte_carlo_simulator sim(sdecl);
         auto ret = sim.simulate(1000);
         std::cout << detail::to_string(ret) << "\n";
 }

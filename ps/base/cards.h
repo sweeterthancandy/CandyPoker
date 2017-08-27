@@ -20,7 +20,17 @@ namespace ps{
                 auto id()const{ return id_; }
                 std::string to_string()const{ return std::string{sym_}; }
                 friend std::ostream& operator<<(std::ostream& ostr, suit_decl const& self){
-                        return ostr << self.to_string();
+                        const char* prefix = [](auto idx){
+                                switch(idx){
+                                case 0: return "\033[0;31m";
+                                case 1: return "\033[0;32m";
+                                case 2: return "\033[0;33m";
+                                default:
+                                case 3: return "\033[0;34m";
+                                }
+                        }(self.id_);
+                        const char* suffix = "\033[0;0m";
+                        return ostr << prefix << self.to_string() << suffix;
                 }
                 bool operator<(suit_decl const& that)const{
                         return id_ < that.id_;
@@ -73,7 +83,7 @@ namespace ps{
                 // id >> 2
                 rank_decl const& rank()const{ return rank_; }
                 friend std::ostream& operator<<(std::ostream& ostr, card_decl const& self){
-                        return ostr << self.to_string();
+                        return ostr << self.rank_ << self.suit_;
                 }
                 bool operator<(card_decl const& that)const{
                         return id_ < that.id_;
@@ -112,7 +122,7 @@ namespace ps{
                                second_.to_string();
                 }
                 friend std::ostream& operator<<(std::ostream& ostr, holdem_hand_decl const& self){
-                        return ostr << self.to_string();
+                        return ostr << self.first_ << self.second_;
                 }
                 bool operator<(holdem_hand_decl const& that)const{
                         return id_ < that.id_;

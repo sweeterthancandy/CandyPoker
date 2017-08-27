@@ -744,15 +744,22 @@ struct holdem_class_strat_player : player_strat{
                 ledger.replay(hasher);
 
                 std::string hash = hasher;
+                std::cout << "eval " << holdem_hand_decl::get(player.hand()) << "[" << holdem_class_decl::get(player.class_()) << "]"
+                        << " SB {" << sb_strat_[player.class_()] << "}, BB {" << bb_strat_[player.class_()] << "}\n";
 
                 if( hash == "p" ){
                         // bb facing a push
                         if( bb_strat_[player.class_()] >= ctx.eff_stack()){
+                                std::cout << "BB is calling off with " << holdem_hand_decl::get(player.hand())
+                                                                << "[" << holdem_class_decl::get(player.class_()) << "]\n";
                                 return push_;
                         }
+                                                             
                 } else {
                         // sb opening action
                         if( sb_strat_[player.class_()] >= ctx.eff_stack()){
+                                std::cout << "SB is shoving with " << holdem_hand_decl::get(player.hand())
+                                                                   << "[" << holdem_class_decl::get(player.class_()) << "]\n";
                                 return push_;
                         }
                 }
@@ -815,6 +822,9 @@ struct simulation_decl{
         }
         void set_button_type(ButtonType type){
                 btn_type_ = type;
+        }
+        void set_init_btn(size_t btn){
+                init_btn_ = btn;
         }
 private:
         friend class simulation;
@@ -950,10 +960,12 @@ void simulator_test(){
         auto pf_strat = std::make_shared<holdem_class_strat_player>(sb_strat, bb_strat);
 
         //sdecl.push_player(10,"hero", std::make_shared<push_player_strat>() );
-        sdecl.push_player(10,"hero", pf_strat);
         sdecl.push_player(10,"villian", std::make_shared<push_player_strat>() );
+        sdecl.push_player(10,"hero", pf_strat);
+        sdecl.set_init_btn(1);
         simulation sim(sdecl);
-        auto ret = sim.simulate(10);
+        auto ret = sim.simulate(1000);
+        std::cout << detail::to_string(ret) << "\n";
 }
 
 int main(){

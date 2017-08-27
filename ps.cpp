@@ -28,6 +28,24 @@
 
 using namespace ps;
 
+enum PlayerState{
+        PlayerState_Active,
+        PlayerState_Fold,
+        PlayerState_AllIn
+};
+std::string PlayerState_to_string(PlayerState e) {
+        switch (e) {
+        case PlayerState_Active:
+                return "PlayerState_Active";
+        case PlayerState_Fold:
+                return "PlayerState_Fold";
+        case PlayerState_AllIn:
+                return "PlayerState_AllIn";
+        default:
+                return "__unknown__";
+        }
+}
+
 
 // this describes the setup of the game (before any action)
 // ie we can construct a game from the game_decl
@@ -100,23 +118,6 @@ private:
 
 
 
-enum PlayerState{
-        PlayerState_Active,
-        PlayerState_Fold,
-        PlayerState_AllIn
-};
-std::string PlayerState_to_string(PlayerState e) {
-        switch (e) {
-        case PlayerState_Active:
-                return "PlayerState_Active";
-        case PlayerState_Fold:
-                return "PlayerState_Fold";
-        case PlayerState_AllIn:
-                return "PlayerState_AllIn";
-        default:
-                return "__unknown__";
-        }
-}
 
 // This holds the current state of the game
 struct game_context{
@@ -329,11 +330,6 @@ private:
                         break;
                 }
                 auto rev_offset = n() - offset;
-                #if 0
-                if( rev_offset < offset ){
-                } else {
-                }
-                #endif
                 return str(boost::format("BTN+%d") % rev_offset);
 
         }
@@ -661,9 +657,8 @@ void game_context_test(){
         ctx.post(PlayerAction_Push);
         ctx.post(PlayerAction_Fold);
         ctx.display();
-
-
 }
+
 int main(){
         run_simulation_test();
 }

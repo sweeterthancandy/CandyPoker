@@ -16,11 +16,7 @@
 
 #include <boost/range/algorithm.hpp>
 #include <boost/format.hpp>
-
-#include <boost/accumulators/accumulators.hpp>
-#include <boost/accumulators/statistics/stats.hpp>
-#include <boost/accumulators/statistics/mean.hpp>
-#include <boost/accumulators/statistics/moment.hpp>
+#include <boost/variant.hpp>
 
 #include <random>
 
@@ -28,11 +24,57 @@
 
 using namespace ps;
 
+
+
+// this describes the setup of the game (before any action)
+struct game_decl
+{
+        struct player_decl{
+                player_decl(double stack, std::string name)
+                        :stack_{stack}
+                        ,name_{std::move(name)}
+                {}
+                auto stack()const{ return stack_; }
+                auto const& name()const{ return name_; }
+        private:
+                double stack_;
+                std::string name_;
+        };
+
+        game_decl(double sb, double bb)
+                :sb_{sb},bb_{bb}
+        {}
+        void push_player(double amt){
+                push_player(amt, "player_" + boost::lexical_cast<std::string>(players_.size()));
+        }
+        void push_player(double amt, std::string name){
+                players_.emplace_back(amt, std::move(name));
+        }
+        auto get_sb()const{ return sb_; }
+        auto get_bb()const{ return bb_; }
+        auto players_size()const{
+                return players_.size();
+        }
+        auto const& player(size_t idx)const{
+                return players_.at(idx);
+        }
+        auto begin()const{ return players_.begin(); }
+        auto end()const  { return players_.end(); }
+private:
+        double sb_;
+        double bb_;
+        //double ante_{0.0};
+        std::vector<player_decl> players_;
+};
+
+
 enum PlayerState{
         PlayerState_Active,
         PlayerState_Fold,
         PlayerState_AllIn
 };
+
+inline
 std::string PlayerState_to_string(PlayerState e) {
         switch (e) {
         case PlayerState_Active:
@@ -46,30 +88,6 @@ std::string PlayerState_to_string(PlayerState e) {
         }
 }
 
-
-// this describes the setup of the game (before any action)
-// ie we can construct a game from the game_decl
-struct game_decl{
-        game_decl(double sb, double bb)
-                :sb_{sb},bb_{bb}
-        {}
-        void push_stack(double amt){
-                stacks_.push_back(amt);
-        }
-        auto get_sb()const{ return sb_; }
-        auto get_bb()const{ return bb_; }
-        std::vector<double> const& get_stacks()const{ return stacks_; }
-        auto stack(size_t idx)const{ return stacks_[idx]; }
-        auto players_size()const{
-                return stacks_.size();
-        }
-private:
-        double sb_;
-        double bb_;
-        double ante_{0.0};
-        std::vector<double> stacks_;
-};
-
 enum PlayerAction{
         PlayerAction_PostSB,
         PlayerAction_PostSBAllin,
@@ -79,6 +97,7 @@ enum PlayerAction{
         PlayerAction_Push
 };
 
+inline
 std::string PlayerAction_to_string(PlayerAction e) {
         switch (e) {
         case PlayerAction_PostSB:
@@ -97,182 +116,145 @@ std::string PlayerAction_to_string(PlayerAction e) {
                 return "__unknown__";
         }
 }
-// we need to be able see what happened
-struct action_decl{
-        // idea here is that offset can be deduced later
-        explicit action_decl(PlayerAction action, size_t offset = -1 )
-                :offset_{offset}
-                ,action_{action}
-        {
-        }
-        void set_offset(size_t _offset){ offset_ = _offset; }
-        auto offset()const{return offset_;}
-        // idea here is that we Post Sb, but it might be a SB_Allin 
-        void set_action(PlayerAction _action){ action_ = _action;}
-        auto action()const{return action_;}
-private:
-        size_t offset_;
-        PlayerAction action_;
-};
 
 
+/* This desribes the game, from before the deal, all the past
+ * history, and the current state
+ */
+struct hand_context{
 
-
-
-// This holds the current state of the game
-struct game_context{
-
+        // XXX might want to save history here
         struct player_context{
-                player_context(double stack)
-                        :state_{PlayerState_Active}
-                        ,starting_stack_{stack}
-                        ,stack_{stack}
+                player_context(size_t idx, game_decl::player_decl const& proto)
+                        :idx_{idx}
+                        ,state_{PlayerState_Active}
+                        ,name_{proto.name()}
+                        ,starting_stack_{proto.stack()}
+                        ,stack_{proto.stack()}
                 {}
-                auto state()const         { return state_; }
-                auto starting_stack()const{ return starting_stack_; }
-                auto stack()const         { return stack_; }
+                auto        idx()           const{ return idx_;            }
+                auto        state()         const{ return state_;          }
+                auto&       state()              { return state_;          }
+                auto        starting_stack()const{ return starting_stack_; }
+                auto        stack()         const{ return stack_;          }
+                auto&       stack()              { return stack_;          }
+                auto const& name()          const{ return name_;           }
+                auto        hand()          const{ return hand_;           }
+                auto&       hand()               { return hand_;           }
                 friend std::ostream& operator<<(std::ostream& ostr, player_context const& self){
-                        return ostr << "{" << PlayerState_to_string(self.state()) << "," << self.stack() << "}";
+                        std::stringstream tmp;
+                        tmp << "{" 
+                                << self.name()
+                                << ", " << PlayerState_to_string(self.state()) 
+                                << "," << self.stack() ;
+                        if( self.hand_ != static_cast<holdem_id>(-1))
+                                tmp << ", " << holdem_hand_decl::get(self.hand_);
+                        tmp << "}";
+                        return ostr << tmp.str();
                 }
         private:
-                friend struct game_context;
+                friend struct hand_context;
+                size_t idx_;
                 PlayerState state_;
+                std::string name_;
                 double starting_stack_;
                 double stack_;
+                holdem_id hand_{static_cast<holdem_id>(-1)};
         };
 
-        game_context(game_decl const& decl, size_t btn)
-                :btn_{btn}
-                ,decl_{decl}
+
+        struct player_iterator{
+                // psudo end iterator
+                player_iterator():end_flag_{true}{}
+                player_iterator(hand_context& ctx)
+                        :ctx_{&ctx}
+                {
+                        if( ctx_->n() == 2){
+                                // stats on the button
+                                cursor_ = ctx_->btn();
+                        } else {
+                                // starts on the sb
+                                // XXX this is a policy, not neccasarily
+                                // intutive to start on the forced bets
+                                cursor_ = ( ctx_->btn() + 1 ) % ctx_->n();
+                        }
+                }
+                player_iterator operator++(){
+                        if( ( ctx_->allin_count() == 0 && ctx_->active_count() == 1 ) ||
+                              ctx_->active_count() == 0  ){
+                                end_flag_ = true;
+                        } else {
+                                // find next active player
+                                for(;;){
+                                        ++cursor_;
+                                        cursor_ = (cursor_ % ctx_->n());
+                                        if( ctx_->player(cursor_).state() == PlayerState_Active )
+                                                break;
+                                }
+                        }
+                        return *this;
+                }
+                player_context& operator*(){ return ctx_->player(cursor_); } 
+                player_context* operator->(){ return &ctx_->player(cursor_); } 
+                player_context const& operator*()const{ return ctx_->player(cursor_); } 
+                player_context const* operator->()const{ return &ctx_->player(cursor_); } 
+                bool operator==(player_iterator const& that)const{
+                        return end_flag_ == that.end_flag_;
+                }
+                bool operator!=(player_iterator const& that)const{
+                        return end_flag_ != that.end_flag_;
+                }
+        private:
+                size_t cursor_;
+                hand_context* ctx_;
+                bool end_flag_{false};
+        };
+
+        auto begin(){ return player_iterator{*this}; }
+        auto end()  { return player_iterator{};      }
+
+        hand_context(game_decl const& decl, size_t btn)
+                :sb_{decl.get_sb()}
+                ,bb_{decl.get_bb()}
+                ,btn_{btn}
                 ,n_{decl.players_size()}
                 ,active_count_{n()}
         {
                 assert( n() >= 2 && "precondition failed");
 
-
                 if(  n() == 2 ){
-                        // special HU case
                         sb_offset_ = btn;
-                        cursor_ = btn;
                 } else {
                         sb_offset_ = ( btn + 1 ) % n();
-                        cursor_ =   (sb_offset_ + 2 ) % n();
                 }
-                for(size_t i=0; i!= decl.players_size();++i){
-                        players_.emplace_back( decl.get_stacks()[i] );
+
+                for(size_t i=0;i!=decl.players_size();++i){
+                        players_.emplace_back(i, decl.player(i));
                 }
         }
-        player_context const& get_player(size_t idx)const{
+        player_context const& player(size_t idx)const{
                 return players_[idx];
         }
-        player_context      & get_player(size_t idx){
+        player_context      & player(size_t idx){
                 return const_cast<player_context&>(
-                        reinterpret_cast<game_context const*>(this)
-                                ->get_player(idx)
+                        reinterpret_cast<hand_context const*>(this)
+                                ->player(idx)
                         );
         }
-        player_context const& get_player_from_btn(size_t btn_offset)const{
+        #if 0
+        player_context const& player_from_btn(size_t btn_offset)const{
                 size_t idx = ( btn_offset + btn_ ) % n();
-                return get_player(idx);
+                return player(idx);
         }
-        player_context      & get_player_from_btn(size_t btn_offset){
+        player_context      & player_from_btn(size_t btn_offset){
                 return const_cast<player_context&>(
-                        reinterpret_cast<game_context const*>(this)
-                                ->get_player_from_btn(btn_offset)
+                        reinterpret_cast<hand_context const*>(this)
+                                ->player_from_btn(btn_offset)
                         );
         }
-        auto btn()const          { return btn_; }
-        auto pot()const          { return pot_; }
-        auto active_count()const{ return active_count_; }
-        // this is the offset of players which is the action is on
-        //
-        // for example, then the button is on player 1, in a 3 player game,
-        // at the start we have
-        //       
-        //       player | position
-        //       -------+---------
-        //            1 | btn
-        //            2 | sb
-        //            0 | bb
-        // 
-        // so that player 1 will be the active player, followed by 2,
-        // followed by 0.
-        //
-        auto cursor()const{ return cursor_; }
-        auto allin_count()const { return allin_count_; }
-        auto players_size()const{ return n(); }
-        std::vector<action_decl> const& get_history()const{ return history_; }
-        game_decl const& get_decl()const{ return decl_; }
-        size_t n()const{ return n_; }
-        auto sb_offset()const{ return sb_offset_; }
-        auto bb_offset()const{ return (sb_offset_+1) % n(); }
+        #endif
         
 
-        void post_blinds(){
-                post(PlayerAction_PostSB);
-                if( ! players_left_to_act() )
-                        return;
-                post(PlayerAction_PostBB);
-        }
-        void post(PlayerAction pa){
-                action_decl act(pa, cursor() );
-
-                // preprocess
-                switch(act.action()){
-                case PlayerAction_PostSB:
-                        if( players_[cursor()].stack_ <= decl_.get_sb() ){
-                                act.set_action(PlayerAction_PostSBAllin);
-                        }
-                        break;
-                case PlayerAction_PostBB:
-                        if( players_[cursor()].stack_ <= decl_.get_bb() ){
-                                act.set_action(PlayerAction_PostBBAllin);
-                        }
-                        break;
-                default:
-                        break;
-                }
-
-
-                // apply action
-                switch(act.action()){
-                case PlayerAction_PostSB:
-                        post_pot_( decl_.get_sb() );
-                        players_[cursor()].stack_ -= decl_.get_sb();
-                        break;
-                case PlayerAction_PostSBAllin:
-                        post_pot_( players_[cursor()].stack_ );
-                        players_[cursor()].state_ = PlayerState_AllIn;
-                        players_[cursor()].stack_ = 0.0; 
-                        ++allin_count_;
-                        --active_count_;
-                        break;
-                case PlayerAction_PostBB:
-                        post_pot_( decl_.get_bb() );
-                        players_[cursor()].stack_ -= decl_.get_bb();
-                        break;
-                case PlayerAction_PostBBAllin:
-                        post_pot_( players_[cursor()].stack_ );
-                        players_[cursor()].state_ = PlayerState_AllIn;
-                        players_[cursor()].stack_ = 0.0; 
-                        ++allin_count_;
-                        --active_count_;
-                        break;
-                case PlayerAction_Push:
-                        post_pot_( players_[cursor()].stack_ );
-                        players_[cursor()].state_ = PlayerState_AllIn;
-                        players_[cursor()].stack_ = 0.0; 
-                        ++allin_count_;
-                        --active_count_;
-                        break;
-                case PlayerAction_Fold:
-                        players_[cursor()].state_ = PlayerState_Fold;
-                        --active_count_;
-                        break;
-                }
-                history_.push_back(std::move(act));
-                next_();
-        }
         void display(std::ostream& ostr = std::cout)const{
                 size_t start = 1;
                 size_t end = n() + 1;
@@ -286,21 +268,33 @@ struct game_context{
                 }
                 std::cout << std::string(10,'-') << format_state_() << std::string(10,'-') << "\n";
         }
-        bool players_left_to_act()const{
-                return ! end_flag_;
-        }
-        friend std::ostream& operator<<(std::ostream& ostr, game_context const& self){
+        friend std::ostream& operator<<(std::ostream& ostr, hand_context const& self){
                 self.display(ostr);
                 return ostr;
         }
-private:
-        void post_pot_(double amt){
-                pot_ += amt;
+
+        double add_to_pot(double amt){
+                return pot_ += amt;
         }
+        
+        size_t  btn()         const{ return btn_;                 }
+        double  sb()          const{ return sb_;                  }
+        double  bb()          const{ return bb_;                  }
+        size_t  pot()         const{ return pot_;                 }
+        size_t  active_count()const{ return active_count_;        }
+        size_t& active_count()     { return active_count_;        }
+        size_t  allin_count() const{ return allin_count_;         }
+        size_t& allin_count()      { return allin_count_;         }
+        size_t  players_size()const{ return n();                  }
+        size_t  n()           const{ return n_;                   }
+        size_t  sb_offset()   const{ return sb_offset_;           }
+        size_t  bb_offset()   const{ return (sb_offset_+1) % n(); }
+        size_t  utg()         const{ return (sb_offset_+2) % n(); }
+private:
         std::string format_state_()const{
                 std::stringstream sstr;
                 sstr << " pot " << pot_;
-                sstr << ", " << ( end_flag_ ? "end" : "running" );
+                sstr << ", " << ( active_count_ == 0 ? "end" : "running" );
                 sstr << ", active_count_ " << active_count_;
                 sstr << ", allin_count_ " << allin_count_;
                 sstr << ", btn_ " << btn_;
@@ -333,49 +327,272 @@ private:
                 return str(boost::format("BTN+%d") % rev_offset);
 
         }
-        void next_(){
-                if( ( allin_count_ == 0 && active_count_ == 1 ) ||
-                    active_count_ == 0  ){
-                        end_flag_ = true;
-                        return;
-                }
-                for(;;){
-                        ++cursor_;
-                        cursor_ = (cursor_ % n());
-                        if( players_[cursor_].state_ == PlayerState_Active )
-                                break;
-                }
-        }
-
+        double sb_;
+        double bb_;
         size_t btn_;
-        // this is the player who's action is on
         size_t sb_offset_;
-        size_t cursor_;
-        game_decl decl_;
         size_t n_;
-        size_t active_count_;
+        size_t active_count_{0};
         size_t allin_count_{0};
         std::vector<player_context> players_;
-        std::vector<action_decl> history_;
-        bool end_flag_{false};
         double pot_{0.0};
+};
+
+// the idea here, is the for a the most generic strategy implementation,
+// I probably want to revisit the history
+struct player_controller{
+        virtual ~player_controller()=default;
+        virtual void push         (hand_context& ctx, hand_context::player_iterator iter)=0;
+        virtual void fold         (hand_context& ctx, hand_context::player_iterator iter)=0;
+        virtual void post_sb      (hand_context& ctx, hand_context::player_iterator iter)=0;
+        virtual void post_sb_allin(hand_context& ctx, hand_context::player_iterator iter)=0;
+        virtual void post_bb      (hand_context& ctx, hand_context::player_iterator iter)=0;
+        virtual void post_bb_allin(hand_context& ctx, hand_context::player_iterator iter)=0;
+};
+
+struct player_controller_default : player_controller
+{
+        void push(hand_context& ctx, hand_context::player_iterator iter)override{
+                ctx.add_to_pot( iter->stack() );
+                iter->state() = PlayerState_AllIn;
+                iter->stack() = 0.0; 
+                ++ctx.allin_count();
+                --ctx.active_count();
+        };
+        void fold(hand_context& ctx, hand_context::player_iterator iter)override{
+                iter->state() = PlayerState_Fold;
+                --ctx.active_count();
+        };
+        void post_sb(hand_context& ctx, hand_context::player_iterator iter)override{
+                ctx.add_to_pot( ctx.sb() );
+                iter->stack() -= ctx.sb();
+        };
+        void post_sb_allin(hand_context& ctx, hand_context::player_iterator iter)override{
+                ctx.add_to_pot( iter->stack() );
+                iter->state() = PlayerState_AllIn;
+                iter->stack() = 0.0; 
+                ++ctx.allin_count();
+                --ctx.active_count();
+        };
+        void post_bb(hand_context& ctx, hand_context::player_iterator iter)override{
+                ctx.add_to_pot( ctx.bb() );
+                iter->stack() -= ctx.bb();
+        };
+        void post_bb_allin(hand_context& ctx, hand_context::player_iterator iter)override{
+                ctx.add_to_pot( iter->stack() );
+                iter->state() = PlayerState_AllIn;
+                iter->stack() = 0.0; 
+                ++ctx.allin_count();
+                --ctx.active_count();
+        };
+};
+struct player_print_controller : player_controller{
+        virtual ~player_print_controller()=default;
+        void push         (hand_context& ctx, hand_context::player_iterator iter)override{
+                std::cout << iter->name() << " is all in for " << iter->stack() << "\n";
+        }
+        void fold         (hand_context& ctx, hand_context::player_iterator iter)override{
+                std::cout << iter->name() << " fold\n";
+        }
+        void post_sb      (hand_context& ctx, hand_context::player_iterator iter)override{
+                std::cout << iter->name() << " posts sb of " << ctx.sb() << "\n";
+        }
+        void post_sb_allin(hand_context& ctx, hand_context::player_iterator iter)override{
+                std::cout << iter->name() << " posts sb of " << ctx.sb() << "\n";
+        }
+        void post_bb      (hand_context& ctx, hand_context::player_iterator iter)override{
+                std::cout << iter->name() << " posts bb of " << ctx.bb() << "\n";
+        }
+        void post_bb_allin(hand_context& ctx, hand_context::player_iterator iter)override{
+                std::cout << iter->name() << " posts bb of " << ctx.bb() << "\n";
+        }
+};
+
+#if 0
+// apply action
+switch(act.action()){
+case PlayerAction_PostSB:
+        post_pot_( decl_.get_sb() );
+        iter_->stack() -= ctx_->sb();
+        break;
+case PlayerAction_PostSBAllin:
+        post_pot_( iter_->stack() );
+        iter_->state() = PlayerState_AllIn;
+        iter_->stack() = 0.0; 
+        ++ctx_->allin_count();
+        --ctx_->active_count();
+        break;
+case PlayerAction_PostBB:
+        post_pot_( decl_.get_bb() );
+        iter_->stack() -= decl_.get_bb();
+        break;
+case PlayerAction_PostBBAllin:
+        post_pot_( iter_->stack() );
+        iter_->state() = PlayerState_AllIn;
+        iter_->stack() = 0.0; 
+        ++ctx_->allin_count();
+        --ctx_->active_count();
+        break;
+case PlayerAction_Push:
+        post_pot_( iter_->stack() );
+        iter_->state() = PlayerState_AllIn;
+        iter_->stack() = 0.0; 
+        ++ctx_->allin_count();
+        --ctx_->active_count();
+        break;
+case PlayerAction_Fold:
+        iter_->state() = PlayerState_Fold;
+        --ctx_->active_count();
+        break;
+#endif
+
+namespace actions{
+
+        struct post_sb{
+                void execute(hand_context& ctx,
+                             hand_context::player_iterator iter,
+                             player_controller& ctrl)const
+                {
+                        if( iter->stack() <= ctx.sb() ){
+                                ctrl.post_sb_allin(ctx, iter);
+                        } else {
+                                ctrl.post_sb(ctx, iter);
+                        }
+                }
+        };
+        struct post_bb{
+                void execute(hand_context& ctx,
+                             hand_context::player_iterator iter,
+                             player_controller& ctrl)const
+                {
+                        if( iter->stack() <= ctx.bb() ){
+                                ctrl.post_bb_allin(ctx, iter);
+                        } else {
+                                ctrl.post_bb(ctx, iter);
+                        }
+                }
+        };
+        struct push{
+                void execute(hand_context& ctx,
+                             hand_context::player_iterator iter,
+                             player_controller& ctrl)const
+                {
+                        ctrl.push(ctx, iter);
+                }
+        };
+        struct fold{
+                void execute(hand_context& ctx,
+                             hand_context::player_iterator iter,
+                             player_controller& ctrl)const
+                {
+                        ctrl.fold(ctx, iter);
+                }
+        };
+
+
+
+} // actions
+
+using any_action = boost::variant<
+        actions::post_sb,
+        actions::post_bb,
+        actions::push,
+        actions::fold
+>;
+static auto post_sb_ = actions::post_sb();
+static auto post_bb_ = actions::post_bb();
+static auto push_    = actions::push();
+static auto fold_    = actions::fold();
+
+
+
+struct action_t{
+        template<class Action>
+        action_t(Action&& a):impl_{std::forward<Action>(a)}{}
+
+        void execute(hand_context& ctx, hand_context::player_iterator iter,
+                     player_controller& ctrl)const{
+                boost::apply_visitor( [&](auto& _)->void{
+                        _.execute(ctx, iter, ctrl);
+                }, impl_);
+        }
+private:
+        any_action impl_;
+};
+
+
+struct hand_ledger{
+        explicit hand_ledger(hand_context const& init_ctx):
+                init_ctx_{init_ctx}
+        {}
+        // replay the ledger from the start
+        void replay(player_controller& ctrl)
+        {
+                auto ctx = init_ctx_;
+
+                auto iter = ctx.begin();
+                auto end = ctx.end();
+
+                for(auto & a : v_){
+                        a.execute(ctx, iter, ctrl);
+                        ++iter;
+                        if( iter == end ){
+                                std::cerr << "broke early\n";
+                                break;
+                        }
+                }
+        }
+        void post(action_t a){
+                v_.push_back(std::move(a));
+        }
+private:
+        hand_context init_ctx_;
+        std::vector<action_t> v_;
+};
+
+struct hand_controller{
+        hand_controller(hand_context& ctx,
+                        hand_ledger& ledger)
+                :ledger_{&ledger}
+                ,ctx_{&ctx}
+                ,iter_{ctx_->begin()}
+                ,end_{ctx_->end()}
+        {}
+        // execute action
+        void execute(action_t a){
+                a.execute(*ctx_, iter_, ctrl_);
+                ++iter_;
+                ledger_->post(std::move(a));
+        }
+        size_t cursor(){ return iter_->idx(); }
+        // end of hand
+        bool eoh()const{ 
+                return iter_ == end_;
+        }
+private:
+        hand_ledger* ledger_;
+        hand_context* ctx_;
+        player_controller_default ctrl_;
+        hand_context::player_iterator iter_;
+        hand_context::player_iterator end_;
 };
 
 // {{{
 struct player_strat{
         virtual ~player_strat()=default;
-        virtual PlayerAction act(game_context const& ctx, holdem_id id)=0;
+        virtual any_action act(hand_context const& ctx, hand_ledger const& ledger, hand_context::player_iterator iter)=0;
 };
 struct push_player_strat : player_strat{
-        PlayerAction act(game_context const& ctx, holdem_id id)override{
-                return PlayerAction_Push;
+        any_action act(hand_context const& ctx, hand_ledger const& ledger, hand_context::player_iterator iter)override{
+                return actions::push{};
         }
 };
 struct fold_player_strat : player_strat{
-        PlayerAction act(game_context const& ctx, holdem_id id)override{
-                return PlayerAction_Fold;
+        any_action act(hand_context const& ctx, hand_ledger const& ledger, hand_context::player_iterator iter)override{
+                return actions::fold{};
         }
 };
+#if 0
 /*
         This should be represented by a matrix
 
@@ -403,55 +620,44 @@ struct holdem_class_strat_player : player_strat{
                 :sb_strat_{sb_strat}
                 ,bb_strat_{bb_strat}
         {}
-        PlayerAction act(game_context const& ctx, holdem_id id)override{
+        any_action act(hand_context const& ctx, hand_ledger const& ledger, holdem_id id)override{
                 PlayerAction act = PlayerAction_Fold;
                 auto class_ = holdem_hand_decl::get(id).class_();
                 if(ctx.cursor() == ctx.sb_offset()){
                         // sb opening action
                         if( sb_strat_[class_] >= ctx.get_decl().get_stacks()[0]){
-                                act =  PlayerAction_Push;
+                                return actions::push{}
                         }
                 } else{
                         // bb facing a push
                         if( bb_strat_[class_] >=ctx.get_decl().get_stacks()[0]){ 
-                                act =  PlayerAction_Push;
+                                return actions::push{}
                         }
                 }
-                //PRINT_SEQ((holdem_hand_decl::get(id))(PlayerAction_to_string(act)));
-                return act;
-
+                return actions::fold{}
         }
 private:
         holdem_class_strategy sb_strat_;
         holdem_class_strategy bb_strat_;
 };
-
-namespace ba = boost::accumulators;
+#endif
 
 struct dealer{
-        explicit dealer(size_t n)
+        explicit dealer(size_t n, size_t initial_btn)
                 :n_{n}
-                //,btn_dist_{0,n_-1}
+                ,btn_{initial_btn}
         {}
         size_t shuffle_and_deal_btn(){
                 removed_ = 0;
-                //auto btn = btn_dist_(gen_);
                 auto btn = btn_;
                 ++btn_;
                 btn_ = btn_ % n_;
-                btn_acc_(btn);
-                #if 0
-                std::cout << "BTN Mean:   " << ba::mean(btn_acc_) << std::endl;
-                std::cout << "CRD Mean:   " << ba::mean(card_acc_) << std::endl;
-                #endif
                 return btn;
         }
         holdem_id deal(){
                 auto x = deal_card_();
                 auto y = deal_card_();
                 auto id = holdem_hand_decl::make_id(x, y);
-                //PRINT_SEQ((card_decl::get(x))(card_decl::get(y))(holdem_hand_decl::get(id)));
-                card_acc_(id);
                 return id;
         }
         size_t deck_size()const{
@@ -472,13 +678,40 @@ private:
         //std::default_random_engine gen_;
         std::random_device gen_;
         std::uniform_int_distribution<card_id> deck_{0,52-1};
-        //std::uniform_int_distribution<size_t> btn_dist_;
         size_t removed_{0};
         size_t btn_{0};
-
-        ba::accumulator_set<double, ba::stats<ba::tag::mean >> btn_acc_;
-        ba::accumulator_set<double, ba::stats<ba::tag::mean >> card_acc_;
 };
+
+void game_context_test(){
+        game_decl decl(0.5, 1.0);
+        decl.push_player(10);
+        decl.push_player(10);
+        decl.push_player(10);
+        dealer d(3,0);
+        auto btn = d.shuffle_and_deal_btn();
+        hand_context ctx(decl, 0);
+        ctx.display();
+        hand_ledger ledger(ctx);;
+        hand_controller ctrl(ctx, ledger);
+        ctrl.execute(post_sb_);
+        ctrl.execute(post_bb_);
+        ctrl.execute(push_);
+        ctrl.execute(push_);
+        PRINT( ctrl.eoh() );
+        ctrl.execute(fold_);
+        PRINT( ctrl.eoh() );
+        ctx.display();
+
+        player_print_controller pp;
+        ledger.replay(pp);
+
+}
+
+int main(){
+        game_context_test();
+}
+
+#if 0
 
 /*
         This is the logic which processes how happens at the end of the hand,
@@ -494,15 +727,15 @@ struct game_evaluator{
                 cache_->load("cache_4.bin");
         }
         // returns a vector of the EV for the stacks
-        std::vector<double> eval(game_context const& ctx, std::vector<holdem_id> const& deal){
+        std::vector<double> eval(hand_context const& ctx, std::vector<holdem_id> const& deal){
                 std::vector<double> d(ctx.players_size());
                 
                 do{
                         if(ctx.allin_count()==0){
                                 // case walk
                                 //PRINT("walk");
-                                d[ctx.sb_offset()] -= ctx.get_decl().get_sb();
-                                d[ctx.bb_offset()] += ctx.get_decl().get_sb();
+                                d[ctx.sb_offset()] -= ctx.sb();
+                                d[ctx.bb_offset()] += ctx.sb();
                                 break;
                         }
                         std::vector<size_t> p;
@@ -517,10 +750,10 @@ struct game_evaluator{
                         if( p.size() == 1 ){
                                 // case blind steal
                                 //PRINT("blind steal");
-                                d[ctx.sb_offset()] -= ctx.get_decl().get_sb();
-                                d[p[0]]            += ctx.get_decl().get_sb();
-                                d[ctx.bb_offset()] -= ctx.get_decl().get_bb();
-                                d[p[0]]            += ctx.get_decl().get_bb();
+                                d[ctx.sb_offset()] -= ctx.sb();
+                                d[p[0]]            += ctx.sb();
+                                d[ctx.bb_offset()] -= ctx.bb();
+                                d[p[0]]            += ctx.bb();
                                 break;
                         }
                         // case all in equity
@@ -534,9 +767,9 @@ struct game_evaluator{
                         #if 1
                         // need to deduced blinds if they arn't part of the allin
                         if( ctx.get_player(ctx.sb_offset()).state() != PlayerState_AllIn )
-                                d[ctx.sb_offset()] -= ctx.get_decl().get_sb();
+                                d[ctx.sb_offset()] -= ctx.sb();
                         if( ctx.get_player(ctx.bb_offset()).state() != PlayerState_AllIn )
-                                d[ctx.bb_offset()] -= ctx.get_decl().get_bb();
+                                d[ctx.bb_offset()] -= ctx.bb();
                         #endif
                 }while(0);
                 return std::move(d);
@@ -555,9 +788,11 @@ struct simultation_context{
         // returns vector of equity difference
         std::vector<double> simulate(){
                 auto btn = dealer_.shuffle_and_deal_btn();
-                game_context ctx(decl_, btn);
+                hand_context ctx(decl_, btn);
+                hand_ledger ledger;
+                hand_controller ctrl(ctx, ledger);
 
-                ctx.post_blinds();
+                ctrl.post_blinds();
 
                 holdem_hand_vector deal;
                 deal.resize(ctx.n());
@@ -566,22 +801,13 @@ struct simultation_context{
                 }
 
                 for( ; ctx.players_left_to_act();){
-                        #if 0
-                        PRINT(ctx.cursor());
-                        PRINT(deal[ctx.cursor()]);
-                        PRINT( holdem_hand_decl::get(deal[ctx.cursor()]));
-                        #endif
-                        auto act = p_[ctx.cursor()]->act(ctx, deal[ctx.cursor()]);
-                        ctx.post(act);
+                        auto id = ctrl.cursor();
+                        auto a = p_[id]->act(ctx, ledger, deal[id]);
+                        ctrl.execute(a);
                 }
                 //ctx.display();
 
                 auto ret = ge_.eval(ctx, deal);
-
-                #if 0
-                PRINT(deal);
-                PRINT( detail::to_string(ret));
-                #endif
 
                 return std::move(ret);
         }
@@ -642,23 +868,4 @@ void run_simulation_test(){
 }
 /// }}}
 
-void game_context_test(){
-        game_decl decl(0.5, 1.0);
-        decl.push_stack(2);
-        decl.push_stack(3);
-        decl.push_stack(4);
-        decl.push_stack(5);
-        game_context ctx(decl, 3);
-        ctx.display();
-        ctx.post(PlayerAction_PostSB);
-        ctx.post(PlayerAction_PostBB);
-        ctx.post(PlayerAction_Fold);
-        ctx.post(PlayerAction_Push);
-        ctx.post(PlayerAction_Push);
-        ctx.post(PlayerAction_Fold);
-        ctx.display();
-}
-
-int main(){
-        run_simulation_test();
-}
+#endif

@@ -117,52 +117,53 @@ std::string PlayerAction_to_string(PlayerAction e) {
         }
 }
 
+// XXX might want to save history here
+struct player_context{
+        player_context(size_t idx, game_decl::player_decl const& proto)
+                :idx_{idx}
+                ,state_{PlayerState_Active}
+                ,name_{proto.name()}
+                ,starting_stack_{proto.stack()}
+                ,stack_{proto.stack()}
+        {
+        }
+        auto        idx()           const{ return idx_;            }
+        auto        state()         const{ return state_;          }
+        auto&       state()              { return state_;          }
+        auto        starting_stack()const{ return starting_stack_; }
+        auto        stack()         const{ return stack_;          }
+        auto&       stack()              { return stack_;          }
+        auto const& name()          const{ return name_;           }
+        // XXX made this hand or class
+        auto        hand()          const{ return hand_;           }
+        auto&       hand()               { return hand_;           }
+        auto        class_()        const{ return holdem_hand_decl::get(this->hand()).class_(); }
+        friend std::ostream& operator<<(std::ostream& ostr, player_context const& self){
+                std::stringstream tmp;
+                tmp << "{" 
+                        << self.name()
+                        << ", " << PlayerState_to_string(self.state()) 
+                        << "," << self.stack() ;
+                if( self.hand_ != static_cast<holdem_id>(-1))
+                        tmp << ", " << holdem_hand_decl::get(self.hand_);
+                tmp << "}";
+                return ostr << tmp.str();
+        }
+private:
+        friend struct hand_context;
+        size_t idx_;
+        PlayerState state_;
+        std::string name_;
+        double starting_stack_;
+        double stack_;
+        holdem_id hand_{static_cast<holdem_id>(-1)};
+};
+
 
 /* This desribes the game, from before the deal, all the past
  * history, and the current state
  */
 struct hand_context{
-
-        // XXX might want to save history here
-        struct player_context{
-                player_context(size_t idx, game_decl::player_decl const& proto)
-                        :idx_{idx}
-                        ,state_{PlayerState_Active}
-                        ,name_{proto.name()}
-                        ,starting_stack_{proto.stack()}
-                        ,stack_{proto.stack()}
-                {
-                }
-                auto        idx()           const{ return idx_;            }
-                auto        state()         const{ return state_;          }
-                auto&       state()              { return state_;          }
-                auto        starting_stack()const{ return starting_stack_; }
-                auto        stack()         const{ return stack_;          }
-                auto&       stack()              { return stack_;          }
-                auto const& name()          const{ return name_;           }
-                // XXX made this hand or class
-                auto        hand()          const{ return hand_;           }
-                auto&       hand()               { return hand_;           }
-                friend std::ostream& operator<<(std::ostream& ostr, player_context const& self){
-                        std::stringstream tmp;
-                        tmp << "{" 
-                                << self.name()
-                                << ", " << PlayerState_to_string(self.state()) 
-                                << "," << self.stack() ;
-                        if( self.hand_ != static_cast<holdem_id>(-1))
-                                tmp << ", " << holdem_hand_decl::get(self.hand_);
-                        tmp << "}";
-                        return ostr << tmp.str();
-                }
-        private:
-                friend struct hand_context;
-                size_t idx_;
-                PlayerState state_;
-                std::string name_;
-                double starting_stack_;
-                double stack_;
-                holdem_id hand_{static_cast<holdem_id>(-1)};
-        };
 
 
         struct player_iterator{
@@ -301,6 +302,25 @@ struct hand_context{
         size_t  sb_offset()   const{ return sb_offset_;           }
         size_t  bb_offset()   const{ return (sb_offset_+1) % n(); }
         size_t  utg()         const{ return (sb_offset_+2) % n(); }
+        
+        auto eff_stack()const{
+                double highest = .0;
+                double second_highest = .0;
+                for( auto const& p : players_){
+                        switch(p.state()){
+                        case PlayerState_AllIn:
+                        case PlayerState_Active:
+                                if( p.starting_stack() > highest )
+                                        highest = p.starting_stack();
+                                else if(  p.starting_stack() > second_highest )
+                                        second_highest = p.starting_stack();
+                                break;
+                        default:
+                                break;
+                        }
+                }
+                return second_highest;
+        }
 private:
         std::string format_state_()const{
                 std::stringstream sstr;
@@ -398,7 +418,6 @@ struct player_controller_default : player_controller
         };
 };
 struct player_print_controller : player_controller{
-        virtual ~player_print_controller()=default;
         void push         (hand_context& ctx, hand_context::player_iterator iter)override{
                 std::cout << iter->name() << " is all in for " << iter->stack() << "\n";
         }
@@ -417,6 +436,29 @@ struct player_print_controller : player_controller{
         void post_bb_allin(hand_context& ctx, hand_context::player_iterator iter)override{
                 std::cout << iter->name() << " posts bb of " << ctx.bb() << "\n";
         }
+};
+struct player_hash_controller : player_controller{
+        void push         (hand_context& ctx, hand_context::player_iterator iter)override{
+                hash_ += "p";
+        }
+        void fold         (hand_context& ctx, hand_context::player_iterator iter)override{
+                hash_ += "f";
+        }
+        void post_sb      (hand_context& ctx, hand_context::player_iterator iter)override{
+                hash_ += "";
+        }
+        void post_sb_allin(hand_context& ctx, hand_context::player_iterator iter)override{
+                hash_ += "";
+        }
+        void post_bb      (hand_context& ctx, hand_context::player_iterator iter)override{
+                hash_ += "";
+        }
+        void post_bb_allin(hand_context& ctx, hand_context::player_iterator iter)override{
+                hash_ += "";
+        }
+        operator std::string()const{ return hash_; }
+private:
+        std::string hash_;
 };
 
 #if 0
@@ -537,7 +579,7 @@ struct hand_ledger{
                 init_ctx_{init_ctx}
         {}
         // replay the ledger from the start
-        void replay(player_controller& ctrl)
+        void replay(player_controller& ctrl)const
         {
                 hand_context ctx = init_ctx_;
 
@@ -560,98 +602,6 @@ private:
         hand_context init_ctx_;
         std::vector<action_t> v_;
 };
-
-struct hand_controller{
-        hand_controller(hand_context& ctx,
-                        hand_ledger& ledger)
-                :ledger_{&ledger}
-                ,ctx_{&ctx}
-                ,iter_{ctx_->action_begin()}
-                ,end_{ctx_->action_end()}
-        {}
-        // execute action
-        void execute(action_t a){
-                a.execute(*ctx_, iter_, ctrl_);
-                ++iter_;
-                ledger_->post(std::move(a));
-        }
-        size_t cursor(){ return iter_->idx(); }
-        // end of hand
-        bool eoh()const{ 
-                return iter_ == end_;
-        }
-private:
-        hand_ledger* ledger_;
-        hand_context* ctx_;
-        player_controller_default ctrl_;
-        hand_context::player_iterator iter_;
-        hand_context::player_iterator end_;
-};
-
-// {{{
-struct player_strat{
-        virtual ~player_strat()=default;
-        virtual any_action act(hand_context const& ctx, hand_ledger const& ledger, hand_context::player_iterator iter)=0;
-};
-struct push_player_strat : player_strat{
-        any_action act(hand_context const& ctx, hand_ledger const& ledger, hand_context::player_iterator iter)override{
-                return actions::push{};
-        }
-};
-struct fold_player_strat : player_strat{
-        any_action act(hand_context const& ctx, hand_ledger const& ledger, hand_context::player_iterator iter)override{
-                return actions::fold{};
-        }
-};
-#if 0
-/*
-        This should be represented by a matrix
-
-
-        n = 2
-
-            start - push - push
-                  |      \ fold
-                  \ fold
-
-        n = 3
-
-            start - push - push - push
-                  |      |      \ fold
-                  |      \ fold
-                  |
-                  \ fold - push - push
-                         |      \ fold
-                         \ fold
-
- */
-struct holdem_class_strat_player : player_strat{
-        holdem_class_strat_player(holdem_class_strategy const& sb_strat,
-                                  holdem_class_strategy const& bb_strat)
-                :sb_strat_{sb_strat}
-                ,bb_strat_{bb_strat}
-        {}
-        any_action act(hand_context const& ctx, hand_ledger const& ledger, holdem_id id)override{
-                PlayerAction act = PlayerAction_Fold;
-                auto class_ = holdem_hand_decl::get(id).class_();
-                if(ctx.cursor() == ctx.sb_offset()){
-                        // sb opening action
-                        if( sb_strat_[class_] >= ctx.get_decl().get_stacks()[0]){
-                                return actions::push{}
-                        }
-                } else{
-                        // bb facing a push
-                        if( bb_strat_[class_] >=ctx.get_decl().get_stacks()[0]){ 
-                                return actions::push{}
-                        }
-                }
-                return actions::fold{}
-        }
-private:
-        holdem_class_strategy sb_strat_;
-        holdem_class_strategy bb_strat_;
-};
-#endif
 
 enum ButtonType{
         ButtonType_RoundRobin,
@@ -699,13 +649,121 @@ private:
                 }
         }
         size_t n_;
-        //std::default_random_engine gen_;
-        std::random_device gen_;
+        std::default_random_engine gen_;
+        //std::random_device gen_;
         std::uniform_int_distribution<card_id> deck_{0,52-1};
         size_t removed_{0};
         size_t btn_{0};
         ButtonType btype_;
 };
+
+struct hand_controller{
+        hand_controller(hand_context& ctx,
+                        dealer& _dealer,
+                        hand_ledger& ledger)
+                :ledger_{&ledger}
+                ,ctx_{&ctx}
+                ,dealer_{&_dealer}
+                ,iter_{ctx_->action_begin()}
+                ,end_{ctx_->action_end()}
+        {}
+        void deal_and_post(){
+                for( auto& p : *ctx_)
+                        p.hand() = dealer_->deal();
+                execute( post_sb_ );
+                if( eoh())
+                        return;
+                execute( post_bb_ );
+        }
+        // execute action
+        void execute(action_t a){
+                a.execute(*ctx_, iter_, ctrl_);
+                ++iter_;
+                ledger_->post(std::move(a));
+        }
+        size_t cursor(){ return iter_->idx(); }
+        auto iter(){ return iter_; }
+        // end of hand
+        bool eoh()const{ 
+                return iter_ == end_;
+        }
+private:
+        hand_ledger* ledger_;
+        hand_context* ctx_;
+        dealer* dealer_;
+        player_controller_default ctrl_;
+        hand_context::player_iterator iter_;
+        hand_context::player_iterator end_;
+};
+
+// {{{
+struct player_strat{
+        virtual ~player_strat()=default;
+        virtual any_action act(hand_context const& ctx, hand_ledger const& ledger, player_context const& player)=0;
+};
+struct push_player_strat : player_strat{
+        any_action act(hand_context const& ctx, hand_ledger const& ledger, player_context const& player)override{
+                return actions::push{};
+        }
+};
+struct fold_player_strat : player_strat{
+        any_action act(hand_context const& ctx, hand_ledger const& ledger, player_context const& player)override{
+                return actions::fold{};
+        }
+};
+
+/*
+        This should be represented by a matrix
+
+
+        n = 2
+
+            start - push - push
+                  |      \ fold
+                  \ fold
+
+        n = 3
+
+            start - push - push - push
+                  |      |      \ fold
+                  |      \ fold
+                  |
+                  \ fold - push - push
+                         |      \ fold
+                         \ fold
+
+ */
+struct holdem_class_strat_player : player_strat{
+        holdem_class_strat_player(holdem_class_strategy const& sb_strat,
+                                  holdem_class_strategy const& bb_strat)
+                :sb_strat_{sb_strat}
+                ,bb_strat_{bb_strat}
+        {}
+        any_action act(hand_context const& ctx, hand_ledger const& ledger, player_context const& player)override{
+                player_hash_controller hasher;
+                ledger.replay(hasher);
+
+                std::string hash = hasher;
+
+                if( hash == "p" ){
+                        // bb facing a push
+                        if( bb_strat_[player.class_()] >= ctx.eff_stack()){
+                                return push_;
+                        }
+                } else {
+                        // sb opening action
+                        if( sb_strat_[player.class_()] >= ctx.eff_stack()){
+                                return push_;
+                        }
+                }
+                return fold_;
+        }
+private:
+        holdem_class_strategy sb_strat_;
+        holdem_class_strategy bb_strat_;
+};
+
+
 
 void game_context_test(){
         game_decl decl(0.5, 1.0);
@@ -716,8 +774,8 @@ void game_context_test(){
         auto btn = d.shuffle_and_deal_btn();
         hand_context ctx(decl, 0);
         ctx.display();
-        hand_ledger ledger(ctx);;
-        hand_controller ctrl(ctx, ledger);
+        hand_ledger ledger(ctx);
+        hand_controller ctrl(ctx,d, ledger);
         ctrl.execute(post_sb_);
         ctrl.execute(post_bb_);
         ctrl.execute(push_);
@@ -823,13 +881,11 @@ struct game_evaluator{
                                 //           \--------------equity in pot -----------/   \----- cost of bet ----------/
                         }
                         
-                        #if 1
                         // need to deduced blinds if they arn't part of the allin
                         if( ctx.player(ctx.sb_offset()).state() != PlayerState_AllIn )
                                 d[ctx.sb_offset()] -= ctx.sb();
                         if( ctx.player(ctx.bb_offset()).state() != PlayerState_AllIn )
                                 d[ctx.bb_offset()] -= ctx.bb();
-                        #endif
                 }while(0);
                 return std::move(d);
         }
@@ -844,33 +900,30 @@ struct simulation{
         }
         std::vector<double> simulate(size_t n){
                 dealer dealer_(sdecl_.decl_.players_size(), sdecl_.init_btn_, sdecl_.btn_type_ );
-                std::vector<double> d; 
+                std::vector<double> d( sdecl_.decl_.players_size() );
                 // XXX n should be modulas number of players
                 for(size_t count=0;count!=n;++count){
 
                         size_t btn = dealer_.shuffle_and_deal_btn();
-                        PRINT(btn);
 
                         hand_context ctx(sdecl_.decl_, btn);
                         hand_ledger ledger(ctx);
-                        hand_controller ctrl(ctx, ledger);
+                        hand_controller ctrl(ctx, dealer_, ledger);
 
-                        // deal
-                        for(size_t i=0;i!=ctx.players_size();++i){
-                                ctx.player(i).hand() = dealer_.deal();
-                        }
-                        auto iter = ctx.action_begin();
-                        auto end = ctx.action_end();
+                        ctrl.deal_and_post();
 
-                        for(; iter!= end;++iter){
-                                auto id = ctrl.cursor();
-                                auto a = sdecl_.strats_[id]->act(ctx, ledger, iter);
+                        for(;!ctrl.eoh();){
+                                auto iter = ctrl.iter();
+                                auto a = sdecl_.strats_[iter->idx()]->act(ctx, ledger, *iter);
                                 ctrl.execute(a);
                         }
                         player_print_controller pp;
                         ledger.replay(pp);
 
                         auto r =  ge_.eval(ctx);
+                        for( size_t i=0;i!=d.size();++i){
+                                d[i] += r.at(i);
+                        }
 
                         ctx.display();
                         PRINT(detail::to_string(r));
@@ -883,11 +936,24 @@ private:
 };
 
 void simulator_test(){
-        simulation_decl sdecl(.05,1.);
-        sdecl.push_player(10,"hero", std::make_shared<push_player_strat>() );
+        simulation_decl sdecl(.5,1.);
+        
+        holdem_class_strategy sb_strat;
+        holdem_class_strategy bb_strat;
+
+        sb_strat.load("sb_result.bin");
+        bb_strat.load("bb_result.bin");
+
+        sb_strat.display();
+        bb_strat.display();
+        
+        auto pf_strat = std::make_shared<holdem_class_strat_player>(sb_strat, bb_strat);
+
+        //sdecl.push_player(10,"hero", std::make_shared<push_player_strat>() );
+        sdecl.push_player(10,"hero", pf_strat);
         sdecl.push_player(10,"villian", std::make_shared<push_player_strat>() );
         simulation sim(sdecl);
-        auto ret = sim.simulate(4);
+        auto ret = sim.simulate(10);
 }
 
 int main(){

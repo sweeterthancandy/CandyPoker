@@ -1,6 +1,7 @@
 #include "ps/base/holdem_hand_vector.h"
 
 #include "ps/base/cards.h"
+#include "ps/base/cards_intrinsic.h"
 #include "ps/base/algorithm.h"
 
 
@@ -28,6 +29,17 @@ namespace ps{
                         holdem_hand_vector(std::move(std::get<1>(tmp))));
         }
         bool holdem_hand_vector::disjoint()const{
+                decltype( decl_at(0).mask() ) mask = 0;
+                for( auto id : *this ){
+                        auto const& decl = holdem_hand_decl::get(id);
+                        auto m = decl.mask();
+                        if( mask & m )
+                                return false;
+                        mask |= m;
+                }
+                return true;
+
+                #if 0
                 std::set<card_id> s;
                 for( auto id : *this ){
                         auto const& decl = holdem_hand_decl::get(id);
@@ -35,6 +47,7 @@ namespace ps{
                         s.insert( decl.second() );
                 }
                 return s.size() == this->size()*2;
+                #endif
         }
 
         bool holdem_hand_vector::is_standard_form()const{

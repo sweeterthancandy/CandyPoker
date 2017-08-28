@@ -6,6 +6,7 @@
 
 namespace ps{
 
+
 /*
                 00
                 01
@@ -235,6 +236,7 @@ struct basic_index_iterator{
                 policy_t::init(vec_, n_, m_);
         }
         auto const& operator*()const{ return vec_; }
+        auto const* operator->()const{ return &vec_; }
         basic_index_iterator& operator++(){
                 end_flag_ = (  ! policy_t::next(vec_, m_) );
                 return *this;
@@ -246,6 +248,7 @@ struct basic_index_iterator{
         bool operator!=(basic_index_iterator const& that)const{
                 return ! ( *this == that);
         }
+        bool eos()const{ return end_flag_; }
 private:
         size_t n_;
         size_t m_;
@@ -253,6 +256,139 @@ private:
         // flag to indicate at end
         bool end_flag_{false};
 };
+
+struct index_iterator_test_driver{
+        template<class Policy>
+        void run(std::string const& name){
+                using iter_t = basic_index_iterator<int, Policy >;
+                std::cout << "------ " << name << "------ " << "\n";
+                for(iter_t iter(3,4),end;iter!=end;++iter){
+                        std::cout << "  " << detail::to_string(*iter) << "\n";
+                }
+        }
+        void run_all(){
+                run<range_policy>("range_policy");
+                run<ordered_policy>("ordered_policy");
+                run<strict_lower_triangle_policy>("strict_lower_triangle_policy");
+                run<lower_triangle_policy>("lower_triangle_policy");
+                run<strict_upper_triangle_policy>("strict_upper_triangle_policy");
+        }
+};
+
+/*
+------ range_policy------ 
+  {0, 0, 0}
+  {0, 0, 1}
+  {0, 0, 2}
+  {0, 0, 3}
+  {0, 1, 0}
+  {0, 1, 1}
+  {0, 1, 2}
+  {0, 1, 3}
+  {0, 2, 0}
+  {0, 2, 1}
+  {0, 2, 2}
+  {0, 2, 3}
+  {0, 3, 0}
+  {0, 3, 1}
+  {0, 3, 2}
+  {0, 3, 3}
+  {1, 0, 0}
+  {1, 0, 1}
+  {1, 0, 2}
+  {1, 0, 3}
+  {1, 1, 0}
+  {1, 1, 1}
+  {1, 1, 2}
+  {1, 1, 3}
+  {1, 2, 0}
+  {1, 2, 1}
+  {1, 2, 2}
+  {1, 2, 3}
+  {1, 3, 0}
+  {1, 3, 1}
+  {1, 3, 2}
+  {1, 3, 3}
+  {2, 0, 0}
+  {2, 0, 1}
+  {2, 0, 2}
+  {2, 0, 3}
+  {2, 1, 0}
+  {2, 1, 1}
+  {2, 1, 2}
+  {2, 1, 3}
+  {2, 2, 0}
+  {2, 2, 1}
+  {2, 2, 2}
+  {2, 2, 3}
+  {2, 3, 0}
+  {2, 3, 1}
+  {2, 3, 2}
+  {2, 3, 3}
+  {3, 0, 0}
+  {3, 0, 1}
+  {3, 0, 2}
+  {3, 0, 3}
+  {3, 1, 0}
+  {3, 1, 1}
+  {3, 1, 2}
+  {3, 1, 3}
+  {3, 2, 0}
+  {3, 2, 1}
+  {3, 2, 2}
+  {3, 2, 3}
+  {3, 3, 0}
+  {3, 3, 1}
+  {3, 3, 2}
+  {3, 3, 3}
+------ ordered_policy------ 
+  {0, 0, 0}
+  {0, 0, 1}
+  {0, 0, 2}
+  {0, 0, 3}
+  {0, 1, 1}
+  {0, 1, 2}
+  {0, 1, 3}
+  {0, 2, 2}
+  {0, 2, 3}
+  {0, 3, 3}
+  {1, 1, 1}
+  {1, 1, 2}
+  {1, 1, 3}
+  {1, 2, 2}
+  {1, 2, 3}
+  {1, 3, 3}
+  {2, 2, 2}
+  {2, 2, 3}
+  {2, 3, 3}
+  {3, 3, 3}
+------ strict_lower_triangle_policy------ 
+  {0, 1, 2}
+  {0, 1, 3}
+  {0, 2, 3}
+  {1, 2, 3}
+------ lower_triangle_policy------ 
+  {0, 1, 2}
+  {0, 1, 3}
+  {0, 2, 2}
+  {0, 2, 3}
+  {0, 3, 3}
+  {1, 1, 1}
+  {1, 1, 2}
+  {1, 1, 3}
+  {1, 2, 2}
+  {1, 2, 3}
+  {1, 3, 3}
+  {2, 2, 2}
+  {2, 2, 3}
+  {2, 3, 3}
+  {3, 3, 3}
+------ strict_upper_triangle_policy------ 
+  {3, 2, 1}
+  {3, 2, 0}
+  {3, 1, 0}
+  {2, 1, 0}
+*/
 
 } // ps
 

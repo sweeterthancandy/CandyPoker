@@ -4,6 +4,7 @@
 #include <vector>
 #include <ostream>
 
+#include "ps/support/index_sequence.h"
 #include "ps/base/cards_fwd.h"
 
 namespace ps{
@@ -23,6 +24,26 @@ namespace ps{
                 static card_vector from_bitmask(size_t mask);
 
                 friend std::ostream& operator<<(std::ostream& ostr, card_vector const& self);
+        };
+
+        struct card_iterator :
+                basic_index_iterator<
+                        card_id,
+                        strict_lower_triangle_policy,
+                        card_vector
+                >
+        {
+                using impl_t = 
+                        basic_index_iterator<
+                                card_id,
+                                strict_lower_triangle_policy,
+                                card_vector
+                        >
+                ;
+                card_iterator():impl_t{}{}
+                card_iterator(size_t n):
+                        impl_t(n, 52 )
+                {}
         };
 
 } // ps

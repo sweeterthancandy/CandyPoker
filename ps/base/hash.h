@@ -6,6 +6,7 @@
 
 #include "ps/support/config.h"
 #include "ps/base/cards_fwd.h"
+#include "ps/base/cards_intrinsic.h"
 #include "ps/base/rank_vector.h"
 
 namespace ps{

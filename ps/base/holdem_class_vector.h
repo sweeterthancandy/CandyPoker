@@ -33,6 +33,7 @@ namespace ps{
                 void serialize(Archive& ar, unsigned int){
                         ar & (*reinterpret_cast<std::vector<ps::holdem_class_id>*>(this));
                 }
+                double weight();
 
 
                 std::tuple<

@@ -52,6 +52,42 @@ namespace ps{
                 holdem_hand_iterator(size_t n):
                         impl_t(n, 52 * 51 / 2)
                 {}
+                holdem_hand_iterator& operator++(){
+                        for(;!this->eos();){
+                                impl_t::operator++();
+                                if( this->operator->()->disjoint() )
+                                        break;
+                        }
+                        return *this;
+                }
+        };
+        
+        struct holdem_hand_deal_iterator :
+                basic_index_iterator<
+                        holdem_id,
+                        range_policy,
+                        holdem_hand_vector
+                >
+        {
+                using impl_t = 
+                        basic_index_iterator<
+                                holdem_id,
+                                range_policy,
+                                holdem_hand_vector
+                        >
+                ;
+                holdem_hand_deal_iterator():impl_t{}{}
+                holdem_hand_deal_iterator(size_t n):
+                        impl_t(n, 52 * 51 / 2)
+                {}
+                holdem_hand_deal_iterator& operator++(){
+                        for(;!this->eos();){
+                                impl_t::operator++();
+                                if( this->operator->()->disjoint() )
+                                        break;
+                        }
+                        return *this;
+                }
         };
 
 } // ps

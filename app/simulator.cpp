@@ -47,7 +47,7 @@ hand_or_class_t hand_or_class__cast_none(){
         return static_cast<hand_or_class_t>(-1);
 }
 inline
-hand_or_class_t hand_or_class__cast_card(holdem_id id){
+hand_or_class_t hand_or_class__cast_hand(holdem_id id){
         return static_cast<hand_or_class_t>(id) << 1;
 }
 inline
@@ -71,6 +71,24 @@ inline
 hand_or_class_t hand_or_class__get_value(hand_or_class_t id){
         return id >> 1;
 }
+struct hand_or_class_vector : std::vector<hand_or_class_t>
+{
+        friend std::ostream& operator<<(std::ostream& ostr, hand_or_class_vector const& self){
+                auto caster = [](auto id){
+                        std::stringstream tmp;
+                        auto val = hand_or_class__get_value(id);
+                        if( hand_or_class__is_hand(id)){
+                                tmp << holdem_hand_decl::get(val);
+                        } else if( hand_or_class__is_class(id)){
+                                tmp << holdem_class_decl::get(val);
+                        } else {
+                                tmp << "<null>";
+                        }
+                        return tmp.str();
+                };
+                return ostr << detail::to_string(self, caster);
+        }
+};
 
 
 // this describes the setup of the game (before any action)
@@ -512,44 +530,6 @@ private:
         std::string hash_;
 };
 
-#if 0
-// apply action
-switch(act.action()){
-case PlayerAction_PostSB:
-        post_pot_( decl_.get_sb() );
-        iter_->stack() -= ctx_->sb();
-        break;
-case PlayerAction_PostSBAllin:
-        post_pot_( iter_->stack() );
-        iter_->state() = PlayerState_AllIn;
-        iter_->stack() = 0.0; 
-        ++ctx_->allin_count();
-        --ctx_->active_count();
-        break;
-case PlayerAction_PostBB:
-        post_pot_( decl_.get_bb() );
-        iter_->stack() -= decl_.get_bb();
-        break;
-case PlayerAction_PostBBAllin:
-        post_pot_( iter_->stack() );
-        iter_->state() = PlayerState_AllIn;
-        iter_->stack() = 0.0; 
-        ++ctx_->allin_count();
-        --ctx_->active_count();
-        break;
-case PlayerAction_Push:
-        post_pot_( iter_->stack() );
-        iter_->state() = PlayerState_AllIn;
-        iter_->stack() = 0.0; 
-        ++ctx_->allin_count();
-        --ctx_->active_count();
-        break;
-case PlayerAction_Fold:
-        iter_->state() = PlayerState_Fold;
-        --ctx_->active_count();
-        break;
-#endif
-
 namespace actions{
 
         struct post_sb{
@@ -827,27 +807,6 @@ private:
 
 
 
-void game_context_test(){
-        game_decl decl(0.5, 1.0);
-        decl.push_player(10);
-        decl.push_player(10);
-        decl.push_player(10);
-        dealer d(3,0);
-        auto btn = d.shuffle_and_deal_btn();
-        hand_context ctx(decl, 0);
-        ctx.display();
-        hand_ledger ledger(ctx);
-        hand_controller ctrl(ctx, ledger);
-        ctrl.execute(post_sb_);
-        ctrl.execute(post_bb_);
-        ctrl.execute(push_);
-        ctrl.execute(push_);
-        ctrl.execute(fold_);
-        ctx.display();
-
-        player_print_controller pp;
-        ledger.replay(pp);
-}
 
 /*
         Here, there are several things we might want to simulate
@@ -1028,41 +987,44 @@ struct enumuration_simulator{
                 :sdecl_{sdecl}
         {
         }
-        std::vector<double> simulate(){
+        std::vector<double> simulate(size_t btn, hand_or_class_vector const& deal){
+                hand_context ctx(sdecl_.decl_, btn);
+                hand_ledger ledger(ctx);
+                hand_controller ctrl(ctx, ledger);
+
+                for(size_t i=0;i!=ctx.players_size();++i){
+                        ctx.player(i).hand() = deal[i];
+                }
+                
+                ctrl.post_blinds();
+
+                for(;!ctrl.eoh();){
+                        auto iter = ctrl.iter();
+                        auto a = sdecl_.strats_[iter->idx()]->act(ctx, ledger, *iter);
+                        ctrl.execute(a);
+                }
+
+                auto r =  ge_.eval(ctx);
+                return std::move(r);
+        }
+        std::vector<double> simulate_all(){
                 size_t num = sdecl_.decl_.players_size();
                 std::vector<double> d( num );
 
                 for(size_t btn=0;btn!=num;++btn){ 
                         for( holdem_class_deal_iterator iter(num),end;iter!=end;++iter){
-
-                                hand_context ctx(sdecl_.decl_, btn);
-                                hand_ledger ledger(ctx);
-                                hand_controller ctrl(ctx, ledger);
-
                                 auto const& deal = *iter;
-
-                                for(size_t i=0;i!=ctx.players_size();++i){
-                                        ctx.player(i).hand() = hand_or_class__cast_class(deal[i]);
+                                hand_or_class_vector deal_aux;
+                                for(size_t i=0;i!=num;++i){
+                                        deal_aux.push_back( hand_or_class__cast_class( deal[i]) );
                                 }
-                                
-                                ctrl.post_blinds();
-
-                                for(;!ctrl.eoh();){
-                                        auto iter = ctrl.iter();
-                                        auto a = sdecl_.strats_[iter->idx()]->act(ctx, ledger, *iter);
-                                        ctrl.execute(a);
-                                }
-                                player_print_controller pp;
-                                ledger.replay(pp);
-
-                                auto r =  ge_.eval(ctx);
+                                auto r = simulate(btn, deal_aux);
                                 auto prob = deal.prob();
                                 for( size_t i=0;i!=d.size();++i){
-                                        d[i] += r.at(i) * prob;
+                                        d[i] += r[i] * prob;
                                 }
+                                std::cout << deal << "  " << detail::to_string(d) << "\n";
 
-                                ctx.display();
-                                PRINT(detail::to_string(r));
                         }
                 }
                 return std::move(d);
@@ -1071,6 +1033,28 @@ private:
         simulation_decl sdecl_;
         game_evaluator ge_;
 };
+
+void game_context_test(){
+        game_decl decl(0.5, 1.0);
+        decl.push_player(10);
+        decl.push_player(10);
+        decl.push_player(10);
+        dealer d(3,0);
+        auto btn = d.shuffle_and_deal_btn();
+        hand_context ctx(decl, 0);
+        ctx.display();
+        hand_ledger ledger(ctx);
+        hand_controller ctrl(ctx, ledger);
+        ctrl.execute(post_sb_);
+        ctrl.execute(post_bb_);
+        ctrl.execute(push_);
+        ctrl.execute(push_);
+        ctrl.execute(fold_);
+        ctx.display();
+
+        player_print_controller pp;
+        ledger.replay(pp);
+}
 
 void simulator_test(){
         simulation_decl sdecl(.5,1.);
@@ -1090,7 +1074,7 @@ void simulator_test(){
         sdecl.push_player(10,"hero", pf_strat);
         sdecl.push_player(10,"villian", std::make_shared<push_player_strat>() );
         enumuration_simulator sim(sdecl);
-        auto ret = sim.simulate();
+        auto ret = sim.simulate_all();
         std::cout << detail::to_string(ret) << "\n";
 }
 int main(){

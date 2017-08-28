@@ -25,17 +25,8 @@
 
 using namespace ps;
 
-                
 
 int main(){
-        size_t sigma = 0;
-        double sum = .0;
-        for(holdem_class_deal_iterator iter(3),end;iter!=end;++iter){
-                sigma += iter->weight();
-                sum += iter->prob();
-        }
-        PRINT(sigma);
-        PRINT(sum);
 }
 
 

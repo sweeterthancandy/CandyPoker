@@ -182,6 +182,7 @@ std::string PlayerAction_to_string(PlayerAction e) {
         }
 }
 
+
 // XXX might want to save history here
 struct player_context{
         player_context(size_t idx, game_decl::player_decl const& proto)
@@ -688,6 +689,7 @@ private:
         ButtonType btype_;
 };
 
+
 struct hand_controller{
         hand_controller(hand_context& ctx,
                         hand_ledger& ledger)
@@ -840,6 +842,10 @@ struct simulation_decl{
         void set_init_btn(size_t btn){
                 init_btn_ = btn;
         }
+        auto const& get_player_strat(size_t idx){
+                return *strats_.at(idx);
+        }
+        auto const& get_decl()const{ return decl_; }
 private:
         friend class monte_carlo_simulator;
         friend class enumuration_simulator;
@@ -1055,6 +1061,20 @@ void game_context_test(){
         player_print_controller pp;
         ledger.replay(pp);
 }
+
+struct game_logic{
+        ~virtual game_logic()=default;
+        virtual void execute(simulation_decl const& sdecl, hand_context& hand_context const& ctx, hand_ledger const& ledger, player_context const& player)=0;
+};
+/*
+        post blinds,
+        go in round robin untill all players have moved
+        eval all in equity iff neccasary
+ */
+struct push_fold_logic{
+        void execute(simulation_decl const& sdecl, hand_context& hand_context const& ctx, hand_ledger const& ledger, player_context const& player)override{
+        }
+};
 
 void simulator_test(){
         simulation_decl sdecl(.5,1.);

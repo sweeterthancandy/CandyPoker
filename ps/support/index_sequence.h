@@ -3,6 +3,10 @@
 
 #include <cstddef>
 #include <vector>
+#include <string>
+#include <iostream>
+
+#include "ps/detail/print.h"
 
 namespace ps{
 

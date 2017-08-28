@@ -79,14 +79,21 @@ namespace ps{
                 holdem_hand_deal_iterator():impl_t{}{}
                 holdem_hand_deal_iterator(size_t n):
                         impl_t(n, 52 * 51 / 2)
-                {}
+                {
+                        eat_non_disjoint_();
+                }
                 holdem_hand_deal_iterator& operator++(){
+                        impl_t::operator++();
+                        eat_non_disjoint_();
+                        return *this;
+                }
+        private:
+                void eat_non_disjoint_(){
                         for(;!this->eos();){
-                                impl_t::operator++();
                                 if( this->operator->()->disjoint() )
                                         break;
+                                impl_t::operator++();
                         }
-                        return *this;
                 }
         };
 

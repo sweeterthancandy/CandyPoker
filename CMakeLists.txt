@@ -100,3 +100,8 @@ add_executable(heads_up_solver app/heads_up_solver.cpp )
 target_link_libraries(heads_up_solver pthread )
 target_link_libraries(heads_up_solver ${Boost_LIBRARIES})
 target_link_libraries(heads_up_solver support_lib base_lib eval_lib )
+
+add_executable(simulator app/simulator.cpp)
+target_link_libraries(simulator pthread )
+target_link_libraries(simulator ${Boost_LIBRARIES})
+target_link_libraries(simulator support_lib base_lib eval_lib )

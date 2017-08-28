@@ -34,68 +34,50 @@ namespace ps{
                 }
         };
 
-        struct holdem_hand_iterator :
-                basic_index_iterator<
-                        holdem_id,
-                        strict_lower_triangle_policy,
-                        holdem_hand_vector
-                >
-        {
-                using impl_t = 
+        namespace detail{
+
+                template<class Policy>
+                struct basic_holdem_hand_deal_iterator :
                         basic_index_iterator<
                                 holdem_id,
-                                strict_lower_triangle_policy,
+                                Policy,
                                 holdem_hand_vector
                         >
-                ;
-                holdem_hand_iterator():impl_t{}{}
-                holdem_hand_iterator(size_t n):
-                        impl_t(n, 52 * 51 / 2)
-                {}
-                holdem_hand_iterator& operator++(){
-                        for(;!this->eos();){
-                                impl_t::operator++();
-                                if( this->operator->()->disjoint() )
-                                        break;
-                        }
-                        return *this;
-                }
-        };
-        
-        struct holdem_hand_deal_iterator :
-                basic_index_iterator<
-                        holdem_id,
-                        range_policy,
-                        holdem_hand_vector
-                >
-        {
-                using impl_t = 
-                        basic_index_iterator<
-                                holdem_id,
-                                range_policy,
-                                holdem_hand_vector
-                        >
-                ;
-                holdem_hand_deal_iterator():impl_t{}{}
-                holdem_hand_deal_iterator(size_t n):
-                        impl_t(n, 52 * 51 / 2)
                 {
-                        eat_non_disjoint_();
-                }
-                holdem_hand_deal_iterator& operator++(){
-                        impl_t::operator++();
-                        eat_non_disjoint_();
-                        return *this;
-                }
-        private:
-                void eat_non_disjoint_(){
-                        for(;!this->eos();){
-                                if( this->operator->()->disjoint() )
-                                        break;
-                                impl_t::operator++();
+                        using impl_t = 
+                                basic_index_iterator<
+                                        holdem_id,
+                                        Policy,
+                                        holdem_hand_vector
+                                >
+                        ;
+                        basic_holdem_hand_deal_iterator():impl_t{}{}
+                        basic_holdem_hand_deal_iterator(size_t n):
+                                impl_t(n, 52 * 51 / 2)
+                        {
+                                eat_non_disjoint_();
                         }
-                }
-        };
+                        basic_holdem_hand_deal_iterator& operator++(){
+                                impl_t::operator++();
+                                eat_non_disjoint_();
+                                return *this;
+                        }
+                private:
+                        void eat_non_disjoint_(){
+                                for(;!this->eos();){
+                                        if( this->operator->()->disjoint() )
+                                                break;
+                                        impl_t::operator++();
+                                }
+                        }
+                };
+        } // detail
+
+        // for when A < B < C
+        using holdem_hand_iterator = detail::basic_holdem_hand_deal_iterator<strict_lower_triangle_policy>;
+        // for when we have {A,B}, {B,A}
+        using holdem_hand_deal_iterator = detail::basic_holdem_hand_deal_iterator<range_policy>;
+        
 
 } // ps
 

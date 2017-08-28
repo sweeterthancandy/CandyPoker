@@ -26,6 +26,18 @@
 using namespace ps;
 
 
+// idea here is that we don't gain any value by
+// adding code to tempalte if it's a class or card here
+using card_or_class_id = std::uint64_t;
+
+inline
+bool card_or_class__cast_card(card_id id){
+        return id;
+}
+bool card_or_class__cast_class(card_id id){
+}
+
+
 
 // this describes the setup of the game (before any action)
 struct game_decl
@@ -944,24 +956,27 @@ private:
 };
 
 
-#if 0
 struct enumuration_simulator{
         explicit enumuration_simulator(simulation_decl const& sdecl)
                 :sdecl_{sdecl}
         {
         }
-        std::vector<double> simulate(size_t n){
+        std::vector<double> simulate(){
                 size_t num = sdecl_.decl_.players_size();
                 std::vector<double> d( num );
 
-
                 for(size_t btn=0;btn!=num;++btn){ 
-                        for( board_combination_iterator iter(num), end;iter!=end;++iter){
+                        for( holdem_hand_deal_iterator iter(num),end;iter!=end;++iter){
 
                                 hand_context ctx(sdecl_.decl_, btn);
                                 hand_ledger ledger(ctx);
                                 hand_controller ctrl(ctx, ledger);
 
+                                auto const& deal = *iter;
+
+                                for(size_t i=0;i!=ctx.players_size();++i){
+                                        ctx.player(i).hand() = deal[i];
+                                }
                                 
                                 ctrl.post_blinds();
 
@@ -988,7 +1003,6 @@ private:
         simulation_decl sdecl_;
         game_evaluator ge_;
 };
-#endif
 
 void simulator_test(){
         simulation_decl sdecl(.5,1.);
@@ -1007,8 +1021,8 @@ void simulator_test(){
         //sdecl.push_player(10,"hero", std::make_shared<push_player_strat>() );
         sdecl.push_player(10,"hero", pf_strat);
         sdecl.push_player(10,"villian", std::make_shared<push_player_strat>() );
-        monte_carlo_simulator sim(sdecl);
-        auto ret = sim.simulate(1000);
+        enumuration_simulator sim(sdecl);
+        auto ret = sim.simulate();
         std::cout << detail::to_string(ret) << "\n";
 }
 

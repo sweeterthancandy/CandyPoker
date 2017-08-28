@@ -26,17 +26,51 @@
 using namespace ps;
 
 
-// idea here is that we don't gain any value by
-// adding code to tempalte if it's a class or card here
-using card_or_class_id = std::uint64_t;
+/* idea here is that we don't gain any value by
+   adding code to tempalte if it's a class or card here.
+   The none state to when we have
+                hand_or_class_t id = -1;
+   
+          +-----+--------------------------------+
+          |Type |12345678901234567890123456789012|
+          +-----+--------------------------------+
+          |None |11111111111111111111111111111111|
+          |Hand |XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX0|
+          |Class|XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX1|
+          +-----+--------------------------------+
+
+*/
+using hand_or_class_t = std::uint32_t;
 
 inline
-bool card_or_class__cast_card(card_id id){
-        return id;
+hand_or_class_t hand_or_class__cast_none(){
+        return static_cast<hand_or_class_t>(-1);
 }
-bool card_or_class__cast_class(card_id id){
+inline
+hand_or_class_t hand_or_class__cast_card(holdem_id id){
+        return static_cast<hand_or_class_t>(id) << 1;
 }
-
+inline
+hand_or_class_t hand_or_class__cast_class(holdem_class_id id){
+        return  static_cast<hand_or_class_t>(1) |
+                ( static_cast<hand_or_class_t>(id) << 1 );
+}
+inline
+bool hand_or_class__is_set(hand_or_class_t id){
+        return id != hand_or_class__cast_none();
+}
+inline
+bool hand_or_class__is_hand(hand_or_class_t id){
+        return ( id & 1 ) == 0;
+}
+inline
+bool hand_or_class__is_class(hand_or_class_t id){
+        return ( id & 1 ) == 1;
+}
+inline 
+hand_or_class_t hand_or_class__get_value(hand_or_class_t id){
+        return id >> 1;
+}
 
 
 // this describes the setup of the game (before any action)
@@ -147,18 +181,22 @@ struct player_context{
         auto        stack()         const{ return stack_;          }
         auto&       stack()              { return stack_;          }
         auto const& name()          const{ return name_;           }
-        // XXX made this hand or class
         auto        hand()          const{ return hand_;           }
         auto&       hand()               { return hand_;           }
-        auto        class_()        const{ return holdem_hand_decl::get(this->hand()).class_(); }
         friend std::ostream& operator<<(std::ostream& ostr, player_context const& self){
                 std::stringstream tmp;
                 tmp << "{" 
                         << self.name()
                         << ", " << PlayerState_to_string(self.state()) 
                         << "," << self.stack() ;
-                if( self.hand_ != static_cast<holdem_id>(-1))
-                        tmp << ", " << holdem_hand_decl::get(self.hand_);
+                if( hand_or_class__is_set(self.hand_) ){
+                        auto val = hand_or_class__get_value(self.hand_);
+                        if( hand_or_class__is_hand(self.hand_)){
+                                tmp << ", " << holdem_hand_decl::get(val);
+                        } else {
+                                tmp << ", " << holdem_class_decl::get(val);
+                        }
+                }
                 tmp << "}";
                 return ostr << tmp.str();
         }
@@ -169,7 +207,7 @@ private:
         std::string name_;
         double starting_stack_;
         double stack_;
-        holdem_id hand_{static_cast<holdem_id>(-1)};
+        hand_or_class_t hand_{hand_or_class__cast_none()};
 };
 
 
@@ -752,22 +790,31 @@ struct holdem_class_strat_player : player_strat{
                 ledger.replay(hasher);
 
                 std::string hash = hasher;
-                std::cout << "eval " << holdem_hand_decl::get(player.hand()) << "[" << holdem_class_decl::get(player.class_()) << "]"
-                        << " SB {" << sb_strat_[player.class_()] << "}, BB {" << bb_strat_[player.class_()] << "}\n";
+
+                holdem_class_id class_;
+                if( hand_or_class__is_class(player.hand()) ){
+                        class_ = hand_or_class__get_value(player.hand());
+                } else {
+                        class_ = holdem_hand_decl::get(hand_or_class__get_value(player.hand())).class_();
+                }
 
                 if( hash == "p" ){
                         // bb facing a push
-                        if( bb_strat_[player.class_()] >= ctx.eff_stack()){
+                        if( bb_strat_[class_] >= ctx.eff_stack()){
+                                #if 0
                                 std::cout << "BB is calling off with " << holdem_hand_decl::get(player.hand())
                                                                 << "[" << holdem_class_decl::get(player.class_()) << "]\n";
+                                                                #endif
                                 return push_;
                         }
                                                              
                 } else {
                         // sb opening action
-                        if( sb_strat_[player.class_()] >= ctx.eff_stack()){
+                        if( sb_strat_[class_] >= ctx.eff_stack()){
+                                #if 0
                                 std::cout << "SB is shoving with " << holdem_hand_decl::get(player.hand())
                                                                    << "[" << holdem_class_decl::get(player.class_()) << "]\n";
+                                                                   #endif
                                 return push_;
                         }
                 }
@@ -1025,7 +1072,6 @@ void simulator_test(){
         auto ret = sim.simulate();
         std::cout << detail::to_string(ret) << "\n";
 }
-
 int main(){
         simulator_test();
 }

@@ -25,41 +25,17 @@
 
 using namespace ps;
 
+                
 
 int main(){
-
-        size_t count=0;
-        size_t other=0;
-        for( holdem_hand_deal_iterator iter(2),end;iter!=end;++iter){
-                #if 0
-                std::stringstream sstr;
-                sstr << *iter << " " << iter->disjoint() << "\n";
-                std::cout << sstr.str();
-                #endif
-                ++count;
+        size_t sigma = 0;
+        double sum = .0;
+        for(holdem_class_deal_iterator iter(3),end;iter!=end;++iter){
+                sigma += iter->weight();
+                sum += iter->prob();
         }
-
-        for(size_t a=0;a!=51;++a){
-                for(size_t b=a+1;b!=52;++b){
-                        for(size_t c=0;c!=51;++c){
-                                for(size_t d=c+1;d!=52;++d){
-                                        auto _1 = 1ull;
-                                        decltype( _1) mask = 0ull;
-                                        mask |= _1 << a;
-                                        mask |= _1 << b;
-                                        if( mask & ( _1 << c )  )
-                                                continue;
-                                        if( mask & ( _1 << d )  )
-                                                continue;
-                                        ++other;
-                                        holdem_hand_vector aux;
-                                        aux.push_back( holdem_hand_decl::make_id(a,b));
-                                        aux.push_back( holdem_hand_decl::make_id(c,d));
-                               }
-                        }
-               }
-        }
-        PRINT_SEQ((count)(other));
+        PRINT(sigma);
+        PRINT(sum);
 }
 
 

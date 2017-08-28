@@ -1040,6 +1040,11 @@ private:
         game_evaluator ge_;
 };
 
+void push_fold_sb_solver{
+        void solver(){
+        }
+};
+
 void game_context_test(){
         game_decl decl(0.5, 1.0);
         decl.push_player(10);
@@ -1062,19 +1067,19 @@ void game_context_test(){
         ledger.replay(pp);
 }
 
+#if 0
 struct game_logic{
-        ~virtual game_logic()=default;
-        virtual void execute(simulation_decl const& sdecl, hand_context& hand_context const& ctx, hand_ledger const& ledger, player_context const& player)=0;
+        virtual ~game_logic()=default;
+        virtual void execute(simulation_decl const& sdecl, hand_context& ctx, hand_ledger const& ledger, player_context const& player)=0;
 };
 /*
         post blinds,
         go in round robin untill all players have moved
         eval all in equity iff neccasary
  */
-struct push_fold_logic{
-        void execute(simulation_decl const& sdecl, hand_context& hand_context const& ctx, hand_ledger const& ledger, player_context const& player)override{
-        }
+struct push_fold_logic : game_logic{
 };
+#endif
 
 void simulator_test(){
         simulation_decl sdecl(.5,1.);

@@ -897,11 +897,16 @@ private:
  */
 struct game_evaluator{
         game_evaluator(){
-                cev_ =  &equity_evaluator_factory::get("better");
-                auto cache_ = &holdem_eval_cache_factory::get("main");
+                ev_ =  &equity_evaluator_factory::get("better");
+                cev_ =  &class_equity_evaluator_factory::get("better");
+                auto cache_      = &holdem_eval_cache_factory::get("main");
                 auto class_cache_ = &holdem_class_eval_cache_factory::get("main");
-                cev_->inject_cache( std::shared_ptr<holdem_eval_cache>(cache_, [](auto){}));
                 cache_->load("cache_4.bin");
+                class_cache_->load("class_cache_4.bin");
+                
+                ev_->inject_cache( std::shared_ptr<holdem_eval_cache>(cache_, [](auto){}));
+                cev_->inject_class_cache( std::shared_ptr<holdem_class_eval_cache>(class_cache_, [](auto){}));
+
         }
         // returns a vector of the EV for the stacks
         std::vector<double> eval(hand_context const& ctx){
@@ -922,11 +927,9 @@ struct game_evaluator{
                         //      p = {1,2}
                         //
                         std::vector<size_t> idx;
-                        std::vector<holdem_id> aux;
                         for( auto const& p : ctx ){
                                 if( p.state() == PlayerState_AllIn){
                                         idx.push_back(p.idx());
-                                        aux.push_back(p.hand());
                                 }
                         }
 
@@ -941,7 +944,23 @@ struct game_evaluator{
                         }
                         // case all in equity
 
-                        auto equity = cev_->evaluate(aux);
+
+                        std::shared_ptr<equity_breakdown> equity;
+                        
+                        if( hand_or_class__is_hand( ctx.player(idx.front()).hand() ) ){
+                                std::vector<holdem_id> aux;
+                                for( auto id : idx ){
+                                        aux.push_back( hand_or_class__get_value(ctx.player(id).hand() ));
+                                }
+                                equity = ev_->evaluate(aux);
+                        } else {
+                                std::vector<holdem_class_id> aux;
+                                for( auto id : idx ){
+                                        aux.push_back( hand_or_class__get_value(ctx.player(id).hand() ));
+                                }
+                                equity = cev_->evaluate_class(aux);
+                        }
+
                         for(size_t i=0;i!=idx.size();++i){
                                 d[idx[i]] = ( ctx.pot() * equity->player(i).equity() ) - ctx.player(i).starting_stack();
                                 //           \--------------equity in pot -----------/   \----- cost of bet ----------/
@@ -956,7 +975,8 @@ struct game_evaluator{
                 return std::move(d);
         }
 private:
-        equity_evaluator* cev_;
+        equity_evaluator* ev_;
+        class_equity_evaluator* cev_;
 };
 
 struct monte_carlo_simulator{
@@ -1013,7 +1033,7 @@ struct enumuration_simulator{
                 std::vector<double> d( num );
 
                 for(size_t btn=0;btn!=num;++btn){ 
-                        for( holdem_hand_deal_iterator iter(num),end;iter!=end;++iter){
+                        for( holdem_class_deal_iterator iter(num),end;iter!=end;++iter){
 
                                 hand_context ctx(sdecl_.decl_, btn);
                                 hand_ledger ledger(ctx);
@@ -1022,7 +1042,7 @@ struct enumuration_simulator{
                                 auto const& deal = *iter;
 
                                 for(size_t i=0;i!=ctx.players_size();++i){
-                                        ctx.player(i).hand() = deal[i];
+                                        ctx.player(i).hand() = hand_or_class__cast_class(deal[i]);
                                 }
                                 
                                 ctrl.post_blinds();
@@ -1036,8 +1056,9 @@ struct enumuration_simulator{
                                 ledger.replay(pp);
 
                                 auto r =  ge_.eval(ctx);
+                                auto prob = deal.prob();
                                 for( size_t i=0;i!=d.size();++i){
-                                        d[i] += r.at(i);
+                                        d[i] += r.at(i) * prob;
                                 }
 
                                 ctx.display();

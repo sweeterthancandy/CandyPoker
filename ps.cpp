@@ -25,22 +25,92 @@
 
 using namespace ps;
 
+struct action_t{
+        enum Type{
+                Type_Unknown,
+                Type_PostSB,
+                Type_PostBB,
+                Type_Fold,
+                Type_Push
+        };
+        action_t():type_{Type_Unknown}{}
+        explicit action_t(size_t idx, Type type, size_t double val = 0.):
+                type_{type},idx_{idx}, value_{val}
+        {}
+        auto type()const{ return type_; }
+        auto idx()const{ return idx_; }
+private:
+        Type type_;
+        size_t idx_;
+        double value_; // only for type \in {Push, Raise}
+};
+
 // This class contains all the state and history or a hand
 //
 // This contains NO game logic
-struct poker_hand{
-        double sb();
-        double bb();
-        double btn();
-
-        struct player_type{
-                double stack();
-                size_t idx();
-                std::string name();
+// this describes the setup of the game (before any action)
+struct hand_decl
+{
+        struct player_decl{
+                player_decl(double stack, std::string name)
+                        :stack_{stack}
+                        ,name_{std::move(name)}
+                {}
+                auto stack()const{ return stack_; }
+                auto const& name()const{ return name_; }
+        private:
+                double stack_;
+                std::string name_;
         };
 
-        player_type const& player(size_t idx); 
+        hand_decl(double sb, double bb)
+                :sb_{sb},bb_{bb}
+        {}
+        void push_player(double amt){
+                push_player(amt, "player_" + boost::lexical_cast<std::string>(players_.size()));
+        }
+        void push_player(double amt, std::string name){
+                players_.emplace_back(amt, std::move(name));
+        }
+        auto get_sb()const{ return sb_; }
+        auto get_bb()const{ return bb_; }
+        auto players_size()const{
+                return players_.size();
+        }
+        auto const& player(size_t idx)const{
+                return players_.at(idx);
+        }
+        auto begin()const{ return players_.begin(); }
+        auto end()const  { return players_.end(); }
+private:
+        double sb_;
+        double bb_;
+        //double ante_{0.0};
+        std::vector<player_decl> players_;
 };
+
+enum PlayerState{
+        PlayerState_Active,
+        PlayerState_Fold,
+        PlayerState_AllIn
+};
+
+// Idea here is that we're going to be getting alot of copying
+struct hand_state{
+        struct lightweight_player{
+                double stack;
+                PlayerState state;
+        };
+        lightweight_player      & operator[](size_t idx)     { return players_.at(idx); }
+        lightweight_player const& operator[](size_t idx)const{ return players_.at(idx); }
+        size_t pot = 0;
+private:
+        std::vector<lightweight_player> players_;
+};
+/*
+   This reorientes the board w.r.t. to the active
+   player or otherwise
+ */
 
 /*
         Contains the inital state tail_, the current state
@@ -50,34 +120,57 @@ struct poker_hand{
         etc
  */
 struct hand_history{
+        auto const& deal()const{ return decl_; }
+        auto const& head()const{ return head_; }
+        auto&       head()     { return head_; }
+        void post(action_t action){
+                // XXX this looks like part of the game logic to me
+                switch(action.type()){
+                case action_t::Type_PostSB:
+                case action_t::Type_PostBB:{
+                        auto blind = action.type() == action_t::Type_PostSB ? decl_.sb() : decl_.bb();
+                        if( blind >= head_[action.idx()].stack){
+                                head_.pot += head_[action.idx()].stack;
+                                head_[action.idx()].stack = 0;
+                                head_[action.idx()].state = PlayerState_AllIn;
+                        } else{
+                                head_.pot += blind;
+                                head_[action.idx()].stack -= blind;
+                        }
+                }
+                        break;
+                case action_t::Type_Fold:
+                        head_[action.idx()].state = PlayerState_Fold;
+                        break;
+                case action_t::Type_Push:
+                        head_.pot += head_[action.idx()].stack;
+                        head_[action.idx()].stack = 0;
+                        head_[action.idx()].state = PlayerState_AllIn;
+                        break;
+                default:
+                        PS_UNREACHABLE();
+                }
+                actions_.push_back(std::move(action));
+        }
+        auto begin()const{ return actions_.begin(); }
+        auto end()  const{ return actions_.end();   }
 private:
-        poker_hand tail_;
-        poker_hand head_;
+        hand_decl decl_;
+        hand_state head_;
         std::vector<action_t> actions_;
 };
 
-struct player_ctrl{
-        virtual void fold();
-        virtual void raise(double amt);
-        virtual void push();
-};
-
-struct hash_ctrl : player_ctrl{
-        void fold(){ hash_ += "f"; }
-        void raise(double amt){ hash_ += "r"; }
-        void push(){ hash_ += "p"; }
-        std::string const& get()const{ return hash_; }
-private:
-        std::string hash_;
-};
 
 struct player_strategy{
         virtual action_t play_turn(size_t idx, hand_history const& hh, holdem_id hand )=0;
 };
-struct simple_player_strategy : player_strategy{
-        action_t play_turn(size_t idx, hand_history const& hh, holdem_id hand)override{
+struct simple_player_strategy : player_strategy
+{
+        any_hand_model_strategy play_turn(any_hand_model_strategy& strat, size_t idx, hand_history const& hh)override{
                 hash_ctrl hasher;
                 hand.replay( hasher );
+        
+                 strat;
                 if( hasher.get() == "" ){
                         return push_;
                 } else if( hasher.get() == "p"){
@@ -95,18 +188,74 @@ struct simple_player_strategy : player_strategy{
         holdem_range    => range of hands
         weighted_range  => weight range
  */
-struct any_hand_model;
+struct any_hand_model{
+        enum Model{
+                Model_Hand,
+                Model_Class,
+                Model_ClassRange
+        };
+};
 
 
 /*
         This assigns a discrete probabilty distribution
         to the various hands.
 */
-struct any_hand_model_strategy{
+
+struct class_strategy{
+
+        using this_t = class_strategy;
+
+        struct distribution_set_proxy{
+                distribution_set_proxy(this_t* _this,
+                                       holdem_class_vector vec)
+                        :this_{_this}
+                        ,vec_{std::move(vec)}
+                {}
+                void push(){
+                        assign_(_push);
+                        destory_();
+                }
+                void fold(){
+                        assign_(_fold);
+                        destory_();
+                }
+        private:
+                void assign_(action const& proto){
+                        for( auto id : vec_){
+                                this_->strat_[id] = proto;
+                        }
+                }
+                // make sure can only be set once
+                void destory_(){
+                        this_ = nullptr;
+                }
+                this_t this_;
+                holdem_class_vector vec_;
+        };
+        distribution_set_proxy range(holdem_class_vector vec){
+                return distribution_set_proxy{this, std::move(vec)};
+        }
+        distribution_set_proxy default_(){
+                holdem_class_vector vec;
+                for( size_t i=0;i!=strat_.size();++i){
+                        if( strat_.type() == action::Type_Unknown){
+                                vec.push_back(i);
+                        }
+                }
+                return range(std::move(vec));
+        }
+        distribution_set_proxy operator[](holdem_class_id id){
+                holdem_class_vector vec;
+                vec.push_back(id);
+                return range(std::move(vec));
+        }
+private:
+        std::array< action, 169 > strat_;
 };
 
+#if 0
 void any_hand_model_strategy_test(){
-        any_hand_model_strategy strat;
         
         strats.default_()
                 .fold();
@@ -123,25 +272,8 @@ void any_hand_model_strategy_test(){
                 .deafult_().fold();
                         
 }
+#endif
 
-struct simple_player_strategy : player_strategy{
-        action_t play_turn(size_t idx,
-                           hand_history const& hh,
-                           weighted_range const& rng,
-                           player_ctrl& ctrl)override{
-                hash_ctrl hasher;
-                hand.replay( hasher );
-                if( hasher.get() == "" ){
-                        auto 
-
-                } else if( hasher.get() == "p"){
-                        return push_;
-                } else{
-                        return fold_;
-                }
-                return default_;
-        }
-};
 
 struct player_set{
 private:
@@ -149,19 +281,20 @@ private:
 };
 
 struct game_logic{
-        virtual void execute_hand(poker_hand const& prototype, 
-                                  player_set const& players)=0;
+        enum State{
+                State_Running,
+                State_Muck,
+                State_Showdown
+        };
+        virtual State push()=0;
+        virtual State fold()=0;
 };
 
-struct push_fold_game_logic{
-        virtual void execute_hand(poker_hand const& prototype, 
-                                  player_set const& players)override
-        {
-        }
-};
+struct game_logic_
 
 struct game_tree_node{
-        std::unique_ptr<game_logic>  head_;
+        poker_hand hand_;
+        size_t player_id_;
         std::vector<game_tree_node> tail_;
 };
 
@@ -183,28 +316,73 @@ struct push_fold_game_tree{
                 game_tree_node root_;
                 root_.head_ = std::make_unique<push_fold_logic>(prototype);
 
-                std::vector<game_tree_node*> stack;
-                stack.push_back(&root_);
+        std::vector<game_tree_node*> stack;
+        stack.push_back(&root_);
 
-                for(;stack.size();){
-                        auto ptr = stack.back();
-                        stack.pop_back();
+        for(;stack.size();){
+                auto ptr = stack.back();
+                stack.pop_back();
 
-                        auto const& head = (**ptr).head_;
-                        auto strat  = head.yield(players);
+                auto const& head = (**ptr).head_;
+                auto strat  = head.yield(players);
 
-                        for( auto const& p : strat ){
-                                auto branch = head;
-                                branch.apply( p );
-                                (**ptr).tail_.push_back(std::move(branch));
-                        }
-                        for( auto& ref : (**ptr).tail_ ){
-                                if( ! ref.is_terminal() ){
-                                        stack.push_back(&ref);
-                                }
+                for( auto const& p : strat ){
+                        auto branch = head;
+                        branch.apply( p );
+                        (**ptr).tail_.push_back(std::move(branch));
+                }
+                for( auto& ref : (**ptr).tail_ ){
+                        if( ! ref.is_terminal() ){
+                                stack.push_back(&ref);
                         }
                 }
         }
+}
+};
+
+
+struct hand_driver{
+        explicit hand_driver( poker_hand const& init)
+                :hh_{init}
+                ,n_{hh_.head().players_size()}
+                ,active_{n_,true}
+                ,allin_{n_,false}
+                ,active_count_{n_}
+        {
+                if( n_ == 2 ){
+                        active_idx_ = hh_.head().btn();
+                } else{
+                        active_idx_ = ( hh_.head().btn() + 2 ) % n_;
+                }
+        }
+        void run(){
+                hh_.post( action_t{ active_idx_, action_t::Type_PostSB});
+                next_();
+                hh_.post( action_t{ active_idx_, action_t::Type_PostBB});
+                next_();
+        }
+private:
+        void next_(){
+                for(;;){
+                        ++active_idx_;
+                        active_idx_ = active_ % n_;
+                        if( active_[active_idx_] )
+                                break;
+                }
+        }
+        hand_history hh_;
+        size_t n_;
+        size_t active_count_;
+        std::vector<bool> active_;
+        std::vector<bool> allin_;
+        size_t active_idx_;
+}
+
+struct node{
+
+        hand_history hh_;
+        node* push_;
+        node* fold_;
 };
 
 

@@ -70,7 +70,7 @@ private:
                 std::cout << timer.format(2, fmt) << "\n";
                 std::cout << *ret << "\n";
         }
-        size_t n_{2};
+        size_t n_{3};
         size_t max_{0};
         std::mutex mtx_;
         boost::asio::io_service io_;

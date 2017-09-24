@@ -27,7 +27,7 @@ endif()
 
 
 
-find_package(Boost REQUIRED COMPONENTS system timer serialization)
+find_package(Boost REQUIRED COMPONENTS system timer serialization coroutine)
 
 include_directories(${Boost_INCLUDE_DIRS})
 
@@ -86,9 +86,9 @@ endif()
 target_link_libraries(_ps ${Boost_LIBRARIES})
 target_link_libraries(_ps support_lib base_lib eval_lib )
 
-add_executable(pokerstove app/pokerstove.cpp )
-target_link_libraries(pokerstove ${Boost_LIBRARIES})
-target_link_libraries(pokerstove support_lib base_lib eval_lib )
+#add_executable(pokerstove app/pokerstove.cpp )
+#target_link_libraries(pokerstove ${Boost_LIBRARIES})
+#target_link_libraries(pokerstove support_lib base_lib eval_lib )
 
 add_executable(cacher app/cacher.cpp )
 target_link_libraries(cacher pthread )
@@ -96,12 +96,12 @@ target_link_libraries(cacher ${Boost_LIBRARIES})
 target_link_libraries(cacher support_lib base_lib eval_lib )
 
 
-add_executable(heads_up_solver app/heads_up_solver.cpp )
-target_link_libraries(heads_up_solver pthread )
-target_link_libraries(heads_up_solver ${Boost_LIBRARIES})
-target_link_libraries(heads_up_solver support_lib base_lib eval_lib )
+#add_executable(heads_up_solver app/heads_up_solver.cpp )
+#target_link_libraries(heads_up_solver pthread )
+#target_link_libraries(heads_up_solver ${Boost_LIBRARIES})
+#target_link_libraries(heads_up_solver support_lib base_lib eval_lib )
 
-add_executable(simulator app/simulator.cpp)
-target_link_libraries(simulator pthread )
-target_link_libraries(simulator ${Boost_LIBRARIES})
-target_link_libraries(simulator support_lib base_lib eval_lib )
+#add_executable(simulator app/simulator.cpp)
+#target_link_libraries(simulator pthread )
+#target_link_libraries(simulator ${Boost_LIBRARIES})
+#target_link_libraries(simulator support_lib base_lib eval_lib )

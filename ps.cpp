@@ -15,6 +15,8 @@
 
 #include <random>
 
+using PushFoldMask = std::uint32_t;
+
 
 
 int main(){

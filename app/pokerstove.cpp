@@ -15,6 +15,7 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/format.hpp>
 #include <boost/timer/timer.hpp>
+#include <boost/log/trivial.hpp>
 
 using namespace ps;
 
@@ -156,6 +157,7 @@ namespace ps{
                 auto& class_eval_ = class_equity_evaluator_factory::get(engine);
 
                 tree_range root( players );
+                root.display();
 
                 auto agg = std::make_shared<equity_breakdown_matrix_aggregator>(players.size());
                 boost::timer::auto_cpu_timer at;

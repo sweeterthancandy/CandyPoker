@@ -47,6 +47,12 @@ struct basic_eval_instruction : instruction{
                 , matrix_{Eigen::MatrixXd::Identity(vec.size(), vec.size())}
         {
         }
+        basic_eval_instruction(vector_type const& vec, Eigen::MatrixXd const& matrix)
+                : instruction{Type}
+                , vec_{vec}
+                , matrix_{matrix}
+        {
+        }
         holdem_hand_vector get_vector()const{
                 return vec_;
         }
@@ -153,6 +159,48 @@ void transform_collect(instruction_list& instr_list){
                 }
         }
 }
+
+inline
+std::vector<card_eval_instruction> transform_cast_to_card_eval(instruction_list& instr_list){
+        transform_permutate(instr_list);
+        transform_sort_type(instr_list);
+        transform_collect(instr_list);
+
+        std::vector<card_eval_instruction> result;
+        for(auto instr : instr_list){
+                BOOST_ASSERT(  instr->get_type() == instruction::T_CardEval );
+                auto ptr = reinterpret_cast<card_eval_instruction*>(instr.get());
+                result.emplace_back(ptr->get_vector(), ptr->get_matrix());
+        }
+        return result;
+}
+
+inline
+std::vector<card_eval_instruction> frontend_to_card_instr(std::vector<frontend::range> const& players){
+        tree_range root( players );
+        std::list<std::shared_ptr<instruction> > instr_list;
+
+        for( auto const& c : root.children ){
+
+                #if 0
+                // this means it's a class vs class evaulation
+                if( c.opt_cplayers.size() != 0 ){
+                        holdem_class_vector aux{c.opt_cplayers};
+                        agg.append(*class_eval.evaluate(aux));
+                } else
+                #endif
+                {
+                        for( auto const& d : c.children ){
+                                holdem_hand_vector aux{d.players};
+                                //agg.append(*eval.evaluate(aux));
+
+                                instr_list.push_back(std::make_shared<card_eval_instruction>(aux));
+                        }
+                }
+        }
+        return transform_cast_to_card_eval(instr_list);
+}
+
 
 } // end namespace ps
 

@@ -173,48 +173,16 @@ struct SimpleCardEval : Command{
                 for(auto const& s : args_ ){
                         players.push_back( frontend::parse(s) );
                 }
-                tree_range root( players );
-        
 
-                std::list<std::shared_ptr<instruction> > instr_list;
-
-                for( auto const& c : root.children ){
-
-                        #if 0
-                        // this means it's a class vs class evaulation
-                        if( c.opt_cplayers.size() != 0 ){
-                                holdem_class_vector aux{c.opt_cplayers};
-                                agg.append(*class_eval.evaluate(aux));
-                        } else
-                        #endif
-                        {
-                                for( auto const& d : c.children ){
-                                        holdem_hand_vector aux{d.players};
-                                        //agg.append(*eval.evaluate(aux));
-
-                                        instr_list.push_back(std::make_shared<card_eval_instruction>(aux));
-                                }
-                        }
-                }
-                transform_permutate(instr_list);
-                transform_sort_type(instr_list);
-                transform_collect(instr_list);
-                transform_print(instr_list);
-
+                auto card_instr_list = frontend_to_card_instr(players);
 
                 equity_breakdown_matrix_aggregator agg(players.size());
-                for(auto instr : instr_list ){
-                        auto ptr = reinterpret_cast<card_eval_instruction*>(instr.get());
-
-                        auto result = eval.evaluate(ptr->get_vector());
-                        agg.append_matrix(*result, ptr->get_matrix());
+                for(auto const& instr : card_instr_list ){
+                        auto result = eval.evaluate(instr.get_vector());
+                        agg.append_matrix(*result, instr.get_matrix());
                 }
 
-                std::cout << agg << "\n";
-
                 pretty_print_equity_breakdown(std::cout, agg, args_);
-
-
 
                 return EXIT_SUCCESS;
         }

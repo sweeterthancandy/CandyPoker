@@ -302,6 +302,7 @@ struct evaluator_7_card_map : evaluator
 
                 if( shasher_.has_flush(suit_hash) ){
                         ++miss;
+                        return 0;
                         return impl_->rank(a,b,cv[0], cv[1], cv[2], cv[3], cv[4]);
                 }
                 ++hit;
@@ -354,56 +355,6 @@ private:
 };
 
 
-template<class Impl_Type>
-struct equity_evaulator_principal_tpl : public ps::equity_evaluator{
-        std::shared_ptr<equity_breakdown> evaluate(std::vector<holdem_id> const& players)const override{
-                // we first need to enumerate every run of the board,
-                // for this we can create a mapping [0,51-n*2] -> [0,51],
-                auto result = std::make_shared<equity_breakdown_matrix>(players.size());
-
-                // vector of first and second card
-                std::vector<card_id> x,y;
-                std::vector<card_id> known;
-
-                for( auto const& p : players){
-                        x.push_back(holdem_hand_decl::get(p).first().id());
-                        y.push_back(holdem_hand_decl::get(p).second().id());
-                }
-                auto n = players.size();
-
-                boost::copy( x, std::back_inserter(known));
-                boost::copy( y, std::back_inserter(known));
-
-        
-                size_t board_count = 0;
-                for(board_combination_iterator iter(5, known),end;iter!=end;++iter){
-                        ++board_count;
-
-                        auto const& b(*iter);
-
-                        std::vector<ranking_t> ranked;
-                        for( size_t i=0;i!=n;++i){
-                                ranked.push_back(impl_->rank(x[i], y[i],
-                                                            b[0], b[1], b[2], b[3], b[4]) );
-                        }
-                        detail::dispatch_ranked_vector{}(*result, ranked);
-                }
-                PRINT(board_count);
-
-                return result;
-        }
-protected:
-        Impl_Type* impl_;
-};
-
-struct equity_evaulator_principal
-        : equity_evaulator_principal_tpl<evaluator_7_card_map>
-{
-        equity_evaulator_principal()
-        {
-                impl_ = new evaluator_7_card_map;
-        }
-};
 } // working
 
 
@@ -411,16 +362,10 @@ struct equity_evaulator_principal
 
 
 
-
-
-
-
-
-struct Scratch : Command{
+struct MaskEval : Command{
         explicit
-        Scratch(std::vector<std::string> const& args):args_{args}{}
+        MaskEval(std::vector<std::string> const& args):args_{args}{}
         virtual int Execute()override{
-                working::equity_evaulator_principal ec;
                 working::evaluator_7_card_map ev;
                 holdem_board_decl w;
                 rank_hasher rh;
@@ -436,9 +381,7 @@ struct Scratch : Command{
                 boost::timer::auto_cpu_timer at;
                 equity_breakdown_matrix_aggregator agg(players.size());
                 for(auto const& instr : card_instr_list ){
-                        auto const& perm = instr.get_matrix();
                         auto const& hv   = instr.get_vector();
-                        PRINT( hv );
                         auto hv_mask = hv.mask();
                                 
                         // put this here
@@ -495,7 +438,7 @@ struct Scratch : Command{
                                 detail::dispatch_ranked_vector{}(*sub, ranked);
 
                         }
-                        agg.append_matrix(*sub, perm );
+                        agg.append_matrix(*sub, instr.get_matrix() );
                 }
 
                 pretty_print_equity_breakdown(std::cout, agg, args_);
@@ -505,7 +448,7 @@ struct Scratch : Command{
 private:
         std::vector<std::string> const& args_;
 };
-static TrivialCommandDecl<Scratch> ScratchDecl{"scratch"};
+static TrivialCommandDecl<MaskEval> MaskEvalDecl{"mask-eval"};
 
 
 

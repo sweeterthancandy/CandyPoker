@@ -98,6 +98,12 @@ struct PrintTree : Command{
                 }
                 tree_range root( players );
                 root.display();
+                
+                for(auto const& p : players){
+                        std::cout << "p => " << p << "\n"; // __CandyPrint__(cxx-print-scalar,p)
+                        std::cout << "expand(p) => " << expand(p) << "\n"; // __CandyPrint__(cxx-print-scalar,expand(p))
+                        std::cout << "expand(p).to_primitive_range() => " << expand(p).to_primitive_range() << "\n"; // __CandyPrint__(cxx-print-scalar,expand(p).to_primitive_range())
+                }
                 return EXIT_SUCCESS;
         }
 private:

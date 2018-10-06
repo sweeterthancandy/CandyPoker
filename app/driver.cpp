@@ -181,7 +181,7 @@ struct SimpleCardEval : Command{
                 }
                 std::cout << agg << "\n";
 
-                pretty_printer(std::cout, agg, args_);
+                pretty_print_equity_breakdown(std::cout, agg, args_);
 
                 return EXIT_SUCCESS;
         }
@@ -192,6 +192,43 @@ static TrivialCommandDecl<SimpleCardEval> SimpleCardEvalDecl{"simple-card-eval"}
 
 
 
+struct FrontendDbg : Command{
+        explicit
+        FrontendDbg(std::vector<std::string> const& args):players_s_{args}{}
+        virtual int Execute()override{
+                
+                std::vector<std::string> title;
+                title.push_back("literal");
+                title.push_back("range");
+                title.push_back("expanded");
+                title.push_back("prim_rng");
+
+                using namespace Pretty;
+                std::vector< LineItem > lines;
+                lines.push_back(title);
+                lines.emplace_back(LineBreak);
+                
+                for(auto const& s : players_s_ ){
+                        auto rng = frontend::parse(s);
+                        auto expanded = expand(rng);
+                        auto prim_rng = expanded.to_primitive_range();
+                        std::vector<std::string> line;
+                        line.push_back(s);
+                        line.push_back(boost::lexical_cast<std::string>(rng));
+                        line.push_back(boost::lexical_cast<std::string>(expanded));
+                        line.push_back(boost::lexical_cast<std::string>(prim_rng));
+
+                        lines.push_back(line);
+                }
+                
+                RenderTablePretty(std::cout, lines);
+                
+                return EXIT_SUCCESS;
+        }
+private:
+        std::vector<std::string> const& players_s_;
+};
+static TrivialCommandDecl<FrontendDbg> FrontendDbgDecl{"frontend-dbg"};
 
 
 

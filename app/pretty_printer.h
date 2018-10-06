@@ -535,7 +535,7 @@ namespace Pretty{
 
 namespace ps{
         inline
-        void pretty_printer(std::ostream& ostr, equity_breakdown const& breakdown , std::vector<std::string> const& players){
+        void pretty_print_equity_breakdown(std::ostream& ostr, equity_breakdown const& breakdown , std::vector<std::string> const& players){
 
                 using namespace Pretty;
                 
@@ -583,42 +583,6 @@ namespace ps{
                 }
                 RenderTablePretty(std::cout, lines);
                 
-                #if 0
-                std::vector<size_t> widths(lines.back().size(),0);
-                for( auto const& line : lines){
-                        for(size_t i=0;i!=line.size();++i){
-                                widths[i] = std::max(line[i].size(), widths[i]);
-                        }
-                }
-                auto pad= [](auto const& s, size_t w){
-                        size_t padding{ w - s.size()};
-                        size_t left_pad{padding/2};
-                        size_t right_pad{padding - left_pad};
-                        std::string ret;
-                        if(left_pad)
-                               ret += std::string(left_pad,' ');
-                        ret += s;
-                        if(right_pad)
-                               ret += std::string(right_pad,' ');
-                        return std::move(ret);
-                };
-                for( auto const& line : lines){
-                        if( line.size() >= 1 && line[0] == "__break__" ){
-                                for(size_t i=0;i!=widths.size();++i){
-                                        if( i != 0 )
-                                                ostr << "-+-";
-                                        ostr << std::string(widths[i],'-');
-                                }
-                        } else{
-                                for(size_t i=0;i!=line.size();++i){
-                                        if( i != 0 )
-                                                ostr << " | ";
-                                        ostr << pad(line[i], widths[i]);
-                                }
-                        }
-                        ostr << "\n";
-                }
-                #endif
         }
 } // end namespace ps
 #endif // PS_APP_PRETTY_PRINTER_H

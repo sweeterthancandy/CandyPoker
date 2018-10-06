@@ -97,7 +97,7 @@ namespace ps{
                         }
                 }
 
-                pretty_printer(std::cout, *agg, players_s);
+                pretty_print_equity_breakdown(std::cout, *agg, players_s);
 
                 return 0;
         }

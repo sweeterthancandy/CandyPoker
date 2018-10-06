@@ -100,6 +100,24 @@ struct PrintTreeCommandDecl : CommandDecl{
 };
 static PrintTreeCommandDecl PrintTreeCommandDecl_;
 
+struct ScratchCommandDecl : CommandDecl{
+        virtual void PrintHelpSingle()const override{
+                std::cout << "    scratch\n";
+        }
+        virtual std::shared_ptr<Command> TryMakeSingle(std::string const& name, std::vector<std::string> const& args)override{
+                if( name != "scratch")
+                        return std::shared_ptr<Command>{};
+
+                struct Scratch : Command{
+                        virtual int Execute()override{
+                                return EXIT_SUCCESS;
+                        }
+                };
+                return std::make_shared<Scratch>();
+        }
+};
+static ScratchCommandDecl ScratchCommandDecl_;
+
 
 
 int main(int argc, char** argv){

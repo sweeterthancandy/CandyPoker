@@ -201,7 +201,6 @@ struct FrontendDbg : Command{
                 title.push_back("literal");
                 title.push_back("range");
                 title.push_back("expanded");
-                title.push_back("prim_rng");
 
                 using namespace Pretty;
                 std::vector< LineItem > lines;
@@ -216,7 +215,21 @@ struct FrontendDbg : Command{
                         line.push_back(s);
                         line.push_back(boost::lexical_cast<std::string>(rng));
                         line.push_back(boost::lexical_cast<std::string>(expanded));
-                        line.push_back(boost::lexical_cast<std::string>(prim_rng));
+
+                        try{
+                                auto cv = expanded.to_class_vector();
+                                line.push_back(boost::lexical_cast<std::string>(cv));
+                        }catch(...){
+                                line.push_back("error");
+                        }
+                        #if 0
+                        try{
+                                auto hv = expanded.to_holdem_vector();
+                                line.push_back(boost::lexical_cast<std::string>(hv));
+                        }catch(...){
+                                line.push_back("error");
+                        }
+                        #endif
 
                         lines.push_back(line);
                 }

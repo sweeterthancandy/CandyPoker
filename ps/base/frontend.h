@@ -114,7 +114,7 @@ namespace ps{
                                 }
                                 return std::move(result);
                         }
-                        auto i_am_a_duck__to_class_id()const{
+                        holdem_class_id i_am_a_duck__to_class_id()const{
                                 return holdem_class_decl::make_id(
                                         holdem_class_type::pocket_pair,
                                         x_,
@@ -208,7 +208,7 @@ namespace ps{
                                 }
                                 return std::move(result);
                         }
-                        auto i_am_a_duck__to_class_id()const{
+                        holdem_class_id i_am_a_duck__to_class_id()const{
                                 switch(Suit_Category){
                                 case suit_category::any_suit:
                                         BOOST_THROW_EXCEPTION(std::domain_error("bad card"));
@@ -582,11 +582,11 @@ namespace ps{
                         return boost::apply_visitor( detail::to_hand_vector(), prim);
                 }
                 template<class T>
-                auto to_class_id(T const& val){
+                holdem_class_id to_class_id(T const& val){
                         return boost::apply_visitor( detail::to_class_id(), val);
                 }
-                template<class T>
-                auto to_class_id(T const& val)->decltype( val.i_am_a_duck__to_class_id() ){
+                template<class T, class = decltype( std::declval<T>().i_am_a_duck__to_class_id() )>
+                holdem_class_id to_class_id(T const& val){
                         return val.i_am_a_duck__to_class_id();
                 }
 
@@ -641,6 +641,9 @@ namespace ps{
                                 for( auto const& e : subs_){
                                         auto prim = boost::apply_visitor(detail::primitive_cast(), e);
                                         auto id = to_class_id(prim);
+                                        if( id == (holdem_class_id)-1 ){
+                                                BOOST_THROW_EXCEPTION(std::domain_error("not all are castable"));
+                                        }
                                         result.push_back(id);
                                 }
                                 return std::move(result);

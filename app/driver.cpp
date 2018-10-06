@@ -146,33 +146,6 @@ private:
 };
 static TrivialCommandDecl<HandVectors> HandVectorsDecl{"hand-vectors"};
 
-struct Scratch : Command{
-        explicit
-        Scratch(std::vector<std::string> const& args):players_s_{args}{}
-        virtual int Execute()override{
-
-                holdem_class_vector cv;
-                cv.push_back("AA");
-                cv.push_back("KK");
-                cv.push_back("TT");
-                auto sf = cv.to_standard_form_hands();
-        
-
-                std::cout << "to_standard_form_hands\n";
-                for( auto hvt : cv.to_standard_form_hands()){
-                        std::cout << "  " << hvt << "\n";
-                }
-                std::cout << "get_hand_vectors\n";
-                for( auto hv : cv.get_hand_vectors()){
-                        std::cout << "  " << hv << "\n";
-                }
-
-                return EXIT_SUCCESS;
-        }
-private:
-        std::vector<std::string> const& players_s_;
-};
-static TrivialCommandDecl<Scratch> ScratchDecl{"scratch"};
 
 
 
@@ -218,6 +191,33 @@ static TrivialCommandDecl<SimpleCardEval> SimpleCardEvalDecl{"simple-card-eval"}
 
 
 
+struct Scratch : Command{
+        explicit
+        Scratch(std::vector<std::string> const& args):players_s_{args}{}
+        virtual int Execute()override{
+
+                holdem_class_vector cv;
+                cv.push_back("AA");
+                cv.push_back("KK");
+                cv.push_back("TT");
+                auto sf = cv.to_standard_form_hands();
+        
+
+                std::cout << "to_standard_form_hands\n";
+                for( auto hvt : cv.to_standard_form_hands()){
+                        std::cout << "  " << hvt << "\n";
+                }
+                std::cout << "get_hand_vectors\n";
+                for( auto hv : cv.get_hand_vectors()){
+                        std::cout << "  " << hv << "\n";
+                }
+
+                return EXIT_SUCCESS;
+        }
+private:
+        std::vector<std::string> const& players_s_;
+};
+static TrivialCommandDecl<Scratch> ScratchDecl{"scratch"};
 
 
 

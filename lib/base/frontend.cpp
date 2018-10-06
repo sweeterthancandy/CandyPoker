@@ -192,6 +192,16 @@ namespace ps{ namespace frontend{
                                         iter += m[0].length();
                                         return true;
                                 }
+                                // TsTd
+                                if( std::regex_search( iter, last, m, rgx_XsXs_) ){
+                                        auto r0 = *iter++;
+                                        auto s0 = *iter++;
+                                        auto r1 = *iter++;
+                                        auto s1 = *iter++;
+                                        stack_.emplace_back( hand{rank_decl::parse(r0), suit_decl::parse(s0),
+                                                                  rank_decl::parse(r1), suit_decl::parse(s1)} );
+                                        return true;
+                                }
                                 return false;
                         }
                 private:
@@ -205,6 +215,8 @@ namespace ps{ namespace frontend{
                         std::regex rgx_XX_suit_decl{"^[AaKkJjQqTt[:digit:]]{2}[oOsS]"};
                         std::regex rgx_XX{"^[AaKkJjQqTt[:digit:]]{2}"};
                         std::regex rgx_X_{"^[AaKkJjQqTt[:digit:]][xX]"};
+                        
+                        std::regex rgx_XsXs_{"^[AaKkJjQqTt[:digit:]][cdsh][AaKkJjQqTt[:digit:]][cdsh]"};
                 };
         }
                 

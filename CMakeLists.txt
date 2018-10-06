@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.6)
 
+find_package (Eigen3 3.3 REQUIRED NO_MODULE)
+
 if( WIN32 )
   set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS TRUE)
   set(BUILD_SHARED_LIBS TRUE)
@@ -54,6 +56,7 @@ set(base_sources
 )
 add_library(base_lib SHARED ${base_sources}) 
 target_link_libraries(base_lib ${Boost_LIBRARIES})
+target_link_libraries(base_lib Eigen3::Eigen)
 
 set(
         eval_sources 
@@ -74,6 +77,7 @@ set(
 )
 add_library(eval_lib SHARED ${eval_sources}) 
 target_link_libraries(eval_lib ${Boost_LIBRARIES})
+target_link_libraries(eval_lib Eigen3::Eigen)
 
 
 add_executable(_ps ps.cpp )
@@ -87,11 +91,13 @@ target_link_libraries(_ps support_lib base_lib eval_lib )
 add_executable(pokerstove app/pokerstove.cpp )
 target_link_libraries(pokerstove ${Boost_LIBRARIES})
 target_link_libraries(pokerstove support_lib base_lib eval_lib )
+                
 
 add_executable(driver app/driver.cpp )
 target_link_libraries(driver pthread )
 target_link_libraries(driver ${Boost_LIBRARIES})
 target_link_libraries(driver support_lib base_lib eval_lib )
+target_link_libraries(driver Eigen3::Eigen)
 
 
 #add_executable(heads_up_solver app/heads_up_solver.cpp )

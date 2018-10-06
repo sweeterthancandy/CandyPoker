@@ -5,6 +5,8 @@
 #include <ostream>
 #include <numeric>
 
+#include <Eigen/Dense>
+
 #include "ps/eval/equity_breakdown.h"
 #include "ps/support/array_view.h"
 #include "ps/detail/print.h"
@@ -240,6 +242,35 @@ struct basic_equity_breakdown_matrix_aggregator : basic_equity_breakdown_matrix<
                                 }
                         }
                 }
+        }
+        void append_matrix(basic_equity_breakdown<Primitive_Type> const& breakdown, Eigen::MatrixXd const& mat){
+                assert( breakdown.n() == n()     && "precondition failed");
+                assert( mat.size()    == n()*n() && "precondition failed");
+                /*
+                        TODO
+
+                        proper way to fix this is a lose column
+
+                        If we have mat = P0 + P1 + P2  + ... + Pn, for a sequence of n
+                        permutation matrixies, then this will work
+                 */
+                for( size_t i =0; i!= n();++i){
+                        auto& p = breakdown.player(i);
+                        for( size_t j =0;j!=n();++j){
+                                for( size_t k =0;k!=n();++k){
+                                        data_access(j,k) += p.nwin(k) * mat(i,j);
+                                }
+                        }
+                }
+                
+                double total = .0;
+                for( size_t i =0; i!= n();++i){
+                        for( size_t j =0;j!=n();++j){
+                                total += mat(i,j);
+                        }
+                }
+                
+                sigma() += ( breakdown.sigma() * total / n() );
         }
 };
 

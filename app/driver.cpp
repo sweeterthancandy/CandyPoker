@@ -98,12 +98,7 @@ struct PrintTree : Command{
                 }
                 tree_range root( players );
                 root.display();
-                
-                for(auto const& p : players){
-                        std::cout << "p => " << p << "\n"; // __CandyPrint__(cxx-print-scalar,p)
-                        std::cout << "expand(p) => " << expand(p) << "\n"; // __CandyPrint__(cxx-print-scalar,expand(p))
-                        std::cout << "expand(p).to_primitive_range() => " << expand(p).to_primitive_range() << "\n"; // __CandyPrint__(cxx-print-scalar,expand(p).to_primitive_range())
-                }
+
                 return EXIT_SUCCESS;
         }
 private:
@@ -165,13 +160,16 @@ struct SimpleCardEval : Command{
         SimpleCardEval(std::vector<std::string> const& args):args_{args}{}
         virtual int Execute()override{
                 equity_evaulator_principal eval;
+                class_equity_evaluator_principal class_eval;
 
-                holdem_class_vector cv;
+                std::vector<frontend::range> players;
                 for(auto const& s : args_ ){
-                        cv.push_back(s);
+                        players.push_back( frontend::parse(s) );
                 }
+                tree_range root( players );
         
-                equity_breakdown_matrix_aggregator agg(cv.size());
+                equity_breakdown_matrix_aggregator agg(players.size());
+                #if 0
                 for( auto const& stdhand : cv.to_standard_form_hands() ){
 
                         auto const& hand_perm = std::get<0>(stdhand);
@@ -179,9 +177,26 @@ struct SimpleCardEval : Command{
 
                         agg.append_matrix(*eval.evaluate(hand_vec), hand_perm );
                 }
+                #else
+                for( auto const& c : root.children ){
+
+                        // this means it's a class vs class evaulation
+                        if( c.opt_cplayers.size() != 0 ){
+                                holdem_class_vector aux{c.opt_cplayers};
+                                agg.append(*class_eval.evaluate(aux));
+                        } else{
+                                for( auto const& d : c.children ){
+                                        holdem_hand_vector aux{d.players};
+                                        agg.append(*eval.evaluate(aux));
+                                }
+                        }
+                }
+                #endif
                 std::cout << agg << "\n";
 
                 pretty_print_equity_breakdown(std::cout, agg, args_);
+
+
 
                 return EXIT_SUCCESS;
         }
@@ -244,7 +259,55 @@ private:
 static TrivialCommandDecl<FrontendDbg> FrontendDbgDecl{"frontend-dbg"};
 
 
+#if 0
+struct hand_tree{
+        enum type{
+                T_Class,
+                T_Hand,
+        };
+        virtual type get_type()const=0;
+        virtual ~hand_tree()=default;
+        inline
+        static std::shared_ptr<hand_tree> create(std::string const& str);
 
+        virtual holdem_class_vector get_class_vector()const{ 
+                BOOST_THROW_EXCEPTION(std::domain_error("not implemented"));
+        }
+        virtual holdem_hand_vector get_hand_vector()const{ 
+                BOOST_THROW_EXCEPTION(std::domain_error("not implemented"));
+        }
+
+};
+struct hand_tree_class : hand_tree{
+        explicit hand_tree_class(holdem_class_vector const& vec):vec_{vec}{}
+        virtual type get_type()const override{ return T_Class; }
+        
+        virtual holdem_class_vector get_class_vector()const{ 
+                return vec_;
+        }
+        virtual holdem_hand_vector get_hand_vector()const{ 
+        }
+private:
+        holdem_class_vector vec_;
+};
+
+std::shared_ptr<hand_tree> hand_tree::create(std::string const& str){
+
+        auto rng = frontend::parse(s);
+        auto expanded = expand(rng);
+
+
+        try{
+                auto cv = expanded.to_class_vector();
+                return std::make_shared<hand_tree_class>(cv);
+        }catch(...){
+                auto hv = expanded.to_holdem_vector();
+                return std::make_shared<hand_tree_class>(cv);
+        }
+}
+
+struct hand_tree_range 
+#endif
 
 
 struct Scratch : Command{

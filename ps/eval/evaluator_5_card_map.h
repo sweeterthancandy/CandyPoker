@@ -1,3 +1,7 @@
+#ifndef PS_EVAL_EVALUATOR_5_CARD_MAP_H
+#define PS_EVAL_EVALUATOR_5_CARD_MAP_H
+
+
 #include "ps/eval/evaluator.h"
 
 #include <sstream>
@@ -130,3 +134,4 @@ private:
 };
 
 } // ps
+#endif // PS_EVAL_EVALUATOR_5_CARD_MAP_H

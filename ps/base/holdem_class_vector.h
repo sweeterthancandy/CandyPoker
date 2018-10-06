@@ -10,6 +10,9 @@
 
 namespace ps{
 
+
+
+
         struct holdem_class_vector : std::vector<ps::holdem_class_id>{
                 template<class... Args>
                 holdem_class_vector(Args&&... args)
@@ -38,7 +41,8 @@ namespace ps{
                 std::tuple<
                         std::vector<int>,
                         holdem_class_vector
-                > to_standard_form()const;
+                > 
+                to_standard_form()const;
                 
                 std::vector<
                        std::tuple< std::vector<int>, holdem_hand_vector >
@@ -66,6 +70,19 @@ namespace ps{
                         impl_t(n, holdem_class_decl::max_id)
                 {}
         };
+        typedef std::tuple< std::vector<int>, holdem_class_vector> standard_form_result;
+        inline std::ostream& operator<<(std::ostream& ostr, standard_form_result const& self){
+                return ostr << detail::to_string(std::get<0>(self))
+                        << " x "
+                        << std::get<1>(self);
+        }
+        
+        typedef std::tuple< std::vector<int>, holdem_hand_vector> standard_form_hands_result;
+        inline std::ostream& operator<<(std::ostream& ostr, standard_form_hands_result const& self){
+                return ostr << detail::to_string(std::get<0>(self))
+                        << " x "
+                        << std::get<1>(self);
+        }
 } // ps
 
 #endif // PS_BASE_HOLDEM_CLASS_VECTOR_H

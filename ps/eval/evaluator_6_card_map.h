@@ -1,3 +1,5 @@
+#ifndef PS_EVAL_EVALUATOR_6_CARD_MAP_H
+#define PS_EVAL_EVALUATOR_6_CARD_MAP_H
 #include "ps/eval/evaluator_5_card_map.h"
 
 namespace ps{
@@ -125,3 +127,4 @@ private:
 };
 
 } // ps 
+#endif // PS_EVAL_EVALUATOR_6_CARD_MAP_H

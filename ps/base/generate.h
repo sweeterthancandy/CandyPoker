@@ -3,6 +3,13 @@
 
 namespace ps{
 
+/*
+ * This has no dependancies on other parts of the code, so that it can be
+ * used in other projects
+ *
+ *    v.begin(rank_name)
+ *    v.next(is_flush, r0, r1, r2, r3, r4)
+ */
 template<class V>
 void generate(V& v){
         static long _2( 0);

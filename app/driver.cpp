@@ -11,6 +11,8 @@
 #include "ps/support/index_sequence.h"
 #include "ps/eval/class_equity_evaluator_quick.h"
 #include "ps/support/index_sequence.h"
+#include "ps/eval/evaluator_6_card_map.h"
+#include "app/pretty_printer.h"
 
 
 #include <boost/timer/timer.hpp>
@@ -71,52 +73,160 @@ struct CommandDecl{
                 return cmd->Execute();
         }
 };
-
-struct PrintTreeCommandDecl : CommandDecl{
+template<class T>
+struct TrivialCommandDecl : CommandDecl{
+        explicit TrivialCommandDecl(std::string const& name):name_{name}{}
         virtual void PrintHelpSingle()const override{
-                std::cout << "    print-tree <players...>\n";
+                std::cout << "    " << name_ << "\n";
         }
         virtual std::shared_ptr<Command> TryMakeSingle(std::string const& name, std::vector<std::string> const& args)override{
-                if( name != "print-tree")
+                if( name != name_)
                         return std::shared_ptr<Command>{};
-
-                struct PrintTree : Command{
-                        explicit
-                        PrintTree(std::vector<std::string> const& args):players_s_{args}{}
-                        virtual int Execute()override{
-                                std::vector<frontend::range> players;
-                                for(auto const& s : players_s_ ){
-                                        players.push_back( frontend::parse(s) );
-                                }
-                                tree_range root( players );
-                                root.display();
-                                return EXIT_SUCCESS;
-                        }
-                private:
-                        std::vector<std::string> const& players_s_;
-                };
-                return std::make_shared<PrintTree>(args);
+                return std::make_shared<T>(args);
         }
+private:
+        std::string name_;
 };
-static PrintTreeCommandDecl PrintTreeCommandDecl_;
 
-struct ScratchCommandDecl : CommandDecl{
-        virtual void PrintHelpSingle()const override{
-                std::cout << "    scratch\n";
+struct PrintTree : Command{
+        explicit
+        PrintTree(std::vector<std::string> const& args):players_s_{args}{}
+        virtual int Execute()override{
+                std::vector<frontend::range> players;
+                for(auto const& s : players_s_ ){
+                        players.push_back( frontend::parse(s) );
+                }
+                tree_range root( players );
+                root.display();
+                return EXIT_SUCCESS;
         }
-        virtual std::shared_ptr<Command> TryMakeSingle(std::string const& name, std::vector<std::string> const& args)override{
-                if( name != "scratch")
-                        return std::shared_ptr<Command>{};
-
-                struct Scratch : Command{
-                        virtual int Execute()override{
-                                return EXIT_SUCCESS;
-                        }
-                };
-                return std::make_shared<Scratch>();
-        }
+private:
+        std::vector<std::string> const& players_s_;
 };
-static ScratchCommandDecl ScratchCommandDecl_;
+static TrivialCommandDecl<PrintTree> PrintTreeDecl{"print-tree"};
+
+struct StandardForm : Command{
+        explicit
+        StandardForm(std::vector<std::string> const& args):args_{args}{}
+        virtual int Execute()override{
+
+                holdem_class_vector cv;
+                for(auto const& s : args_ ){
+                        cv.push_back(s);
+                }
+                for( auto hvt : cv.to_standard_form_hands()){
+
+                        std::cout << hvt << "\n";
+                }
+
+                return EXIT_SUCCESS;
+        }
+private:
+        std::vector<std::string> const& args_;
+};
+static TrivialCommandDecl<StandardForm> StandardFormDecl{"standard-form"};
+
+struct HandVectors : Command{
+        explicit
+        HandVectors(std::vector<std::string> const& args):args_{args}{}
+        virtual int Execute()override{
+
+                holdem_class_vector cv;
+                for(auto const& s : args_ ){
+                        cv.push_back(s);
+                }
+                for( auto hv : cv.get_hand_vectors()){
+                        std::cout << "  " << hv << "\n";
+                }
+
+                return EXIT_SUCCESS;
+        }
+private:
+        std::vector<std::string> const& args_;
+};
+static TrivialCommandDecl<HandVectors> HandVectorsDecl{"hand-vectors"};
+
+struct Scratch : Command{
+        explicit
+        Scratch(std::vector<std::string> const& args):players_s_{args}{}
+        virtual int Execute()override{
+
+                holdem_class_vector cv;
+                cv.push_back("AA");
+                cv.push_back("KK");
+                cv.push_back("TT");
+                auto sf = cv.to_standard_form_hands();
+        
+
+                std::cout << "to_standard_form_hands\n";
+                for( auto hvt : cv.to_standard_form_hands()){
+                        std::cout << "  " << hvt << "\n";
+                }
+                std::cout << "get_hand_vectors\n";
+                for( auto hv : cv.get_hand_vectors()){
+                        std::cout << "  " << hv << "\n";
+                }
+
+                return EXIT_SUCCESS;
+        }
+private:
+        std::vector<std::string> const& players_s_;
+};
+static TrivialCommandDecl<Scratch> ScratchDecl{"scratch"};
+
+
+
+
+
+
+
+
+struct SimpleCardEval : Command{
+        explicit
+        SimpleCardEval(std::vector<std::string> const& args):args_{args}{}
+        virtual int Execute()override{
+                equity_evaulator_principal eval;
+
+                holdem_class_vector cv;
+                for(auto const& s : args_ ){
+                        cv.push_back(s);
+                }
+        
+                equity_breakdown_matrix_aggregator agg(cv.size());
+                for( auto const& stdhand : cv.to_standard_form_hands() ){
+
+                        auto const& hand_perm = std::get<0>(stdhand);
+                        auto const& hand_vec  = std::get<1>(stdhand);
+
+                        agg.append_matrix(*eval.evaluate(hand_vec), hand_perm );
+                }
+                std::cout << agg << "\n";
+
+                pretty_printer(std::cout, agg, args_);
+
+                return EXIT_SUCCESS;
+        }
+private:
+        std::vector<std::string> const& args_;
+};
+static TrivialCommandDecl<SimpleCardEval> SimpleCardEvalDecl{"simple-card-eval"};
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

@@ -215,7 +215,7 @@ struct basic_equity_breakdown_matrix_aggregator : basic_equity_breakdown_matrix<
 
                 for( size_t i =0;i!=n();++i){
                         for( size_t j =0;j!=n();++j){
-                                data_access(i,j) += player(perm[i]).nwin(j);
+                                data_access(i,j) += breakdown.player(perm[i]).nwin(j);
                         }
                 }
         }

@@ -186,18 +186,14 @@ inline std::string matrix_to_string(Eigen::MatrixXd const& mat){
         return sstr.str();
 }
 
-struct card_eval_instruction : instruction{
-        card_eval_instruction(holdem_hand_vector const& vec)
-                : instruction{T_CardEval}
+template<class VectorType, instruction::type Type>
+struct basic_eval_instruction : instruction{
+        using vector_type = VectorType;
+        basic_eval_instruction(vector_type const& vec)
+                : instruction{Type}
                 , vec_{vec}
                 , matrix_{Eigen::MatrixXd::Identity(vec.size(), vec.size())}
         {
-                #if 0
-                matrix_.resize(vec.size() * vec.size());
-                for(size_t idx=0;idx!=vec.size();++idx){
-                        matrix_[idx * vec_.size() + idx] = 1;
-                }
-                #endif
         }
         holdem_hand_vector get_vector()const{
                 return vec_;
@@ -213,19 +209,21 @@ struct card_eval_instruction : instruction{
         }
         virtual std::string to_string()const override{
                 std::stringstream sstr;
-                sstr << "CardEval{" << vec_ << ", " << matrix_to_string(matrix_) << "}";
+                sstr << (Type == T_CardEval ? "CardEval" : "ClassEval" ) << "{" << vec_ << ", " << matrix_to_string(matrix_) << "}";
                 return sstr.str();
         }
         
-        friend std::ostream& operator<<(std::ostream& ostr, card_eval_instruction const& self){
-                ostr << "vec_ = " << self.vec_;
-                ostr << "matrix_" << " = " << matrix_to_string(self.matrix_) << "\n";
-                return ostr;
+        friend std::ostream& operator<<(std::ostream& ostr, basic_eval_instruction const& self){
+                return ostr << self.to_string();
         }
 private:
-        holdem_hand_vector vec_;
+        vector_type vec_;
         Eigen::MatrixXd matrix_;
 };
+
+using card_eval_instruction  = basic_eval_instruction<holdem_hand_vector, instruction::T_CardEval>;
+using class_eval_instruction = basic_eval_instruction<holdem_class_vector, instruction::T_ClassEval>;
+
 
 using instruction_list = std::list<std::shared_ptr<instruction> >;
 
@@ -321,15 +319,6 @@ struct SimpleCardEval : Command{
                 }
                 tree_range root( players );
         
-                #if 0
-                for( auto const& stdhand : cv.to_standard_form_hands() ){
-
-                        auto const& hand_perm = std::get<0>(stdhand);
-                        auto const& hand_vec  = std::get<1>(stdhand);
-
-                        agg.append_matrix(*eval.evaluate(hand_vec), hand_perm );
-                }
-                #else
 
                 std::list<std::shared_ptr<instruction> > instr_list;
 
@@ -352,11 +341,9 @@ struct SimpleCardEval : Command{
                         }
                 }
                 #endif
-                #if 0
                 transform_permutate(instr_list);
                 transform_sort_type(instr_list);
                 transform_collect(instr_list);
-                #endif
                 transform_print(instr_list);
 
 

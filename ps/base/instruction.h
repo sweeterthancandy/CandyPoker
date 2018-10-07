@@ -2,6 +2,8 @@
 #define PS_BASE_INSTRUCTION_H
 
 
+#include <Eigen/Dense>
+
 namespace ps{
 
 struct instruction{

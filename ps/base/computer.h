@@ -2,6 +2,8 @@
 #define PS_BASE_COMPUTER_H
 
 #include "ps/base/instruction.h"
+#include "ps/eval/equity_breakdown_matrix.h"
+
 
 namespace ps{
 

@@ -66,14 +66,7 @@ set(
         lib/eval/rank_world.cpp
         lib/eval/equity_evaluator_principal.cpp 
         lib/eval/equity_evaluator_cached.cpp
-        lib/eval/class_equity_evaluator_principal.cpp 
-        lib/eval/class_equity_evaluator_proc.cpp 
-        lib/eval/class_equity_evaluator_quick.cpp 
-        lib/eval/range_equity_evaluator_principal.cpp 
-        lib/eval/class_range_equity_evaluator_principal.cpp 
-        lib/eval/class_equity_evaluator_cache.cpp
         lib/eval/equity_breakdown.cpp
-        lib/eval/holdem_class_eval_cache_impl.cpp
 )
 add_library(eval_lib SHARED ${eval_sources}) 
 target_link_libraries(eval_lib ${Boost_LIBRARIES})
@@ -88,9 +81,9 @@ target_link_libraries(eval_lib Eigen3::Eigen)
 #target_link_libraries(_ps ${Boost_LIBRARIES})
 #target_link_libraries(_ps support_lib base_lib eval_lib )
 
-add_executable(pokerstove app/pokerstove.cpp )
-target_link_libraries(pokerstove ${Boost_LIBRARIES})
-target_link_libraries(pokerstove support_lib base_lib eval_lib )
+#add_executable(pokerstove app/pokerstove.cpp )
+#target_link_libraries(pokerstove ${Boost_LIBRARIES})
+#target_link_libraries(pokerstove support_lib base_lib eval_lib )
                 
 
 add_executable(driver app/driver.cpp )

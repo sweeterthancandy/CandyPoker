@@ -16,6 +16,8 @@
 #include <boost/accumulators/statistics/variance.hpp>
 #include <boost/variant.hpp>
 
+#include "ps/eval/equity_breakdown.h"
+
 
 
 namespace ps{

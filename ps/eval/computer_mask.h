@@ -3,6 +3,7 @@
 
 #include "ps/base/computer.h"
 #include <future>
+#include "ps/detail/dispatch.h"
 
 namespace ps{
 

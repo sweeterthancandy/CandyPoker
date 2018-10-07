@@ -13,6 +13,7 @@ struct instruction{
         type get_type()const{ return type_; }
 
         virtual std::string to_string()const=0;
+        virtual std::shared_ptr<instruction> clone()const=0;
 private:
         type type_;
 };
@@ -40,7 +41,10 @@ inline std::string matrix_to_string(Eigen::MatrixXd const& mat){
 
 template<class VectorType, instruction::type Type>
 struct basic_eval_instruction : instruction{
+
         using vector_type = VectorType;
+        using self_type = basic_eval_instruction;
+
         basic_eval_instruction(vector_type const& vec)
                 : instruction{Type}
                 , vec_{vec}
@@ -71,9 +75,15 @@ struct basic_eval_instruction : instruction{
                 return sstr.str();
         }
         
+        virtual std::shared_ptr<instruction> clone()const override{
+                return std::make_shared<self_type>(vec_, matrix_);
+        }
+        
         friend std::ostream& operator<<(std::ostream& ostr, basic_eval_instruction const& self){
                 return ostr << self.to_string();
         }
+
+
 private:
         vector_type vec_;
         Eigen::MatrixXd matrix_;
@@ -176,9 +186,9 @@ std::vector<card_eval_instruction> transform_cast_to_card_eval(instruction_list&
 }
 
 inline
-std::vector<card_eval_instruction> frontend_to_card_instr(std::vector<frontend::range> const& players){
+instruction_list frontend_to_instruction_list(std::vector<frontend::range> const& players){
+        instruction_list instr_list;
         tree_range root( players );
-        std::list<std::shared_ptr<instruction> > instr_list;
 
         for( auto const& c : root.children ){
 
@@ -198,7 +208,21 @@ std::vector<card_eval_instruction> frontend_to_card_instr(std::vector<frontend::
                         }
                 }
         }
+        return instr_list;
+}
+
+inline
+std::vector<card_eval_instruction> frontend_to_card_instr(std::vector<frontend::range> const& players){
+        auto instr_list = frontend_to_instruction_list(players);
         return transform_cast_to_card_eval(instr_list);
+}
+inline 
+instruction_list instruction_list_deep_copy(instruction_list const& instr_list){
+        instruction_list copy_list;
+        for(auto instr : instr_list){
+                copy_list.push_back(instr->clone());
+        }
+        return copy_list;
 }
 
 

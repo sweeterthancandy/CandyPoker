@@ -22,10 +22,10 @@ struct holdem_board_decl{
                         }
                         mask_ = vec_.mask();
                 }
-                size_t mask()const{ return mask_; }
-                size_t rank_hash()const{ return rank_hash_; }
-                size_t suit_hash()const{ return suit_hash_; }
-                card_vector const& board()const{ return vec_; }
+                size_t mask()const noexcept{ return mask_; }
+                size_t rank_hash()const noexcept{ return rank_hash_; }
+                size_t suit_hash()const noexcept{ return suit_hash_; }
+                card_vector const& board()const noexcept{ return vec_; }
         private:
                 size_t mask_;
                 card_vector vec_;
@@ -38,8 +38,8 @@ struct holdem_board_decl{
                         world_.emplace_back( *iter );
                 }
         }
-        auto begin()const{ return world_.begin(); }
-        auto end()const{ return world_.end(); }
+        auto begin()const noexcept{ return world_.begin(); }
+        auto end()const noexcept{ return world_.end(); }
 
 private:
         std::vector<layout> world_;

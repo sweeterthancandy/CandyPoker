@@ -22,6 +22,9 @@ struct suit_hasher{
         bool has_flush(hash_t hash)const noexcept{
                 if( hash == 0 )
                         return false;
+                return has_flush_unsafe(hash);
+        }
+        bool has_flush_unsafe(hash_t hash)const noexcept{
                 return 
                     ((hash % (2*2*2*2*2))*
                      (hash % (3*3*3*3*3))*

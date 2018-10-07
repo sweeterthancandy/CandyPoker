@@ -302,6 +302,6 @@ int main(){
                 #endif
         }
         std::cout << *result << "\n";
-        auto r = static_cast<double>(ev.hit)/(ev.miss+ev.hit);
-        PRINT_SEQ((ev.hit)(ev.miss)(r));
+        //auto r = static_cast<double>(ev.hit)/(ev.miss+ev.hit);
+        //PRINT_SEQ((ev.hit)(ev.miss)(r));
 }

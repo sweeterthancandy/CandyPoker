@@ -3,31 +3,9 @@
 
 namespace ps{
 
-struct rank_hasher{
-        using hash_t = size_t;
+namespace rank_hasher{
+        using rank_hash_t = size_t;
 
-        hash_t create()const noexcept{ return 0; }
-        hash_t create(rank_vector const& rv)const noexcept{
-                auto hash = create();
-                for(auto id : rv )
-                        hash = append(hash, id);
-                return hash;
-        }
-        template<class... Args>
-        hash_t create(Args... args)const noexcept{
-                auto hash = create();
-                int _[] = {0,  (hash = append(hash, args),0)...};
-                return hash;
-        }
-        template<class... Args>
-        hash_t create_from_cards(Args... args)const noexcept{
-                auto hash = create();
-                int _[] = {0,  (hash = append(hash, card_rank_from_id(args)),0)...};
-                return hash;
-        }
-        const hash_t max()const noexcept{
-                return create(12,12,12,12,11,11,11);
-        }
         /*
                   +----+--+--+--+--+--+--+--+--+--+--+--+--+--+
                   |card|A |K |Q |J |T |9 |8 |7 |6 |5 |4 |3 |2 |
@@ -52,7 +30,8 @@ struct rank_hasher{
                                    3 | 11
                                    4 | 11
         */
-        hash_t append(hash_t hash, rank_id rank)const noexcept{
+        inline
+        rank_hash_t append(rank_hash_t hash, rank_id rank)noexcept{
                 auto idx = rank * 2;
                 auto mask = ( hash & ( 0x3 << idx ) ) >> idx;
                 switch(mask){
@@ -79,7 +58,33 @@ struct rank_hasher{
                 }
                 return hash;
         }
-};
+        
+        inline
+        rank_hash_t create()noexcept{ return 0; }
+        inline
+        rank_hash_t create(rank_vector const& rv) noexcept{
+                auto hash = create();
+                for(auto id : rv )
+                        hash = rank_hasher::append(hash, id);
+                return hash;
+        }
+        template<class... Args>
+        rank_hash_t create(Args... args) noexcept{
+                auto hash = create();
+                int _[] = {0,  (hash = append(hash, args),0)...};
+                return hash;
+        }
+        template<class... Args>
+        rank_hash_t create_from_cards(Args... args) noexcept{
+                auto hash = create();
+                int _[] = {0,  (hash = append(hash, card_rank_from_id(args)),0)...};
+                return hash;
+        }
+        inline
+        const rank_hash_t max()noexcept{
+                return create(12,12,12,12,11,11,11);
+        }
+} // end namespace rank_hasher
 
 } // ps
 #endif // PS_BASE_RANK_HASHER_H

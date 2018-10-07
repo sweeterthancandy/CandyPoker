@@ -6,17 +6,13 @@
 
 namespace ps{
 
-namespace hash_computer_detail{
+namespace mask_computer_detail{
 
-struct hash_eval : evaluator
+struct rank_hash_eval : evaluator
 {
-        hash_eval(){
+        rank_hash_eval(){
                 impl_ = &evaluator_factory::get("6_card_map");
-                card_map_7_.resize(rhasher_.max());
-
-                for(size_t i=0;i!=52;++i){
-                        card_rank_device_[i] = card_decl::get(i).rank().id();
-                }
+                card_map_7_.resize(rank_hasher::max());
 
                 using iter_t = basic_index_iterator<
                         int, ordered_policy, rank_vector
@@ -34,14 +30,14 @@ struct hash_eval : evaluator
         }
         ranking_t rank(long a, long b, long c, long d, long e, long f, long g)const override{
 
-                auto shash =  shasher_.create_from_cards(a,b,c,d,e,f,g);
+                auto shash =  suit_hasher::create_from_cards(a,b,c,d,e,f,g);
 
-                if( shasher_.has_flush(shash)){
+                if( suit_hasher::has_flush(shash)){
                         //++miss;
                         return impl_->rank(a,b,c,d,e,f,g);
                 }
 
-                auto rhash = rhasher_.create_from_cards(a,b,c,d,e,f,g);
+                auto rhash = rank_hasher::create_from_cards(a,b,c,d,e,f,g);
                 auto ret = card_map_7_[rhash];
 
                 return ret;
@@ -49,7 +45,7 @@ struct hash_eval : evaluator
         ranking_t rank(card_vector const& cv, size_t suit_hash, size_t rank_hash, long a, long b)const noexcept{
 
 
-                if( shasher_.has_flush_unsafe(suit_hash) ){
+                if( suit_hasher::has_flush_unsafe(suit_hash) ){
                         //return 0; // XXX
                         return impl_->rank(a,b,cv[0], cv[1], cv[2], cv[3], cv[4]);
                 }
@@ -85,7 +81,7 @@ private:
                         if( aux[i] > 4 )
                                 return;
                 }
-                auto hash = rhasher_.create( b[0], b[1], b[2], b[3], b[4], b[5], b[6] );
+                auto hash = rank_hasher::create( b[0], b[1], b[2], b[3], b[4], b[5], b[6] );
 
                 auto val  = rank_from_rank_impl_( b[0], b[1], b[2], b[3], b[4], b[5], b[6] );
 
@@ -94,19 +90,16 @@ private:
 
                 card_map_7_[hash] = val;
         }
-        rank_hasher rhasher_;
-        suit_hasher shasher_;
         evaluator* impl_;
-        std::array<size_t, 52> card_rank_device_;
         std::vector<ranking_t> card_map_7_;
 };
 
 
-} // hash_computer_detail
+} // mask_computer_detail
 
 
 
-struct hash_computer : card_eval_computer{
+struct mask_computer : card_eval_computer{
         compute_single_result_t compute_single(computation_context const& ctx, card_eval_instruction const& instr)const noexcept override{
                 auto const& hv   = instr.get_vector();
                 auto hv_mask = hv.mask();
@@ -151,11 +144,11 @@ struct hash_computer : card_eval_computer{
                                 auto rank_hash = rank_proto;
                                 auto suit_hash = suit_proto;
 
-                                rank_hash = rh.append(rank_hash, hv_first_rank[i]);
-                                rank_hash = rh.append(rank_hash, hv_second_rank[i]);
+                                rank_hash = rank_hasher::append(rank_hash, hv_first_rank[i]);
+                                rank_hash = rank_hasher::append(rank_hash, hv_second_rank[i]);
 
-                                suit_hash = sh.append(suit_hash, hv_first_suit[i] );
-                                suit_hash = sh.append(suit_hash, hv_second_suit[i] );
+                                suit_hash = suit_hasher::append(suit_hash, hv_first_suit[i] );
+                                suit_hash = suit_hasher::append(suit_hash, hv_second_suit[i] );
 
 
                                 //ranked[i] = 0; continue; // XXX
@@ -167,10 +160,8 @@ struct hash_computer : card_eval_computer{
                 return compute_single_result_t{sub, instr.get_matrix()};
         }
 private:
-        hash_computer_detail::hash_eval ev;
+        mask_computer_detail::rank_hash_eval ev;
         holdem_board_decl w;
-        rank_hasher rh;
-        suit_hasher sh;
 };
 
 } // end namespace ps

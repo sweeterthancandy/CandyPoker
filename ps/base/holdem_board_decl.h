@@ -8,17 +8,15 @@ struct holdem_board_decl{
                 layout(card_vector vec)
                         :vec_{std::move(vec)}
                 {
-                        static suit_hasher sh;
-                        static rank_hasher rh;
                                 
-                        rank_hash_ = rh.create();
-                        suit_hash_ = sh.create();
+                        rank_hash_ = rank_hasher::create();
+                        suit_hash_ = suit_hasher::create();
 
                         for( auto id : vec_ ){
                                 auto const& hand{ card_decl::get(id) };
 
-                                rank_hash_ = rh.append(rank_hash_, hand.rank() );
-                                suit_hash_ = sh.append(suit_hash_, hand.suit() );
+                                rank_hash_ = rank_hasher::append(rank_hash_, hand.rank() );
+                                suit_hash_ = suit_hasher::append(suit_hash_, hand.suit() );
                         }
                         mask_ = vec_.mask();
                 }
@@ -29,8 +27,8 @@ struct holdem_board_decl{
         private:
                 size_t mask_;
                 card_vector vec_;
-                size_t rank_hash_{0};
-                size_t suit_hash_{0};
+                rank_hasher::rank_hash_t rank_hash_{0};
+                suit_hasher::suit_hash_t suit_hash_{0};
         };
 
         holdem_board_decl(){

@@ -3,36 +3,39 @@
 
 namespace ps{
 
-struct suit_hasher{
+namespace suit_hasher{
         
 
-        using hash_t = size_t;
+        using suit_hash_t = size_t;
 
-        hash_t create()const noexcept{ return 1; }
-        hash_t append(hash_t hash, rank_id rank)const noexcept{
+        inline
+        suit_hash_t create()noexcept{ return 1; }
+        inline
+        suit_hash_t append(suit_hash_t hash, rank_id rank)noexcept{
                 static constexpr const std::array<int,4> suit_map = { 2,3,5,7 };
                 return hash * suit_map[rank];
         }
         template<class... Args>
-        hash_t create_from_cards(Args... args)const noexcept{
+        suit_hash_t create_from_cards(Args... args)noexcept{
                 auto hash = create();
                 int _[] = {0,  (hash = append(hash, card_suit_from_id(args)),0)...};
                 return hash;
         }
-        bool has_flush(hash_t hash)const noexcept{
-                if( hash == 0 )
-                        return false;
-                return has_flush_unsafe(hash);
-        }
-        bool has_flush_unsafe(hash_t hash)const noexcept{
+        inline
+        bool has_flush_unsafe(suit_hash_t hash)noexcept{
                 return 
                     ((hash % (2*2*2*2*2))*
                      (hash % (3*3*3*3*3))*
                      (hash % (5*5*5*5*5))*
                      (hash % (7*7*7*7*7))) == 0;
         }
-};
-
-} // ps
+        inline
+        bool has_flush(suit_hash_t hash)noexcept{
+                if( hash == 0 )
+                        return false;
+                return has_flush_unsafe(hash);
+        }
+} // end namespace suit_hasher
+} // end namespace ps
 
 #endif // PS_BASE_SUIT_HASHER_H

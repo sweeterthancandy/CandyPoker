@@ -259,7 +259,7 @@ struct MaskEval : Command{
                 }
                 
 
-                auto comp = std::make_shared<hash_computer>();
+                auto comp = std::make_shared<mask_computer>();
 
                 computation_context comp_ctx{players.size()};
 

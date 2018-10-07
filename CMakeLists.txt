@@ -64,7 +64,6 @@ set(
         lib/eval/evaluator_5_card_map.cpp
         lib/eval/evaluator_6_card_map.cpp
         lib/eval/rank_world.cpp
-        lib/eval/equity_evaluator_principal.cpp 
         lib/eval/equity_breakdown.cpp
 )
 add_library(eval_lib SHARED ${eval_sources}) 

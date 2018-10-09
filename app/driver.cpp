@@ -258,7 +258,7 @@ struct MaskEval : Command{
                 }
                 
 
-                auto comp = std::make_shared<mask_computer>();
+                auto comp = std::make_shared<basic_mask_computer<Eigen::MatrixXi> >();
 
                 computation_context comp_ctx{players.size()};
 
@@ -267,7 +267,8 @@ struct MaskEval : Command{
                 instruction_list instr_list = frontend_to_instruction_list(players);
                 auto result = comp->compute(comp_ctx, instr_list);
 
-                //pretty_print_equity_breakdown(std::cout, *result, args_);
+
+                pretty_print_equity_breakdown_m(std::cout, result, args_);
                 std::cout << result << "\n";
 
                 return EXIT_SUCCESS;

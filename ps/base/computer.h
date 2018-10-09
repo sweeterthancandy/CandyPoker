@@ -22,19 +22,26 @@ private:
         size_t num_players_;
 };
 
-struct computer{
-        virtual ~computer()=default;
-        virtual Eigen::MatrixXd compute(computation_context const& ctx, instruction_list const& instr_list)=0;
+
+template<class MatrixType>
+struct basic_computer{
+        virtual ~basic_computer()=default;
+        virtual MatrixType compute(computation_context const& ctx, instruction_list const& instr_list)=0;
 };
 
 // most common case is to compute each standard card computation
-struct card_eval_computer : computer{
-        virtual Eigen::MatrixXd compute_single(computation_context const& ctx, card_eval_instruction const& instr)const noexcept=0;
-        virtual Eigen::MatrixXd compute(computation_context const& ctx, instruction_list const& instr_list)override{
+template<class MatrixType>
+struct basic_card_eval_computer : basic_computer<MatrixType>{
+        virtual MatrixType compute_single(computation_context const& ctx, card_eval_instruction const& instr)const noexcept=0;
+        virtual MatrixType compute(computation_context const& ctx, instruction_list const& instr_list)override{
                 instruction_list my_instr_list = instruction_list_deep_copy(instr_list);
                 auto card_instr_list = transform_cast_to_card_eval(my_instr_list);
+
+                for(auto const& instr : card_instr_list){
+                        std::cout << "instr.to_string() => " << instr.to_string() << "\n"; // __CandyPrint__(cxx-print-scalar,instr.to_string())
+                }
                 
-                Eigen::MatrixXd result(ctx.NumPlayers(), ctx.NumPlayers());
+                MatrixType result(ctx.NumPlayers(), ctx.NumPlayers());
 
                 #if 0
                 std::vector<std::future<compute_single_result_t> > work;

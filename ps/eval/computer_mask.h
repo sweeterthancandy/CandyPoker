@@ -100,8 +100,9 @@ private:
 
 
 
-struct mask_computer : card_eval_computer{
-        Eigen::MatrixXd compute_single(computation_context const& ctx, card_eval_instruction const& instr)const noexcept override{
+template<class MatrixType>
+struct basic_mask_computer : basic_card_eval_computer<MatrixType>{
+        MatrixType compute_single(computation_context const& ctx, card_eval_instruction const& instr)const noexcept override{
                 auto const& hv   = instr.get_vector();
                 auto hv_mask = hv.mask();
                         
@@ -129,7 +130,7 @@ struct mask_computer : card_eval_computer{
                         hv_second_suit[i] = hand.second().suit().id();
                 }
 
-                Eigen::MatrixXd result(ctx.NumPlayers(), ctx.NumPlayers());
+                MatrixType result(ctx.NumPlayers(), ctx.NumPlayers());
                 result.fill(0.0);
                 auto sub = std::make_shared<equity_breakdown_matrix_aggregator>(ctx.NumPlayers());
                 for(auto const& b : w ){
@@ -162,7 +163,17 @@ struct mask_computer : card_eval_computer{
                         detail::dispatch_ranked_vector_g{}(result, ranked, n);
                 }
                 //return compute_single_result_t{sub, instr.get_matrix()};
+
+                //
+                //  | a0   b0 | | 0 1 |    | b0  a1 |
+                //  |         | |     | -> |        |
+                //  | a1   b1 | | 1 0 |    | b1  a1 |
+                //return instr.get_matrix() * result;
+                return result * instr.get_matrix();
+                #if 0
+                result *= instr.get_matrix();
                 return result;
+                #endif
         }
 private:
         mask_computer_detail::rank_hash_eval ev;

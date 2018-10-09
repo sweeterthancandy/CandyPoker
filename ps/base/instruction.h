@@ -25,7 +25,7 @@ private:
  * we want to print a 2x2 matrix as
  *    [[m(0,0), m(1,0)],[m(0,1),m(1,1)]]
  */
-inline std::string matrix_to_string(Eigen::MatrixXd const& mat){
+inline std::string matrix_to_string(Eigen::MatrixXi const& mat){
         std::stringstream sstr;
         std::string sep;
         sstr << "[";
@@ -50,10 +50,10 @@ struct basic_eval_instruction : instruction{
         basic_eval_instruction(vector_type const& vec)
                 : instruction{Type}
                 , vec_{vec}
-                , matrix_{Eigen::MatrixXd::Identity(vec.size(), vec.size())}
+                , matrix_{Eigen::MatrixXi::Identity(vec.size(), vec.size())}
         {
         }
-        basic_eval_instruction(vector_type const& vec, Eigen::MatrixXd const& matrix)
+        basic_eval_instruction(vector_type const& vec, Eigen::MatrixXi const& matrix)
                 : instruction{Type}
                 , vec_{vec}
                 , matrix_{matrix}
@@ -65,10 +65,10 @@ struct basic_eval_instruction : instruction{
         void set_vector(holdem_hand_vector const& vec){
                 vec_ = vec;
         }
-        Eigen::MatrixXd const& get_matrix()const{
+        Eigen::MatrixXi const& get_matrix()const{
                 return matrix_;
         }
-        void set_matrix(Eigen::MatrixXd const& matrix){
+        void set_matrix(Eigen::MatrixXi const& matrix){
                 matrix_ = matrix;
         }
         virtual std::string to_string()const override{
@@ -88,7 +88,7 @@ struct basic_eval_instruction : instruction{
 
 private:
         vector_type vec_;
-        Eigen::MatrixXd matrix_;
+        Eigen::MatrixXi matrix_;
 };
 
 using card_eval_instruction  = basic_eval_instruction<holdem_hand_vector, instruction::T_CardEval>;
@@ -99,9 +99,11 @@ using instruction_list = std::list<std::shared_ptr<instruction> >;
 
 inline
 void transform_print(instruction_list& instr_list){
+        std::cout << "BEGIN-------------------\n";
         for(auto instr : instr_list ){
                 std::cout << instr->to_string() << "\n";
         }
+        std::cout << "END-------------------\n";
 }
 inline
 void transform_permutate(instruction_list& instr_list){
@@ -116,15 +118,17 @@ void transform_permutate(instruction_list& instr_list){
                 if( std::get<1>(result) == vec )
                         continue;
 
-                Eigen::MatrixXd perm_matrix(vec.size(), vec.size());
-                perm_matrix.fill(.0);
+                Eigen::MatrixXi perm_matrix(vec.size(), vec.size());
+                perm_matrix.fill(0);
                 auto const& perm = std::get<0>(result);
                 for(size_t idx=0;idx!=perm.size();++idx){
                         perm_matrix(idx, perm[idx]) = 1.0;
+                        //perm_matrix(perm[idx], idx) = 1;
+                        //perm_matrix(idx, idx) = 1.0;
                 }
 
                 ptr->set_vector(std::get<1>(result));
-                ptr->set_matrix( matrix * perm_matrix );
+                ptr->set_matrix( matrix * perm_matrix  );
         }
 }
 
@@ -174,9 +178,13 @@ void transform_collect(instruction_list& instr_list){
 
 inline
 std::vector<card_eval_instruction> transform_cast_to_card_eval(instruction_list& instr_list){
+        transform_print(instr_list);
         transform_permutate(instr_list);
+        transform_print(instr_list);
         transform_sort_type(instr_list);
+        transform_print(instr_list);
         transform_collect(instr_list);
+        transform_print(instr_list);
 
         std::vector<card_eval_instruction> result;
         for(auto instr : instr_list){

@@ -1,7 +1,7 @@
 #ifndef PS_EVAL_COMPUTER_MASK_H
 #define PS_EVAL_COMPUTER_MASK_H
 
-#include "ps/base/computer.h"
+#include "ps/eval/computer.h"
 #include <future>
 #include "ps/detail/dispatch.h"
 

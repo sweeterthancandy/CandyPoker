@@ -1,7 +1,7 @@
 #ifndef PS_BASE_COMPUTER_H
 #define PS_BASE_COMPUTER_H
 
-#include "ps/base/instruction.h"
+#include "ps/eval/instruction.h"
 
 
 namespace ps{

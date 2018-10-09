@@ -12,7 +12,7 @@
 #include "ps/eval/evaluator_6_card_map.h"
 #include "app/pretty_printer.h"
 #include "ps/base/algorithm.h"
-#include "ps/base/instruction.h"
+#include "ps/eval/instruction.h"
 #include "ps/base/rank_hasher.h"
 #include "ps/base/suit_hasher.h"
 #include "ps/base/holdem_board_decl.h"

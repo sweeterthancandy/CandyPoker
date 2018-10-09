@@ -16,7 +16,6 @@
 #include <boost/accumulators/statistics/variance.hpp>
 #include <boost/variant.hpp>
 
-#include "ps/eval/equity_breakdown.h"
 
 
 
@@ -536,56 +535,6 @@ namespace Pretty{
 
 
 namespace ps{
-        inline
-        void pretty_print_equity_breakdown(std::ostream& ostr, equity_breakdown const& breakdown , std::vector<std::string> const& players){
-
-                using namespace Pretty;
-                
-                std::vector<std::string> title;
-
-
-                title.emplace_back("range");
-                title.emplace_back("equity");
-                title.emplace_back("wins");
-                //title.emplace_back("draws");
-                #if 1
-                for(size_t i=0; i != players.size() -1;++i){
-                        title.emplace_back("draw_"+ boost::lexical_cast<std::string>(i+1));
-                }
-                
-                #endif
-                title.emplace_back("draw equity");
-                title.emplace_back("lose");
-                title.emplace_back("sigma");
-                
-                std::vector< LineItem > lines;
-                lines.emplace_back(title);
-                lines.emplace_back(LineBreak);
-                for( size_t i=0;i!=players.size();++i){
-                        auto const& pv =  breakdown.player(i) ;
-
-                        std::vector<std::string> line;
-
-                        line.emplace_back( boost::lexical_cast<std::string>(players[i]) );
-                        line.emplace_back( str(boost::format("%.4f%%") % (pv.equity() * 100)));
-                        /*
-                                draw_equity = \sum_i=1..n win_{i}/i
-                        */
-                        for(size_t i=0; i != players.size(); ++i ){
-                                line.emplace_back( boost::lexical_cast<std::string>(pv.nwin(i)));
-                        }
-
-                        auto draw_sigma = 
-                                (pv.equity() - static_cast<double>(pv.win())/pv.sigma())*pv.sigma();
-                        line.emplace_back( str(boost::format("%.2f%%") % ( draw_sigma )));
-                        line.emplace_back( boost::lexical_cast<std::string>(pv.lose()) );
-                        line.emplace_back( boost::lexical_cast<std::string>(pv.sigma()) );
-
-                        lines.push_back(line);
-                }
-                RenderTablePretty(std::cout, lines);
-                
-        }
         template<class MatrixType>
         void pretty_print_equity_breakdown_mat(std::ostream& ostr, MatrixType const& breakdown , std::vector<std::string> const& players){
 

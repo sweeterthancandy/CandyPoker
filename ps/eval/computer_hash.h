@@ -106,6 +106,7 @@ private:
 
 
 
+#if 0
 struct hash_computer : card_eval_computer{
         compute_single_result_t compute_single(computation_context const& ctx, card_eval_instruction const& instr)const noexcept override{
                 auto const& hv   = instr.get_vector();
@@ -172,6 +173,7 @@ private:
         rank_hasher rh;
         suit_hasher sh;
 };
+#endif
 
 } // end namespace ps
 

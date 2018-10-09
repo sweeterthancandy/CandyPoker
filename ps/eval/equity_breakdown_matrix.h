@@ -1,5 +1,0 @@
-#ifndef EQUITY_EVAL_RESULT_H
-#define EQUITY_EVAL_RESULT_H
-
-
-#endif // EQUITY_EVAL_RESULT_H

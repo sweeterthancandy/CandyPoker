@@ -8,12 +8,13 @@
 
 #include "ps/eval/evaluator.h"
 #include "ps/eval/equity_evaluator.h"
-#include "ps/eval/equity_breakdown_matrix.h"
+//#include "ps/eval/equity_breakdown_matrix.h"
 
 #include "ps/detail/dispatch.h"
 
 namespace ps{
 
+#if 0
 template<class Impl_Type>
 struct equity_evaulator_principal_tpl : public equity_evaluator{
         std::shared_ptr<equity_breakdown> evaluate(std::vector<holdem_id> const& players)const override{
@@ -63,6 +64,7 @@ struct equity_evaulator_principal
         }
 };
         
+#endif
 
 } // ps
 

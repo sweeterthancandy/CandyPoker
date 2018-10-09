@@ -45,6 +45,27 @@ namespace detail{
                         ++result.sigma();
                 }
         };
+        struct dispatch_ranked_vector_g{
+                template<class MatrixType, class ArrayType>
+                void operator()(MatrixType& result, ArrayType const& ranked, size_t n)const noexcept
+                {
+                        auto lowest = ranked[0] ;
+                        size_t count{1};
+                        for(size_t i=1;i<n;++i){
+                                if( ranked[i] == lowest ){
+                                        ++count;
+                                } else if( ranked[i] < lowest ){
+                                        lowest = ranked[i]; 
+                                        count = 1;
+                                }
+                        }
+                        for(size_t i=0;i!=n;++i){
+                                if( ranked[i] == lowest ){
+                                        ++result(i,count-1);
+                                }
+                        }
+                }
+        };
 } // detail
 } // ps
 

@@ -8,7 +8,7 @@
 
 #include "ps/eval/evaluator.h"
 #include "ps/eval/equity_evaluator.h"
-#include "ps/eval/equity_breakdown_matrix.h"
+#include "ps/eval/equity_breakdown.h"
 
 #include "ps/detail/dispatch.h"
 

@@ -129,6 +129,8 @@ struct mask_computer : card_eval_computer{
                         hv_second_suit[i] = hand.second().suit().id();
                 }
 
+                Eigen::MatrixXd result(ctx.NumPlayers(), ctx.NumPlayers());
+                result.fill(0.0);
                 auto sub = std::make_shared<equity_breakdown_matrix_aggregator>(ctx.NumPlayers());
                 for(auto const& b : w ){
 
@@ -157,6 +159,7 @@ struct mask_computer : card_eval_computer{
                                 ranked[i] = ev.rank(b.board(), suit_hash, rank_hash, hv_first[i], hv_second[i]);
                         }
                         detail::dispatch_ranked_vector{}(*sub, ranked, n);
+                        detail::dispatch_ranked_vector_g{}(result, ranked, n);
                 }
                 return compute_single_result_t{sub, instr.get_matrix()};
         }

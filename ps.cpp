@@ -11,7 +11,7 @@
 #include "ps/detail/print.h"
 #include "ps/base/board_combination_iterator.h"
 #include "ps/eval/class_equity_evaluator.h"
-#include "ps/eval/equity_breakdown_matrix.h"
+#include "ps/eval/equity_breakdown.h"
 #include "ps/eval/evaluator.h"
 #include "ps/eval/evaluator_7_card_map.h"
 #include "ps/eval/evaluator_5_card_map.h"

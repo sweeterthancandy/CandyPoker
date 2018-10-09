@@ -1,7 +1,6 @@
 #include "ps/base/frontend.h"
 #include "ps/base/tree.h"
 #include "ps/eval/equity_breakdown.h"
-#include "ps/eval/equity_breakdown_matrix.h"
 #include "ps/base/cards.h"
 #include "ps/base/board_combination_iterator.h"
 #include "ps/eval/equity_evaluator.h"

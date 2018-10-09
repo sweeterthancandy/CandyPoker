@@ -17,7 +17,7 @@
 #include "ps/eval/rank_world.h"
 #include "ps/eval/equity_evaluator.h"
 #include "ps/eval/class_equity_evaluator.h"
-#include "ps/eval/equity_breakdown_matrix.h"
+#include "ps/eval/equity_breakdown.h"
 
 
 using namespace ps;

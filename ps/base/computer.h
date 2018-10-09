@@ -2,7 +2,7 @@
 #define PS_BASE_COMPUTER_H
 
 #include "ps/base/instruction.h"
-#include "ps/eval/equity_breakdown_matrix.h"
+#include "ps/eval/equity_breakdown.h"
 
 
 namespace ps{

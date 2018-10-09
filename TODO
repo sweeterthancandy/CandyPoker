@@ -1,2 +1,2 @@
-write serializer for class equity
-rewrite pokerstove
+
+replace equity_breakdown with Eigen::Matrix

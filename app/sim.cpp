@@ -7,7 +7,7 @@
 #include "ps/base/cards.h"
 #include "ps/base/board_combination_iterator.h"
 #include "ps/eval/class_equity_evaluator.h"
-#include "ps/eval/equity_breakdown_matrix.h"
+#include "ps/eval/equity_breakdown.h"
 #include "ps/sim/holdem_class_strategy.h"
 
 #if 1

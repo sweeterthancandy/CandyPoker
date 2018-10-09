@@ -1,6 +1,7 @@
 #include "ps/base/algorithm.h"
 
 #include <boost/range/algorithm.hpp>
+#include <map>
 
 namespace ps{
 
@@ -63,16 +64,47 @@ std::tuple<
                 perm.emplace_back( std::get<0>(player_perm[i]) );
         }
 
+        std::vector<std::vector<holdem_hand_decl> > decls;
+
+
+
+        // now we allocate suits, starting with 0 etc
         std::array< int, 4> rev_suit_map{-1,-1,-1,-1};
         int suit_iter = 0; // using the fact we know suits \in {0,1,2,3}
+        // allocate pocket pairs common types first
+
+        // AA KK -> AaAb KcKa
+        //       -> AaAb KcKb -> AbAa KcKb
+
+        std::map<int, int> pp_count;
+        for(size_t i=0;i!=players.size();++i){
+                auto h =  holdem_hand_decl::get( players[perm[i]] ) ;
+                if( h.first().rank() != h.second().rank()){
+                        continue;
+                }
+                ++pp_count[h.first().suit()];
+                ++pp_count[h.second().suit()];
+        }
+
         for(size_t i=0;i!=players.size();++i){
                 auto h =  holdem_hand_decl::get( players[perm[i]] ) ;
 
+                auto a = &h.first();
+                auto b = &h.second();
                 // TODO pocket pair
-                if(     rev_suit_map[h.first().suit()] == -1 )
-                        rev_suit_map[h.first().suit()] = suit_iter++;
-                if(     rev_suit_map[h.second().suit()] == -1 )
-                        rev_suit_map[h.second().suit()] = suit_iter++;
+                #if 1
+                if( a->rank() == b->rank()){
+                        if( pp_count[a->suit()] > pp_count[b->suit()] ){
+                                std::swap(a,b);
+                        }
+                }
+                #endif
+
+
+                if(     rev_suit_map[a->suit()] == -1 )
+                        rev_suit_map[a->suit()] = suit_iter++;
+                if(     rev_suit_map[b->suit()] == -1 )
+                        rev_suit_map[b->suit()] = suit_iter++;
         }
 
         // TODO remove this, unneeded
@@ -90,12 +122,36 @@ std::tuple<
         std::vector<ps::holdem_id> perm_hands;
         for(size_t i=0;i != players.size();++i){
                 auto h =  holdem_hand_decl::get( players[perm[i]] ) ;
-                perm_hands.emplace_back( 
-                        holdem_hand_decl::make_id(
-                                h.first().rank(),
-                                suit_perms[h.first().suit()],
-                                h.second().rank(),
-                                suit_perms[h.second().suit()]));
+
+                #if 0
+                if( h.first().rank() == h.second().rank() ){
+                        if( suit_perms[h.first().suit()] > suit_perms[h.second().suit()] ){
+                                perm_hands.emplace_back( 
+                                        holdem_hand_decl::make_id(
+                                                h.first().rank(),
+                                                suit_perms[h.second().suit()],
+                                                h.second().rank(),
+                                                suit_perms[h.first().suit()]));
+                        } else {
+                                perm_hands.emplace_back( 
+                                        holdem_hand_decl::make_id(
+                                                h.first().rank(),
+                                                suit_perms[h.first().suit()],
+                                                h.second().rank(),
+                                                suit_perms[h.second().suit()]));
+                        } 
+                } else{
+                #endif
+                        perm_hands.emplace_back( 
+                                holdem_hand_decl::make_id(
+                                        h.first().rank(),
+                                        suit_perms[h.first().suit()],
+                                        h.second().rank(),
+                                        suit_perms[h.second().suit()]));
+                #if 0
+                }
+                #endif
+
         }
         return std::make_tuple( perm, perm_hands);
 }

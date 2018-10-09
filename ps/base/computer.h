@@ -2,7 +2,6 @@
 #define PS_BASE_COMPUTER_H
 
 #include "ps/base/instruction.h"
-#include "ps/eval/equity_breakdown.h"
 
 
 namespace ps{
@@ -25,21 +24,17 @@ private:
 
 struct computer{
         virtual ~computer()=default;
-        virtual std::shared_ptr<equity_breakdown> compute(computation_context const& ctx, instruction_list const& instr_list)=0;
+        virtual Eigen::MatrixXd compute(computation_context const& ctx, instruction_list const& instr_list)=0;
 };
 
 // most common case is to compute each standard card computation
 struct card_eval_computer : computer{
-        using compute_single_result_t = std::tuple<
-                std::shared_ptr<equity_breakdown_matrix_aggregator>,
-                Eigen::MatrixXd
-        >;
-        virtual compute_single_result_t compute_single(computation_context const& ctx, card_eval_instruction const& instr)const noexcept=0;
-        virtual std::shared_ptr<equity_breakdown> compute(computation_context const& ctx, instruction_list const& instr_list)override{
+        virtual Eigen::MatrixXd compute_single(computation_context const& ctx, card_eval_instruction const& instr)const noexcept=0;
+        virtual Eigen::MatrixXd compute(computation_context const& ctx, instruction_list const& instr_list)override{
                 instruction_list my_instr_list = instruction_list_deep_copy(instr_list);
                 auto card_instr_list = transform_cast_to_card_eval(my_instr_list);
                 
-                auto agg = std::make_shared<equity_breakdown_matrix_aggregator>(ctx.NumPlayers());
+                Eigen::MatrixXd result(ctx.NumPlayers(), ctx.NumPlayers());
 
                 #if 0
                 std::vector<std::future<compute_single_result_t> > work;
@@ -60,9 +55,9 @@ struct card_eval_computer : computer{
                 #endif
                 for(auto const& instr : card_instr_list ){
                         auto ret = compute_single(ctx, instr);
-                        agg->append_matrix(*std::get<0>(ret), std::get<1>(ret));
+                        result += ret;
                 }
-                return agg;
+                return result;
         }
 };
 

@@ -101,7 +101,7 @@ private:
 
 
 struct mask_computer : card_eval_computer{
-        compute_single_result_t compute_single(computation_context const& ctx, card_eval_instruction const& instr)const noexcept override{
+        Eigen::MatrixXd compute_single(computation_context const& ctx, card_eval_instruction const& instr)const noexcept override{
                 auto const& hv   = instr.get_vector();
                 auto hv_mask = hv.mask();
                         
@@ -161,7 +161,8 @@ struct mask_computer : card_eval_computer{
                         detail::dispatch_ranked_vector{}(*sub, ranked, n);
                         detail::dispatch_ranked_vector_g{}(result, ranked, n);
                 }
-                return compute_single_result_t{sub, instr.get_matrix()};
+                //return compute_single_result_t{sub, instr.get_matrix()};
+                return result;
         }
 private:
         mask_computer_detail::rank_hash_eval ev;

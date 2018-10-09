@@ -5,6 +5,7 @@
 
 namespace ps{
 
+#if 0
 struct eval_computer : computer{
         virtual std::shared_ptr<equity_breakdown> compute(computation_context const& ctx, instruction_list const& instr_list)override{
                 instruction_list my_instr_list = instruction_list_deep_copy(instr_list);
@@ -20,6 +21,7 @@ struct eval_computer : computer{
 private:
         equity_evaulator_principal eval_;
 };
+#endif
 
 } // ps
 

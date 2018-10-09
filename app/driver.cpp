@@ -155,6 +155,7 @@ static TrivialCommandDecl<HandVectors> HandVectorsDecl{"hand-vectors"};
 
 
 
+#if 0
 struct SimpleCardEval : Command{
         explicit
         SimpleCardEval(std::vector<std::string> const& args):args_{args}{}
@@ -180,6 +181,7 @@ private:
         std::vector<std::string> const& args_;
 };
 static TrivialCommandDecl<SimpleCardEval> SimpleCardEvalDecl{"eval"};
+#endif
 
 
 
@@ -265,7 +267,7 @@ struct MaskEval : Command{
                 instruction_list instr_list = frontend_to_instruction_list(players);
                 auto result = comp->compute(comp_ctx, instr_list);
 
-                pretty_print_equity_breakdown(std::cout, *result, args_);
+                pretty_print_equity_breakdown_mat(std::cout, result, args_);
 
                 return EXIT_SUCCESS;
         }

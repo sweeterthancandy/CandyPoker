@@ -25,23 +25,17 @@ private:
 
 struct computer{
         virtual ~computer()=default;
-        virtual std::shared_ptr<equity_breakdown> compute(computation_context const& ctx, instruction_list const& instr_list)=0;
+        virtual matrix_t compute(computation_context const& ctx, instruction_list const& instr_list)=0;
 };
 
 // most common case is to compute each standard card computation
 struct card_eval_computer : computer{
 
-        using compute_single_result_t = std::tuple<
-                std::shared_ptr<equity_breakdown_matrix_aggregator>,
-                matrix_t,
-                matrix_t 
-        >;
-        virtual compute_single_result_t compute_single(computation_context const& ctx, card_eval_instruction const& instr)const noexcept=0;
-        virtual std::shared_ptr<equity_breakdown> compute(computation_context const& ctx, instruction_list const& instr_list)override{
+        virtual matrix_t compute_single(computation_context const& ctx, card_eval_instruction const& instr)const noexcept=0;
+        virtual matrix_t compute(computation_context const& ctx, instruction_list const& instr_list)override{
                 instruction_list my_instr_list = instruction_list_deep_copy(instr_list);
                 auto card_instr_list = transform_cast_to_card_eval(my_instr_list);
                 
-                auto agg = std::make_shared<equity_breakdown_matrix_aggregator>(ctx.NumPlayers());
 
                 #if 0
                 std::vector<std::future<compute_single_result_t> > work;
@@ -63,12 +57,9 @@ struct card_eval_computer : computer{
                 matrix_t mat(ctx.NumPlayers(), ctx.NumPlayers());
                 mat.fill(0ull);
                 for(auto const& instr : card_instr_list ){
-                        auto ret = compute_single(ctx, instr);
-                        agg->append_matrix(*std::get<0>(ret), std::get<1>(ret));
-                        mat += std::get<2>(ret);
+                        mat += compute_single(ctx, instr);
                 }
-                std::cout << mat << "\n";
-                return agg;
+                return mat;
         }
 };
 

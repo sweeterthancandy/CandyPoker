@@ -586,5 +586,74 @@ namespace ps{
                 RenderTablePretty(std::cout, lines);
                 
         }
+        template<class MatrixType>
+        void pretty_print_equity_breakdown_mat(std::ostream& ostr, MatrixType const& breakdown , std::vector<std::string> const& players){
+
+                using namespace Pretty;
+                
+                std::vector<std::string> title;
+
+
+                title.emplace_back("range");
+                title.emplace_back("equity");
+                title.emplace_back("wins");
+                //title.emplace_back("draws");
+                #if 1
+                for(size_t i=0; i != players.size() -1;++i){
+                        title.emplace_back("draw_"+ boost::lexical_cast<std::string>(i+1));
+                }
+                
+                #endif
+                title.emplace_back("draw equity");
+                //title.emplace_back("lose");
+                title.emplace_back("sigma");
+                
+                std::vector< LineItem > lines;
+                lines.emplace_back(title);
+                lines.emplace_back(LineBreak);
+
+                unsigned long long sigma = 0;
+                for( size_t i=0;i!=players.size();++i){
+                        for(size_t j=0; j != players.size(); ++j ){
+                                sigma += breakdown(j,i) * (players.size() - j );
+                        }
+                }
+                sigma /= players.size();
+
+                for( size_t i=0;i!=players.size();++i){
+
+                        double equity = 0.0;
+                        for(size_t j=0; j != players.size(); ++j ){
+                                equity += breakdown(j,i) / ( j +1 );
+                        }
+                        equity /= sigma;
+
+                        std::vector<std::string> line;
+
+                        line.emplace_back( boost::lexical_cast<std::string>(players[i]) );
+                        line.emplace_back( str(boost::format("%.4f%%") % (equity * 100)));
+                        /*
+                                draw_equity = \sum_i=1..n win_{i}/i
+                        */
+                        unsigned long long draw;
+                        unsigned long long p_sigma;
+                        for(size_t j=0; j != players.size(); ++j ){
+                                line.emplace_back( boost::lexical_cast<std::string>(breakdown(j,i)) );
+                                if( j != 0 ) draw += breakdown(j,i);
+                                p_sigma += breakdown(j,i);
+                        }
+
+                        auto draw_sigma = (equity - static_cast<double>(breakdown(0,i))/sigma)*sigma;
+                        line.emplace_back( str(boost::format("%.2f%%") % ( draw_sigma )));
+                        #if 0
+                        line.emplace_back( boost::lexical_cast<std::string>(pv.lose()) );
+                        #endif
+                        line.emplace_back( boost::lexical_cast<std::string>(sigma) );
+
+                        lines.push_back(line);
+                }
+                RenderTablePretty(std::cout, lines);
+                
+        }
 } // end namespace ps
 #endif // PS_APP_PRETTY_PRINTER_H

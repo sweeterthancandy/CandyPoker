@@ -166,6 +166,82 @@ private:
         holdem_board_decl w;
 };
 
+
+struct pass_eval_hand_instr : instruction_map_pass{
+        //matrix_t compute_single(computation_context const& ctx, card_eval_instruction const& instr)const noexcept override{
+
+        virtual boost::optional<instruction_list> try_map_instruction(computation_context* ctx, instruction* instrr)override{
+                if( instrr->get_type() != instruction::T_CardEval ){
+                        return boost::none;
+                }
+                auto& instr = *reinterpret_cast<card_eval_instruction*>(instrr);
+
+                auto const& hv   = instr.get_vector();
+                auto hv_mask = hv.mask();
+                        
+                // put this here
+
+                // cache stuff
+
+                size_t n = hv.size();
+                std::array<ranking_t, 9> ranked;
+                std::array<card_id, 9> hv_first;
+                std::array<card_id, 9> hv_second;
+                std::array<rank_id, 9> hv_first_rank;
+                std::array<rank_id, 9> hv_second_rank;
+                std::array<suit_id, 9> hv_first_suit;
+                std::array<suit_id, 9> hv_second_suit;
+                        
+                for(size_t i=0;i!=hv.size();++i){
+                        auto const& hand{holdem_hand_decl::get(hv[i])};
+
+                        hv_first[i]       = hand.first().id();
+                        hv_first_rank[i]  = hand.first().rank().id();
+                        hv_first_suit[i]  = hand.first().suit().id();
+                        hv_second[i]      = hand.second().id();
+                        hv_second_rank[i] = hand.second().rank().id();
+                        hv_second_suit[i] = hand.second().suit().id();
+                }
+
+                matrix_t mat(ctx->NumPlayers(), ctx->NumPlayers());
+                mat.fill(0ull);
+                for(auto const& b : w ){
+
+                        bool cond = (b.mask() & hv_mask ) == 0;
+                        if(!cond){
+                                continue;
+                        }
+                        auto rank_proto = b.rank_hash();
+                        auto suit_proto = b.suit_hash();
+
+
+                        for(size_t i=0;i!=n;++i){
+
+                                auto rank_hash = rank_proto;
+                                auto suit_hash = suit_proto;
+
+                                rank_hash = rank_hasher::append(rank_hash, hv_first_rank[i]);
+                                rank_hash = rank_hasher::append(rank_hash, hv_second_rank[i]);
+
+                                suit_hash = suit_hasher::append(suit_hash, hv_first_suit[i] );
+                                suit_hash = suit_hasher::append(suit_hash, hv_second_suit[i] );
+
+
+                                //ranked[i] = 0; continue; // XXX
+
+                                ranked[i] = ev.rank(b.board(), suit_hash, rank_hash, hv_first[i], hv_second[i]);
+                        }
+                        detail::dispatch_ranked_vector_mat(mat, ranked, n);
+                }
+                instruction_list tmp;
+                tmp.emplace_back(std::make_shared<matrix_instruction>(mat * instr.get_matrix()));
+                return tmp;
+        }
+private:
+        mask_computer_detail::rank_hash_eval ev;
+        holdem_board_decl w;
+};
+
 } // end namespace ps
 
 #endif // PS_EVAL_COMPUTER_MASK_H

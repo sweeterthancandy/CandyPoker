@@ -262,12 +262,24 @@ struct MaskEval : Command{
 
                 computation_context comp_ctx{players.size()};
 
+                computation_pass_manager mgr;
+                mgr.add_pass<pass_print>();
+                mgr.add_pass<pass_permutate>();
+                mgr.add_pass<pass_sort_type>();
+                mgr.add_pass<pass_collect>();
+                mgr.add_pass<pass_print>();
+                mgr.add_pass<pass_eval_hand_instr>();
+                mgr.add_pass<pass_print>();
+
                 boost::timer::auto_cpu_timer at;
 
                 instruction_list instr_list = frontend_to_instruction_list(players);
-                auto result = comp->compute(comp_ctx, instr_list);
+                //auto result = comp->compute(comp_ctx, instr_list);
+                auto result = mgr.execute(&comp_ctx, &instr_list);
 
-                pretty_print_equity_breakdown_mat(std::cout, result, args_);
+                if( result ){
+                        pretty_print_equity_breakdown_mat(std::cout, *result, args_);
+                }
 
                 return EXIT_SUCCESS;
         }

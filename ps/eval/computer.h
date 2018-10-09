@@ -6,6 +6,46 @@
 
 namespace ps{
 
+/*
+ * Just want a simple linear extensible pass manager, with the ultimate
+ * idea of being able to handle transparently class vs class cache but 
+ * with loose coupling
+ */
+
+struct computation_context;
+
+struct computation_pass{
+        virtual ~computation_pass()=default;
+        virtual void transform(computation_context* ctx, instruction_list* instr_list)=0;
+};
+
+struct instruction_map_pass : computation_pass{
+        virtual boost::optional<instruction_list> try_map_instruction(computation_context* ctx, instruction* instr)=0;
+        virtual void transform(computation_context* ctx, instruction_list* instr_list)override{
+                for(auto iter(instr_list->begin()),end(instr_list->end());iter!=end;){
+                        auto ret = try_map_instruction(ctx, &**iter);
+
+                        if( ! ret ){
+                                ++iter;
+                        } else {
+                                for(auto& _ : *ret){
+                                        instr_list->insert(iter, _);
+                                }
+                                auto tmp = iter;
+                                ++iter;
+                                instr_list->erase(tmp);
+                        }
+                        #if 0
+                        static int counter = 0;
+                        if( counter == 1 )
+                                return;
+                        ++counter;
+                        #endif
+                }
+        }
+};
+
+        
 struct computation_context{
         explicit
         computation_context(size_t num_players)
@@ -20,6 +60,30 @@ struct computation_context{
         }
 private:
         size_t num_players_;
+};
+
+struct computation_pass_manager : std::vector<std::shared_ptr<computation_pass> >{
+        template<class PassType>
+        void add_pass(){
+                this->push_back(std::make_shared<PassType>());
+        }
+
+        boost::optional<matrix_t> execute(computation_context* ctx, instruction_list* instr_list){
+                for(size_t idx=0;idx!=size();++idx){
+                        at(idx)->transform(ctx, instr_list);
+                }
+                matrix_t mat(ctx->NumPlayers(), ctx->NumPlayers());
+                mat.fill(0);
+                for(; instr_list->size() && instr_list->back()->get_type() ==  instruction::T_Matrix;){
+                        auto mi = reinterpret_cast<matrix_instruction*>(instr_list->back().get());
+                        mat += mi->get_matrix();
+                        instr_list->pop_back();
+                }
+                if( ! instr_list->empty()){
+                        return boost::optional<matrix_t>{};
+                }
+                return mat;
+        }
 };
 
 struct computer{
@@ -61,6 +125,30 @@ struct card_eval_computer : computer{
                 return mat;
         }
 };
+
+struct pass_permutate : computation_pass{
+        virtual void transform(computation_context* ctx, instruction_list* instr_list)override{
+                transform_permutate(*instr_list);
+        }
+};
+struct pass_sort_type : computation_pass{
+        virtual void transform(computation_context* ctx, instruction_list* instr_list)override{
+                transform_sort_type(*instr_list);
+        }
+};
+struct pass_collect : computation_pass{
+        virtual void transform(computation_context* ctx, instruction_list* instr_list)override{
+                transform_collect(*instr_list);
+        }
+};
+struct pass_print : computation_pass{
+        virtual void transform(computation_context* ctx, instruction_list* instr_list)override{
+                std::cout << "--------BEGIN----------\n";
+                transform_print(*instr_list);
+                std::cout << "---------END-----------\n";
+        }
+};
+
 
 } // end namespace ps
 

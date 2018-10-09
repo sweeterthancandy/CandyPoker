@@ -12,6 +12,7 @@ struct instruction{
         enum type{
                 T_CardEval,
                 T_ClassEval,
+                T_Matrix,
         };
         explicit instruction(type t):type_{t}{}
         type get_type()const{ return type_; }
@@ -21,6 +22,7 @@ struct instruction{
 private:
         type type_;
 };
+
 
 
 /*
@@ -43,6 +45,24 @@ inline std::string matrix_to_string(MatrixType const& mat){
         sstr << "]";
         return sstr.str();
 }
+
+struct matrix_instruction : instruction{
+        explicit matrix_instruction(matrix_t mat)
+                :instruction{T_Matrix}
+                ,mat_{std::move(mat)}
+        {}
+        virtual std::string to_string()const override{
+                std::stringstream sstr;
+                sstr << "Matrix{" << matrix_to_string(mat_) << "}";
+                return sstr.str();
+        }
+        virtual std::shared_ptr<instruction> clone()const override{
+                return std::make_shared<matrix_instruction>(mat_);
+        }
+        matrix_t const& get_matrix()const{ return mat_; }
+private:
+        matrix_t mat_;
+};
 
 template<class VectorType, instruction::type Type>
 struct basic_eval_instruction : instruction{

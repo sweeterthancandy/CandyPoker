@@ -30,9 +30,11 @@ struct computer{
 
 // most common case is to compute each standard card computation
 struct card_eval_computer : computer{
+
         using compute_single_result_t = std::tuple<
                 std::shared_ptr<equity_breakdown_matrix_aggregator>,
-                Eigen::MatrixXd
+                matrix_t,
+                matrix_t 
         >;
         virtual compute_single_result_t compute_single(computation_context const& ctx, card_eval_instruction const& instr)const noexcept=0;
         virtual std::shared_ptr<equity_breakdown> compute(computation_context const& ctx, instruction_list const& instr_list)override{
@@ -58,10 +60,14 @@ struct card_eval_computer : computer{
                         agg->append_matrix(*std::get<0>(ret), std::get<1>(ret));
                 }
                 #endif
+                matrix_t mat(ctx.NumPlayers(), ctx.NumPlayers());
+                mat.fill(0ull);
                 for(auto const& instr : card_instr_list ){
                         auto ret = compute_single(ctx, instr);
                         agg->append_matrix(*std::get<0>(ret), std::get<1>(ret));
+                        mat += std::get<2>(ret);
                 }
+                std::cout << mat << "\n";
                 return agg;
         }
 };

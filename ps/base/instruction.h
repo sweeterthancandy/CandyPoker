@@ -5,6 +5,8 @@
 #include <Eigen/Dense>
 
 namespace ps{
+        
+using matrix_t = Eigen::Matrix< unsigned long long , Eigen::Dynamic , Eigen::Dynamic >;
 
 struct instruction{
         enum type{
@@ -25,7 +27,8 @@ private:
  * we want to print a 2x2 matrix as
  *    [[m(0,0), m(1,0)],[m(0,1),m(1,1)]]
  */
-inline std::string matrix_to_string(Eigen::MatrixXd const& mat){
+template<class MatrixType>
+inline std::string matrix_to_string(MatrixType const& mat){
         std::stringstream sstr;
         std::string sep;
         sstr << "[";
@@ -50,10 +53,10 @@ struct basic_eval_instruction : instruction{
         basic_eval_instruction(vector_type const& vec)
                 : instruction{Type}
                 , vec_{vec}
-                , matrix_{Eigen::MatrixXd::Identity(vec.size(), vec.size())}
+                , matrix_{matrix_t::Identity(vec.size(), vec.size())}
         {
         }
-        basic_eval_instruction(vector_type const& vec, Eigen::MatrixXd const& matrix)
+        basic_eval_instruction(vector_type const& vec, matrix_t const& matrix)
                 : instruction{Type}
                 , vec_{vec}
                 , matrix_{matrix}
@@ -65,10 +68,10 @@ struct basic_eval_instruction : instruction{
         void set_vector(holdem_hand_vector const& vec){
                 vec_ = vec;
         }
-        Eigen::MatrixXd const& get_matrix()const{
+        matrix_t const& get_matrix()const{
                 return matrix_;
         }
-        void set_matrix(Eigen::MatrixXd const& matrix){
+        void set_matrix(matrix_t const& matrix){
                 matrix_ = matrix;
         }
         virtual std::string to_string()const override{
@@ -88,7 +91,7 @@ struct basic_eval_instruction : instruction{
 
 private:
         vector_type vec_;
-        Eigen::MatrixXd matrix_;
+        matrix_t matrix_;
 };
 
 using card_eval_instruction  = basic_eval_instruction<holdem_hand_vector, instruction::T_CardEval>;
@@ -116,8 +119,8 @@ void transform_permutate(instruction_list& instr_list){
                 if( std::get<1>(result) == vec )
                         continue;
 
-                Eigen::MatrixXd perm_matrix(vec.size(), vec.size());
-                perm_matrix.fill(.0);
+                matrix_t perm_matrix(vec.size(), vec.size());
+                perm_matrix.fill(0);
                 auto const& perm = std::get<0>(result);
                 for(size_t idx=0;idx!=perm.size();++idx){
                         perm_matrix(idx, perm[idx]) = 1.0;

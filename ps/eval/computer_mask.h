@@ -130,6 +130,8 @@ struct mask_computer : card_eval_computer{
                 }
 
                 auto sub = std::make_shared<equity_breakdown_matrix_aggregator>(ctx.NumPlayers());
+                matrix_t mat(ctx.NumPlayers(), ctx.NumPlayers());
+                mat.fill(0ull);
                 for(auto const& b : w ){
 
                         bool cond = (b.mask() & hv_mask ) == 0;
@@ -157,8 +159,15 @@ struct mask_computer : card_eval_computer{
                                 ranked[i] = ev.rank(b.board(), suit_hash, rank_hash, hv_first[i], hv_second[i]);
                         }
                         detail::dispatch_ranked_vector{}(*sub, ranked, n);
+                        detail::dispatch_ranked_vector_mat(mat, ranked, n);
                 }
-                return compute_single_result_t{sub, instr.get_matrix()};
+                matrix_t aux = mat;
+                for(size_t i=0;i!=aux.rows();++i){
+                        for(size_t j=0;j!=aux.cols();++j){
+                                aux(i,j) = instr.get_matrix()(i,j);
+                        }
+                }
+                return compute_single_result_t{sub, instr.get_matrix(), mat * instr.get_matrix()};
         }
 private:
         mask_computer_detail::rank_hash_eval ev;

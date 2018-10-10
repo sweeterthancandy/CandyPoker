@@ -238,6 +238,12 @@ static TrivialCommandDecl<FrontendDbg> FrontendDbgDecl{"frontend-dbg"};
 
 
 
+struct ClassCache{
+        void Create(){
+        }
+private:
+        std::map<std::vector<holdem_class_id>, std::vector<double> > cache_;
+};
 
 
 
@@ -285,6 +291,7 @@ private:
         std::vector<std::string> const& args_;
 };
 static TrivialCommandDecl<MaskEval> MaskEvalDecl{"mask-eval"};
+
 
 
 

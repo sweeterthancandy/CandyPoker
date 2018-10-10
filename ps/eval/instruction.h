@@ -217,13 +217,12 @@ instruction_list frontend_to_instruction_list(std::vector<frontend::range> const
 
         for( auto const& c : root.children ){
 
-                #if 0
                 // this means it's a class vs class evaulation
                 if( c.opt_cplayers.size() != 0 ){
                         holdem_class_vector aux{c.opt_cplayers};
-                        agg.append(*class_eval.evaluate(aux));
+                        //agg.append(*class_eval.evaluate(aux));
+                        instr_list.push_back(std::make_shared<class_eval_instruction>(aux));
                 } else
-                #endif
                 {
                         for( auto const& d : c.children ){
                                 holdem_hand_vector aux{d.players};

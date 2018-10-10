@@ -244,42 +244,6 @@ static TrivialCommandDecl<FrontendDbg> FrontendDbgDecl{"frontend-dbg"};
 
 
 
-struct pass_class_cache : instruction_map_pass{
-        virtual boost::optional<instruction_list> try_map_instruction(computation_context* ctx, instruction* instrr)override{
-                if( instrr->get_type() != instruction::T_ClassEval ){
-                        return boost::none;
-                }
-                auto& instr = *reinterpret_cast<card_eval_instruction*>(instrr);
-		
-                auto const& hv   = instr.get_vector();
-                auto iter = cache_.find(hv);
-                if( iter == cache_.end())
-                        return boost::optional<instruction_list>();
-                auto result = iter->second * instr->get_matrix();
-                return instruction_list{result};
-	}
-private:
-	friend class boost::serialization::access;
-	template<class Archive>
-	void save(Archive & ar, const unsigned int version) const
-	{
-		// note, version is always the latest when saving
-		ar  & driver_name;
-		ar  & stops;
-	}
-	template<class Archive>
-	void load(Archive & ar, const unsigned int version)
-	{
-		if(version > 0)
-			ar & driver_name;
-		ar  & stops;
-	}
-	BOOST_SERIALIZATION_SPLIT_MEMBER()
-private:
-        std::map< holdem_hand_vector, matrix_t > cache_;
-};
-
-
 
 struct MaskEval : Command{
         explicit

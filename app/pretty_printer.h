@@ -561,13 +561,17 @@ namespace ps{
                 lines.emplace_back(title);
                 lines.emplace_back(LineBreak);
 
-                unsigned long long sigma = 0;
+                std::map<long, unsigned long long> sigma_device;
                 for( size_t i=0;i!=players.size();++i){
                         for(size_t j=0; j != players.size(); ++j ){
-                                sigma += breakdown(j,i) * (players.size() - j );
+                                sigma_device[j] += breakdown(j,i);
                         }
                 }
-                sigma /= players.size();
+                unsigned long long sigma = 0;
+                for( size_t i=0;i!=players.size();++i){
+                        sigma += sigma_device[i] / ( i +1 );
+                }
+
 
                 for( size_t i=0;i!=players.size();++i){
 

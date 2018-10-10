@@ -535,6 +535,8 @@ namespace Pretty{
 
 
 namespace ps{
+
+
         template<class MatrixType>
         void pretty_print_equity_breakdown_mat(std::ostream& ostr, MatrixType const& breakdown , std::vector<std::string> const& players){
 

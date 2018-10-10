@@ -22,6 +22,12 @@ namespace ps{
                 holdem_class_decl const& decl_at(size_t i)const;
                 std::vector< holdem_hand_vector > get_hand_vectors()const;
 
+                std::string to_string()const{
+                        std::stringstream sstr;
+                        sstr << *this;
+                        return sstr.str();
+                }
+
                 template<
                         class... Args,
                         class = std::enable_if_t< ! std::is_constructible<std::string, Args...>::value  >
@@ -47,7 +53,7 @@ namespace ps{
                 std::vector<
                        std::tuple< std::vector<int>, holdem_hand_vector >
                 > to_standard_form_hands()const;
-
+                
                 bool is_standard_form()const;
         };
         

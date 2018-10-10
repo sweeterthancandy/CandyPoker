@@ -149,6 +149,39 @@ struct pass_print : computation_pass{
         }
 };
 
+struct pass_class2cards : instruction_map_pass{
+        virtual boost::optional<instruction_list> try_map_instruction(computation_context* ctx, instruction* instrr)override{
+                if( instrr->get_type() != instruction::T_ClassVec )
+                        return boost::none;
+                auto instr = reinterpret_cast<class_vec_instruction*>(instrr);
+                auto vec = instr->get_vector();
+
+                auto const n = vec.size();
+
+                std::map<holdem_hand_vector, matrix_t  > meta;
+
+                for( auto hv : vec.get_hand_vectors()){
+
+                        auto p =  permutate_for_the_better(hv) ;
+                        auto& perm = std::get<0>(p);
+                        auto const& perm_players = std::get<1>(p);
+
+                        if( meta.count(perm_players) == 0 ){
+                                meta[perm_players] = matrix_t{n,n};
+                                meta[perm_players].fill(0);
+                        }
+                        auto& item = meta.find(perm_players)->second;
+                        for(int i=0;i!=n;++i){
+                                ++item(i,perm[i]);
+                        }
+                }
+                instruction_list result;
+                for(auto const& _ : meta){
+                        result.push_back(std::make_shared<card_eval_instruction>(_.first, _.second));
+                }
+                return result;
+        }
+};
 
 } // end namespace ps
 

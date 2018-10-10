@@ -18,11 +18,23 @@
 #include "ps/base/holdem_board_decl.h"
 #include "ps/eval/computer_mask.h"
 #include "ps/eval/computer_eval.h"
+#include <boost/archive/tmpdir.hpp>
+
+#include <boost/archive/text_iarchive.hpp>
+#include <boost/archive/text_oarchive.hpp>
+
+#include <boost/serialization/base_object.hpp>
+#include <boost/serialization/utility.hpp>
+#include <boost/serialization/list.hpp>
+#include <boost/serialization/map.hpp>
+#include <boost/serialization/vector.hpp>
+#include <boost/serialization/assume_abstract.hpp>
 
 #include <boost/timer/timer.hpp>
 #include <boost/asio.hpp>
 
 #include <Eigen/Dense>
+#include <fstream>
 
 using namespace ps;
 
@@ -238,13 +250,140 @@ static TrivialCommandDecl<FrontendDbg> FrontendDbgDecl{"frontend-dbg"};
 
 
 
-struct ClassCache{
-        void Create(){
+struct equity_view : std::vector<double>{
+        equity_view(matrix_t const& breakdown){
+                sigma_ = 0;
+                size_t n = breakdown.rows();
+                std::map<long, unsigned long long> sigma_device;
+                for( size_t i=0;i!=n;++i){
+                        for(size_t j=0; j != n; ++j ){
+                                sigma_device[j] += breakdown(j,i);
+                        }
+                }
+                for( size_t i=0;i!=n;++i){
+                        sigma_ += sigma_device[i] / ( i +1 );
+                }
+
+
+                for( size_t i=0;i!=n;++i){
+
+                        double equity = 0.0;
+                        for(size_t j=0; j != n; ++j ){
+                                equity += breakdown(j,i) / ( j +1 );
+                        }
+                        equity /= sigma_;
+                        push_back(equity);
+                }
+        }
+        unsigned long long sigma()const{ return sigma_; }
+private:
+        unsigned long long sigma_;
+};
+
+struct class_cache{
+        void add(std::vector<holdem_class_id> vec, std::vector<double> equity){
+                cache_.emplace(std::move(vec), std::move(equity));
+        }
+	std::vector<double>* Lookup(std::vector<holdem_class_id> const& vec){
+                auto iter = cache_.find(vec);
+                if( iter == cache_.end())
+                        return nullptr;
+                return &iter->second;
+	}
+	void save(std::string const& filename){
+		// make an archive
+		std::ofstream ofs(filename);
+		boost::archive::text_oarchive oa(ofs);
+		oa << *this;
+	}
+
+	void load(std::string const& filename)
+	{
+		// open the archive
+		std::ifstream ifs(filename);
+		boost::archive::text_iarchive ia(ifs);
+
+		// restore the schedule from the archive
+		cache_.clear();
+		ia >> *this;
+        }
+	
+private:
+        friend class boost::serialization::access;
+        template<class Archive>
+        void serialize(Archive & ar, const unsigned int version){
+                ar & cache_;
         }
 private:
         std::map<std::vector<holdem_class_id>, std::vector<double> > cache_;
 };
 
+struct class_cache_maker{
+        void create(size_t n, class_cache* cache, std::string const& file_name){
+                computation_pass_manager mgr;
+                mgr.add_pass<pass_class2cards>();
+                mgr.add_pass<pass_permutate>();
+                mgr.add_pass<pass_sort_type>();
+                mgr.add_pass<pass_collect>();
+                mgr.add_pass<pass_eval_hand_instr>();
+
+                size_t count = 0;
+                enum{ MaxCount = 50 };
+                for(holdem_class_iterator iter(n),end;iter!=end;++iter){
+                        auto vec = *iter;
+                        BOOST_ASSERT( vec.is_standard_form() );
+                        if( cache->Lookup(vec) )
+                                continue;
+                        instruction_list instr_list;
+                        instr_list.push_back(std::make_shared<class_vec_instruction>(vec));
+                        computation_context comp_ctx{n};
+                        auto result = mgr.execute(&comp_ctx, &instr_list);
+                        BOOST_ASSERT( result );
+                        equity_view view( *result );
+                        enum{ Debug = true };
+                        if( Debug ){
+                                #if 0
+                                std::vector<std::string> s;
+                                for(auto _ : vec){
+                                        s.push_back(holdem_class_decl::get(_).to_string());
+                                }
+                                pretty_print_equity_breakdown_mat(std::cout, *result, s);
+                                #endif
+                                std::cout << vec << " -> " << detail::to_string(view) << "\n";
+                        }
+
+
+			cache->add(vec, view);
+                        if( ++count == MaxCount ){
+                                count = 0;
+                                std::cout << "Saving...\n";
+                                cache->save(file_name);
+                                std::cout << "Done\n";
+                        }
+                }
+        }
+};
+
+struct CreateCacheCmd : Command{
+        explicit
+        CreateCacheCmd(std::vector<std::string> const& args):args_{args}{}
+        virtual int Execute()override{
+                class_cache cc;
+		class_cache_maker m;
+	
+                std::string cache_name{".cc.bin"};
+                try{
+                cc.load(cache_name);
+                }catch(...){}
+                boost::timer::auto_cpu_timer at;
+                m.create(2, &cc, cache_name);
+
+                return EXIT_SUCCESS;
+        }
+private:
+        std::vector<std::string> const& args_;
+};
+static TrivialCommandDecl<CreateCacheCmd> CreateCacheCmdDecl{"create-cache"};
 
 
 
@@ -260,6 +399,7 @@ struct MaskEval : Command{
                 for(auto const& s : args_ ){
                         players.push_back( frontend::parse(s) );
                 }
+                bool debug = false;
                 
 
                 auto comp = std::make_shared<mask_computer>();
@@ -267,13 +407,16 @@ struct MaskEval : Command{
                 computation_context comp_ctx{players.size()};
 
                 computation_pass_manager mgr;
-                mgr.add_pass<pass_print>();
+                if( debug )
+                        mgr.add_pass<pass_print>();
                 mgr.add_pass<pass_permutate>();
                 mgr.add_pass<pass_sort_type>();
                 mgr.add_pass<pass_collect>();
-                mgr.add_pass<pass_print>();
+                if( debug )
+                        mgr.add_pass<pass_print>();
                 mgr.add_pass<pass_eval_hand_instr>();
-                mgr.add_pass<pass_print>();
+                if( debug )
+                        mgr.add_pass<pass_print>();
 
                 boost::timer::auto_cpu_timer at;
 
@@ -290,7 +433,7 @@ struct MaskEval : Command{
 private:
         std::vector<std::string> const& args_;
 };
-static TrivialCommandDecl<MaskEval> MaskEvalDecl{"mask-eval"};
+static TrivialCommandDecl<MaskEval> MaskEvalDecl{"eval"};
 
 
 

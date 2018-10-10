@@ -13,6 +13,7 @@ struct instruction{
                 T_CardEval,
                 T_ClassEval,
                 T_Matrix,
+                T_ClassVec,
         };
         explicit instruction(type t):type_{t}{}
         type get_type()const{ return type_; }
@@ -45,6 +46,24 @@ inline std::string matrix_to_string(MatrixType const& mat){
         sstr << "]";
         return sstr.str();
 }
+
+struct class_vec_instruction : instruction{
+        explicit class_vec_instruction(holdem_class_vector vec)
+                :instruction{T_ClassVec}
+                ,vec_{std::move(vec)}
+        {}
+        virtual std::string to_string()const override{
+                std::stringstream sstr;
+                sstr << "ClassVec{" << vec_.to_string() << "}";
+                return sstr.str();
+        }
+        virtual std::shared_ptr<instruction> clone()const override{
+                return std::make_shared<class_vec_instruction>(vec_);
+        }
+        holdem_class_vector const& get_vector()const{ return vec_; }
+private:
+        holdem_class_vector vec_;
+};
 
 struct matrix_instruction : instruction{
         explicit matrix_instruction(matrix_t mat)
@@ -217,12 +236,14 @@ instruction_list frontend_to_instruction_list(std::vector<frontend::range> const
 
         for( auto const& c : root.children ){
 
+                #if 0
                 // this means it's a class vs class evaulation
                 if( c.opt_cplayers.size() != 0 ){
                         holdem_class_vector aux{c.opt_cplayers};
                         //agg.append(*class_eval.evaluate(aux));
                         instr_list.push_back(std::make_shared<class_eval_instruction>(aux));
                 } else
+                #endif
                 {
                         for( auto const& d : c.children ){
                                 holdem_hand_vector aux{d.players};

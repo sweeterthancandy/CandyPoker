@@ -568,6 +568,7 @@ namespace gt{
 
                 return result;
         }
+        
         // print pretty table
         //
         //      AA  AKs ... A2s
@@ -656,6 +657,51 @@ namespace gt{
                 }
         }
 
+        std::vector<Eigen::VectorXd> solve(gt_context const& ctx, class_cache const& cache)
+        {
+                Eigen::VectorXd s0(169);
+                s0.fill(1.0);
+
+                double factor = 0.05;
+
+                enum{ MaxIter = 100 };
+                for(size_t idx=0;idx<MaxIter;++idx){
+
+                        auto bb_counter = unilateral_bb_maximal_exploitable(ctx,
+                                                                            cache,
+                                                                            s0);
+                        auto sb_counter = unilateral_sb_maximal_exploitable(ctx,
+                                                                            cache,
+                                                                            bb_counter);
+
+                        auto d = ( s0 - sb_counter );
+                        auto norm = d.lpNorm<1>();
+
+                        #if 0
+                        display(sb_counter);
+                        display(bb_counter);
+                        #endif
+                        std::cout << "norm => " << norm << "\n"; // __CandyPrint__(cxx-print-scalar,norm)
+
+                        if( norm < 1. ){
+                                std::vector<Eigen::VectorXd> result;
+                                result.push_back(sb_counter);
+                                result.push_back(bb_counter);
+                                return result;
+                        }
+
+                        s0 *= ( 1- factor );
+                        s0 += factor * sb_counter;
+                }
+
+                Eigen::VectorXd proto(169);
+                proto.fill(.0);
+                std::vector<Eigen::VectorXd> result;
+                result.push_back(proto);
+                result.push_back(proto);
+                return result;
+        }
+
 
         using any_value_t = boost::variant<
                 double
@@ -691,10 +737,6 @@ struct HeadUpSolverCmd : Command{
                 std::string cache_name{".cc.bin"};
                 cc.load(cache_name);
 
-                Eigen::VectorXd s0(169);
-                s0.fill(1.0);
-                Eigen::VectorXd s1(169);
-                s1.fill(1.0);
 
                 #if 0
                 holdem_class_vector AA_KK{0,1};
@@ -706,20 +748,32 @@ struct HeadUpSolverCmd : Command{
                 #endif
 
                 using namespace gt;
-                gt_context gtctx(10., .5, 1.);
-
-                auto sb_counter = unilateral_sb_maximal_exploitable(gtctx,
-                                                                    cc,
-                                                                    s1);
-                auto bb_counter = unilateral_sb_maximal_exploitable(gtctx,
-                                                                    cc,
-                                                                    sb_counter);
-
-                display(sb_counter);
-                display(bb_counter);
 
 
-
+                using result_t = std::future<std::tuple<double, std::vector<Eigen::VectorXd> > >;
+                std::vector<result_t> tmp;
+                for(double eff = 10.0;eff <= 20.0;eff+=5.0){
+                        tmp.push_back(std::async([eff,&cc](){
+                                gt_context gtctx(eff, .5, 1.);
+                                return std::make_tuple(eff, solve(gtctx, cc));
+                        }));
+                }
+                Eigen::VectorXd s0(169);
+                s0.fill(.0);
+                Eigen::VectorXd s1(169);
+                s1.fill(.0);
+                for(auto& _ : tmp){
+                        auto aux = _.get();
+                        auto eff = std::get<0>(aux);
+                        auto const& vec = std::get<1>(aux);
+                        for(size_t idx=0;idx!=169;++idx){
+                                s0(idx) = std::max(s0(idx), eff*vec[0](idx));
+                                s1(idx) = std::max(s1(idx), eff*vec[1](idx));
+                        }
+                }
+                
+                display(s0);
+                display(s1);
 
 
 

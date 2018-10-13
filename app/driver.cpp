@@ -34,6 +34,8 @@
 #include <boost/timer/timer.hpp>
 #include <boost/asio.hpp>
 
+#include <boost/log/trivial.hpp>
+
 #include <Eigen/Dense>
 #include <fstream>
 
@@ -477,6 +479,12 @@ namespace gt{
                 double eff()const{ return eff_; }
                 double sb()const{ return sb_; }
                 double bb()const{ return bb_; }
+                friend std::ostream& operator<<(std::ostream& ostr, gt_context const& self){
+                        ostr << "eff_ = " << self.eff_;
+                        ostr << ", sb_ = " << self.sb_;
+                        ostr << ", bb_ = " << self.bb_;
+                        return ostr;
+                }
         private:
                 double eff_;
                 double sb_;
@@ -487,16 +495,15 @@ namespace gt{
         Eigen::VectorXd combination_value(gt_context const& ctx,
                                           class_cache const& cache,
                                           holdem_class_vector const& vec,
-                                          double s0,
-                                          double s1){
+                                          Eigen::VectorXd const& s){
                 Eigen::VectorXd result{2};
                 result.fill(.0);
                 Eigen::VectorXd One{2};
                 One.fill(1.);
 
-                double f_ = ( 1.0 - s0 );
-                double pf = s0 * (1. - s1);
-                double pp = s0 *       s1;
+                double f_ = ( 1.0 - s[0] );
+                double pf = s[0] * (1. - s[1]);
+                double pp = s[0] *       s[1];
 
                 result(0) -= ctx.sb() * f_;
                 result(1) += ctx.sb() * f_;
@@ -510,12 +517,12 @@ namespace gt{
 
                 return result;
         }
-        
+
         Eigen::VectorXd unilateral_detail(gt_context const& ctx,
                                           class_cache const& cache,
                                           size_t idx,
-                                          Eigen::VectorXd const& s0,
-                                          Eigen::VectorXd const& s1)
+                                          std::vector<Eigen::VectorXd> const& S,
+                                          double weighted = true)
         {
                 Eigen::VectorXd result(169);
                 result.fill(.0);
@@ -523,9 +530,17 @@ namespace gt{
                 for(holdem_class_perm_iterator iter(2),end;iter!=end;++iter){
 
                         auto const& cv = *iter;
-                        double p = cv.prob();
-
-                        result(cv[idx]) += p * combination_value(ctx, cache, *iter, s0[cv[0]], s1[cv[1]])[idx];
+                        #if 0
+                        double p = 1.;
+                        if( weighted ){
+                                p = cv.prob();
+                        }
+                        #endif
+                        auto p = cv.prob();
+                        Eigen::VectorXd s(2);
+                        s[0] = S[0][cv[0]];
+                        s[1] = S[1][cv[1]];
+                        result(cv[idx]) += p * combination_value(ctx, cache, *iter, s)[idx];
                 }
 
                 return result;
@@ -540,23 +555,36 @@ namespace gt{
                 }
                 return result;
         }
+        Eigen::VectorXd clamp(Eigen::VectorXd s){
+                for(holdem_class_id idx=0;idx!=169;++idx){
+                        s(idx) = ( s(idx) < .5 ? .0 : 1. );
+                }
+                return s;
+        }
+        
         static Eigen::VectorXd fold_s = Eigen::VectorXd::Zero(169);
         static Eigen::VectorXd push_s = Eigen::VectorXd::Ones(169);
         Eigen::VectorXd unilateral_sb_maximal_exploitable(gt_context const& ctx,
                                                            class_cache const& cache,
-                                                           Eigen::VectorXd const& bb_strat)
+                                                           std::vector<Eigen::VectorXd> const& S)
         {
-                auto fold = unilateral_detail(ctx, cache, 0, fold_s, bb_strat);
-                auto push = unilateral_detail(ctx, cache, 0, push_s, bb_strat);
+                auto copy = S;
+                copy[0] = fold_s;
+                auto fold = unilateral_detail(ctx, cache, 0, copy);
+                copy[0] = push_s;
+                auto push = unilateral_detail(ctx, cache, 0, copy);
                 return choose_push_fold(push, fold);
         }
         Eigen::VectorXd unilateral_bb_maximal_exploitable(gt_context const& ctx,
                                                            class_cache const& cache,
-                                                           Eigen::VectorXd const& sb_strat)
+                                                           std::vector<Eigen::VectorXd> const& S)
         {
 
-                auto fold = unilateral_detail(ctx, cache, 1, sb_strat, fold_s);
-                auto push = unilateral_detail(ctx, cache, 1, sb_strat, push_s);
+                auto copy = S;
+                copy[1] = fold_s;
+                auto fold = unilateral_detail(ctx, cache, 1, copy);
+                copy[1] = push_s;
+                auto push = unilateral_detail(ctx, cache, 1, copy);
                 return choose_push_fold(push, fold);
         }
 
@@ -568,16 +596,22 @@ namespace gt{
                 double factor = 0.05;
                 auto bb_counter = unilateral_bb_maximal_exploitable(ctx,
                                                                     cache,
-                                                                    state[0]);
+                                                                    state);
+                auto tmp = state;
+                tmp[1] = bb_counter;
                 auto sb_counter = unilateral_sb_maximal_exploitable(ctx,
                                                                     cache,
-                                                                    bb_counter);
+                                                                    tmp);
                 auto copy = state;
                 copy[0] *= ( 1 - factor );
                 copy[0] +=  factor * sb_counter;
                 copy[1]  = bb_counter;
                 return copy;
         }
+
+        void display(Eigen::VectorXd const& vec, size_t dp = 4);
+
+        #if NOT_DEFINED
         std::vector<Eigen::VectorXd>
         unilateral_chooser_step(gt_context const& ctx,
                                 class_cache const& cache,
@@ -585,36 +619,178 @@ namespace gt{
         {
                 auto bb_counter = unilateral_bb_maximal_exploitable(ctx,
                                                                     cache,
-                                                                    state[0]);
+                                                                    state);
 
-                auto head = unilateral_detail(ctx, cache, 0, state[0], bb_counter);
-                auto fold = unilateral_detail(ctx, cache, 0, fold_s, bb_counter);
-                auto push = unilateral_detail(ctx, cache, 0, push_s, bb_counter);
+                auto head = unilateral_detail(ctx, cache, 0, state[0], bb_counter, false);
+                auto fold = unilateral_detail(ctx, cache, 0, fold_s, bb_counter, false);
+                auto push = unilateral_detail(ctx, cache, 0, push_s, bb_counter, false);
 
-                double diff = -100;
-                size_t target;
-                double val = 0;
-                auto cand = [&](size_t idx, double cand, double cand_val){
-                        if( cand - head(idx) > diff ){
-                                diff = cand - head(idx);
-                                target = idx;
-                                val = cand_val;
+                using Operator = std::tuple<size_t, double, double, double>;
+
+                std::vector<Operator> ops;
+
+                auto add_cand = [&](size_t idx, double cand, double cand_val){
+                        auto d = cand - head(idx);
+                        if( d > 0.0 ){
+                                ops.emplace_back(idx, cand, cand_val, d);
                         }
                 };
+
                 for(size_t idx=0;idx!=169;++idx){
-                        cand(idx, fold(idx), 0.0);
-                        cand(idx, push(idx), 1.0);
+                        add_cand(idx, fold(idx), 0.0);
+                        add_cand(idx, push(idx), 1.0);
                 }
+
+                std::sort(ops.begin(), ops.end(), [](auto const& l, auto const& r){
+                        return std::get<3>(l) > std::get<3>(r);
+                });
+
+                #if 0
+                enum{ CandidateSetSz = 3 };
+                if( ops.size() > CandidateSetSz ){
+                        ops.resize(CandidateSetSz);
+                }
+                std::vector<std::tuple<Eigen::VectorXd, double> > candidates;
+                for(auto const& t : ops){
+                        auto cand_strat = state[0];
+                        cand_strat[std::get<0>(t)] = std::get<2>(t);
+                        auto counter = unilateral_bb_maximal_exploitable(ctx,
+                                                                         cache,
+                                                                         cand_strat);
+                        candidates.emplace_back(cand_strat, unilateral_detail(ctx, cache, 0, cand_strat, counter).sum());
+
+                        std::cout << "holdem_class_decl::get(std::get<0>(t)) => " << holdem_class_decl::get(std::get<0>(t)) << "\n"; // __CandyPrint__(cxx-print-scalar,holdem_class_decl::get(std::get<0>(t)))
+                        std::cout << "std::get<1>(candidates.back()) => " << std::get<1>(candidates.back()) << "\n"; // __CandyPrint__(cxx-print-scalar,std::get<1>(candidates.back()))
+                }
+                std::sort(candidates.begin(), candidates.end(), [](auto const& r, auto const& l){
+                        return std::get<1>(r) < std::get<1>(l);
+                });
                 
                 auto copy = state;
-                copy[0](target) = val;
-                copy[1]  = bb_counter;
+                if( candidates.size()){
+                        copy[0] = std::get<0>(candidates.back());
+                }
+                copy[1] = bb_counter;
+                #endif
+
+                auto copy = state;
+                ops.resize(ops.size()/2);
+                copy[1] = bb_counter;
+                for(auto const& t : ops){
+                        auto cand_strat = state[0];
+                        copy[0][std::get<0>(t)] = std::get<2>(t);
+                }
                 return copy;
 
         }
+        #endif // NOT_DEFINED
 
 
         
+
+        struct solver{
+                virtual std::vector<Eigen::VectorXd> step(gt_context const& ctx, class_cache const& cache,
+                                                          std::vector<Eigen::VectorXd> const& state)=0;
+        };
+        struct maximal_exploitable_solver : solver{
+                virtual std::vector<Eigen::VectorXd> step(gt_context const& ctx, class_cache const& cache,
+                                                          std::vector<Eigen::VectorXd> const& state)override{
+                        double factor = 0.05;
+                        auto bb_counter = unilateral_bb_maximal_exploitable(ctx,
+                                                                            cache,
+                                                                            state);
+                        auto tmp = state;
+                        tmp[1] = bb_counter;
+                        auto sb_counter = unilateral_sb_maximal_exploitable(ctx,
+                                                                            cache,
+                                                                            tmp);
+                        auto copy = state;
+                        copy[0] *= ( 1 - factor );
+                        copy[0] +=  factor * sb_counter;
+                        copy[1]  = bb_counter;
+                        return copy;
+                }
+        };
+
+        std::vector<Eigen::VectorXd> solve(gt_context const& ctx, class_cache const& cache)
+        {
+
+                std::vector<Eigen::VectorXd> state;
+                state.push_back(Eigen::VectorXd::Zero(169));
+                state.push_back(Eigen::VectorXd::Zero(169));
+
+
+                std::shared_ptr<solver> solver_impl( new maximal_exploitable_solver);
+
+                std::set<std::vector<Eigen::VectorXd> > memory; 
+
+                double epsilon = 0.2;
+
+                enum{ MaxIter = 400 };
+                for(size_t idx=0;idx<MaxIter;++idx){
+
+                        auto next = solver_impl->step(ctx, cache, state);
+                        auto d = next[0] - state[0];
+                        auto norm = d.lpNorm<1>();
+
+                        #if 0
+                        std::cout << "norm => " << norm << "\n"; // __CandyPrint__(cxx-print-scalar,norm)
+                        #endif
+
+                        if( norm < epsilon ){
+                                state[0] = clamp(state[0]);
+                                state[1] = clamp(state[1]);
+                                return state;
+                        }
+
+                        #if 0
+                        if( memory.count( next ) != 0 ){
+                                BOOST_LOG_TRIVIAL(warning) << "loop";
+                        }
+                        memory.insert(next);
+                        #endif
+
+                        state = next;
+
+                        #if 0
+                        std::cout << "S_0\n";
+                        display(state[0], 1);
+                        std::cout << "S_1\n";
+                        display(state[1], 1);
+                        #endif
+                }
+
+                std::vector<Eigen::VectorXd> result;
+                result.push_back(Eigen::VectorXd::Zero(169));
+                result.push_back(Eigen::VectorXd::Zero(169));
+
+                BOOST_LOG_TRIVIAL(warning) << "Failed to converge solve ctx = " << ctx;
+                return result;
+        }
+
+
+        using any_value_t = boost::variant<
+                double
+        >;
+
+        struct Context{
+        };
+
+        struct Node{
+        };
+
+        struct Placeholder : Node{
+        };
+
+        struct NonTerminal : Node, std::vector<std::shared_ptr<Node> >{
+        };
+
+        struct Function : NonTerminal{
+        };
+
+        struct BinaryOp : NonTerminal{
+        };
+
         // print pretty table
         //
         //      AA  AKs ... A2s
@@ -623,7 +799,7 @@ namespace gt{
         //      A2o         22
         //
         //
-        void display(Eigen::VectorXd const& vec){
+        void display(Eigen::VectorXd const& vec, size_t dp){
                 /*
                         token_buffer[0][0] token_buffer[1][0]
                         token_buffer[0][1]
@@ -656,7 +832,11 @@ namespace gt{
                         } else if( vec(i) == 0.0 ){
                                 token_buffer[y][x] = "0";
                         } else {
-                                token_buffer[y][x] = str(boost::format("%.4f") % vec(i));
+                                char meta[10];
+                                char buffer[64];
+                                std::sprintf(meta, "%%.%df", (int)dp);
+                                std::sprintf(buffer, meta, vec(i));
+                                token_buffer[y][x] = buffer;
                         }
 
                         #else
@@ -703,101 +883,6 @@ namespace gt{
                 }
         }
 
-        struct solver_context{
-                Eigen::VectorXd s0;
-                Eigen::VectorXd s1;
-        };
-
-        std::vector<Eigen::VectorXd> solve(gt_context const& ctx, class_cache const& cache)
-        {
-
-                std::vector<Eigen::VectorXd> state;
-                state.push_back(Eigen::VectorXd::Zero(169));
-                state.push_back(Eigen::VectorXd::Zero(169));
-
-
-                #if 0
-                Eigen::VectorXd s0(169);
-                s0.fill(1.0);
-                #endif
-
-                double factor = 0.05;
-
-                enum{ MaxIter = 400 };
-                for(size_t idx=0;idx<MaxIter;++idx){
-
-                        #if 0
-                        auto bb_counter = unilateral_bb_maximal_exploitable(ctx,
-                                                                            cache,
-                                                                            s0);
-                        auto sb_counter = unilateral_sb_maximal_exploitable(ctx,
-                                                                            cache,
-                                                                            bb_counter);
-
-                        auto d = ( s0 - sb_counter );
-                        auto norm = d.lpNorm<1>();
-
-                        #if 0
-                        display(sb_counter);
-                        display(bb_counter);
-                        #endif
-                        std::cout << "norm => " << norm << "\n"; // __CandyPrint__(cxx-print-scalar,norm)
-
-                        if( norm < 1. ){
-                                std::vector<Eigen::VectorXd> result;
-                                result.push_back(sb_counter);
-                                result.push_back(bb_counter);
-                                return result;
-                        }
-
-                        s0 *= ( 1- factor );
-                        s0 += factor * sb_counter;
-                        #endif
-
-                        auto next = unilateral_chooser_step(ctx, cache, state);
-                        auto d = next[0] - state[0];
-                        auto norm = d.lpNorm<1>();
-
-                        std::cout << "norm => " << norm << "\n"; // __CandyPrint__(cxx-print-scalar,norm)
-
-                        display(next[0]);
-
-                        if( norm < .2 )
-                                return state;
-
-                        state = next;
-                }
-
-                std::vector<Eigen::VectorXd> result;
-                result.push_back(Eigen::VectorXd::Zero(169));
-                result.push_back(Eigen::VectorXd::Zero(169));
-                return result;
-        }
-
-
-        using any_value_t = boost::variant<
-                double
-        >;
-
-        struct Context{
-        };
-
-        struct Node{
-        };
-
-        struct Placeholder : Node{
-        };
-
-        struct NonTerminal : Node, std::vector<std::shared_ptr<Node> >{
-        };
-
-        struct Function : NonTerminal{
-        };
-
-        struct BinaryOp : NonTerminal{
-        };
-
-
 } // end namespace gt
 
 struct HeadUpSolverCmd : Command{
@@ -830,12 +915,13 @@ struct HeadUpSolverCmd : Command{
                                 return std::make_tuple(eff, solve(gtctx, cc));
                         }));
                 };
-                #if 0
-                for(double eff = 10.0;eff <= 20.0;eff+=1.0){
+                #if 1
+                for(double eff = 1.0;eff <= 30.0;eff+=.1){
                         enque(eff);
                 }
-                #endif
+                #else
                 enque(20);
+                #endif
                 Eigen::VectorXd s0(169);
                 s0.fill(.0);
                 Eigen::VectorXd s1(169);
@@ -850,8 +936,8 @@ struct HeadUpSolverCmd : Command{
                         }
                 }
                 
-                display(s0);
-                display(s1);
+                display(s0, 1);
+                display(s1, 1);
 
 
 

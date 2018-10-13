@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.6)
 
 find_package (Eigen3 3.3 REQUIRED NO_MODULE)
 
+
 if( WIN32 )
   set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS TRUE)
   set(BUILD_SHARED_LIBS TRUE)
@@ -15,6 +16,7 @@ if( WIN32 )
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /D_CRT_SECURE_NO_WARNINGS")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MT")
 else()
+  add_definitions(-DBOOST_LOG_DYN_LINK)
   set(CMAKE_CXX_FLAGS "-std=c++14 -frtti -Wno-switch")
 
   set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -ggdb3")
@@ -29,7 +31,7 @@ endif()
 
 
 
-find_package(Boost REQUIRED COMPONENTS system timer serialization)
+find_package(Boost REQUIRED COMPONENTS log system timer serialization)
 
 include_directories(${Boost_INCLUDE_DIRS})
 

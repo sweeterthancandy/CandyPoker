@@ -220,6 +220,7 @@ namespace ps{
                 static holdem_class_id make_id(holdem_class_type cat, rank_id x, rank_id y);
                 operator holdem_class_id()const{ return id_; }
 
+                // TODO generlaize these
                 static size_t weight(holdem_class_id c0, holdem_class_id c1);
                 static double prob(holdem_class_id c0, holdem_class_id c1);
         private:

@@ -1,4 +1,5 @@
 #include <thread>
+#include <numeric>
 #include <atomic>
 #include <boost/format.hpp>
 #include "ps/support/config.h"
@@ -284,12 +285,52 @@ struct class_cache{
         void add(std::vector<holdem_class_id> vec, std::vector<double> equity){
                 cache_.emplace(std::move(vec), std::move(equity));
         }
-	std::vector<double>* Lookup(std::vector<holdem_class_id> const& vec){
+	std::vector<double> const* Lookup(std::vector<holdem_class_id> const& vec)const{
                 auto iter = cache_.find(vec);
                 if( iter == cache_.end())
                         return nullptr;
                 return &iter->second;
 	}
+        Eigen::VectorXd LookupVector(holdem_class_vector const& vec)const{
+                #if 0
+                if( std::is_sorted(vec.begin(), vec.end()) ){
+                        Eigen::VectorXd tmp(vec.size());
+                        auto ptr = Lookup(vec);
+                        BOOST_ASSERT(pyt);
+                        for(size_t idx=0;idx!=vec.size();++idx){
+                                tmp(idx) = vec[idx];
+                        }
+                        return tmp;
+                }
+                #endif
+                // find the permuation index
+                std::array<
+                        std::tuple<size_t, holdem_class_id>
+                        , 9
+                > aux;
+                for(size_t idx=0;idx!=vec.size();++idx){
+                        aux[idx] = std::make_tuple(idx, vec[idx]);
+                }
+                std::sort(aux.begin(), aux.begin() + vec.size(), [](auto const& l, auto const& r){
+                          return std::get<1>(l) < std::get<1>(r);
+                });
+
+                // I think this is quicker than copying from aux
+                auto copy = vec;
+                std::sort(copy.begin(), copy.end());
+                        
+                // find the underlying
+                auto ptr = Lookup(copy);
+                BOOST_ASSERT(ptr);
+
+                // copy to a vector
+                Eigen::VectorXd tmp(vec.size());
+                for(size_t idx=0;idx!=vec.size();++idx){
+                        auto mapped_idx = std::get<0>(aux[idx]);
+                        tmp(mapped_idx) = (*ptr)[idx];
+                }
+                return tmp;
+        }
 	void save(std::string const& filename){
 		// make an archive
 		std::ofstream ofs(filename);
@@ -389,8 +430,276 @@ private:
 };
 static TrivialCommandDecl<CreateCacheCmd> CreateCacheCmdDecl{"create-cache"};
 
+/*
+ * 2 player
+        
+        player ev
+        =========
+ 
+        ---+---------------
+        f_ | 0
+        pf | sb+bb
+        pp | 2*S*Ev - (S-sb)
+
+        ---+---------------
+        pf | 0
+        pp | 2*S*Ev - (S-bb)
+        
+
+        total value
+        ===========
 
 
+        ---+---------------
+        f_ | -sb
+        pf | bb
+        pp | 2*S*Ev - S
+        
+        ---+---------------
+        pf | -sb
+        pp | 2*S*Ev - S
+
+
+
+
+
+ */
+
+namespace gt{
+
+
+        struct gt_context{
+                gt_context(double eff, double sb, double bb)
+                        :eff_(eff),
+                        sb_(sb),
+                        bb_(bb)
+                {}
+                double eff()const{ return eff_; }
+                double sb()const{ return sb_; }
+                double bb()const{ return bb_; }
+        private:
+                double eff_;
+                double sb_;
+                double bb_;
+        };
+
+        Eigen::VectorXd combination_value(gt_context const& ctx,
+                                          class_cache const& cache,
+                                          holdem_class_vector const& vec,
+                                          double s0,
+                                          double s1){
+                Eigen::VectorXd result{2};
+                result.fill(.0);
+                Eigen::VectorXd One{2};
+                One.fill(1.);
+
+                double f_ = ( 1.0 - s0 );
+                double pf = s0 * (1. - s1);
+                double pp = s0 *       s1;
+
+                result(0) -= ctx.sb() * f_;
+                result(1) += ctx.sb() * f_;
+                
+                result(0) += ctx.bb() * pf;
+                result(1) -= ctx.bb() * pf;
+
+                auto ev = cache.LookupVector(vec);
+
+                result += ( 2 * ev - One ) * ctx.eff() * pp;
+
+                return result;
+        }
+
+        Eigen::VectorXd unilateral_sb_maximal_exploitable(gt_context const& ctx,
+                                                          class_cache const& cache,
+                                                          Eigen::VectorXd const& bb_strat)
+        {
+                Eigen::VectorXd push(169);
+                push.fill(0.);
+                Eigen::VectorXd fold(169);
+                fold.fill(0.);
+
+
+                for(holdem_class_perm_iterator iter(2),end;iter!=end;++iter){
+                        double p = (*iter).prob();
+
+                        auto const& cv = *iter;
+
+                        fold(cv[0]) += p * combination_value(ctx, cache, *iter, 0.0, bb_strat[cv[1]])[0];
+                        push(cv[0]) += p * combination_value(ctx, cache, *iter, 1.0, bb_strat[cv[1]])[0];
+                }
+
+                Eigen::VectorXd result(169);
+                result.fill(.0);
+                for(holdem_class_id id=0;id!=169;++id){
+                        if( push(id) >= fold(id) ){
+                                result(id) = 1.0;
+                        }
+                }
+                std::cout << "push => " << push << "\n"; // __CandyPrint__(cxx-print-scalar,push)
+                std::cout << "fold => " << fold << "\n"; // __CandyPrint__(cxx-print-scalar,fold)
+
+
+                return result;
+        }
+        // print pretty table
+        //
+        //      AA  AKs ... A2s
+        //      AKo KK
+        //      ...     ...
+        //      A2o         22
+        //
+        //
+        void display(Eigen::VectorXd const& vec){
+                /*
+                        token_buffer[0][0] token_buffer[1][0]
+                        token_buffer[0][1]
+
+                        token_buffer[y][x]
+
+
+                 */
+                std::array<
+                        std::array<std::string, 13>, // x
+                        13                           // y
+                > token_buffer;
+                std::array<size_t, 13> widths;
+
+                for(size_t i{0};i!=169;++i){
+                        auto const& decl =  holdem_class_decl::get(i) ;
+                        size_t x{decl.first().id()};
+                        size_t y{decl.second().id()};
+                        // inverse
+                        x = 12 - x;
+                        y = 12 - y;
+                        if( decl.category() == holdem_class_type::offsuit ){
+                                std::swap(x,y);
+                        }
+
+                        #if 1
+                        //token_buffer[y][x] = boost::lexical_cast<std::string>(vec_[i]);
+                        if( vec(i) == 1.0 ){
+                                token_buffer[y][x] = "1";
+                        } else if( vec(i) == 0.0 ){
+                                token_buffer[y][x] = "0";
+                        } else {
+                                token_buffer[y][x] = str(boost::format("%.4f") % vec(i));
+                        }
+
+                        #else
+                        token_buffer[y][x] = boost::lexical_cast<std::string>(decl.to_string());
+                        #endif
+                }
+                for(size_t i{0};i!=13;++i){
+                        widths[i] = std::max_element( token_buffer[i].begin(),
+                                                      token_buffer[i].end(),
+                                                      [](auto const& l, auto const& r){
+                                                              return l.size() < r.size(); 
+                                                      })->size();
+                }
+
+                auto pad= [](auto const& s, size_t w){
+                        size_t padding{ w - s.size()};
+                        size_t left_pad{padding/2};
+                        size_t right_pad{padding - left_pad};
+                        std::string ret;
+                        if(left_pad)
+                               ret += std::string(left_pad,' ');
+                        ret += s;
+                        if(right_pad)
+                               ret += std::string(right_pad,' ');
+                        return std::move(ret);
+                };
+                
+                std::cout << "   ";
+                for(size_t i{0};i!=13;++i){
+                        std::cout << pad( rank_decl::get(12-i).to_string(), widths[i] ) << " ";
+                }
+                std::cout << "\n";
+                std::cout << "  +" << std::string( std::accumulate(widths.begin(), widths.end(), 0) + 13, '-') << "\n";
+
+                for(size_t i{0};i!=13;++i){
+                        std::cout << rank_decl::get(12-i).to_string() << " |";
+                        for(size_t j{0};j!=13;++j){
+                                if( j != 0){
+                                        std::cout << " ";
+                                }
+                                std::cout << pad(token_buffer[j][i], widths[j]);
+                        }
+                        std::cout << "\n";
+                }
+        }
+
+
+        using any_value_t = boost::variant<
+                double
+        >;
+
+        struct Context{
+        };
+
+        struct Node{
+        };
+
+        struct Placeholder : Node{
+        };
+
+        struct NonTerminal : Node, std::vector<std::shared_ptr<Node> >{
+        };
+
+        struct Function : NonTerminal{
+        };
+
+        struct BinaryOp : NonTerminal{
+        };
+
+
+} // end namespace gt
+
+struct HeadUpSolverCmd : Command{
+        explicit
+        HeadUpSolverCmd(std::vector<std::string> const& args):args_{args}{}
+        virtual int Execute()override{
+                class_cache cc;
+	
+                std::string cache_name{".cc.bin"};
+                cc.load(cache_name);
+
+                Eigen::VectorXd s0(169);
+                s0.fill(1.0);
+                Eigen::VectorXd s1(169);
+                s1.fill(1.0);
+
+                #if 0
+                holdem_class_vector AA_KK{0,1};
+                holdem_class_vector KK_AA{1,0};
+                std::cout << "AA_KK => " << AA_KK << "\n"; // __CandyPrint__(cxx-print-scalar,AA_KK)
+                std::cout << "KK_AA => " << KK_AA << "\n"; // __CandyPrint__(cxx-print-scalar,KK_AA)
+                std::cout << "cc.LookupVector(AA_KK) => " << cc.LookupVector(AA_KK) << "\n"; // __CandyPrint__(cxx-print-scalar,cc.LookupVector(AA_KK))
+                std::cout << "cc.LookupVector(KK_AA) => " << cc.LookupVector(KK_AA) << "\n"; // __CandyPrint__(cxx-print-scalar,cc.LookupVector(KK_AA))
+                #endif
+
+                using namespace gt;
+                gt_context gtctx(10., .5, 1.);
+
+                auto bb_counter = unilateral_sb_maximal_exploitable(gtctx,
+                                                                    cc,
+                                                                    s1);
+
+                display(bb_counter);
+
+
+
+
+
+
+
+                return EXIT_SUCCESS;
+        }
+private:
+        std::vector<std::string> const& args_;
+};
+static TrivialCommandDecl<HeadUpSolverCmd> HeadsUpSolverCmdDecl{"heads-up-solver"};
 
 
 
@@ -442,46 +751,6 @@ static TrivialCommandDecl<MaskEval> MaskEvalDecl{"eval"};
 
 
 
-/*
- * 2 player
-        
-        player ev
-        =========
- 
-        ---+---------------
-        f_ | 0
-        pf | sb+bb
-        pp | 2*S*Ev - (S-sb)
-
-        ---+---------------
-        pf | 0
-        pp | 2*S*Ev - (S-bb)
-        
-
-        total value
-        ===========
-
-
-        ---+---------------
-        f_ | -sb
-        pf | bb
-        pp | 2*S*Ev - S
-        
-        ---+---------------
-        pf | -sb
-        pp | 2*S*Ev - S
-
-
-
-
-
- */
-namespace gt{
-        struct node{
-        };
-        struct choice : node{
-        };
-} // end namespace gt
 
 
 
@@ -497,7 +766,7 @@ int main(int argc, char** argv){
         } catch(std::exception const& e){
                 std::cerr << "Caught exception: " << e.what() << "\n";
         }
-        return EXIT_FAILURE;
+        return EXIT_SUCCESS;
 }
 
 #if 0

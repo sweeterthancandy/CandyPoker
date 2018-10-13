@@ -55,6 +55,11 @@ namespace ps{
                 > to_standard_form_hands()const;
                 
                 bool is_standard_form()const;
+
+                auto prob()const{
+                        BOOST_ASSERT(size() == 2 );
+                        return holdem_class_decl::prob(at(0), at(1));
+                }
         };
         
         struct holdem_class_iterator :
@@ -73,6 +78,25 @@ namespace ps{
                         ;
                 holdem_class_iterator():impl_t{}{}
                 holdem_class_iterator(size_t n):
+                        impl_t(n, holdem_class_decl::max_id)
+                {}
+        };
+        struct holdem_class_perm_iterator :
+                basic_index_iterator<
+                holdem_class_id,
+                range_policy,
+                holdem_class_vector
+                >
+        {
+                using impl_t = 
+                        basic_index_iterator<
+                                holdem_class_id,
+                                range_policy,
+                                holdem_class_vector
+                        >
+                        ;
+                holdem_class_perm_iterator():impl_t{}{}
+                holdem_class_perm_iterator(size_t n):
                         impl_t(n, holdem_class_decl::max_id)
                 {}
         };

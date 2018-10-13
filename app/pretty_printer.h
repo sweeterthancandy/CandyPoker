@@ -16,6 +16,8 @@
 #include <boost/accumulators/statistics/variance.hpp>
 #include <boost/variant.hpp>
 
+#include <Eigen/Dense>
+
 
 
 
@@ -609,6 +611,97 @@ namespace ps{
                 }
                 RenderTablePretty(std::cout, lines);
                 
+        }
+        // print pretty table
+        //
+        //      AA  AKs ... A2s
+        //      AKo KK
+        //      ...     ...
+        //      A2o         22
+        //
+        //
+        void pretty_print_strat(Eigen::VectorXd const& vec, size_t dp){
+                /*
+                        token_buffer[0][0] token_buffer[1][0]
+                        token_buffer[0][1]
+
+                        token_buffer[y][x]
+
+
+                 */
+                std::array<
+                        std::array<std::string, 13>, // x
+                        13                           // y
+                > token_buffer;
+                std::array<size_t, 13> widths;
+
+                for(size_t i{0};i!=169;++i){
+                        auto const& decl =  holdem_class_decl::get(i) ;
+                        size_t x{decl.first().id()};
+                        size_t y{decl.second().id()};
+                        // inverse
+                        x = 12 - x;
+                        y = 12 - y;
+                        if( decl.category() == holdem_class_type::offsuit ){
+                                std::swap(x,y);
+                        }
+
+                        #if 1
+                        //token_buffer[y][x] = boost::lexical_cast<std::string>(vec_[i]);
+                        if( vec(i) == 1.0 ){
+                                token_buffer[y][x] = "1";
+                        } else if( vec(i) == 0.0 ){
+                                token_buffer[y][x] = "0";
+                        } else {
+                                char meta[10];
+                                char buffer[64];
+                                std::sprintf(meta, "%%.%df", (int)dp);
+                                std::sprintf(buffer, meta, vec(i));
+                                token_buffer[y][x] = buffer;
+                        }
+
+                        #else
+                        token_buffer[y][x] = boost::lexical_cast<std::string>(decl.to_string());
+                        #endif
+                }
+                for(size_t i{0};i!=13;++i){
+                        widths[i] = std::max_element( token_buffer[i].begin(),
+                                                      token_buffer[i].end(),
+                                                      [](auto const& l, auto const& r){
+                                                              return l.size() < r.size(); 
+                                                      })->size();
+                }
+
+                auto pad= [](auto const& s, size_t w){
+                        size_t padding{ w - s.size()};
+                        size_t left_pad{padding/2};
+                        size_t right_pad{padding - left_pad};
+                        std::string ret;
+                        if(left_pad)
+                               ret += std::string(left_pad,' ');
+                        ret += s;
+                        if(right_pad)
+                               ret += std::string(right_pad,' ');
+                        return std::move(ret);
+                };
+                
+                std::cout << "   ";
+                for(size_t i{0};i!=13;++i){
+                        std::cout << pad( rank_decl::get(12-i).to_string(), widths[i] ) << " ";
+                }
+                std::cout << "\n";
+                std::cout << "  +" << std::string( std::accumulate(widths.begin(), widths.end(), 0) + 13, '-') << "\n";
+
+                for(size_t i{0};i!=13;++i){
+                        std::cout << rank_decl::get(12-i).to_string() << " |";
+                        for(size_t j{0};j!=13;++j){
+                                if( j != 0){
+                                        std::cout << " ";
+                                }
+                                std::cout << pad(token_buffer[j][i], widths[j]);
+                        }
+                        std::cout << "\n";
+                }
         }
 } // end namespace ps
 #endif // PS_APP_PRETTY_PRINTER_H

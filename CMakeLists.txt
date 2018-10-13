@@ -66,6 +66,7 @@ set(
         lib/eval/evaluator_5_card_map.cpp
         lib/eval/evaluator_6_card_map.cpp
         lib/eval/rank_world.cpp
+        lib/eval/class_cache.cpp
 )
 add_library(eval_lib SHARED ${eval_sources}) 
 target_link_libraries(eval_lib ${Boost_LIBRARIES})

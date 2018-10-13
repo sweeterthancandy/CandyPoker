@@ -19,17 +19,8 @@
 #include "ps/base/holdem_board_decl.h"
 #include "ps/eval/computer_mask.h"
 #include "ps/eval/computer_eval.h"
+#include "ps/eval/class_cache.h"
 #include <boost/archive/tmpdir.hpp>
-
-#include <boost/archive/text_iarchive.hpp>
-#include <boost/archive/text_oarchive.hpp>
-
-#include <boost/serialization/base_object.hpp>
-#include <boost/serialization/utility.hpp>
-#include <boost/serialization/list.hpp>
-#include <boost/serialization/map.hpp>
-#include <boost/serialization/vector.hpp>
-#include <boost/serialization/assume_abstract.hpp>
 
 #include <boost/timer/timer.hpp>
 #include <boost/asio.hpp>
@@ -253,163 +244,6 @@ static TrivialCommandDecl<FrontendDbg> FrontendDbgDecl{"frontend-dbg"};
 
 
 
-struct equity_view : std::vector<double>{
-        equity_view(matrix_t const& breakdown){
-                sigma_ = 0;
-                size_t n = breakdown.rows();
-                std::map<long, unsigned long long> sigma_device;
-                for( size_t i=0;i!=n;++i){
-                        for(size_t j=0; j != n; ++j ){
-                                sigma_device[j] += breakdown(j,i);
-                        }
-                }
-                for( size_t i=0;i!=n;++i){
-                        sigma_ += sigma_device[i] / ( i +1 );
-                }
-
-
-                for( size_t i=0;i!=n;++i){
-
-                        double equity = 0.0;
-                        for(size_t j=0; j != n; ++j ){
-                                equity += breakdown(j,i) / ( j +1 );
-                        }
-                        equity /= sigma_;
-                        push_back(equity);
-                }
-        }
-        unsigned long long sigma()const{ return sigma_; }
-private:
-        unsigned long long sigma_;
-};
-
-struct class_cache{
-        void add(std::vector<holdem_class_id> vec, std::vector<double> equity){
-                cache_.emplace(std::move(vec), std::move(equity));
-        }
-	std::vector<double> const* Lookup(std::vector<holdem_class_id> const& vec)const{
-                auto iter = cache_.find(vec);
-                if( iter == cache_.end())
-                        return nullptr;
-                return &iter->second;
-	}
-        Eigen::VectorXd LookupVector(holdem_class_vector const& vec)const{
-                #if 0
-                if( std::is_sorted(vec.begin(), vec.end()) ){
-                        Eigen::VectorXd tmp(vec.size());
-                        auto ptr = Lookup(vec);
-                        BOOST_ASSERT(pyt);
-                        for(size_t idx=0;idx!=vec.size();++idx){
-                                tmp(idx) = vec[idx];
-                        }
-                        return tmp;
-                }
-                #endif
-                // find the permuation index
-                std::array<
-                        std::tuple<size_t, holdem_class_id>
-                        , 9
-                > aux;
-                for(size_t idx=0;idx!=vec.size();++idx){
-                        aux[idx] = std::make_tuple(idx, vec[idx]);
-                }
-                std::sort(aux.begin(), aux.begin() + vec.size(), [](auto const& l, auto const& r){
-                          return std::get<1>(l) < std::get<1>(r);
-                });
-
-                // I think this is quicker than copying from aux
-                auto copy = vec;
-                std::sort(copy.begin(), copy.end());
-                        
-                // find the underlying
-                auto ptr = Lookup(copy);
-                BOOST_ASSERT(ptr);
-
-                // copy to a vector
-                Eigen::VectorXd tmp(vec.size());
-                for(size_t idx=0;idx!=vec.size();++idx){
-                        auto mapped_idx = std::get<0>(aux[idx]);
-                        tmp(mapped_idx) = (*ptr)[idx];
-                }
-                return tmp;
-        }
-	void save(std::string const& filename){
-		// make an archive
-		std::ofstream ofs(filename);
-		boost::archive::text_oarchive oa(ofs);
-		oa << *this;
-	}
-
-	void load(std::string const& filename)
-	{
-		// open the archive
-		std::ifstream ifs(filename);
-		boost::archive::text_iarchive ia(ifs);
-
-		// restore the schedule from the archive
-		cache_.clear();
-		ia >> *this;
-        }
-	
-private:
-        friend class boost::serialization::access;
-        template<class Archive>
-        void serialize(Archive & ar, const unsigned int version){
-                ar & cache_;
-        }
-private:
-        std::map<std::vector<holdem_class_id>, std::vector<double> > cache_;
-};
-
-struct class_cache_maker{
-        void create(size_t n, class_cache* cache, std::string const& file_name){
-                computation_pass_manager mgr;
-                mgr.add_pass<pass_class2cards>();
-                mgr.add_pass<pass_permutate>();
-                mgr.add_pass<pass_sort_type>();
-                mgr.add_pass<pass_collect>();
-                mgr.add_pass<pass_eval_hand_instr>();
-
-                size_t count = 0;
-                enum{ MaxCount = 50 };
-                auto save = [&](){
-                        std::cout << "Saving...\n";
-                        cache->save(file_name);
-                        std::cout << "Done\n";
-                };
-                for(holdem_class_iterator iter(n),end;iter!=end;++iter){
-                        auto vec = *iter;
-                        BOOST_ASSERT( vec.is_standard_form() );
-                        if( cache->Lookup(vec) )
-                                continue;
-                        instruction_list instr_list;
-                        instr_list.push_back(std::make_shared<class_vec_instruction>(vec));
-                        computation_context comp_ctx{n};
-                        auto result = mgr.execute(&comp_ctx, &instr_list);
-                        BOOST_ASSERT( result );
-                        equity_view view( *result );
-                        enum{ Debug = true };
-                        if( Debug ){
-                                #if 0
-                                std::vector<std::string> s;
-                                for(auto _ : vec){
-                                        s.push_back(holdem_class_decl::get(_).to_string());
-                                }
-                                pretty_print_equity_breakdown_mat(std::cout, *result, s);
-                                #endif
-                                std::cout << vec << " -> " << detail::to_string(view) << "\n";
-                        }
-
-
-			cache->add(vec, view);
-                        if( ++count == MaxCount ){
-                                count = 0;
-                                save();
-                        }
-                }
-                save();
-        }
-};
 
 struct CreateCacheCmd : Command{
         explicit
@@ -609,7 +443,6 @@ namespace gt{
                 return copy;
         }
 
-        void display(Eigen::VectorXd const& vec, size_t dp = 4);
 
         #if NOT_DEFINED
         std::vector<Eigen::VectorXd>
@@ -754,9 +587,9 @@ namespace gt{
 
                         #if 0
                         std::cout << "S_0\n";
-                        display(state[0], 1);
+                        pretty_print_strat(state[0], 1);
                         std::cout << "S_1\n";
-                        display(state[1], 1);
+                        pretty_print_strat(state[1], 1);
                         #endif
                 }
 
@@ -769,119 +602,7 @@ namespace gt{
         }
 
 
-        using any_value_t = boost::variant<
-                double
-        >;
 
-        struct Context{
-        };
-
-        struct Node{
-        };
-
-        struct Placeholder : Node{
-        };
-
-        struct NonTerminal : Node, std::vector<std::shared_ptr<Node> >{
-        };
-
-        struct Function : NonTerminal{
-        };
-
-        struct BinaryOp : NonTerminal{
-        };
-
-        // print pretty table
-        //
-        //      AA  AKs ... A2s
-        //      AKo KK
-        //      ...     ...
-        //      A2o         22
-        //
-        //
-        void display(Eigen::VectorXd const& vec, size_t dp){
-                /*
-                        token_buffer[0][0] token_buffer[1][0]
-                        token_buffer[0][1]
-
-                        token_buffer[y][x]
-
-
-                 */
-                std::array<
-                        std::array<std::string, 13>, // x
-                        13                           // y
-                > token_buffer;
-                std::array<size_t, 13> widths;
-
-                for(size_t i{0};i!=169;++i){
-                        auto const& decl =  holdem_class_decl::get(i) ;
-                        size_t x{decl.first().id()};
-                        size_t y{decl.second().id()};
-                        // inverse
-                        x = 12 - x;
-                        y = 12 - y;
-                        if( decl.category() == holdem_class_type::offsuit ){
-                                std::swap(x,y);
-                        }
-
-                        #if 1
-                        //token_buffer[y][x] = boost::lexical_cast<std::string>(vec_[i]);
-                        if( vec(i) == 1.0 ){
-                                token_buffer[y][x] = "1";
-                        } else if( vec(i) == 0.0 ){
-                                token_buffer[y][x] = "0";
-                        } else {
-                                char meta[10];
-                                char buffer[64];
-                                std::sprintf(meta, "%%.%df", (int)dp);
-                                std::sprintf(buffer, meta, vec(i));
-                                token_buffer[y][x] = buffer;
-                        }
-
-                        #else
-                        token_buffer[y][x] = boost::lexical_cast<std::string>(decl.to_string());
-                        #endif
-                }
-                for(size_t i{0};i!=13;++i){
-                        widths[i] = std::max_element( token_buffer[i].begin(),
-                                                      token_buffer[i].end(),
-                                                      [](auto const& l, auto const& r){
-                                                              return l.size() < r.size(); 
-                                                      })->size();
-                }
-
-                auto pad= [](auto const& s, size_t w){
-                        size_t padding{ w - s.size()};
-                        size_t left_pad{padding/2};
-                        size_t right_pad{padding - left_pad};
-                        std::string ret;
-                        if(left_pad)
-                               ret += std::string(left_pad,' ');
-                        ret += s;
-                        if(right_pad)
-                               ret += std::string(right_pad,' ');
-                        return std::move(ret);
-                };
-                
-                std::cout << "   ";
-                for(size_t i{0};i!=13;++i){
-                        std::cout << pad( rank_decl::get(12-i).to_string(), widths[i] ) << " ";
-                }
-                std::cout << "\n";
-                std::cout << "  +" << std::string( std::accumulate(widths.begin(), widths.end(), 0) + 13, '-') << "\n";
-
-                for(size_t i{0};i!=13;++i){
-                        std::cout << rank_decl::get(12-i).to_string() << " |";
-                        for(size_t j{0};j!=13;++j){
-                                if( j != 0){
-                                        std::cout << " ";
-                                }
-                                std::cout << pad(token_buffer[j][i], widths[j]);
-                        }
-                        std::cout << "\n";
-                }
-        }
 
 } // end namespace gt
 
@@ -936,8 +657,8 @@ struct HeadUpSolverCmd : Command{
                         }
                 }
                 
-                display(s0, 1);
-                display(s1, 1);
+                pretty_print_strat(s0, 1);
+                pretty_print_strat(s1, 1);
 
 
 
@@ -1017,65 +738,3 @@ int main(int argc, char** argv){
         return EXIT_SUCCESS;
 }
 
-#if 0
-struct create_class_cache_app{
-        create_class_cache_app(){
-                cache_ = &holdem_class_eval_cache_factory::get("main");
-                eval_ = new class_equity_evaluator_quick;
-        }
-        void run(){
-                boost::timer::auto_cpu_timer at;
-                std::vector<std::thread> tg;
-                {
-                        boost::asio::io_service::work w(io_);
-                        size_t num_threads = std::thread::hardware_concurrency();
-                        for(size_t i=0;i!=num_threads;++i){
-                                tg.emplace_back( [this](){ io_.run(); } );
-                        }
-                        for( holdem_class_iterator iter(2),end;iter!=end;++iter){
-                                ++total_;
-                                io_.post( [vec=*iter,this]()
-                                {
-                                        calc_(vec);
-                                });
-                        }
-                }
-                for( auto& t : tg )
-                        t.join();
-                cache_->save("result_3.bin");
-        }
-private:
-
-        void calc_(holdem_class_vector const& vec){
-                boost::timer::auto_cpu_timer at;
-                boost::timer::cpu_timer timer;
-                auto ret = eval_->evaluate(vec);
-                cache_->lock();
-                cache_->commit(vec, *ret);
-                cache_->unlock();
-                std::unique_lock<std::mutex> lock(mtx_);
-                ++done_;
-                std::string fmt = str(boost::format("%-11s took %%w seconds (%d/%d %.2f%%)")
-                                      % vec % done_ % total_ % (static_cast<double>(done_)/total_*100));
-                std::cout << timer.format(2, fmt) << "\n";
-                std::cout << *ret << "\n";
-        }
-        std::mutex mtx_;
-        boost::asio::io_service io_;
-        holdem_class_eval_cache* cache_;
-        class_equity_evaluator* eval_;
-        std::atomic_int total_{0};
-        std::atomic_int done_{0};
-};
-
-int main(){
-        try{
-                create_class_cache_app app;
-                app.run();
-                return EXIT_SUCCESS;
-        } catch(std::exception const& e){
-                std::cerr << "Caught exception: " << e.what() << "\n";
-        }
-        return EXIT_FAILURE;
-}
-#endif

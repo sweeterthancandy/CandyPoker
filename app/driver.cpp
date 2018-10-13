@@ -540,13 +540,12 @@ namespace gt{
                 }
                 return result;
         }
+        static Eigen::VectorXd fold_s = Eigen::VectorXd::Zero(169);
+        static Eigen::VectorXd push_s = Eigen::VectorXd::Ones(169);
         Eigen::VectorXd unilateral_sb_maximal_exploitable(gt_context const& ctx,
                                                            class_cache const& cache,
                                                            Eigen::VectorXd const& bb_strat)
         {
-
-                Eigen::VectorXd fold_s = Eigen::VectorXd::Zero(169);
-                Eigen::VectorXd push_s = Eigen::VectorXd::Ones(169);
                 auto fold = unilateral_detail(ctx, cache, 0, fold_s, bb_strat);
                 auto push = unilateral_detail(ctx, cache, 0, push_s, bb_strat);
                 return choose_push_fold(push, fold);
@@ -556,12 +555,64 @@ namespace gt{
                                                            Eigen::VectorXd const& sb_strat)
         {
 
-                Eigen::VectorXd fold_s = Eigen::VectorXd::Zero(169);
-                Eigen::VectorXd push_s = Eigen::VectorXd::Ones(169);
                 auto fold = unilateral_detail(ctx, cache, 1, sb_strat, fold_s);
                 auto push = unilateral_detail(ctx, cache, 1, sb_strat, push_s);
                 return choose_push_fold(push, fold);
         }
+
+        std::vector<Eigen::VectorXd>
+        unilateral_maximal_explitable_step(gt_context const& ctx,
+                                           class_cache const& cache,
+                                           std::vector<Eigen::VectorXd> const& state)
+        {
+                double factor = 0.05;
+                auto bb_counter = unilateral_bb_maximal_exploitable(ctx,
+                                                                    cache,
+                                                                    state[0]);
+                auto sb_counter = unilateral_sb_maximal_exploitable(ctx,
+                                                                    cache,
+                                                                    bb_counter);
+                auto copy = state;
+                copy[0] *= ( 1 - factor );
+                copy[0] +=  factor * sb_counter;
+                copy[1]  = bb_counter;
+                return copy;
+        }
+        std::vector<Eigen::VectorXd>
+        unilateral_chooser_step(gt_context const& ctx,
+                                class_cache const& cache,
+                                std::vector<Eigen::VectorXd> const& state)
+        {
+                auto bb_counter = unilateral_bb_maximal_exploitable(ctx,
+                                                                    cache,
+                                                                    state[0]);
+
+                auto head = unilateral_detail(ctx, cache, 0, state[0], bb_counter);
+                auto fold = unilateral_detail(ctx, cache, 0, fold_s, bb_counter);
+                auto push = unilateral_detail(ctx, cache, 0, push_s, bb_counter);
+
+                double diff = -100;
+                size_t target;
+                double val = 0;
+                auto cand = [&](size_t idx, double cand, double cand_val){
+                        if( cand - head(idx) > diff ){
+                                diff = cand - head(idx);
+                                target = idx;
+                                val = cand_val;
+                        }
+                };
+                for(size_t idx=0;idx!=169;++idx){
+                        cand(idx, fold(idx), 0.0);
+                        cand(idx, push(idx), 1.0);
+                }
+                
+                auto copy = state;
+                copy[0](target) = val;
+                copy[1]  = bb_counter;
+                return copy;
+
+        }
+
 
         
         // print pretty table
@@ -659,14 +710,23 @@ namespace gt{
 
         std::vector<Eigen::VectorXd> solve(gt_context const& ctx, class_cache const& cache)
         {
+
+                std::vector<Eigen::VectorXd> state;
+                state.push_back(Eigen::VectorXd::Zero(169));
+                state.push_back(Eigen::VectorXd::Zero(169));
+
+
+                #if 0
                 Eigen::VectorXd s0(169);
                 s0.fill(1.0);
+                #endif
 
                 double factor = 0.05;
 
                 enum{ MaxIter = 400 };
                 for(size_t idx=0;idx<MaxIter;++idx){
 
+                        #if 0
                         auto bb_counter = unilateral_bb_maximal_exploitable(ctx,
                                                                             cache,
                                                                             s0);
@@ -692,13 +752,25 @@ namespace gt{
 
                         s0 *= ( 1- factor );
                         s0 += factor * sb_counter;
+                        #endif
+
+                        auto next = unilateral_chooser_step(ctx, cache, state);
+                        auto d = next[0] - state[0];
+                        auto norm = d.lpNorm<1>();
+
+                        std::cout << "norm => " << norm << "\n"; // __CandyPrint__(cxx-print-scalar,norm)
+
+                        display(next[0]);
+
+                        if( norm < .2 )
+                                return state;
+
+                        state = next;
                 }
 
-                Eigen::VectorXd proto(169);
-                proto.fill(.0);
                 std::vector<Eigen::VectorXd> result;
-                result.push_back(proto);
-                result.push_back(proto);
+                result.push_back(Eigen::VectorXd::Zero(169));
+                result.push_back(Eigen::VectorXd::Zero(169));
                 return result;
         }
 

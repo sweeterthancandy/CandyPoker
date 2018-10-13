@@ -329,6 +329,11 @@ struct class_cache_maker{
 
                 size_t count = 0;
                 enum{ MaxCount = 50 };
+                auto save = [&](){
+                        std::cout << "Saving...\n";
+                        cache->save(file_name);
+                        std::cout << "Done\n";
+                };
                 for(holdem_class_iterator iter(n),end;iter!=end;++iter){
                         auto vec = *iter;
                         BOOST_ASSERT( vec.is_standard_form() );
@@ -356,11 +361,10 @@ struct class_cache_maker{
 			cache->add(vec, view);
                         if( ++count == MaxCount ){
                                 count = 0;
-                                std::cout << "Saving...\n";
-                                cache->save(file_name);
-                                std::cout << "Done\n";
+                                save();
                         }
                 }
+                save();
         }
 };
 
@@ -438,6 +442,46 @@ static TrivialCommandDecl<MaskEval> MaskEvalDecl{"eval"};
 
 
 
+/*
+ * 2 player
+        
+        player ev
+        =========
+ 
+        ---+---------------
+        f_ | 0
+        pf | sb+bb
+        pp | 2*S*Ev - (S-sb)
+
+        ---+---------------
+        pf | 0
+        pp | 2*S*Ev - (S-bb)
+        
+
+        total value
+        ===========
+
+
+        ---+---------------
+        f_ | -sb
+        pf | bb
+        pp | 2*S*Ev - S
+        
+        ---+---------------
+        pf | -sb
+        pp | 2*S*Ev - S
+
+
+
+
+
+ */
+namespace gt{
+        struct node{
+        };
+        struct choice : node{
+        };
+} // end namespace gt
 
 
 

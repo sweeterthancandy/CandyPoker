@@ -536,9 +536,35 @@ namespace gt{
                                 result(id) = 1.0;
                         }
                 }
-                std::cout << "push => " << push << "\n"; // __CandyPrint__(cxx-print-scalar,push)
-                std::cout << "fold => " << fold << "\n"; // __CandyPrint__(cxx-print-scalar,fold)
 
+                return result;
+        }
+        Eigen::VectorXd unilateral_bb_maximal_exploitable(gt_context const& ctx,
+                                                          class_cache const& cache,
+                                                          Eigen::VectorXd const& sb_strat)
+        {
+                Eigen::VectorXd push(169);
+                push.fill(0.);
+                Eigen::VectorXd fold(169);
+                fold.fill(0.);
+
+
+                for(holdem_class_perm_iterator iter(2),end;iter!=end;++iter){
+                        double p = (*iter).prob();
+
+                        auto const& cv = *iter;
+
+                        fold(cv[1]) += p * combination_value(ctx, cache, *iter, sb_strat[cv[0]], 0.0)[1];
+                        push(cv[1]) += p * combination_value(ctx, cache, *iter, sb_strat[cv[0]], 1.0)[1];
+                }
+
+                Eigen::VectorXd result(169);
+                result.fill(.0);
+                for(holdem_class_id id=0;id!=169;++id){
+                        if( push(id) >= fold(id) ){
+                                result(id) = 1.0;
+                        }
+                }
 
                 return result;
         }
@@ -682,10 +708,14 @@ struct HeadUpSolverCmd : Command{
                 using namespace gt;
                 gt_context gtctx(10., .5, 1.);
 
-                auto bb_counter = unilateral_sb_maximal_exploitable(gtctx,
+                auto sb_counter = unilateral_sb_maximal_exploitable(gtctx,
                                                                     cc,
                                                                     s1);
+                auto bb_counter = unilateral_sb_maximal_exploitable(gtctx,
+                                                                    cc,
+                                                                    sb_counter);
 
+                display(sb_counter);
                 display(bb_counter);
 
 

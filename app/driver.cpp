@@ -483,6 +483,7 @@ namespace gt{
                 double bb_;
         };
 
+        // returns a vector each players hand value
         Eigen::VectorXd combination_value(gt_context const& ctx,
                                           class_cache const& cache,
                                           holdem_class_vector const& vec,
@@ -509,26 +510,27 @@ namespace gt{
 
                 return result;
         }
-
-        Eigen::VectorXd unilateral_sb_maximal_exploitable(gt_context const& ctx,
-                                                          class_cache const& cache,
-                                                          Eigen::VectorXd const& bb_strat)
+        
+        Eigen::VectorXd unilateral_detail(gt_context const& ctx,
+                                          class_cache const& cache,
+                                          size_t idx,
+                                          Eigen::VectorXd const& s0,
+                                          Eigen::VectorXd const& s1)
         {
-                Eigen::VectorXd push(169);
-                push.fill(0.);
-                Eigen::VectorXd fold(169);
-                fold.fill(0.);
-
+                Eigen::VectorXd result(169);
+                result.fill(.0);
 
                 for(holdem_class_perm_iterator iter(2),end;iter!=end;++iter){
-                        double p = (*iter).prob();
 
                         auto const& cv = *iter;
+                        double p = cv.prob();
 
-                        fold(cv[0]) += p * combination_value(ctx, cache, *iter, 0.0, bb_strat[cv[1]])[0];
-                        push(cv[0]) += p * combination_value(ctx, cache, *iter, 1.0, bb_strat[cv[1]])[0];
+                        result(cv[idx]) += p * combination_value(ctx, cache, *iter, s0[cv[0]], s1[cv[1]])[idx];
                 }
 
+                return result;
+        }
+        Eigen::VectorXd choose_push_fold(Eigen::VectorXd const& push, Eigen::VectorXd const& fold){
                 Eigen::VectorXd result(169);
                 result.fill(.0);
                 for(holdem_class_id id=0;id!=169;++id){
@@ -536,38 +538,31 @@ namespace gt{
                                 result(id) = 1.0;
                         }
                 }
-
                 return result;
+        }
+        Eigen::VectorXd unilateral_sb_maximal_exploitable(gt_context const& ctx,
+                                                           class_cache const& cache,
+                                                           Eigen::VectorXd const& bb_strat)
+        {
+
+                Eigen::VectorXd fold_s = Eigen::VectorXd::Zero(169);
+                Eigen::VectorXd push_s = Eigen::VectorXd::Ones(169);
+                auto fold = unilateral_detail(ctx, cache, 0, fold_s, bb_strat);
+                auto push = unilateral_detail(ctx, cache, 0, push_s, bb_strat);
+                return choose_push_fold(push, fold);
         }
         Eigen::VectorXd unilateral_bb_maximal_exploitable(gt_context const& ctx,
-                                                          class_cache const& cache,
-                                                          Eigen::VectorXd const& sb_strat)
+                                                           class_cache const& cache,
+                                                           Eigen::VectorXd const& sb_strat)
         {
-                Eigen::VectorXd push(169);
-                push.fill(0.);
-                Eigen::VectorXd fold(169);
-                fold.fill(0.);
 
-
-                for(holdem_class_perm_iterator iter(2),end;iter!=end;++iter){
-                        double p = (*iter).prob();
-
-                        auto const& cv = *iter;
-
-                        fold(cv[1]) += p * combination_value(ctx, cache, *iter, sb_strat[cv[0]], 0.0)[1];
-                        push(cv[1]) += p * combination_value(ctx, cache, *iter, sb_strat[cv[0]], 1.0)[1];
-                }
-
-                Eigen::VectorXd result(169);
-                result.fill(.0);
-                for(holdem_class_id id=0;id!=169;++id){
-                        if( push(id) >= fold(id) ){
-                                result(id) = 1.0;
-                        }
-                }
-
-                return result;
+                Eigen::VectorXd fold_s = Eigen::VectorXd::Zero(169);
+                Eigen::VectorXd push_s = Eigen::VectorXd::Ones(169);
+                auto fold = unilateral_detail(ctx, cache, 1, sb_strat, fold_s);
+                auto push = unilateral_detail(ctx, cache, 1, sb_strat, push_s);
+                return choose_push_fold(push, fold);
         }
+
         
         // print pretty table
         //
@@ -657,6 +652,11 @@ namespace gt{
                 }
         }
 
+        struct solver_context{
+                Eigen::VectorXd s0;
+                Eigen::VectorXd s1;
+        };
+
         std::vector<Eigen::VectorXd> solve(gt_context const& ctx, class_cache const& cache)
         {
                 Eigen::VectorXd s0(169);
@@ -664,7 +664,7 @@ namespace gt{
 
                 double factor = 0.05;
 
-                enum{ MaxIter = 100 };
+                enum{ MaxIter = 400 };
                 for(size_t idx=0;idx<MaxIter;++idx){
 
                         auto bb_counter = unilateral_bb_maximal_exploitable(ctx,
@@ -752,12 +752,18 @@ struct HeadUpSolverCmd : Command{
 
                 using result_t = std::future<std::tuple<double, std::vector<Eigen::VectorXd> > >;
                 std::vector<result_t> tmp;
-                for(double eff = 10.0;eff <= 20.0;eff+=5.0){
+                auto enque = [&](double eff){
                         tmp.push_back(std::async([eff,&cc](){
                                 gt_context gtctx(eff, .5, 1.);
                                 return std::make_tuple(eff, solve(gtctx, cc));
                         }));
+                };
+                #if 0
+                for(double eff = 10.0;eff <= 20.0;eff+=1.0){
+                        enque(eff);
                 }
+                #endif
+                enque(20);
                 Eigen::VectorXd s0(169);
                 s0.fill(.0);
                 Eigen::VectorXd s1(169);

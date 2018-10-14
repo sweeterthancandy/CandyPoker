@@ -203,7 +203,7 @@ struct MaskEval : Command{
                 mgr.add_pass<pass_collect>();
                 if( debug )
                         mgr.add_pass<pass_print>();
-                mgr.add_pass<pass_eval_hand_instr>();
+                mgr.add_pass<pass_eval_hand_instr_vec>();
                 if( debug )
                         mgr.add_pass<pass_print>();
 

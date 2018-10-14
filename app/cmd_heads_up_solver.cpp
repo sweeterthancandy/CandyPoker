@@ -324,8 +324,19 @@ namespace gt{
         };
 
         struct make_solver{
+
+                using state_t         = std::vector<Eigen::VectorXd>;
+                using step_observer_t = std::function<void(state_t const&)>;
+
                 explicit make_solver(gt_context const& ctx){
                         ctx_ = &ctx;
+                        stop_cond_ = [](state_t const& from, state_t const& to){
+                                double epsilon = 0.2;
+                                auto d = from[0] - to[0];
+                                auto norm = d.lpNorm<1>();
+                                auto cond = ( norm < epsilon );
+                                return cond;
+                        };
                 }
                 make_solver& use_solver(std::shared_ptr<solver> s){
                         solver_ = s;
@@ -339,6 +350,10 @@ namespace gt{
                         state0_ = s0;
                         return *this;
                 }
+                make_solver& observer(step_observer_t obs){
+                        obs_.push_back(obs);
+                        return *this;
+                }
                 std::vector<Eigen::VectorXd> run(){
 
                         BOOST_ASSERT(ctx_ );
@@ -347,40 +362,25 @@ namespace gt{
                         BOOST_ASSERT(state0_.size() );
 
                         std::vector<Eigen::VectorXd> state = state0_;
-                        double epsilon = 0.2;
+                        for(auto& _ : obs_){
+                                _(state);
+                        }
 
                         enum{ MaxIter = 400 };
                         for(size_t idx=0;idx<MaxIter;++idx){
 
                                 auto next = solver_->step(*ctx_, *cc_, state);
-                                auto d = next[0] - state[0];
-                                auto norm = d.lpNorm<1>();
 
-                                #if 0
-                                std::cout << "norm => " << norm << "\n"; // __CandyPrint__(cxx-print-scalar,norm)
-                                #endif
-
-                                if( norm < epsilon ){
+                                if( stop_cond_(state, next) ){
                                         state[0] = clamp(state[0]);
                                         state[1] = clamp(state[1]);
                                         return state;
                                 }
-
-                                #if 0
-                                if( memory.count( next ) != 0 ){
-                                        BOOST_LOG_TRIVIAL(warning) << "loop";
-                                }
-                                memory.insert(next);
-                                #endif
-
                                 state = next;
+                                for(auto& _ : obs_){
+                                        _(state);
+                                }
 
-                                #if 0
-                                std::cout << "S_0\n";
-                                pretty_print_strat(state[0], 1);
-                                std::cout << "S_1\n";
-                                pretty_print_strat(state[1], 1);
-                                #endif
                         }
 
                         std::vector<Eigen::VectorXd> result;
@@ -395,6 +395,8 @@ namespace gt{
                 class_cache const* cc_;
                 std::shared_ptr<solver> solver_;
                 std::vector<Eigen::VectorXd> state0_;
+                std::vector<step_observer_t > obs_;
+                std::function<bool(state_t const&, state_t const&)> stop_cond_;
         };
         
 

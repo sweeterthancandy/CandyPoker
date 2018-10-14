@@ -323,13 +323,34 @@ namespace gt{
                 double factor_;
         };
 
+        struct cond_single_strategy_lp1{
+                using state_t = std::vector<Eigen::VectorXd>;
+                cond_single_strategy_lp1(size_t idx, double epsilon)
+                        :idx_(idx),
+                        epsilon_(epsilon)
+                {}
+                bool operator()(state_t const& from, state_t const& to)const{
+                        auto d = from[idx_] - to[idx_];
+                        auto norm = d.lpNorm<1>();
+                        auto cond = ( norm < epsilon_ );
+                        return cond;
+                }
+        private:
+                size_t idx_;
+                double epsilon_;
+        };
+
         struct make_solver{
+                
+                enum{ DefaultMaxIter = 400 };
 
                 using state_t         = std::vector<Eigen::VectorXd>;
                 using step_observer_t = std::function<void(state_t const&)>;
+                using stoppage_condition_t = std::function<bool(state_t const&, state_t const&)>;
 
                 explicit make_solver(gt_context const& ctx){
                         ctx_ = &ctx;
+                        #if 0
                         stop_cond_ = [](state_t const& from, state_t const& to){
                                 double epsilon = 0.2;
                                 auto d = from[0] - to[0];
@@ -337,6 +358,7 @@ namespace gt{
                                 auto cond = ( norm < epsilon );
                                 return cond;
                         };
+                        #endif
                 }
                 make_solver& use_solver(std::shared_ptr<solver> s){
                         solver_ = s;
@@ -344,6 +366,10 @@ namespace gt{
                 }
                 make_solver& use_cache(class_cache const& cc){
                         cc_ = &cc;
+                        return *this;
+                }
+                make_solver& max_steps(size_t n){
+                        max_steps_ = n;
                         return *this;
                 }
                 make_solver& init_state(std::vector<Eigen::VectorXd> const& s0){
@@ -354,20 +380,24 @@ namespace gt{
                         obs_.push_back(obs);
                         return *this;
                 }
+                make_solver& stoppage_condition(stoppage_condition_t cond){
+                        stop_cond_ = cond;
+                        return *this;
+                }
                 std::vector<Eigen::VectorXd> run(){
 
                         BOOST_ASSERT(ctx_ );
                         BOOST_ASSERT(cc_ );
                         BOOST_ASSERT(solver_ );
                         BOOST_ASSERT(state0_.size() );
+                        BOOST_ASSERT( stop_cond_ );
 
                         std::vector<Eigen::VectorXd> state = state0_;
                         for(auto& _ : obs_){
                                 _(state);
                         }
 
-                        enum{ MaxIter = 400 };
-                        for(size_t idx=0;idx<MaxIter;++idx){
+                        for(size_t idx=0;idx<max_steps_;++idx){
 
                                 auto next = solver_->step(*ctx_, *cc_, state);
 
@@ -396,7 +426,8 @@ namespace gt{
                 std::shared_ptr<solver> solver_;
                 std::vector<Eigen::VectorXd> state0_;
                 std::vector<step_observer_t > obs_;
-                std::function<bool(state_t const&, state_t const&)> stop_cond_;
+                stoppage_condition_t stop_cond_;
+                size_t max_steps_{DefaultMaxIter};
         };
         
 
@@ -475,16 +506,6 @@ struct HeadUpSolverCmd : Command{
                 std::string cache_name{".cc.bin"};
                 cc.load(cache_name);
 
-
-                #if 0
-                holdem_class_vector AA_KK{0,1};
-                holdem_class_vector KK_AA{1,0};
-                std::cout << "AA_KK => " << AA_KK << "\n"; // __CandyPrint__(cxx-print-scalar,AA_KK)
-                std::cout << "KK_AA => " << KK_AA << "\n"; // __CandyPrint__(cxx-print-scalar,KK_AA)
-                std::cout << "cc.LookupVector(AA_KK) => " << cc.LookupVector(AA_KK) << "\n"; // __CandyPrint__(cxx-print-scalar,cc.LookupVector(AA_KK))
-                std::cout << "cc.LookupVector(KK_AA) => " << cc.LookupVector(KK_AA) << "\n"; // __CandyPrint__(cxx-print-scalar,cc.LookupVector(KK_AA))
-                #endif
-
                 using namespace gt;
 
                 std::vector<Eigen::VectorXd> state0;
@@ -499,6 +520,7 @@ struct HeadUpSolverCmd : Command{
                                 auto result = make_solver(gtctx)
                                         .use_solver(std::make_shared<maximal_exploitable_solver>())
                                         .use_cache(cc)
+                                        .stoppage_condition(cond_single_strategy_lp1(0, 0.1))
                                         .init_state(state0)
                                         .run();
                                 return std::make_tuple(eff, result);

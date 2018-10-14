@@ -83,7 +83,7 @@ namespace ps{
 namespace gt{
 
 
-        struct game_tree_node;
+        struct eval_tree_node;
 
         struct gt_context{
                 gt_context(size_t num_players, double eff, double sb, double bb)
@@ -97,7 +97,7 @@ namespace gt{
                 double sb()const{ return sb_; }
                 double bb()const{ return bb_; }
 
-                gt_context& use_game_tree(std::shared_ptr<game_tree_node> gt){
+                gt_context& use_game_tree(std::shared_ptr<eval_tree_node> gt){
                         gt_ = gt;
                         return *this;
                 }
@@ -106,7 +106,7 @@ namespace gt{
                         return *this;
                 }
                 
-                std::shared_ptr<game_tree_node> root()const{
+                std::shared_ptr<eval_tree_node> root()const{
                         return gt_;
                 }
                 class_cache const* cc()const{
@@ -125,23 +125,23 @@ namespace gt{
                 double sb_;
                 double bb_;
 
-                std::shared_ptr<game_tree_node> gt_;
+                std::shared_ptr<eval_tree_node> gt_;
                 class_cache const* cc_;
         };
 
 
-        struct game_tree_node{
+        struct eval_tree_node{
                 enum{ MinusZero = 1024 };
                 virtual void evaluate(Eigen::VectorXd& out,
                                       double p,
                                       gt_context const& ctx,
                                       holdem_class_vector const& vec,
                                       Eigen::VectorXd const& s)=0;
-                game_tree_node& times(size_t idx){
+                eval_tree_node& times(size_t idx){
                         p_ticker_.push_back(static_cast<int>(idx));
                         return *this;
                 }
-                game_tree_node& not_times(size_t idx){
+                eval_tree_node& not_times(size_t idx){
                         if( idx == 0 ){
                                 p_ticker_.push_back(MinusZero);
                         } else {
@@ -167,8 +167,8 @@ namespace gt{
                 // we encode -0 here
                 std::vector<int> p_ticker_;
         };
-        struct game_tree_node_static : game_tree_node{
-                explicit game_tree_node_static(Eigen::VectorXd vec):
+        struct eval_tree_node_static : eval_tree_node{
+                explicit eval_tree_node_static(Eigen::VectorXd vec):
                         vec_{vec}
                 {}
 
@@ -190,9 +190,9 @@ namespace gt{
                 Eigen::VectorXd vec_;
         };
 
-        struct game_tree_node_eval : game_tree_node{
+        struct eval_tree_node_eval : eval_tree_node{
                 explicit
-                game_tree_node_eval(std::vector<size_t> mask)
+                eval_tree_node_eval(std::vector<size_t> mask)
                         :mask_{mask}
                 {
                         v_mask_.resize(mask_.size());
@@ -224,9 +224,9 @@ namespace gt{
                 Eigen::VectorXd v_mask_;
         };
 
-        struct game_tree_non_terminal
-                : public game_tree_node
-                , public std::vector<std::shared_ptr<game_tree_node> >
+        struct eval_tree_non_terminal
+                : public eval_tree_node
+                , public std::vector<std::shared_ptr<eval_tree_node> >
         {
                 virtual void evaluate(Eigen::VectorXd& out,
                                       double p,
@@ -242,16 +242,48 @@ namespace gt{
                 }
         };
 
-        struct hu_game_tree : game_tree_non_terminal{
+        struct hu_eval_tree : eval_tree_non_terminal{
                 explicit
-                hu_game_tree( gt_context const& ctx){
+                hu_eval_tree( gt_context const& ctx){
+
+                        #if 0
+                        Eigen::VectorXd pot{2};
+                        pot(0) = ctx.sb();
+                        pot(1) = ctx.bb();
+
+                        Eigen::VectorXd v_f_{2};
+                        v_f_(0) = -ctx.sb();
+                        v_f_(1) =  ctx.sb();
+                        auto n_f_ = std::make_shared<eval_tree_node_static>(v_f_);
+                        n_f_->not_times(0);
+                        push_back(n_f_);
+
+                        auto n_p_ = std::make_shared<eval_tree_non_terminal>();
+                        n_p_->times(0);
 
 
+                        Eigen::VectorXd v_pf{2};
+                        v_pf(0) =  ctx.bb();
+                        v_pf(1) = -ctx.bb();
+                        auto n_pf = std::make_shared<eval_tree_node_static>(v_pf);
+                        n_pf->not_times(1);
+                        n_p_->push_back(n_pf);
+
+                        std::vector<size_t> m_pp;
+                        m_pp.push_back(0);
+                        m_pp.push_back(1);
+                        auto n_pp = std::make_shared<eval_tree_node_eval>(m_pp);
+                        n_pp->times(0);
+                        n_pp->times(1);
+                        n_p_->push_back(n_pp);
+                        #endif
+
+                        #if 1
                         do{
                                 Eigen::VectorXd v_f_{2};
                                 v_f_(0) = -ctx.sb();
                                 v_f_(1) =  ctx.sb();
-                                auto n_f_ = std::make_shared<game_tree_node_static>(v_f_);
+                                auto n_f_ = std::make_shared<eval_tree_node_static>(v_f_);
                                 n_f_->not_times(0);
                                 push_back(n_f_);
                         }while(0);
@@ -260,7 +292,7 @@ namespace gt{
                                 Eigen::VectorXd v_pf{2};
                                 v_pf(0) =  ctx.bb();
                                 v_pf(1) = -ctx.bb();
-                                auto n_pf = std::make_shared<game_tree_node_static>(v_pf);
+                                auto n_pf = std::make_shared<eval_tree_node_static>(v_pf);
                                 n_pf->times(0);
                                 n_pf->not_times(1);
                                 push_back(n_pf);
@@ -270,7 +302,45 @@ namespace gt{
                                 std::vector<size_t> m_pp;
                                 m_pp.push_back(0);
                                 m_pp.push_back(1);
-                                auto n_pp = std::make_shared<game_tree_node_eval>(m_pp);
+                                auto n_pp = std::make_shared<eval_tree_node_eval>(m_pp);
+                                n_pp->times(0);
+                                n_pp->times(1);
+                                push_back(n_pp);
+                        }while(0);
+                        #endif
+
+                }
+        };
+#if 0
+        struct hu_pot_game_tree : eval_tree_non_terminal{
+                explicit
+                hu_pot_game_tree( gt_context const& ctx){
+
+
+                        do{
+                                Eigen::VectorXd v_f_{2};
+                                v_f_(0) = -ctx.sb();
+                                v_f_(1) =  ctx.sb();
+                                auto n_f_ = std::make_shared<eval_tree_node_static>(v_f_);
+                                n_f_->not_times(0);
+                                push_back(n_f_);
+                        }while(0);
+
+                        do{
+                                Eigen::VectorXd v_pf{2};
+                                v_pf(0) =  ctx.bb();
+                                v_pf(1) = -ctx.bb();
+                                auto n_pf = std::make_shared<eval_tree_node_static>(v_pf);
+                                n_pf->times(0);
+                                n_pf->not_times(1);
+                                push_back(n_pf);
+                        }while(0);
+
+                        do{
+                                std::vector<size_t> m_pp;
+                                m_pp.push_back(0);
+                                m_pp.push_back(1);
+                                auto n_pp = std::make_shared<eval_tree_node_eval>(m_pp);
                                 n_pp->times(0);
                                 n_pp->times(1);
                                 push_back(n_pp);
@@ -278,6 +348,209 @@ namespace gt{
 
                 }
         };
+#endif
+
+        struct decl_none{};
+        struct decl_post_sb{};
+        struct decl_post_bb{};
+        struct decl_push{};
+        struct decl_fold{};
+        struct decl_pot{};
+
+        using action_type = boost::variant<decl_none, decl_post_sb, decl_post_bb, decl_push, decl_fold, decl_pot>;
+
+        using action_vec = std::vector<action_type>;
+
+        struct branch{
+
+                explicit branch(gt_context const& gctx){
+                        active_.resize(gctx.num_players());
+                        active_.fill(0.);
+                        pot_.resize(gctx.num_players());
+                        pot_.fill(0.);
+                        stack_.resize(gctx.num_players());
+                        stack_.fill(gctx.eff());
+                }
+                branch(branch const& parent){
+                        pot_    = parent.pot_;
+                        stack_  = parent.stack_;
+                        active_ = parent.active_;
+                        head_   = parent.head_;
+                        end_    = parent.end_;
+                        increment_ptr();
+                }
+
+                // modifiers
+                void put_in_pot(double val){
+                        auto capped_val = std::max(val, stack_(head_));
+                        pot_(head_) += capped_val;
+                        stack_(head_) -= capped_val;
+                }
+                void increment_ptr(){
+                        size_t last = head_;
+                        for(;;){
+                                increment_ptr_impl();
+                                if( active_[head_] )
+                                        break;
+                                if( head_ == last ){
+                                        end_ = true;
+                                        break;
+                                }
+                        }
+                }
+                void increment_ptr_impl(){
+                        ++head_;
+                        head_ = head_ % active_.size();
+                }
+
+
+                static std::shared_ptr<branch> generate(gt_context const& gctx,
+                                                        action_vec const& forced,
+                                                        action_vec const& choices);
+        private:
+                friend class game_tree_builder;
+
+                Eigen::VectorXd pot_;
+                Eigen::VectorXd stack_;
+                Eigen::VectorXi active_;
+                size_t head_{0};
+                bool end_{false};
+                std::vector<branch> next_;
+                action_type action_;
+        };
+        
+        std::shared_ptr<branch> branch::generate(gt_context const& gctx,
+                                                 action_vec const& forced,
+                                                 action_vec const& choices)
+        {
+                std::shared_ptr<branch> root(new branch{gctx});
+
+                struct forced_accept : boost::static_visitor<void>{
+                        explicit
+                        forced_accept(std::shared_ptr<branch> head_)
+                                :head(head_)
+                        {}
+                        void operator()(decl_post_sb const& a){
+                        }
+                        void operator()(decl_post_bb const& a){
+                        }
+                        void operator()(decl_push const& a){
+                        }
+                        void operator()(decl_fold const& a){}
+                        void operator()(decl_pot const& a){}
+                        void operator()(decl_none const& a){}
+                        std::shared_ptr<branch> head;
+                };
+
+                forced_accept fa{root};
+                for(auto const& a : forced ){
+                        boost::apply_visitor(fa, a);
+                }
+                return root;
+        }
+        struct Scratch : Command{
+                explicit
+                Scratch(std::vector<std::string> const& args):players_s_{args}{}
+                virtual int Execute()override{
+                        return EXIT_SUCCESS;
+                }
+        private:
+                std::vector<std::string> const& players_s_;
+        };
+        static TrivialCommandDecl<Scratch> ScratchDecl{"scratch"};
+
+        #if 0
+        struct game_tree_builder{
+
+
+                explicit
+                game_tree_builder(gt_context const& ctx)
+                        : gtctx_{&ctx}
+                {
+                        actions_.emplace_back();
+                }
+                void next(){
+                        actions_.emplace_back();
+                }
+                game_tree_builder& post_sb(){
+                        head_->
+                        return *this;
+                }
+                game_tree_builder& post_bb(){
+                        actions_.back().emplace_back(decl_post_bb());
+                        return *this;
+                }
+                game_tree_builder& push(){
+                        actions_.back().emplace_back(decl_push());
+                        return *this;
+                }
+                game_tree_builder& fold(){
+                        actions_.back().emplace_back(decl_fold());
+                        return *this;
+                }
+                game_tree_builder& pot(){
+                        actions_.back().emplace_back(decl_pot());
+                        return *this;
+                }
+                std::shared_ptr<eval_tree_node> make()const{
+
+                        struct branch{
+                                Eigen::VectorXd pot;
+                                Eigen::VectorXd stack;
+                                std::vector<size_t> active;
+                                size_t ptr_{0};
+
+                        };
+                        struct context{
+                                context(gt_context const* gtctx_)
+                                        : gtctx{gtctx_}
+                                {
+                                        graph.emplace_back();
+                                        graph.back().active.resize(num_players_);
+                                        graph.back().active.fill(0.);
+                                        graph.back().pot.resize(num_players_);
+                                        graph.back().pot.fill(0.);
+                                        graph.back().stack.resize(num_players_);
+                                        graph.back().stack.fill(gtctx->eff())
+                                }
+                                gt_context const& gtctx;
+                                std::vector<branch> graph;
+                                std::vector<branch> out;
+                        };
+
+                        struct accept_type : boost::static_visitor<void>{
+                                void operator()(decl_post_sb const& a){
+                                        BOOST_ASSERT( ctx->graph.size() == 1 );
+
+                                        auto new_branch = graph;
+                                        for(auto& _ : copy){
+                                                _.
+                                        }
+                                }
+                                void operator()(decl_post_bb const& a){
+                                        BOOST_ASSERT( ctx->graph.size() == 1 );
+                                        
+                                        auto& g = ctx->graph.back().put_in_pot( ctx->gtctx->bb() );
+                                }
+                                void operator()(decl_push const& a){
+                                }
+                                void operator()(decl_fold const& a){}
+                                void operator()(decl_pot const& a){}
+                                context* ctx;
+                        };
+                        context ctx(num_players_);
+                        accept_type accept{&ctx};
+
+                        for(auto const& a : actions_){
+                                boost::apply_visitor( accept, a);
+                        }
+                }
+        private:
+                gt_context const& gtctx_;
+                std::shared_ptr<branch> head_;
+                std::vector<std::shared_ptr<branch> > head_;
+        };
+        #endif
         
         
 
@@ -494,7 +767,12 @@ struct HeadUpSolverCmd : Command{
                 class_cache cc;
 	
                 std::string cache_name{".cc.bin"};
-                cc.load(cache_name);
+                try{
+                        cc.load(cache_name);
+                }catch(std::exception const& e){
+                        std::cerr << "Failed to load (" << e.what() << ")\n";
+                        throw;
+                }
 
                 using namespace gt;
 
@@ -509,7 +787,7 @@ struct HeadUpSolverCmd : Command{
                 auto enque = [&](double eff){
                         tmp.push_back(std::async([eff,&cc,&state0](){
                                 gt_context gtctx(2, eff, .5, 1.);
-                                auto root = std::make_shared<hu_game_tree>(gtctx);
+                                auto root = std::make_shared<hu_eval_tree>(gtctx);
                                 gtctx.use_game_tree(root);
                                 gtctx.use_cache(cc);
                                 auto result = make_solver(gtctx)

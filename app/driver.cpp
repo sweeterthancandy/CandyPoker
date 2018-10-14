@@ -232,16 +232,6 @@ static TrivialCommandDecl<MaskEval> MaskEvalDecl{"eval"};
 
 
 
-struct Scratch : Command{
-        explicit
-        Scratch(std::vector<std::string> const& args):players_s_{args}{}
-        virtual int Execute()override{
-                return EXIT_SUCCESS;
-        }
-private:
-        std::vector<std::string> const& players_s_;
-};
-static TrivialCommandDecl<Scratch> ScratchDecl{"scratch"};
 
 
 

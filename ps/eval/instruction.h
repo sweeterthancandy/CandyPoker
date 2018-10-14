@@ -10,7 +10,7 @@
 #include <list>
 #include <tuple>
 
-#include "ps/base/holdem_class_vector.h"
+#include "ps/base/cards.h"
 #include "ps/base/algorithm.h"
 #include "ps/base/frontend.h"
 #include "ps/base/tree.h"

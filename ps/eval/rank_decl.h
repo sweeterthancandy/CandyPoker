@@ -2,7 +2,7 @@
 #define PS_EVAL_RANKING_DECL_H
 
 
-#include "ps/base/rank_vector.h"
+#include "ps/base/cards.h"
 
 namespace ps{
 

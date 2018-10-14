@@ -8,10 +8,27 @@
 #include "ps/base/cards_fwd.h"
 #include "ps/detail/void_t.h"
 #include "ps/detail/print.h"
-#include "ps/base/holdem_hand_vector.h"
+#include "ps/base/cards.h"
+#include "ps/support/index_sequence.h"
 
 
 namespace ps{
+        
+        struct card_vector : std::vector<card_id>{
+                template<class... Args>
+                card_vector(Args&&... args):std::vector<card_id>{std::forward<Args>(args)...}{}
+
+                size_t mask()const{
+                        size_t m{0};
+                        for( auto id : *this ){
+                                m |= ( static_cast<size_t>(1) << id );
+                        }
+                        return m;
+                }
+                static card_vector from_bitmask(size_t mask);
+
+                friend std::ostream& operator<<(std::ostream& ostr, card_vector const& self);
+        };
 
         struct suit_decl{
                 suit_decl(suit_id id, char sym, std::string const& name)
@@ -176,6 +193,43 @@ namespace ps{
                 card_decl second_;
 
         };
+        
+        /*
+                Hand vector is a vector of hands
+         */
+        struct holdem_hand_vector : std::vector<ps::holdem_id>{
+                template<class... Args>
+                holdem_hand_vector(Args&&... args)
+                : std::vector<ps::holdem_id>{std::forward<Args>(args)...}
+                {}
+                holdem_hand_decl const& decl_at(size_t i)const;
+                friend std::ostream& operator<<(std::ostream& ostr, holdem_hand_vector const& self);
+                auto find_injective_permutation()const;
+                bool disjoint()const;
+                bool is_standard_form()const;
+                size_t mask()const;
+                card_vector to_card_vector()const;
+        };
+
+        struct holdem_hand_iterator :
+                basic_index_iterator<
+                        holdem_id,
+                        strict_lower_triangle_policy,
+                        holdem_hand_vector
+                >
+        {
+                using impl_t = 
+                        basic_index_iterator<
+                                holdem_id,
+                                strict_lower_triangle_policy,
+                                holdem_hand_vector
+                        >
+                ;
+                holdem_hand_iterator():impl_t{}{}
+                holdem_hand_iterator(size_t n):
+                        impl_t(n, 52 * 51 / 2)
+                {}
+        };
 
         struct holdem_class_decl{
                 static constexpr const holdem_class_id max_id = 13 * 13;
@@ -235,9 +289,156 @@ namespace ps{
         };
 
 
+        struct rank_vector : std::vector<rank_id>{
+                template<class... Args>
+                rank_vector(Args&&... args):std::vector<rank_id>{std::forward<Args>(args)...}{}
+
+                friend std::ostream& operator<<(std::ostream& ostr, rank_vector const& self);
+        };
+        struct holdem_class_range : std::vector<ps::holdem_class_id>{
+                template<
+                        class... Args,
+                        class = std::enable_if_t< ! std::is_constructible<std::string, Args...>::value  >
+                >
+                holdem_class_range(Args&&... args)
+                : std::vector<ps::holdem_id>{std::forward<Args>(args)...}
+                {}
+                holdem_class_range(std::string const& item);
+                friend std::ostream& operator<<(std::ostream& ostr, holdem_class_range const& self);
+                void parse(std::string const& item);
+        };
+        
+        
+        struct holdem_class_vector : std::vector<ps::holdem_class_id>{
+                template<class... Args>
+                holdem_class_vector(Args&&... args)
+                : std::vector<ps::holdem_class_id>{std::forward<Args>(args)...}
+                {}
+                friend std::ostream& operator<<(std::ostream& ostr, holdem_class_vector const& self);
+                holdem_class_decl const& decl_at(size_t i)const;
+                std::vector< holdem_hand_vector > get_hand_vectors()const;
+
+                std::string to_string()const{
+                        std::stringstream sstr;
+                        sstr << *this;
+                        return sstr.str();
+                }
+
+                template<
+                        class... Args,
+                        class = std::enable_if_t< ! std::is_constructible<std::string, Args...>::value  >
+                >
+                void push_back(Args&&... args){
+                        this->std::vector<ps::holdem_class_id>::push_back(std::forward<Args...>(args)...);
+                }
+                void push_back(std::string const& item){
+                        this->push_back( holdem_class_decl::parse(item).id() );
+                }
+                template<class Archive>
+                void serialize(Archive& ar, unsigned int){
+                        ar & (*reinterpret_cast<std::vector<ps::holdem_class_id>*>(this));
+                }
+
+
+                std::tuple<
+                        std::vector<int>,
+                        holdem_class_vector
+                > 
+                to_standard_form()const;
+                
+                std::vector<
+                       std::tuple< std::vector<int>, holdem_hand_vector >
+                > to_standard_form_hands()const;
+                
+                bool is_standard_form()const;
+
+                auto prob()const{
+                        BOOST_ASSERT(size() == 2 );
+                        return holdem_class_decl::prob(at(0), at(1));
+                }
+        };
+        
+        struct holdem_class_iterator :
+                basic_index_iterator<
+                holdem_class_id,
+                ordered_policy,
+                holdem_class_vector
+                >
+        {
+                using impl_t = 
+                        basic_index_iterator<
+                                holdem_class_id,
+                                ordered_policy,
+                                holdem_class_vector
+                        >
+                        ;
+                holdem_class_iterator():impl_t{}{}
+                holdem_class_iterator(size_t n):
+                        impl_t(n, holdem_class_decl::max_id)
+                {}
+        };
+        struct holdem_class_perm_iterator :
+                basic_index_iterator<
+                holdem_class_id,
+                range_policy,
+                holdem_class_vector
+                >
+        {
+                using impl_t = 
+                        basic_index_iterator<
+                                holdem_class_id,
+                                range_policy,
+                                holdem_class_vector
+                        >
+                        ;
+                holdem_class_perm_iterator():impl_t{}{}
+                holdem_class_perm_iterator(size_t n):
+                        impl_t(n, holdem_class_decl::max_id)
+                {}
+        };
+        typedef std::tuple< std::vector<int>, holdem_class_vector> standard_form_result;
+        inline std::ostream& operator<<(std::ostream& ostr, standard_form_result const& self){
+                return ostr << detail::to_string(std::get<0>(self))
+                        << " x "
+                        << std::get<1>(self);
+        }
+        
+        typedef std::tuple< std::vector<int>, holdem_hand_vector> standard_form_hands_result;
+        inline std::ostream& operator<<(std::ostream& ostr, standard_form_hands_result const& self){
+                return ostr << detail::to_string(std::get<0>(self))
+                        << " x "
+                        << std::get<1>(self);
+        }
+        
+        struct holdem_class_range_vector : std::vector<holdem_class_range>{
+                template<class... Args>
+                holdem_class_range_vector(Args&&... args)
+                : std::vector<holdem_class_range>{std::forward<Args>(args)...}
+                {}
+                friend std::ostream& operator<<(std::ostream& ostr, holdem_class_range_vector const& self);
+
+                void push_back(std::string const& s);
+
+                // Return this expand, ie 
+                //        {{AA,KK},{22}} => {AA,22}, {KK,22}
+                std::vector<holdem_class_vector> get_cross_product()const;
+                // Returns this as a vector of
+                //        (matrix, standard-form-hand-vector)
+                std::vector<
+                       std::tuple< std::vector<int>, holdem_hand_vector >
+                > to_standard_form()const;
+                // Returns this as a vector of
+                //        (matrix, standard-form-class-vector)
+                std::vector<
+                       std::tuple< std::vector<int>, holdem_class_vector >
+                > to_class_standard_form()const;
+
+        };
+        
+        
                 
 
-}
+} // end namespace cards
 
 #include "ps/base/decl.h"
 

@@ -154,6 +154,7 @@ namespace Pretty{
                 };
         } // Detail
 
+        inline
         void RenderTablePretty(std::ostream& ostr,
                                std::vector<LineItem> const& lines,
                                RenderOptions const& opts = RenderOptions{})
@@ -168,6 +169,7 @@ namespace Pretty{
 
                 ostr.flush();
         }
+        inline
         void RenderTablePretty(std::ostream& ostr,
                                std::vector<std::vector<std::string> > const& lines,
                                RenderOptions const& opts = RenderOptions{})
@@ -482,6 +484,7 @@ namespace Pretty{
         };
 
         
+        inline
         PrettyGraph RenderTimeSeries(TimeSeriesRenderOptions const& opts, std::vector<Point> const& vec){
                 using acc_type = ac::accumulator_set<double, 
                         ac::stats<
@@ -520,6 +523,7 @@ namespace Pretty{
 
                 return PrettyGraph{std::move(bitmap)};
         }
+        inline
         void DisplayTimeSeries(TimeSeriesRenderOptions const& opts, std::vector<Point> const& vec){
                 auto graph = RenderTimeSeries(opts, vec);
                 graph
@@ -620,6 +624,7 @@ namespace ps{
         //      A2o         22
         //
         //
+        inline
         void pretty_print_strat(Eigen::VectorXd const& vec, size_t dp){
                 /*
                         token_buffer[0][0] token_buffer[1][0]

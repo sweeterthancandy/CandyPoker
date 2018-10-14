@@ -1,6 +1,8 @@
 #include "ps/base/cards.h"
 #include "ps/base/algorithm.h"
 #include "ps/support/singleton_factory.h"
+#include "ps/base/frontend.h"
+#include "ps/detail/cross_product.h"
 #include <iostream>
 
 #include <boost/range/algorithm.hpp>
@@ -320,6 +322,256 @@ namespace ps{
                         type = holdem_class_type::offsuit;
                 }
                 return holdem_class_decl::make_id(type, first().rank().id(), second().rank().id());
+        }
+        
+        
+        holdem_class_range::holdem_class_range(std::string const& item){
+                this->parse(item);
+        }
+
+        std::ostream& operator<<(std::ostream& ostr, holdem_class_range const& self){
+                return ostr << detail::to_string(self,
+                                                 [](auto id){
+                                                        return holdem_class_decl::get(id).to_string();
+                                                 } );
+        }
+        void holdem_class_range::parse(std::string const& item){
+                auto rep = expand(frontend::parse(item));
+                boost::copy( rep.to_class_vector(), std::back_inserter(*this)); 
+        }
+
+
+
+        std::vector<holdem_class_vector> holdem_class_range_vector::get_cross_product()const{
+                std::vector<holdem_class_vector> ret;
+                detail::cross_product_vec([&](auto const& byclass){
+                        ret.emplace_back();
+                        for( auto iter : byclass ){
+                                ret.back().emplace_back(*iter);
+                        }
+                }, *this);
+                return std::move(ret);
+        }
+
+        std::vector<
+               std::tuple< std::vector<int>, holdem_hand_vector >
+        > holdem_class_range_vector::to_standard_form()const{
+
+                auto const n = size();
+
+                std::map<holdem_hand_vector, std::vector<int>  > result;
+
+                for( auto const& cv : get_cross_product()){
+                        for( auto hv : cv.get_hand_vectors()){
+
+                                auto p =  permutate_for_the_better(hv) ;
+                                auto& perm = std::get<0>(p);
+                                auto const& perm_players = std::get<1>(p);
+
+                                if( result.count(perm_players) == 0 ){
+                                        result[perm_players].resize(n*n);
+                                }
+                                auto& item = result.find(perm_players)->second;
+                                for(int i=0;i!=n;++i){
+                                        ++item[i*n + perm[i]];
+                                }
+                        }
+                }
+                std::vector< std::tuple< std::vector<int>, holdem_hand_vector > > ret;
+                for( auto& m : result ){
+                        ret.emplace_back( std::move(m.second), std::move(m.first));
+                }
+                return std::move(ret);
+        }
+        std::vector<
+               std::tuple< std::vector<int>, holdem_class_vector >
+        > holdem_class_range_vector::to_class_standard_form()const{
+
+                auto const n = size();
+
+                std::map<holdem_class_vector, std::vector<int>  > result;
+
+                for( auto const& cv : get_cross_product()){
+
+                        auto stdform = cv.to_standard_form();
+                        auto const& perm = std::get<0>(stdform);
+                        auto const& perm_cv = std::get<1>(stdform);
+
+                        if( result.count(perm_cv) == 0 ){
+                                result[perm_cv].resize(n*n);
+                        }
+                        auto& item = result.find(perm_cv)->second;
+                        for(int i=0;i!=n;++i){
+                                ++item[i*n + perm[i]];
+                        }
+                }
+                std::vector< std::tuple< std::vector<int>, holdem_class_vector > > ret;
+                for( auto& m : result ){
+                        ret.emplace_back( std::move(m.second), std::move(m.first));
+                }
+                return std::move(ret);
+        }
+                        
+        std::ostream& operator<<(std::ostream& ostr, holdem_class_range_vector const& self){
+                return ostr << detail::to_string(self);
+        }
+
+        void holdem_class_range_vector::push_back(std::string const& s){
+                this->emplace_back(s);
+        }
+
+
+
+        std::ostream& operator<<(std::ostream& ostr, holdem_class_vector const& self){
+                return ostr << detail::to_string(self,
+                                                 [](auto id){
+                                                        return holdem_class_decl::get(id).to_string();
+                                                 } );
+        }
+        holdem_class_decl const& holdem_class_vector::decl_at(size_t i)const{
+                return holdem_class_decl::get( 
+                        this->operator[](i)
+                );
+        }
+
+        std::vector< holdem_hand_vector > holdem_class_vector::get_hand_vectors()const{
+                std::vector< holdem_hand_vector > stack;
+                stack.emplace_back();
+
+                for(size_t i=0; i!= this->size(); ++i){
+                        decltype(stack) next_stack;
+                        auto const& hand_set =  this->decl_at(i).get_hand_set() ;
+                        for( size_t j=0;j!=hand_set.size(); ++j){
+                                for(size_t k=0;k!=stack.size();++k){
+                                        next_stack.push_back( stack[k] );
+                                        next_stack.back().push_back( hand_set[j].id() );
+                                        if( ! next_stack.back().disjoint() )
+                                                next_stack.pop_back();
+                                }
+                        }
+                        stack = std::move(next_stack);
+                }
+                return std::move(stack);
+        }
+        std::tuple<
+                std::vector<int>,
+                holdem_class_vector
+        > holdem_class_vector::to_standard_form()const{
+                std::vector<std::tuple<holdem_class_id, int> > aux;
+                for(int i=0;i!=size();++i){
+                        aux.emplace_back( (*this)[i], i);
+                }
+                boost::sort( aux, [](auto const& l, auto const& r){
+                        return std::get<0>(l) < std::get<0>(r);
+                });
+                std::vector<int> perm;
+                holdem_class_vector vec;
+                for( auto const& t : aux){
+                        vec.push_back(std::get<0>(t));
+                        perm.push_back( std::get<1>(t));
+                }
+                return std::make_tuple(
+                        std::move(perm),
+                        std::move(vec)
+                );
+        }
+        
+        std::vector<
+               std::tuple< std::vector<int>, holdem_hand_vector >
+        > holdem_class_vector::to_standard_form_hands()const{
+                auto const n = size();
+
+                std::map<holdem_hand_vector, std::vector<int>  > result;
+
+                for( auto hv : get_hand_vectors()){
+
+                        auto p =  permutate_for_the_better(hv) ;
+                        auto& perm = std::get<0>(p);
+                        auto const& perm_players = std::get<1>(p);
+
+                        if( result.count(perm_players) == 0 ){
+                                result[perm_players].resize(n*n);
+                        }
+                        auto& item = result.find(perm_players)->second;
+                        for(int i=0;i!=n;++i){
+                                ++item[i*n + perm[i]];
+                        }
+                }
+                std::vector< std::tuple< std::vector<int>, holdem_hand_vector > > ret;
+                for( auto& m : result ){
+                        ret.emplace_back( std::move(m.second), std::move(m.first));
+                }
+                return std::move(ret);
+        }
+
+        bool holdem_class_vector::is_standard_form()const{
+                for( size_t idx = 1; idx < size();++idx){
+                        if( (*this)[idx-1] > (*this)[idx] )
+                                return false; 
+                }
+                return true;
+        }
+
+        holdem_hand_decl const& holdem_hand_vector::decl_at(size_t i)const{
+                return holdem_hand_decl::get( 
+                        this->operator[](i)
+                );
+        }
+        std::ostream& operator<<(std::ostream& ostr, holdem_hand_vector const& self){
+                return ostr << detail::to_string(self,
+                                                 [](auto id){
+                                                        return holdem_hand_decl::get(id).to_string();
+                                                 } );
+        }
+        auto holdem_hand_vector::find_injective_permutation()const{
+                auto tmp =  permutate_for_the_better(*this) ;
+                return std::make_tuple(
+                        std::get<0>(tmp),
+                        holdem_hand_vector(std::move(std::get<1>(tmp))));
+        }
+        bool holdem_hand_vector::disjoint()const{
+                std::set<card_id> s;
+                for( auto id : *this ){
+                        auto const& decl = holdem_hand_decl::get(id);
+                        s.insert( decl.first() );
+                        s.insert( decl.second() );
+                }
+                return s.size() == this->size()*2;
+        }
+
+        bool holdem_hand_vector::is_standard_form()const{
+                auto p =  permutate_for_the_better(*this);
+                auto const& perm = std::get<0>(p);
+                // TODO, need to make sure AA KK KK QQ persevers order etc
+                for( int i=0;i!=perm.size();++i){
+                        if( perm[i] != i )
+                                return false;
+                }
+                return true;
+        }
+        card_vector holdem_hand_vector::to_card_vector()const{
+                card_vector vec;
+                for( auto id : *this ){
+                        auto const& hand = holdem_hand_decl::get(id);
+                        vec.push_back(hand.first().id());
+                        vec.push_back(hand.second().id());
+                }
+                return std::move(vec);
+        }
+        size_t holdem_hand_vector::mask()const{
+                size_t m = 0;
+                for( auto id : *this ){
+                        auto const& hand = holdem_hand_decl::get(id);
+                        m |= (static_cast<size_t>(1) << hand.first().id() );
+                        m |= (static_cast<size_t>(1) << hand.second().id() );
+                }
+                return m;
+        }
+        
+        std::ostream& operator<<(std::ostream& ostr, rank_vector const& self){
+                return ostr << detail::to_string(self, [](auto id){
+                                                 return rank_decl::get(id).to_string();
+                });
         }
 
 } // 

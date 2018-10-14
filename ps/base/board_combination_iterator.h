@@ -1,7 +1,7 @@
 #ifndef PS_BASE_BOARD_COMBINATION_ITERATOR_H
 #define PS_BASE_BOARD_COMBINATION_ITERATOR_H
 
-#include "ps/base/card_vector.h"
+#include "ps/base/cards.h"
 
 namespace ps{
 

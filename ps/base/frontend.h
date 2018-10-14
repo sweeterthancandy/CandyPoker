@@ -18,8 +18,6 @@
 
 #include "ps/base/cards.h"
 #include "ps/base/range.h"
-#include "ps/base/holdem_hand_vector.h"
-#include "ps/base/holdem_class_vector.h"
 
 /*
         The point of the frontend is just

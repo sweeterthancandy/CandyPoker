@@ -48,12 +48,6 @@ set(base_sources
         lib/base/cards.cpp
         lib/base/frontend.cpp
         lib/base/board_combination_iterator.cpp
-        lib/base/holdem_hand_vector.cpp
-        lib/base/holdem_class_vector.cpp
-        lib/base/holdem_class_range_vector.cpp
-        lib/base/card_vector.cpp
-        lib/base/holdem_class_range.cpp
-        lib/base/rank_vector.cpp
         lib/base/tree.cpp
 )
 add_library(base_lib SHARED ${base_sources}) 
@@ -71,29 +65,19 @@ set(
 add_library(eval_lib SHARED ${eval_sources}) 
 target_link_libraries(eval_lib ${Boost_LIBRARIES})
 target_link_libraries(eval_lib Eigen3::Eigen)
-
-
-#add_executable(_ps ps.cpp )
-#if(  WIN32 )
-#else()
-  #target_link_libraries(_ps pthread )
-#endif()
-#target_link_libraries(_ps ${Boost_LIBRARIES})
-#target_link_libraries(_ps support_lib base_lib eval_lib )
-
-#add_executable(pokerstove app/pokerstove.cpp )
-#target_link_libraries(pokerstove ${Boost_LIBRARIES})
-#target_link_libraries(pokerstove support_lib base_lib eval_lib )
                 
 
-add_executable(driver app/driver.cpp )
+set( 
+        driver_sources
+
+        app/driver.cpp
+        app/cmd_heads_up_solver.cpp
+)
+
+add_executable(driver ${driver_sources} )
 target_link_libraries(driver pthread )
 target_link_libraries(driver ${Boost_LIBRARIES})
 target_link_libraries(driver support_lib base_lib eval_lib )
 target_link_libraries(driver Eigen3::Eigen)
 
 
-#add_executable(heads_up_solver app/heads_up_solver.cpp )
-#target_link_libraries(heads_up_solver pthread )
-#target_link_libraries(heads_up_solver ${Boost_LIBRARIES})
-#target_link_libraries(heads_up_solver base_lib eval_lib )

@@ -12,6 +12,9 @@
 #include <boost/serialization/vector.hpp>
 #include <boost/serialization/assume_abstract.hpp>
 #include <boost/archive/tmpdir.hpp>
+#include <boost/timer/timer.hpp>
+
+#include "ps/support/command.h"
 	
 namespace ps{
 
@@ -81,4 +84,28 @@ void class_cache::create(size_t n, class_cache* cache, std::string const& file_n
         }
         save();
 }
+
+
+struct CreateCacheCmd : Command{
+        explicit
+        CreateCacheCmd(std::vector<std::string> const& args):args_{args}{}
+        virtual int Execute()override{
+                class_cache cc;
+        
+                std::string cache_name{".cc.bin"};
+                try{
+                        cc.load(cache_name);
+                }catch(...){}
+                std::cout << "cc.size() => " << cc.size() << "\n"; // __CandyPrint__(cxx-print-scalar,cc.size())
+                boost::timer::auto_cpu_timer at;
+                class_cache::create(3, &cc, cache_name);
+
+                return EXIT_SUCCESS;
+        }
+private:
+        std::vector<std::string> const& args_;
+};
+static TrivialCommandDecl<CreateCacheCmd> CreateCacheCmdDecl{"create-cache"};
+
+
 } // end namespace ps

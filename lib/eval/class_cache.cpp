@@ -186,5 +186,28 @@ private:
 };
 static TrivialCommandDecl<CreateCacheCmd> CreateCacheCmdDecl{"create-cache"};
 
+struct PrintCacheCmd : Command{
+        explicit
+        PrintCacheCmd(std::vector<std::string> const& args):args_{args}{}
+        virtual int Execute()override{
+                class_cache cc;
+        
+                std::string cache_name{".cc.bin"};
+                try{
+                        cc.load(cache_name);
+                        for(auto iter(cc.begin()),end(cc.end());iter!=end;++iter){
+                                holdem_class_vector aux(iter->first.begin(), iter->first.end());
+                                std::cout << aux << " -> " << detail::to_string(iter->second) << "\n";
+                        }
+
+                }catch(...){}
+
+                return EXIT_SUCCESS;
+        }
+private:
+        std::vector<std::string> const& args_;
+};
+static TrivialCommandDecl<PrintCacheCmd> PrintCacheCmdDecl{"print-cache"};
+
 
 } // end namespace ps

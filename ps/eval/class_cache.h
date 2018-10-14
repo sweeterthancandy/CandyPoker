@@ -71,6 +71,12 @@ struct class_cache{
 	void load(std::string const& filename);
 
         static void create(size_t n, class_cache* cache, std::string const& file_name);
+
+        using implementation_type = std::map<std::vector<holdem_class_id>, std::vector<double> >;
+        using iterator = implementation_type::const_iterator;
+
+        iterator begin()const{ return cache_.begin(); }
+        iterator end  ()const{ return cache_.end  (); }
 	
 private:
         friend class boost::serialization::access;

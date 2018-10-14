@@ -139,21 +139,17 @@ namespace gt{
         {
                 Eigen::VectorXd result(169);
                 result.fill(.0);
+                        
+                Eigen::VectorXd s(2);
 
                 for(holdem_class_perm_iterator iter(2),end;iter!=end;++iter){
 
                         auto const& cv = *iter;
-                        #if 0
-                        double p = 1.;
-                        if( weighted ){
-                                p = cv.prob();
-                        }
-                        #endif
                         auto p = cv.prob();
-                        Eigen::VectorXd s(2);
                         s[0] = S[0][cv[0]];
                         s[1] = S[1][cv[1]];
-                        result(cv[idx]) += p * combination_value(ctx, cache, *iter, s)[idx];
+                        auto meta_result = combination_value(ctx, cache, cv, s);
+                        result(cv[idx]) += p * meta_result[idx];
                 }
 
                 return result;
@@ -415,7 +411,7 @@ struct HeadUpSolverCmd : Command{
                                 return std::make_tuple(eff, solve(gtctx, cc));
                         }));
                 };
-                #if 1
+                #if 0
                 for(double eff = 1.0;eff <= 30.0;eff+=.1){
                         enque(eff);
                 }

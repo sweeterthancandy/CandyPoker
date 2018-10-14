@@ -1,6 +1,8 @@
 #ifndef PS_BASE_HOLDEM_BOARD_DECL_H
 #define PS_BASE_HOLDEM_BOARD_DECL_H
 
+#include "ps/base/board_combination_iterator.h"
+
 namespace ps{
 
 struct holdem_board_decl{

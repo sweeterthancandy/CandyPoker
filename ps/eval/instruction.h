@@ -3,10 +3,50 @@
 
 
 #include <Eigen/Dense>
+#include <map>
+#include <memory>
+#include <string>
+#include <list>
+#include <tuple>
+
+#include "ps/base/holdem_class_vector.h"
+#include "ps/base/algorithm.h"
+#include "ps/base/frontend.h"
+#include "ps/base/tree.h"
 
 namespace ps{
         
 using matrix_t = Eigen::Matrix< unsigned long long , Eigen::Dynamic , Eigen::Dynamic >;
+
+struct equity_view : std::vector<double>{
+        equity_view(matrix_t const& breakdown){
+                sigma_ = 0;
+                size_t n = breakdown.rows();
+                std::map<long, unsigned long long> sigma_device;
+                for( size_t i=0;i!=n;++i){
+                        for(size_t j=0; j != n; ++j ){
+                                sigma_device[j] += breakdown(j,i);
+                        }
+                }
+                for( size_t i=0;i!=n;++i){
+                        sigma_ += sigma_device[i] / ( i +1 );
+                }
+
+
+                for( size_t i=0;i!=n;++i){
+
+                        double equity = 0.0;
+                        for(size_t j=0; j != n; ++j ){
+                                equity += breakdown(j,i) / ( j +1 );
+                        }
+                        equity /= sigma_;
+                        push_back(equity);
+                }
+        }
+        unsigned long long sigma()const{ return sigma_; }
+private:
+        unsigned long long sigma_;
+};
 
 struct instruction{
         enum type{

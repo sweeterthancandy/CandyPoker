@@ -1,6 +1,8 @@
 #ifndef PS_BASE_RANK_HASHER_H
 #define PS_BASE_RANK_HASHER_H
 
+#include "ps/support/config.h"
+
 namespace ps{
 
 namespace rank_hasher{

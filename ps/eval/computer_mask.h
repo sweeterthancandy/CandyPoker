@@ -4,6 +4,10 @@
 #include "ps/eval/computer.h"
 #include <future>
 #include "ps/detail/dispatch.h"
+#include "ps/eval/evaluator.h"
+#include "ps/base/rank_hasher.h"
+#include "ps/base/suit_hasher.h"
+#include "ps/base/holdem_board_decl.h"
 
 namespace ps{
 

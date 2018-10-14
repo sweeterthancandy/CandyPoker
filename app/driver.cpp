@@ -20,7 +20,6 @@
 #include "ps/eval/computer_mask.h"
 #include "ps/eval/computer_eval.h"
 #include "ps/eval/class_cache.h"
-#include <boost/archive/tmpdir.hpp>
 
 #include <boost/timer/timer.hpp>
 #include <boost/asio.hpp>
@@ -250,14 +249,13 @@ struct CreateCacheCmd : Command{
         CreateCacheCmd(std::vector<std::string> const& args):args_{args}{}
         virtual int Execute()override{
                 class_cache cc;
-		class_cache_maker m;
 	
                 std::string cache_name{".cc.bin"};
                 try{
-                cc.load(cache_name);
+                        cc.load(cache_name);
                 }catch(...){}
                 boost::timer::auto_cpu_timer at;
-                m.create(2, &cc, cache_name);
+                class_cache::create(3, &cc, cache_name);
 
                 return EXIT_SUCCESS;
         }

@@ -305,9 +305,10 @@ namespace gt{
                                                           std::vector<Eigen::VectorXd> const& state)=0;
         };
         struct maximal_exploitable_solver : solver{
+                explicit maximal_exploitable_solver(double factor = 0.05):factor_{factor}{}
                 virtual std::vector<Eigen::VectorXd> step(gt_context const& ctx, class_cache const& cache,
-                                                          std::vector<Eigen::VectorXd> const& state)override{
-                        double factor = 0.05;
+                                                          std::vector<Eigen::VectorXd> const& state)override
+                {
                         auto bb_counter = unilateral_bb_maximal_exploitable(ctx,
                                                                             cache,
                                                                             state);
@@ -317,24 +318,105 @@ namespace gt{
                                                                             cache,
                                                                             tmp);
                         auto copy = state;
-                        copy[0] *= ( 1 - factor );
-                        copy[0] +=  factor * sb_counter;
+                        copy[0] *= ( 1 - factor_ );
+                        copy[0] +=  factor_ * sb_counter;
                         copy[1]  = bb_counter;
                         return copy;
                 }
+        private:
+                double factor_;
         };
 
-        std::vector<Eigen::VectorXd> solve(gt_context const& ctx, class_cache const& cache)
+        struct make_solver{
+                explicit make_solver(gt_context const& ctx){
+                        ctx_ = &ctx;
+                }
+                make_solver& use_solver(std::shared_ptr<solver> s){
+                        solver_ = s;
+                        return *this;
+                }
+                make_solver& use_cache(class_cache const& cc){
+                        cc_ = &cc;
+                        return *this;
+                }
+                make_solver& init_state(std::vector<Eigen::VectorXd> const& s0){
+                        state0_ = s0;
+                        return *this;
+                }
+                std::vector<Eigen::VectorXd> run(){
+
+                        BOOST_ASSERT(ctx_ );
+                        BOOST_ASSERT(cc_ );
+                        BOOST_ASSERT(solver_ );
+                        BOOST_ASSERT(state0_.size() );
+
+                        std::vector<Eigen::VectorXd> state = state0_;
+                        double epsilon = 0.2;
+
+                        enum{ MaxIter = 400 };
+                        for(size_t idx=0;idx<MaxIter;++idx){
+
+                                auto next = solver_->step(*ctx_, *cc_, state);
+                                auto d = next[0] - state[0];
+                                auto norm = d.lpNorm<1>();
+
+                                #if 0
+                                std::cout << "norm => " << norm << "\n"; // __CandyPrint__(cxx-print-scalar,norm)
+                                #endif
+
+                                if( norm < epsilon ){
+                                        state[0] = clamp(state[0]);
+                                        state[1] = clamp(state[1]);
+                                        return state;
+                                }
+
+                                #if 0
+                                if( memory.count( next ) != 0 ){
+                                        BOOST_LOG_TRIVIAL(warning) << "loop";
+                                }
+                                memory.insert(next);
+                                #endif
+
+                                state = next;
+
+                                #if 0
+                                std::cout << "S_0\n";
+                                pretty_print_strat(state[0], 1);
+                                std::cout << "S_1\n";
+                                pretty_print_strat(state[1], 1);
+                                #endif
+                        }
+
+                        std::vector<Eigen::VectorXd> result;
+                        result.push_back(Eigen::VectorXd::Zero(169));
+                        result.push_back(Eigen::VectorXd::Zero(169));
+
+                        BOOST_LOG_TRIVIAL(warning) << "Failed to converge solve ctx = " << *ctx_;
+                        return result;
+                }
+        private:
+                gt_context const* ctx_;
+                class_cache const* cc_;
+                std::shared_ptr<solver> solver_;
+                std::vector<Eigen::VectorXd> state0_;
+        };
+        
+
+        #if 0
+        std::vector<Eigen::VectorXd> solve(gt_context const& ctx,
+                                           class_cache const& cache,
+                                           std::shared_ptr<solver> solver_impl,
+                                           std::vector<Eigen::VectorXd> const& state0)
         {
 
-                std::vector<Eigen::VectorXd> state;
+                std::vector<Eigen::VectorXd> state = state0;
+                #if 0
                 state.push_back(Eigen::VectorXd::Zero(169));
                 state.push_back(Eigen::VectorXd::Zero(169));
-
-
+                
                 std::shared_ptr<solver> solver_impl( new maximal_exploitable_solver);
+                #endif
 
-                std::set<std::vector<Eigen::VectorXd> > memory; 
 
                 double epsilon = 0.2;
 
@@ -379,6 +461,7 @@ namespace gt{
                 BOOST_LOG_TRIVIAL(warning) << "Failed to converge solve ctx = " << ctx;
                 return result;
         }
+        #endif
 
 
 
@@ -406,16 +489,24 @@ struct HeadUpSolverCmd : Command{
 
                 using namespace gt;
 
+                std::vector<Eigen::VectorXd> state0;
+                state0.push_back(Eigen::VectorXd::Zero(169));
+                state0.push_back(Eigen::VectorXd::Zero(169));
 
                 using result_t = std::future<std::tuple<double, std::vector<Eigen::VectorXd> > >;
                 std::vector<result_t> tmp;
                 auto enque = [&](double eff){
-                        tmp.push_back(std::async([eff,&cc](){
+                        tmp.push_back(std::async([eff,&cc,&state0](){
                                 gt_context gtctx(eff, .5, 1.);
-                                return std::make_tuple(eff, solve(gtctx, cc));
+                                auto result = make_solver(gtctx)
+                                        .use_solver(std::make_shared<maximal_exploitable_solver>())
+                                        .use_cache(cc)
+                                        .init_state(state0)
+                                        .run();
+                                return std::make_tuple(eff, result);
                         }));
                 };
-                #if 1
+                #if 0
                 for(double eff = 1.0;eff <= 30.0;eff+=.1){
                         enque(eff);
                 }

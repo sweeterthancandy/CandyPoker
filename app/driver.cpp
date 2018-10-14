@@ -9,7 +9,6 @@
 #include "ps/base/board_combination_iterator.h"
 #include "ps/base/holdem_class_vector.h"
 #include "ps/support/index_sequence.h"
-#include "ps/support/index_sequence.h"
 #include "ps/eval/evaluator_6_card_map.h"
 #include "app/pretty_printer.h"
 #include "ps/base/algorithm.h"
@@ -22,7 +21,6 @@
 #include "ps/eval/class_cache.h"
 
 #include <boost/timer/timer.hpp>
-#include <boost/asio.hpp>
 
 #include <boost/log/trivial.hpp>
 
@@ -254,6 +252,7 @@ struct CreateCacheCmd : Command{
                 try{
                         cc.load(cache_name);
                 }catch(...){}
+                std::cout << "cc.size() => " << cc.size() << "\n"; // __CandyPrint__(cxx-print-scalar,cc.size())
                 boost::timer::auto_cpu_timer at;
                 class_cache::create(3, &cc, cache_name);
 

@@ -223,6 +223,7 @@ namespace ps{
                 // TODO generlaize these
                 static size_t weight(holdem_class_id c0, holdem_class_id c1);
                 static double prob(holdem_class_id c0, holdem_class_id c1);
+
         private:
                 holdem_class_id id_;
                 holdem_class_type cat_;

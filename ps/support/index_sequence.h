@@ -235,6 +235,7 @@ struct basic_index_iterator{
                 policy_t::init(vec_, n_, m_);
         }
         auto const& operator*()const{ return vec_; }
+        auto operator->()const{ return &this->operator*(); }
         basic_index_iterator& operator++(){
                 end_flag_ = (  ! policy_t::next(vec_, m_) );
                 return *this;

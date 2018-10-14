@@ -4,6 +4,7 @@
 
 #include <Eigen/Dense>
 #include <map>
+#include <cfloat>
 #include <memory>
 #include <string>
 #include <list>
@@ -44,6 +45,21 @@ struct equity_view : std::vector<double>{
                 }
         }
         unsigned long long sigma()const{ return sigma_; }
+        bool valid()const{
+		for(auto _ : *this){
+                        switch(std::fpclassify(_)) {
+                        case FP_INFINITE:
+                        case FP_NAN:
+                        case FP_SUBNORMAL:
+                        default:
+                                return false;
+                        case FP_ZERO:
+                        case FP_NORMAL:
+                                break;	
+                        }
+                }
+                return true;
+        }
 private:
         unsigned long long sigma_;
 };

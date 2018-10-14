@@ -297,7 +297,7 @@ namespace ps{
         }
         double holdem_class_decl::prob(holdem_class_id c0, holdem_class_id c1){
                 // I just got this magic constant my summing all the weights
-                static const size_t factor{
+                static const size_t factor = 
                         [](){
                                 size_t ret{0};
                                 for(size_t i{0};i!=holdem_class_decl::max_id;++i){
@@ -306,7 +306,7 @@ namespace ps{
                                         }
                                 }
                                 return ret;
-                        }()};
+                        }();
                 return static_cast<double>(weight(c0, c1)) / factor;
         }
 

@@ -4,6 +4,8 @@
 #include <fstream>
 #include <boost/archive/text_iarchive.hpp>
 #include <boost/archive/text_oarchive.hpp>
+#include <boost/archive/binary_iarchive.hpp>
+#include <boost/archive/binary_oarchive.hpp>
 #include <boost/serialization/base_object.hpp>
 #include <boost/serialization/utility.hpp>
 #include <boost/serialization/map.hpp>
@@ -12,20 +14,21 @@
 #include <boost/archive/tmpdir.hpp>
 	
 namespace ps{
+
+
+
 void class_cache::save(std::string const& filename){
-        // make an archive
+        using archive_type = boost::archive::text_oarchive;
         std::ofstream ofs(filename);
-        boost::archive::text_oarchive oa(ofs);
+        archive_type oa(ofs);
         oa << *this;
 }
 
 void class_cache::load(std::string const& filename)
 {
-        // open the archive
+        using archive_type = boost::archive::text_iarchive;
         std::ifstream ifs(filename);
-        boost::archive::text_iarchive ia(ifs);
-
-        // restore the schedule from the archive
+        archive_type ia(ifs);
         cache_.clear();
         ia >> *this;
 }
@@ -46,7 +49,7 @@ void class_cache::create(size_t n, class_cache* cache, std::string const& file_n
         };
         for(holdem_class_iterator iter(n),end;iter!=end;++iter){
                 auto vec = *iter;
-                BOOST_ASSERT( vec.is_standard_form() );
+                BOOST_ASSERT( iter->is_standard_form() );
                 if( cache->Lookup(vec) )
                         continue;
                 instruction_list instr_list;
@@ -55,6 +58,8 @@ void class_cache::create(size_t n, class_cache* cache, std::string const& file_n
                 auto result = mgr.execute(&comp_ctx, &instr_list);
                 BOOST_ASSERT( result );
                 equity_view view( *result );
+                if( ! view.valid() )
+                        continue;
                 enum{ Debug = true };
                 if( Debug ){
                         #if 0

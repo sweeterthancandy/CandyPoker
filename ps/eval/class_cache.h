@@ -20,6 +20,7 @@ struct class_cache{
         void add(std::vector<holdem_class_id> vec, std::vector<double> equity){
                 cache_.emplace(std::move(vec), std::move(equity));
         }
+        size_t size()const{ return cache_.size(); }
 	std::vector<double> const* Lookup(std::vector<holdem_class_id> const& vec)const{
                 auto iter = cache_.find(vec);
                 if( iter == cache_.end())

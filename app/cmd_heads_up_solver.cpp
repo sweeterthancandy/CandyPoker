@@ -104,12 +104,177 @@ namespace gt{
                 double bb_;
         };
 
+        namespace scratch{
+                struct game_tree_node{
+                        enum{ MinusZero = 1024 };
+                        virtual void evaluate(Eigen::VectorXd& out,
+                                              double p,
+                                              gt_context const& ctx,
+                                              class_cache const& cache,
+                                              holdem_class_vector const& vec,
+                                              Eigen::VectorXd const& s)=0;
+                        game_tree_node& times(size_t idx){
+                                p_ticker_.push_back(static_cast<int>(idx));
+                                return *this;
+                        }
+                        game_tree_node& not_times(size_t idx){
+                                if( idx == 0 ){
+                                        p_ticker_.push_back(MinusZero);
+                                } else {
+                                        p_ticker_.push_back(-static_cast<int>(idx));
+                                }
+                                return *this;
+                        }
+                        double factor(Eigen::VectorXd const& s){
+                                double result = 1.0;
+                                for(auto op : p_ticker_){
+                                        if( op == MinusZero ){
+                                                result *= ( 1. - s[0] );
+                                        } else if( op >= 0 ){
+                                                result *= s[static_cast<size_t>(op)];
+                                        } else{
+                                                result *= ( 1. - s[static_cast<size_t>(-op)] );
+                                        }
+                                }
+                                //std::cout << "factor(" << vector_to_string(s) << ", [" << detail::to_string(p_ticker_) << "]) => " << result << "\n";
+                                return result;
+                        }
+                private:
+                        // we encode -0 here
+                        std::vector<int> p_ticker_;
+                };
+                struct game_tree_node_static : game_tree_node{
+                        explicit game_tree_node_static(Eigen::VectorXd vec):
+                                vec_{vec}
+                        {}
+
+                        virtual void evaluate(Eigen::VectorXd& out,
+                                              double p,
+                                              gt_context const& ctx,
+                                              class_cache const& cache,
+                                              holdem_class_vector const& vec,
+                                              Eigen::VectorXd const& s)override
+                        {
+                                auto q = factor(s);
+                                p *= q;
+                                for(size_t idx=0;idx!=vec_.size();++idx){
+                                        out[idx] += vec_[idx] * p;
+                                }
+                                //out += vec_ * p;
+                                out[vec.size()] += p;
+                        }
+                private:
+                        Eigen::VectorXd vec_;
+                };
+
+                struct game_tree_node_eval : game_tree_node{
+                        explicit
+                        game_tree_node_eval(std::vector<size_t> mask)
+                                :mask_{mask}
+                        {
+                                v_mask_.resize(mask_.size());
+                                v_mask_.fill(0);
+                                for(size_t idx=0;idx!=mask.size();++idx){
+                                        v_mask_(mask[idx]) = 1.0;
+                                }
+                        }
+                        virtual void evaluate(Eigen::VectorXd& out,
+                                              double p,
+                                              gt_context const& ctx,
+                                              class_cache const& cache,
+                                              holdem_class_vector const& vec,
+                                              Eigen::VectorXd const& s)override
+                        {
+                                auto q = factor(s);
+                                p *= q;
+                                if( std::fabs(p) < 0.001 )
+                                        return;
+
+                                auto ev = cache.LookupVector(vec);
+
+                                auto equity_vec = ( 2 * ev - v_mask_ ) * ctx.eff() * p;
+
+                                #if 0
+                                for(size_t idx=0;idx!=mask_.size();++idx){
+                                        out[mask_[idx]] += equity[idx] * p;
+                                }
+                                #endif
+                                out += equity_vec;
+                                out[vec.size()] += p;
+                        }
+                private:
+                        std::vector<size_t> mask_;
+                        Eigen::VectorXd v_mask_;
+                };
+
+                struct game_tree_non_terminal
+                        : public game_tree_node
+                        , public std::vector<std::shared_ptr<game_tree_node> >
+                {
+                        virtual void evaluate(Eigen::VectorXd& out,
+                                              double p,
+                                              gt_context const& ctx,
+                                              class_cache const& cache,
+                                              holdem_class_vector const& vec,
+                                              Eigen::VectorXd const& s)override
+                        {
+                                auto q = factor(s);
+                                p *= q;
+                                for(auto& ptr : *this){
+                                        ptr->evaluate(out, p, ctx, cache, vec, s);
+                                }
+                        }
+                };
+
+                struct hu_game_tree : game_tree_non_terminal{
+                        explicit
+                        hu_game_tree( gt_context const& ctx){
+
+
+                                do{
+                                        Eigen::VectorXd v_f_{2};
+                                        v_f_(0) = -ctx.sb();
+                                        v_f_(1) =  ctx.sb();
+                                        auto n_f_ = std::make_shared<game_tree_node_static>(v_f_);
+                                        n_f_->not_times(0);
+                                        push_back(n_f_);
+                                }while(0);
+
+                                do{
+                                        Eigen::VectorXd v_pf{2};
+                                        v_pf(0) =  ctx.bb();
+                                        v_pf(1) = -ctx.bb();
+                                        auto n_pf = std::make_shared<game_tree_node_static>(v_pf);
+                                        n_pf->times(0);
+                                        n_pf->not_times(1);
+                                        push_back(n_pf);
+                                }while(0);
+
+                                do{
+                                        std::vector<size_t> m_pp;
+                                        m_pp.push_back(0);
+                                        m_pp.push_back(1);
+                                        auto n_pp = std::make_shared<game_tree_node_eval>(m_pp);
+                                        n_pp->times(0);
+                                        n_pp->times(1);
+                                        push_back(n_pp);
+                                }while(0);
+
+                        }
+                };
+        } // end namespace scratch
+
 
         // returns a vector each players hand value
         Eigen::VectorXd combination_value(gt_context const& ctx,
                                           class_cache const& cache,
                                           holdem_class_vector const& vec,
                                           Eigen::VectorXd const& s){
+                Eigen::VectorXd result{vec.size()+1};
+                result.fill(.0);
+                scratch::hu_game_tree tree(ctx);
+                tree.evaluate(result, 1., ctx, cache, vec, s);
+                #if 0
                 Eigen::VectorXd result{2};
                 result.fill(.0);
                 Eigen::VectorXd One{2};
@@ -118,6 +283,12 @@ namespace gt{
                 double f_ = ( 1.0 - s[0] );
                 double pf = s[0] * (1. - s[1]);
                 double pp = s[0] *       s[1];
+
+                #if 0
+                std::cout << "f_ => " << f_ << "\n"; // __CandyPrint__(cxx-print-scalar,f_)
+                std::cout << "pf => " << pf << "\n"; // __CandyPrint__(cxx-print-scalar,pf)
+                std::cout << "pp => " << pp << "\n"; // __CandyPrint__(cxx-print-scalar,pp)
+                #endif
 
                 result(0) -= ctx.sb() * f_;
                 result(1) += ctx.sb() * f_;
@@ -128,6 +299,27 @@ namespace gt{
                 auto ev = cache.LookupVector(vec);
 
                 result += ( 2 * ev - One ) * ctx.eff() * pp;
+
+                do{
+                        Eigen::VectorXd other{vec.size()+1};
+                        other.fill(.0);
+                        static scratch::hu_game_tree tree(ctx);
+                        tree.evaluate(other, 1., ctx, cache, vec, s);
+
+
+                        double epsilon = 0.1;
+                        if( std::fabs( other(0) - result(0)) > epsilon || std::fabs(other(1) - result(1)) > epsilon ) {
+                                std::cout << "result => " << vector_to_string(result) << "\n"; // __CandyPrint__(cxx-print-scalar,result)
+                                std::cout << "other => " << vector_to_string(other) << "\n"; // __CandyPrint__(cxx-print-scalar,other)
+                                std::cout << "vector_to_string(s) => " << vector_to_string(s) << "\n"; // __CandyPrint__(cxx-print-scalar,vector_to_string(s))
+                        }
+
+
+                }while(0);
+
+
+
+                #endif
 
                 return result;
         }

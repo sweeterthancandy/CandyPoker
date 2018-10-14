@@ -236,10 +236,6 @@ struct Scratch : Command{
         explicit
         Scratch(std::vector<std::string> const& args):players_s_{args}{}
         virtual int Execute()override{
-                for(holdem_class_perm_iterator iter(2),end;iter!=end;++iter){
-                        std::cout << "*iter => " << *iter << "\n"; // __CandyPrint__(cxx-print-scalar,*iter)
-                }
-
                 return EXIT_SUCCESS;
         }
 private:

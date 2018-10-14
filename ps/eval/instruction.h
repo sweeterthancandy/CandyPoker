@@ -19,6 +19,39 @@ namespace ps{
         
 using matrix_t = Eigen::Matrix< unsigned long long , Eigen::Dynamic , Eigen::Dynamic >;
 
+/*
+ * we want to print a 2x2 matrix as
+ *    [[m(0,0), m(1,0)],[m(0,1),m(1,1)]]
+ */
+template<class MatrixType>
+inline std::string matrix_to_string(MatrixType const& mat){
+        std::stringstream sstr;
+        std::string sep;
+        sstr << "[";
+        for(size_t j=0;j!=mat.rows();++j){
+                sstr << sep << "[";
+                sep = ",";
+                for(size_t i=0;i!=mat.cols();++i){
+                        sstr << (i!=0?",":"") << mat(i,j);
+                }
+                sstr << "]";
+        }
+        sstr << "]";
+        return sstr.str();
+}
+template<class VectorType>
+inline std::string vector_to_string(VectorType const& vec){
+        std::stringstream sstr;
+        std::string sep;
+        sstr << "[";
+        for(size_t j=0;j!=vec.size();++j){
+                sstr << sep << vec(j);
+                sep = ",";
+        }
+        sstr << "]";
+        return sstr.str();
+}
+
 struct equity_view : std::vector<double>{
         equity_view(matrix_t const& breakdown){
                 sigma_ = 0;
@@ -82,26 +115,6 @@ private:
 
 
 
-/*
- * we want to print a 2x2 matrix as
- *    [[m(0,0), m(1,0)],[m(0,1),m(1,1)]]
- */
-template<class MatrixType>
-inline std::string matrix_to_string(MatrixType const& mat){
-        std::stringstream sstr;
-        std::string sep;
-        sstr << "[";
-        for(size_t j=0;j!=mat.rows();++j){
-                sstr << sep << "[";
-                sep = ",";
-                for(size_t i=0;i!=mat.cols();++i){
-                        sstr << (i!=0?",":"") << mat(i,j);
-                }
-                sstr << "]";
-        }
-        sstr << "]";
-        return sstr.str();
-}
 
 struct class_vec_instruction : instruction{
         explicit class_vec_instruction(holdem_class_vector vec)

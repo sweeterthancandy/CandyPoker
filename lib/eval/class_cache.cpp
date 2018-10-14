@@ -41,28 +41,106 @@ void class_cache::create(size_t n, class_cache* cache, std::string const& file_n
         mgr.add_pass<pass_permutate>();
         mgr.add_pass<pass_sort_type>();
         mgr.add_pass<pass_collect>();
-        mgr.add_pass<pass_eval_hand_instr>();
+        //mgr.add_pass<pass_eval_hand_instr>();
+        mgr.add_pass<pass_eval_hand_instr_vec>();
 
         size_t count = 0;
         enum{ MaxCount = 50 };
-        auto save = [&](){
+        enum{ BatchSize = 50 };
+
+        auto save_impl = [&](){
                 std::cout << "Saving...\n";
                 cache->save(file_name);
+                cache->save(file_name + ".other");
                 std::cout << "Done\n";
         };
-        for(holdem_class_iterator iter(n),end;iter!=end;++iter){
-                auto vec = *iter;
+
+        holdem_class_iterator iter(n),end;
+        std::mutex mtx;
+        auto pull = [&]()->std::vector<holdem_class_vector>{
+                std::lock_guard<std::mutex> lock(mtx);
+                std::vector<holdem_class_vector> batch;
+                for(;batch.size()!=BatchSize && iter != end;++iter){
+                        holdem_class_vector vec = *iter;
+                        BOOST_ASSERT( iter->is_standard_form() );
+                        if( cache->Lookup(vec) )
+                                continue;
+                        batch.push_back(vec);
+                }
+                return batch;
+        };
+
+        auto push = [&](std::vector<holdem_class_vector> const& cvv,
+                        std::vector<boost::optional<matrix_t> > const& matv)
+        {
+                BOOST_ASSERT(cvv.size() == matv.size());
+                std::lock_guard<std::mutex> lock(mtx);
+
+                for(size_t idx=0;idx!=cvv.size();++idx){
+                        equity_view view( matv[idx].get() );
+                        if( ! view.valid() )
+                                continue;
+                        cache->add(cvv[idx], view);
+                        enum{ Debug = true };
+                        if( Debug ){
+                                #if 0
+                                std::vector<std::string> s;
+                                for(auto _ : vec){
+                                        s.push_back(holdem_class_decl::get(_).to_string());
+                                }
+                                pretty_print_equity_breakdown_mat(std::cout, *result, s);
+                                #endif
+                                std::cout << cvv[idx] << " -> " << detail::to_string(view) << "\n";
+                        }
+                }
+                save_impl();
+        };
+                
+        computation_context comp_ctx{n};
+
+        auto driver = [&](){
+                for(;;){
+                        auto batch = pull();
+                        std::vector<boost::optional<matrix_t> > batch_ret;
+                        if( batch.empty() )
+                                return;
+                        for(auto const& cv : batch ){
+                                instruction_list instr_list;
+                                instr_list.push_back(std::make_shared<class_vec_instruction>(cv));
+                                auto result = mgr.execute(&comp_ctx, &instr_list);
+                                BOOST_ASSERT( result );
+                                batch_ret.push_back(result);
+                        }
+
+
+                        push(batch, batch_ret);
+                }
+        };
+        size_t num_threads = 8;
+        std::vector<std::thread> tg;
+        for(size_t idx=0;idx!=num_threads;++idx){
+                tg.emplace_back(driver);
+        }
+        for(auto & _ : tg){
+                _.join();
+        }
+
+        #if 0
+        for(,end;iter!=end;++iter){
+                holdem_class_vector vec = *iter;
                 BOOST_ASSERT( iter->is_standard_form() );
                 if( cache->Lookup(vec) )
                         continue;
                 instruction_list instr_list;
                 instr_list.push_back(std::make_shared<class_vec_instruction>(vec));
                 computation_context comp_ctx{n};
+                boost::timer::cpu_timer timer;
                 auto result = mgr.execute(&comp_ctx, &instr_list);
                 BOOST_ASSERT( result );
                 equity_view view( *result );
                 if( ! view.valid() )
                         continue;
+                std::cout << timer.format();
                 enum{ Debug = true };
                 if( Debug ){
                         #if 0
@@ -79,10 +157,11 @@ void class_cache::create(size_t n, class_cache* cache, std::string const& file_n
                 cache->add(vec, view);
                 if( ++count == MaxCount ){
                         count = 0;
-                        save();
+                        save_impl();
                 }
         }
-        save();
+        save_impl();
+        #endif
 }
 
 
@@ -98,7 +177,7 @@ struct CreateCacheCmd : Command{
                 }catch(...){}
                 std::cout << "cc.size() => " << cc.size() << "\n"; // __CandyPrint__(cxx-print-scalar,cc.size())
                 boost::timer::auto_cpu_timer at;
-                class_cache::create(3, &cc, cache_name);
+                class_cache::create(2, &cc, cache_name);
 
                 return EXIT_SUCCESS;
         }

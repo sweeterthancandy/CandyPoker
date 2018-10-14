@@ -329,8 +329,6 @@ struct pass_eval_hand_instr_vec : computation_pass{
                 if( subs.empty())
                         return;
 
-                std::cout << "subs.size() => " << subs.size() << "\n"; // __CandyPrint__(cxx-print-scalar,subs.size())
-
                 for(auto const& b : w ){
 
                         auto mask = b.mask();
@@ -346,29 +344,6 @@ struct pass_eval_hand_instr_vec : computation_pass{
                 for(auto& _ : subs){
                         _->finish();
                 }
-
-                #if 0
-                for(auto t : todo){ 
-                        auto iter = std::get<0>(t);
-                        auto instr = reinterpret_cast<card_eval_instruction*>(iter->get());
-                
-
-                        sub_eval sub(iter, instr, &ev);
-                        for(auto const& b : w ){
-
-                                auto mask = b.mask();
-                                auto rank_proto = b.rank_hash();
-                                auto suit_proto = b.suit_hash();
-
-                                card_vector const& cv = b.board();
-
-                                sub.accept(cv, mask, rank_proto, suit_proto);
-                        }
-
-                        sub.finish();
-
-                }
-                #endif
         }
 private:
         mask_computer_detail::rank_hash_eval ev;

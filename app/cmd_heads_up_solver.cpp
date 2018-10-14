@@ -104,6 +104,7 @@ namespace gt{
                 double bb_;
         };
 
+
         // returns a vector each players hand value
         Eigen::VectorXd combination_value(gt_context const& ctx,
                                           class_cache const& cache,
@@ -350,15 +351,6 @@ namespace gt{
 
                 explicit make_solver(gt_context const& ctx){
                         ctx_ = &ctx;
-                        #if 0
-                        stop_cond_ = [](state_t const& from, state_t const& to){
-                                double epsilon = 0.2;
-                                auto d = from[0] - to[0];
-                                auto norm = d.lpNorm<1>();
-                                auto cond = ( norm < epsilon );
-                                return cond;
-                        };
-                        #endif
                 }
                 make_solver& use_solver(std::shared_ptr<solver> s){
                         solver_ = s;

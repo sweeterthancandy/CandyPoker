@@ -86,11 +86,13 @@ namespace gt{
         struct game_tree_node;
 
         struct gt_context{
-                gt_context(double eff, double sb, double bb)
-                        :eff_(eff),
+                gt_context(size_t num_players, double eff, double sb, double bb)
+                        :num_players_{num_players},
+                        eff_(eff),
                         sb_(sb),
                         bb_(bb)
                 {}
+                size_t num_players()const{ return num_players_; }
                 double eff()const{ return eff_; }
                 double sb()const{ return sb_; }
                 double bb()const{ return bb_; }
@@ -118,6 +120,7 @@ namespace gt{
                         return ostr;
                 }
         private:
+                size_t num_players_;
                 double eff_;
                 double sb_;
                 double bb_;
@@ -211,7 +214,7 @@ namespace gt{
 
                         auto ev = ctx.cc()->LookupVector(vec);
 
-                        auto equity_vec = ( 2 * ev - v_mask_ ) * ctx.eff() * p;
+                        auto equity_vec = ( mask_.size() * ev - v_mask_ ) * ctx.eff() * p;
 
                         #if 0
                         for(size_t idx=0;idx!=mask_.size();++idx){
@@ -349,14 +352,19 @@ namespace gt{
                 Eigen::VectorXd result(169);
                 result.fill(.0);
                         
-                Eigen::VectorXd s(2);
+                Eigen::VectorXd s(ctx.num_players());
 
-                for(holdem_class_perm_iterator iter(2),end;iter!=end;++iter){
+                for(holdem_class_perm_iterator iter(ctx.num_players()),end;iter!=end;++iter){
 
                         auto const& cv = *iter;
                         auto p = cv.prob();
+                        for(size_t idx=0;idx!=cv.size();++idx){
+                                s[idx] = S[idx][cv[idx]];
+                        }
+                        #if 0
                         s[0] = S[0][cv[0]];
                         s[1] = S[1][cv[1]];
+                        #endif
                         auto meta_result = combination_value(ctx, cv, s);
                         result(cv[idx]) += p * meta_result[idx];
                 }
@@ -704,7 +712,7 @@ struct HeadUpSolverCmd : Command{
 
                 auto enque = [&](double eff){
                         tmp.push_back(std::async([eff,&cc,&state0](){
-                                gt_context gtctx(eff, .5, 1.);
+                                gt_context gtctx(2, eff, .5, 1.);
                                 auto root = std::make_shared<hu_game_tree>(gtctx);
                                 gtctx.use_game_tree(root);
                                 gtctx.use_cache(cc);

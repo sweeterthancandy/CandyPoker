@@ -264,10 +264,89 @@ struct pass_eval_hand_instr_vec : computation_pass{
 
                 std::cout << "todo.size() => " << todo.size() << "\n"; // __CandyPrint__(cxx-print-scalar,todo.size())
 
+
                 for(auto t : todo){ 
                         auto iter = std::get<0>(t);
-                        auto& instr = *reinterpret_cast<card_eval_instruction*>(iter->get());
+                        auto instr = reinterpret_cast<card_eval_instruction*>(iter->get());
+                
+                        struct sub_eval{
+                                sub_eval(iter_t iter, card_eval_instruction* instr,
+                                         mask_computer_detail::rank_hash_eval* ev)
+                                        :iter_{iter}, instr_{instr}, ev_{ev}
+                                {
+                                        hv   = instr->get_vector();
+                                        hv_mask = hv.mask();
+                                        n = hv.size();
+                                        for(size_t i=0;i!=hv.size();++i){
+                                                auto const& hand{holdem_hand_decl::get(hv[i])};
 
+                                                hv_first[i]       = hand.first().id();
+                                                hv_first_rank[i]  = hand.first().rank().id();
+                                                hv_first_suit[i]  = hand.first().suit().id();
+                                                hv_second[i]      = hand.second().id();
+                                                hv_second_rank[i] = hand.second().rank().id();
+                                                hv_second_suit[i] = hand.second().suit().id();
+                                        }
+                                        mat.resize(n, n);
+                                        mat.fill(0);
+                                }
+                                void accept(card_vector const& cv, size_t mask, rank_hasher::rank_hash_t rank_proto, suit_hasher::suit_hash_t suit_proto){
+                                        bool cond = (mask & hv_mask ) == 0;
+                                        if(!cond){
+                                                return;
+                                        }
+                                        for(size_t i=0;i!=n;++i){
+
+                                                auto rank_hash = rank_proto;
+                                                auto suit_hash = suit_proto;
+
+                                                rank_hash = rank_hasher::append(rank_hash, hv_first_rank[i]);
+                                                rank_hash = rank_hasher::append(rank_hash, hv_second_rank[i]);
+
+                                                suit_hash = suit_hasher::append(suit_hash, hv_first_suit[i] );
+                                                suit_hash = suit_hasher::append(suit_hash, hv_second_suit[i] );
+
+                                                ranked[i] = ev_->rank(cv, suit_hash, rank_hash, hv_first[i], hv_second[i]);
+                                        }
+                                        detail::dispatch_ranked_vector_mat(mat, ranked, n);
+                                }
+                                void finish(){
+                                        *iter_ = std::make_shared<matrix_instruction>(mat * instr_->get_matrix());
+                                }
+                        private:
+                                iter_t iter_;
+                                card_eval_instruction* instr_;
+
+                                mask_computer_detail::rank_hash_eval* ev_;
+
+                                holdem_hand_vector hv;
+                                size_t hv_mask;
+                                size_t n;
+                                std::array<ranking_t, 9> ranked;
+                                std::array<card_id, 9> hv_first;
+                                std::array<card_id, 9> hv_second;
+                                std::array<rank_id, 9> hv_first_rank;
+                                std::array<rank_id, 9> hv_second_rank;
+                                std::array<suit_id, 9> hv_first_suit;
+                                std::array<suit_id, 9> hv_second_suit;
+                                matrix_t mat;
+                        };
+
+                        sub_eval sub(iter, instr, &ev);
+                        for(auto const& b : w ){
+
+                                auto mask = b.mask();
+                                auto rank_proto = b.rank_hash();
+                                auto suit_proto = b.suit_hash();
+
+                                card_vector const& cv = b.board();
+
+                                sub.accept(cv, mask, rank_proto, suit_proto);
+                        }
+
+                        sub.finish();
+
+                        #if 0
                         auto const& hv   = instr.get_vector();
                         auto hv_mask = hv.mask();
                                 
@@ -326,6 +405,7 @@ struct pass_eval_hand_instr_vec : computation_pass{
                                 detail::dispatch_ranked_vector_mat(mat, ranked, n);
                         }
                         *iter = std::make_shared<matrix_instruction>(mat * instr.get_matrix());
+                        #endif
                 }
         }
 private:

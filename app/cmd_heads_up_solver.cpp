@@ -83,6 +83,8 @@ namespace ps{
 namespace gt{
 
 
+        struct game_tree_node;
+
         struct gt_context{
                 gt_context(double eff, double sb, double bb)
                         :eff_(eff),
@@ -92,6 +94,23 @@ namespace gt{
                 double eff()const{ return eff_; }
                 double sb()const{ return sb_; }
                 double bb()const{ return bb_; }
+
+                gt_context& use_game_tree(std::shared_ptr<game_tree_node> gt){
+                        gt_ = gt;
+                        return *this;
+                }
+                gt_context& use_cache(class_cache const& cc){
+                        cc_ = &cc;
+                        return *this;
+                }
+                
+                std::shared_ptr<game_tree_node> root()const{
+                        return gt_;
+                }
+                class_cache const* cc()const{
+                        return cc_;
+                }
+                
                 friend std::ostream& operator<<(std::ostream& ostr, gt_context const& self){
                         ostr << "eff_ = " << self.eff_;
                         ostr << ", sb_ = " << self.sb_;
@@ -102,178 +121,176 @@ namespace gt{
                 double eff_;
                 double sb_;
                 double bb_;
+
+                std::shared_ptr<game_tree_node> gt_;
+                class_cache const* cc_;
         };
 
-        namespace scratch{
-                struct game_tree_node{
-                        enum{ MinusZero = 1024 };
-                        virtual void evaluate(Eigen::VectorXd& out,
-                                              double p,
-                                              gt_context const& ctx,
-                                              class_cache const& cache,
-                                              holdem_class_vector const& vec,
-                                              Eigen::VectorXd const& s)=0;
-                        game_tree_node& times(size_t idx){
-                                p_ticker_.push_back(static_cast<int>(idx));
-                                return *this;
-                        }
-                        game_tree_node& not_times(size_t idx){
-                                if( idx == 0 ){
-                                        p_ticker_.push_back(MinusZero);
-                                } else {
-                                        p_ticker_.push_back(-static_cast<int>(idx));
-                                }
-                                return *this;
-                        }
-                        double factor(Eigen::VectorXd const& s){
-                                double result = 1.0;
-                                for(auto op : p_ticker_){
-                                        if( op == MinusZero ){
-                                                result *= ( 1. - s[0] );
-                                        } else if( op >= 0 ){
-                                                result *= s[static_cast<size_t>(op)];
-                                        } else{
-                                                result *= ( 1. - s[static_cast<size_t>(-op)] );
-                                        }
-                                }
-                                //std::cout << "factor(" << vector_to_string(s) << ", [" << detail::to_string(p_ticker_) << "]) => " << result << "\n";
-                                return result;
-                        }
-                private:
-                        // we encode -0 here
-                        std::vector<int> p_ticker_;
-                };
-                struct game_tree_node_static : game_tree_node{
-                        explicit game_tree_node_static(Eigen::VectorXd vec):
-                                vec_{vec}
-                        {}
 
-                        virtual void evaluate(Eigen::VectorXd& out,
-                                              double p,
-                                              gt_context const& ctx,
-                                              class_cache const& cache,
-                                              holdem_class_vector const& vec,
-                                              Eigen::VectorXd const& s)override
-                        {
-                                auto q = factor(s);
-                                p *= q;
-                                for(size_t idx=0;idx!=vec_.size();++idx){
-                                        out[idx] += vec_[idx] * p;
-                                }
-                                //out += vec_ * p;
-                                out[vec.size()] += p;
+        struct game_tree_node{
+                enum{ MinusZero = 1024 };
+                virtual void evaluate(Eigen::VectorXd& out,
+                                      double p,
+                                      gt_context const& ctx,
+                                      holdem_class_vector const& vec,
+                                      Eigen::VectorXd const& s)=0;
+                game_tree_node& times(size_t idx){
+                        p_ticker_.push_back(static_cast<int>(idx));
+                        return *this;
+                }
+                game_tree_node& not_times(size_t idx){
+                        if( idx == 0 ){
+                                p_ticker_.push_back(MinusZero);
+                        } else {
+                                p_ticker_.push_back(-static_cast<int>(idx));
                         }
-                private:
-                        Eigen::VectorXd vec_;
-                };
-
-                struct game_tree_node_eval : game_tree_node{
-                        explicit
-                        game_tree_node_eval(std::vector<size_t> mask)
-                                :mask_{mask}
-                        {
-                                v_mask_.resize(mask_.size());
-                                v_mask_.fill(0);
-                                for(size_t idx=0;idx!=mask.size();++idx){
-                                        v_mask_(mask[idx]) = 1.0;
+                        return *this;
+                }
+                double factor(Eigen::VectorXd const& s){
+                        double result = 1.0;
+                        for(auto op : p_ticker_){
+                                if( op == MinusZero ){
+                                        result *= ( 1. - s[0] );
+                                } else if( op >= 0 ){
+                                        result *= s[static_cast<size_t>(op)];
+                                } else{
+                                        result *= ( 1. - s[static_cast<size_t>(-op)] );
                                 }
                         }
-                        virtual void evaluate(Eigen::VectorXd& out,
-                                              double p,
-                                              gt_context const& ctx,
-                                              class_cache const& cache,
-                                              holdem_class_vector const& vec,
-                                              Eigen::VectorXd const& s)override
-                        {
-                                auto q = factor(s);
-                                p *= q;
-                                if( std::fabs(p) < 0.001 )
-                                        return;
+                        //std::cout << "factor(" << vector_to_string(s) << ", [" << detail::to_string(p_ticker_) << "]) => " << result << "\n";
+                        return result;
+                }
+        private:
+                // we encode -0 here
+                std::vector<int> p_ticker_;
+        };
+        struct game_tree_node_static : game_tree_node{
+                explicit game_tree_node_static(Eigen::VectorXd vec):
+                        vec_{vec}
+                {}
 
-                                auto ev = cache.LookupVector(vec);
-
-                                auto equity_vec = ( 2 * ev - v_mask_ ) * ctx.eff() * p;
-
-                                #if 0
-                                for(size_t idx=0;idx!=mask_.size();++idx){
-                                        out[mask_[idx]] += equity[idx] * p;
-                                }
-                                #endif
-                                out += equity_vec;
-                                out[vec.size()] += p;
-                        }
-                private:
-                        std::vector<size_t> mask_;
-                        Eigen::VectorXd v_mask_;
-                };
-
-                struct game_tree_non_terminal
-                        : public game_tree_node
-                        , public std::vector<std::shared_ptr<game_tree_node> >
+                virtual void evaluate(Eigen::VectorXd& out,
+                                      double p,
+                                      gt_context const& ctx,
+                                      holdem_class_vector const& vec,
+                                      Eigen::VectorXd const& s)override
                 {
-                        virtual void evaluate(Eigen::VectorXd& out,
-                                              double p,
-                                              gt_context const& ctx,
-                                              class_cache const& cache,
-                                              holdem_class_vector const& vec,
-                                              Eigen::VectorXd const& s)override
-                        {
-                                auto q = factor(s);
-                                p *= q;
-                                for(auto& ptr : *this){
-                                        ptr->evaluate(out, p, ctx, cache, vec, s);
-                                }
+                        auto q = factor(s);
+                        p *= q;
+                        for(size_t idx=0;idx!=vec_.size();++idx){
+                                out[idx] += vec_[idx] * p;
                         }
-                };
+                        //out += vec_ * p;
+                        out[vec.size()] += p;
+                }
+        private:
+                Eigen::VectorXd vec_;
+        };
 
-                struct hu_game_tree : game_tree_non_terminal{
-                        explicit
-                        hu_game_tree( gt_context const& ctx){
-
-
-                                do{
-                                        Eigen::VectorXd v_f_{2};
-                                        v_f_(0) = -ctx.sb();
-                                        v_f_(1) =  ctx.sb();
-                                        auto n_f_ = std::make_shared<game_tree_node_static>(v_f_);
-                                        n_f_->not_times(0);
-                                        push_back(n_f_);
-                                }while(0);
-
-                                do{
-                                        Eigen::VectorXd v_pf{2};
-                                        v_pf(0) =  ctx.bb();
-                                        v_pf(1) = -ctx.bb();
-                                        auto n_pf = std::make_shared<game_tree_node_static>(v_pf);
-                                        n_pf->times(0);
-                                        n_pf->not_times(1);
-                                        push_back(n_pf);
-                                }while(0);
-
-                                do{
-                                        std::vector<size_t> m_pp;
-                                        m_pp.push_back(0);
-                                        m_pp.push_back(1);
-                                        auto n_pp = std::make_shared<game_tree_node_eval>(m_pp);
-                                        n_pp->times(0);
-                                        n_pp->times(1);
-                                        push_back(n_pp);
-                                }while(0);
-
+        struct game_tree_node_eval : game_tree_node{
+                explicit
+                game_tree_node_eval(std::vector<size_t> mask)
+                        :mask_{mask}
+                {
+                        v_mask_.resize(mask_.size());
+                        v_mask_.fill(0);
+                        for(size_t idx=0;idx!=mask.size();++idx){
+                                v_mask_(mask[idx]) = 1.0;
                         }
-                };
-        } // end namespace scratch
+                }
+                virtual void evaluate(Eigen::VectorXd& out,
+                                      double p,
+                                      gt_context const& ctx,
+                                      holdem_class_vector const& vec,
+                                      Eigen::VectorXd const& s)override
+                {
+                        auto q = factor(s);
+                        p *= q;
+                        if( std::fabs(p) < 0.001 )
+                                return;
+
+                        auto ev = ctx.cc()->LookupVector(vec);
+
+                        auto equity_vec = ( 2 * ev - v_mask_ ) * ctx.eff() * p;
+
+                        #if 0
+                        for(size_t idx=0;idx!=mask_.size();++idx){
+                                out[mask_[idx]] += equity[idx] * p;
+                        }
+                        #endif
+                        out += equity_vec;
+                        out[vec.size()] += p;
+                }
+        private:
+                std::vector<size_t> mask_;
+                Eigen::VectorXd v_mask_;
+        };
+
+        struct game_tree_non_terminal
+                : public game_tree_node
+                , public std::vector<std::shared_ptr<game_tree_node> >
+        {
+                virtual void evaluate(Eigen::VectorXd& out,
+                                      double p,
+                                      gt_context const& ctx,
+                                      holdem_class_vector const& vec,
+                                      Eigen::VectorXd const& s)override
+                {
+                        auto q = factor(s);
+                        p *= q;
+                        for(auto& ptr : *this){
+                                ptr->evaluate(out, p, ctx, vec, s);
+                        }
+                }
+        };
+
+        struct hu_game_tree : game_tree_non_terminal{
+                explicit
+                hu_game_tree( gt_context const& ctx){
+
+
+                        do{
+                                Eigen::VectorXd v_f_{2};
+                                v_f_(0) = -ctx.sb();
+                                v_f_(1) =  ctx.sb();
+                                auto n_f_ = std::make_shared<game_tree_node_static>(v_f_);
+                                n_f_->not_times(0);
+                                push_back(n_f_);
+                        }while(0);
+
+                        do{
+                                Eigen::VectorXd v_pf{2};
+                                v_pf(0) =  ctx.bb();
+                                v_pf(1) = -ctx.bb();
+                                auto n_pf = std::make_shared<game_tree_node_static>(v_pf);
+                                n_pf->times(0);
+                                n_pf->not_times(1);
+                                push_back(n_pf);
+                        }while(0);
+
+                        do{
+                                std::vector<size_t> m_pp;
+                                m_pp.push_back(0);
+                                m_pp.push_back(1);
+                                auto n_pp = std::make_shared<game_tree_node_eval>(m_pp);
+                                n_pp->times(0);
+                                n_pp->times(1);
+                                push_back(n_pp);
+                        }while(0);
+
+                }
+        };
+        
+        
 
 
         // returns a vector each players hand value
         Eigen::VectorXd combination_value(gt_context const& ctx,
-                                          class_cache const& cache,
                                           holdem_class_vector const& vec,
                                           Eigen::VectorXd const& s){
                 Eigen::VectorXd result{vec.size()+1};
                 result.fill(.0);
-                scratch::hu_game_tree tree(ctx);
-                tree.evaluate(result, 1., ctx, cache, vec, s);
+                ctx.root()->evaluate(result, 1., ctx, vec,s);
                 #if 0
                 Eigen::VectorXd result{2};
                 result.fill(.0);
@@ -325,7 +342,6 @@ namespace gt{
         }
 
         Eigen::VectorXd unilateral_detail(gt_context const& ctx,
-                                          class_cache const& cache,
                                           size_t idx,
                                           std::vector<Eigen::VectorXd> const& S,
                                           double weighted = true)
@@ -341,7 +357,7 @@ namespace gt{
                         auto p = cv.prob();
                         s[0] = S[0][cv[0]];
                         s[1] = S[1][cv[1]];
-                        auto meta_result = combination_value(ctx, cache, cv, s);
+                        auto meta_result = combination_value(ctx, cv, s);
                         result(cv[idx]) += p * meta_result[idx];
                 }
 
@@ -367,42 +383,37 @@ namespace gt{
         static Eigen::VectorXd fold_s = Eigen::VectorXd::Zero(169);
         static Eigen::VectorXd push_s = Eigen::VectorXd::Ones(169);
         Eigen::VectorXd unilateral_sb_maximal_exploitable(gt_context const& ctx,
-                                                           class_cache const& cache,
                                                            std::vector<Eigen::VectorXd> const& S)
         {
                 auto copy = S;
                 copy[0] = fold_s;
-                auto fold = unilateral_detail(ctx, cache, 0, copy);
+                auto fold = unilateral_detail(ctx, 0, copy);
                 copy[0] = push_s;
-                auto push = unilateral_detail(ctx, cache, 0, copy);
+                auto push = unilateral_detail(ctx, 0, copy);
                 return choose_push_fold(push, fold);
         }
         Eigen::VectorXd unilateral_bb_maximal_exploitable(gt_context const& ctx,
-                                                           class_cache const& cache,
                                                            std::vector<Eigen::VectorXd> const& S)
         {
 
                 auto copy = S;
                 copy[1] = fold_s;
-                auto fold = unilateral_detail(ctx, cache, 1, copy);
+                auto fold = unilateral_detail(ctx, 1, copy);
                 copy[1] = push_s;
-                auto push = unilateral_detail(ctx, cache, 1, copy);
+                auto push = unilateral_detail(ctx, 1, copy);
                 return choose_push_fold(push, fold);
         }
 
         std::vector<Eigen::VectorXd>
         unilateral_maximal_explitable_step(gt_context const& ctx,
-                                           class_cache const& cache,
                                            std::vector<Eigen::VectorXd> const& state)
         {
                 double factor = 0.05;
                 auto bb_counter = unilateral_bb_maximal_exploitable(ctx,
-                                                                    cache,
                                                                     state);
                 auto tmp = state;
                 tmp[1] = bb_counter;
                 auto sb_counter = unilateral_sb_maximal_exploitable(ctx,
-                                                                    cache,
                                                                     tmp);
                 auto copy = state;
                 copy[0] *= ( 1 - factor );
@@ -415,7 +426,6 @@ namespace gt{
         #if NOT_DEFINED
         std::vector<Eigen::VectorXd>
         unilateral_chooser_step(gt_context const& ctx,
-                                class_cache const& cache,
                                 std::vector<Eigen::VectorXd> const& state)
         {
                 auto bb_counter = unilateral_bb_maximal_exploitable(ctx,
@@ -490,21 +500,19 @@ namespace gt{
         
 
         struct solver{
-                virtual std::vector<Eigen::VectorXd> step(gt_context const& ctx, class_cache const& cache,
+                virtual std::vector<Eigen::VectorXd> step(gt_context const& ctx,
                                                           std::vector<Eigen::VectorXd> const& state)=0;
         };
         struct maximal_exploitable_solver : solver{
                 explicit maximal_exploitable_solver(double factor = 0.05):factor_{factor}{}
-                virtual std::vector<Eigen::VectorXd> step(gt_context const& ctx, class_cache const& cache,
+                virtual std::vector<Eigen::VectorXd> step(gt_context const& ctx,
                                                           std::vector<Eigen::VectorXd> const& state)override
                 {
                         auto bb_counter = unilateral_bb_maximal_exploitable(ctx,
-                                                                            cache,
                                                                             state);
                         auto tmp = state;
                         tmp[1] = bb_counter;
                         auto sb_counter = unilateral_sb_maximal_exploitable(ctx,
-                                                                            cache,
                                                                             tmp);
                         auto copy = state;
                         copy[0] *= ( 1 - factor_ );
@@ -548,10 +556,6 @@ namespace gt{
                         solver_ = s;
                         return *this;
                 }
-                make_solver& use_cache(class_cache const& cc){
-                        cc_ = &cc;
-                        return *this;
-                }
                 make_solver& max_steps(size_t n){
                         max_steps_ = n;
                         return *this;
@@ -571,7 +575,6 @@ namespace gt{
                 std::vector<Eigen::VectorXd> run(){
 
                         BOOST_ASSERT(ctx_ );
-                        BOOST_ASSERT(cc_ );
                         BOOST_ASSERT(solver_ );
                         BOOST_ASSERT(state0_.size() );
                         BOOST_ASSERT( stop_cond_ );
@@ -583,7 +586,7 @@ namespace gt{
 
                         for(size_t idx=0;idx<max_steps_;++idx){
 
-                                auto next = solver_->step(*ctx_, *cc_, state);
+                                auto next = solver_->step(*ctx_, state);
 
                                 if( stop_cond_(state, next) ){
                                         state[0] = clamp(state[0]);
@@ -606,7 +609,6 @@ namespace gt{
                 }
         private:
                 gt_context const* ctx_;
-                class_cache const* cc_;
                 std::shared_ptr<solver> solver_;
                 std::vector<Eigen::VectorXd> state0_;
                 std::vector<step_observer_t > obs_;
@@ -698,12 +700,16 @@ struct HeadUpSolverCmd : Command{
 
                 using result_t = std::future<std::tuple<double, std::vector<Eigen::VectorXd> > >;
                 std::vector<result_t> tmp;
+
+
                 auto enque = [&](double eff){
                         tmp.push_back(std::async([eff,&cc,&state0](){
                                 gt_context gtctx(eff, .5, 1.);
+                                auto root = std::make_shared<hu_game_tree>(gtctx);
+                                gtctx.use_game_tree(root);
+                                gtctx.use_cache(cc);
                                 auto result = make_solver(gtctx)
                                         .use_solver(std::make_shared<maximal_exploitable_solver>())
-                                        .use_cache(cc)
                                         .stoppage_condition(cond_single_strategy_lp1(0, 0.1))
                                         .init_state(state0)
                                         .run();

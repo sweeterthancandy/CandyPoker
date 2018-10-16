@@ -242,44 +242,10 @@ namespace gt{
                         }
                 }
         };
-
-        struct hu_eval_tree : eval_tree_non_terminal{
+        
+        struct hu_eval_tree_flat : eval_tree_non_terminal{
                 explicit
-                hu_eval_tree( gt_context const& ctx){
-
-                        #if 0
-                        Eigen::VectorXd pot{2};
-                        pot(0) = ctx.sb();
-                        pot(1) = ctx.bb();
-
-                        Eigen::VectorXd v_f_{2};
-                        v_f_(0) = -ctx.sb();
-                        v_f_(1) =  ctx.sb();
-                        auto n_f_ = std::make_shared<eval_tree_node_static>(v_f_);
-                        n_f_->not_times(0);
-                        push_back(n_f_);
-
-                        auto n_p_ = std::make_shared<eval_tree_non_terminal>();
-                        n_p_->times(0);
-
-
-                        Eigen::VectorXd v_pf{2};
-                        v_pf(0) =  ctx.bb();
-                        v_pf(1) = -ctx.bb();
-                        auto n_pf = std::make_shared<eval_tree_node_static>(v_pf);
-                        n_pf->not_times(1);
-                        n_p_->push_back(n_pf);
-
-                        std::vector<size_t> m_pp;
-                        m_pp.push_back(0);
-                        m_pp.push_back(1);
-                        auto n_pp = std::make_shared<eval_tree_node_eval>(m_pp);
-                        n_pp->times(0);
-                        n_pp->times(1);
-                        n_p_->push_back(n_pp);
-                        #endif
-
-                        #if 0
+                hu_eval_tree_flat( gt_context const& ctx){
                         Eigen::VectorXd v_f_{2};
                         v_f_(0) = -ctx.sb();
                         v_f_(1) =  ctx.sb();
@@ -302,7 +268,13 @@ namespace gt{
                         n_pp->times(0);
                         n_pp->times(1);
                         push_back(n_pp);
-                        #endif
+                }
+        };
+
+        struct hu_eval_tree : eval_tree_non_terminal{
+                explicit
+                hu_eval_tree( gt_context const& ctx){
+
 
                         Eigen::VectorXd v_f_{2};
                         v_f_(0) = -ctx.sb();
@@ -398,21 +370,6 @@ namespace gt{
                 return choose_push_fold(push, fold);
         }
 
-        std::vector<Eigen::VectorXd>
-        unilateral_maximal_explitable_step(gt_context const& ctx,
-                                           std::vector<Eigen::VectorXd> const& state)
-        {
-                double factor = 0.05;
-                auto bb_counter = unilateral_maximal_exploitable(ctx,1, state);
-                auto tmp = state;
-                tmp[1] = bb_counter;
-                auto sb_counter = unilateral_maximal_exploitable(ctx,0, tmp);
-                auto copy = state;
-                copy[0] *= ( 1 - factor );
-                copy[0] +=  factor * sb_counter;
-                copy[1]  = bb_counter;
-                return copy;
-        }
 
 
 
@@ -441,6 +398,23 @@ namespace gt{
         private:
                 double factor_;
         };
+        struct maximal_exploitable_solver_uniform : solver{
+                explicit maximal_exploitable_solver_uniform(double factor = 0.05):factor_{factor}{}
+                virtual std::vector<Eigen::VectorXd> step(gt_context const& ctx,
+                                                          std::vector<Eigen::VectorXd> const& state)override
+                {
+                        std::vector<Eigen::VectorXd> result(state.size());
+                        
+                        for(size_t idx=0;idx!=state.size();++idx){
+
+                                auto counter = unilateral_maximal_exploitable(ctx,idx, state);
+                                result[idx] = state[idx] * ( 1.0 - factor_ ) + counter * factor_;
+                        }
+                        return result;
+                }
+        private:
+                double factor_;
+        };
 
         struct cond_single_strategy_lp1{
                 using state_t = std::vector<Eigen::VectorXd>;
@@ -452,6 +426,7 @@ namespace gt{
                         auto d = from[idx_] - to[idx_];
                         auto norm = d.lpNorm<1>();
                         auto cond = ( norm < epsilon_ );
+                        std::cout << "norm => " << norm << "\n"; // __CandyPrint__(cxx-print-scalar,norm)
                         return cond;
                 }
         private:
@@ -555,22 +530,23 @@ struct HeadUpSolverCmd : Command{
 
                 using namespace gt;
 
-                std::vector<Eigen::VectorXd> state0;
-                state0.push_back(Eigen::VectorXd::Zero(169));
-                state0.push_back(Eigen::VectorXd::Zero(169));
+                size_t num_players = 2;
+
+                // create a vector of num_players of zero vectors
+                std::vector<Eigen::VectorXd> state0(num_players, Eigen::VectorXd::Zero(169));
 
                 using result_t = std::future<std::tuple<double, std::vector<Eigen::VectorXd> > >;
                 std::vector<result_t> tmp;
 
 
                 auto enque = [&](double eff){
-                        tmp.push_back(std::async([eff,&cc,&state0](){
-                                gt_context gtctx(2, eff, .5, 1.);
+                        tmp.push_back(std::async([num_players, eff,&cc,&state0](){
+                                gt_context gtctx(num_players, eff, .5, 1.);
                                 auto root = std::make_shared<hu_eval_tree>(gtctx);
                                 gtctx.use_game_tree(root);
                                 gtctx.use_cache(cc);
                                 auto result = make_solver(gtctx)
-                                        .use_solver(std::make_shared<maximal_exploitable_solver>())
+                                        .use_solver(std::make_shared<maximal_exploitable_solver_uniform>())
                                         .stoppage_condition(cond_single_strategy_lp1(0, 0.1))
                                         .init_state(state0)
                                         .run();
@@ -584,6 +560,8 @@ struct HeadUpSolverCmd : Command{
                 #else
                 enque(20);
                 #endif
+
+                #if 0
                 Eigen::VectorXd s0(169);
                 s0.fill(.0);
                 Eigen::VectorXd s1(169);
@@ -600,7 +578,15 @@ struct HeadUpSolverCmd : Command{
                 
                 pretty_print_strat(s0, 1);
                 pretty_print_strat(s1, 1);
+                #endif
 
+                for(auto& _ : tmp){
+                        auto aux = _.get();
+                        auto const& vec = std::get<1>(aux);
+                        for(auto const& s : vec ){
+                                pretty_print_strat(s, 2);
+                        }
+                }
 
 
 

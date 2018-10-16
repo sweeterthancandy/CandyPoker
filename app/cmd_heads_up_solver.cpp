@@ -279,472 +279,59 @@ namespace gt{
                         n_p_->push_back(n_pp);
                         #endif
 
-                        #if 1
-                        do{
-                                Eigen::VectorXd v_f_{2};
-                                v_f_(0) = -ctx.sb();
-                                v_f_(1) =  ctx.sb();
-                                auto n_f_ = std::make_shared<eval_tree_node_static>(v_f_);
-                                n_f_->not_times(0);
-                                push_back(n_f_);
-                        }while(0);
+                        #if 0
+                        Eigen::VectorXd v_f_{2};
+                        v_f_(0) = -ctx.sb();
+                        v_f_(1) =  ctx.sb();
+                        auto n_f_ = std::make_shared<eval_tree_node_static>(v_f_);
+                        n_f_->not_times(0);
+                        push_back(n_f_);
 
-                        do{
-                                Eigen::VectorXd v_pf{2};
-                                v_pf(0) =  ctx.bb();
-                                v_pf(1) = -ctx.bb();
-                                auto n_pf = std::make_shared<eval_tree_node_static>(v_pf);
-                                n_pf->times(0);
-                                n_pf->not_times(1);
-                                push_back(n_pf);
-                        }while(0);
+                        Eigen::VectorXd v_pf{2};
+                        v_pf(0) =  ctx.bb();
+                        v_pf(1) = -ctx.bb();
+                        auto n_pf = std::make_shared<eval_tree_node_static>(v_pf);
+                        n_pf->times(0);
+                        n_pf->not_times(1);
+                        push_back(n_pf);
 
-                        do{
-                                std::vector<size_t> m_pp;
-                                m_pp.push_back(0);
-                                m_pp.push_back(1);
-                                auto n_pp = std::make_shared<eval_tree_node_eval>(m_pp);
-                                n_pp->times(0);
-                                n_pp->times(1);
-                                push_back(n_pp);
-                        }while(0);
+                        std::vector<size_t> m_pp;
+                        m_pp.push_back(0);
+                        m_pp.push_back(1);
+                        auto n_pp = std::make_shared<eval_tree_node_eval>(m_pp);
+                        n_pp->times(0);
+                        n_pp->times(1);
+                        push_back(n_pp);
                         #endif
 
-                }
-        };
-#if 0
-        struct hu_pot_game_tree : eval_tree_non_terminal{
-                explicit
-                hu_pot_game_tree( gt_context const& ctx){
+                        Eigen::VectorXd v_f_{2};
+                        v_f_(0) = -ctx.sb();
+                        v_f_(1) =  ctx.sb();
+                        auto n_f_ = std::make_shared<eval_tree_node_static>(v_f_);
+                        n_f_->not_times(0);
+                        push_back(n_f_);
 
+                        auto n_p_ = std::make_shared<eval_tree_non_terminal>();
+                        n_p_->times(0);
 
-                        do{
-                                Eigen::VectorXd v_f_{2};
-                                v_f_(0) = -ctx.sb();
-                                v_f_(1) =  ctx.sb();
-                                auto n_f_ = std::make_shared<eval_tree_node_static>(v_f_);
-                                n_f_->not_times(0);
-                                push_back(n_f_);
-                        }while(0);
+                        Eigen::VectorXd v_pf{2};
+                        v_pf(0) =  ctx.bb();
+                        v_pf(1) = -ctx.bb();
+                        auto n_pf = std::make_shared<eval_tree_node_static>(v_pf);
+                        n_pf->not_times(1);
+                        n_p_->push_back(n_pf);
 
-                        do{
-                                Eigen::VectorXd v_pf{2};
-                                v_pf(0) =  ctx.bb();
-                                v_pf(1) = -ctx.bb();
-                                auto n_pf = std::make_shared<eval_tree_node_static>(v_pf);
-                                n_pf->times(0);
-                                n_pf->not_times(1);
-                                push_back(n_pf);
-                        }while(0);
+                        std::vector<size_t> m_pp;
+                        m_pp.push_back(0);
+                        m_pp.push_back(1);
+                        auto n_pp = std::make_shared<eval_tree_node_eval>(m_pp);
+                        n_pp->times(1);
+                        n_p_->push_back(n_pp);
 
-                        do{
-                                std::vector<size_t> m_pp;
-                                m_pp.push_back(0);
-                                m_pp.push_back(1);
-                                auto n_pp = std::make_shared<eval_tree_node_eval>(m_pp);
-                                n_pp->times(0);
-                                n_pp->times(1);
-                                push_back(n_pp);
-                        }while(0);
+                        push_back(n_p_);
 
                 }
         };
-#endif
-
-        enum action_kind{
-                AK_None,
-                AK_PostSB,
-                AK_PostBB,
-                AK_Push,
-                AK_Fold,
-                AK_Pot
-        };
-        std::string action_kind_to_string(action_kind k){
-                switch(k){
-                case AK_None: return "None";
-                case AK_PostSB: return "PostSB";
-                case AK_PostBB: return "PostBB";
-                case AK_Push: return "Push";
-                case AK_Fold: return "Fold";
-                case AK_Pot: return "Pot";
-                default: return "Unknown";
-                }
-        }
-        struct decl_action{
-                explicit decl_action(action_kind k = AK_None):kind_{k}{}
-                action_kind get_kind()const{ return kind_; }
-                std::string to_string()const{
-                        return action_kind_to_string(kind_);
-                }
-                friend std::ostream& operator<<(std::ostream& ostr, decl_action const& self){
-                        return ostr << self.to_string();
-                }
-        private:
-                action_kind kind_;
-        };
-
-        using action_vec = std::vector<decl_action>;
-
-
-        struct branch{
-
-                explicit branch(gt_context const& gctx){
-                        active_.resize(gctx.num_players());
-                        active_.fill(1);
-                        left_to_act_.resize(gctx.num_players());
-                        left_to_act_.fill(1);
-                        pot_.resize(gctx.num_players());
-                        pot_.fill(0.);
-                        stack_.resize(gctx.num_players());
-                        stack_.fill(gctx.eff());
-                }
-                branch(branch const& parent){
-                        pot_    = parent.pot_;
-                        stack_  = parent.stack_;
-                        active_ = parent.active_;
-                        left_to_act_ = parent.left_to_act_;
-                        head_   = parent.head_;
-                        end_    = parent.end_;
-                        action_ = decl_action{};
-                        raise_history_   = parent.raise_history_;
-                        increment_ptr();
-                }
-
-                // modifiers
-                void post_bind(double val){
-                        double epsilon = 0.001;
-                        
-                        // we need to take care of the rare case the stack is the size of the blind
-                        if( stack_[head_] - val < epsilon ){
-                                raise_history_.push_back(stack_(head_));
-                                pot_(head_) += stack_(head_);
-                                stack_(head_) = 0.0;
-                                // when the blind post and goes all in no longer
-                                // can put more money in
-                                left_to_act_[head_] = 0.0;
-                        } else{
-                                raise_history_.push_back(val);
-                                pot_(head_) += val;
-                                stack_(head_) -= val;
-                        }
-                }
-                void increment_ptr(){
-                        size_t last = head_;
-                        for(;;){
-                                increment_ptr_impl();
-                                if( left_to_act_[head_] )
-                                        break;
-                                if( head_ == last ){
-                                        end_ = true;
-                                        break;
-                                }
-                        }
-                }
-                void increment_ptr_impl(){
-                        ++head_;
-                        head_ = head_ % active_.size();
-                }
-                void fold(){
-                        BOOST_ASSERT( active_[head_] );
-                        // not active in the pot
-                        active_[head_] = false;
-                        left_to_act_[head_] = false;
-                }
-                void push(){
-                        BOOST_ASSERT( active_[head_] );
-                        if( raise_history_.back() < stack_[head_] ){
-                                raise( stack_[head_] );
-                        } else {
-                                call( stack_[head_] );
-                        }
-                }
-                void raise( double val ){
-                        double epsilon = 0.001;
-                        double capped_val = std::
-                        if( std::fabs(stack_[head_] - val) < epsilon ){
-                                // all in 
-                                raise_history_.push_back(stack_[head_]);
-                                left_to_act_.fill(0);
-                                for(size_t idx=0;idx!=left_to_act_.size();++idx){
-                                        if( active_[idx] ){
-                                                if( std::fabs(stack_[idx]) > epsilon ){
-                                                        left_to_act_[idx] = 1;
-                                                }
-                                        }
-                                }
-                        }
-                }
-                                // its a raise
-                                raise_history_.push_back(stack_[head_]);
-                                reopen_betting();
-                        }
-                        pot_[head_] += stack_[head_];
-                        stack_[head_] = 0.;
-                        left_to_act_[head_] = false;
-                }
-
-                std::shared_ptr<branch> make_child(){
-                        auto ptr = std::make_shared<branch>(*this);
-                        next_.push_back(ptr);
-                        ptr->increment_ptr();
-                        return ptr;
-                }
-
-                void display()const{
-                        detail::tree_printer_detail impl;
-                        display_impl(&impl);
-                }
-                void display_impl(detail::tree_printer_detail* impl)const{
-                        impl->non_terminal( to_string() );
-                        impl->begin_children_size(next_.size());
-                        for(auto const& _ : next_){
-                                _->display_impl(impl);
-                                impl->next_child();
-                        }
-                        impl->end_children();
-                }
-                std::string to_string()const{
-                        std::stringstream sstr;
-                        sstr << "{" << action_ << ","
-                                    << vector_to_string(pot_) << ","
-                                    << vector_to_string(stack_) << ","
-                                    << vector_to_string(active_) << ","
-                                    << vector_to_string(left_to_act_) << "}";
-                        return sstr.str();
-                }
-
-
-                static std::shared_ptr<branch> generate(gt_context const& gctx,
-                                                        action_vec const& forced,
-                                                        action_vec const& choices);
-        private:
-                friend class game_tree_builder;
-
-                Eigen::VectorXd pot_;
-                Eigen::VectorXd stack_;
-                Eigen::VectorXi active_;
-                // everyone has to once everyone has called, they are removed
-                // from this, when we get a raise, everyone gets added back
-                Eigen::VectorXi left_to_act_;
-                size_t head_{0};
-                bool end_{false};
-                std::vector<std::shared_ptr<branch> > next_;
-                decl_action action_;
-                std::vector<double> raise_history_;
-        };
-        
-        std::shared_ptr<branch> branch::generate(gt_context const& gctx,
-                                                 action_vec const& forced,
-                                                 action_vec const& choices)
-        {
-                std::shared_ptr<branch> root(new branch{gctx});
-
-                auto head = root;
-                for(auto const& action : forced ){
-                        switch(action.get_kind()){
-                        case AK_PostSB:
-                        {
-                                auto next = head->make_child();
-                                next->action_ = action;
-                                next->post_bind(gctx.sb());
-                                head = next;
-                        }
-                        break;
-                        case AK_PostBB:
-                        {
-                                auto next = head->make_child();
-                                next->action_ = action;
-                                next->post_bind(gctx.bb());
-                                head = next;
-                        }
-                        break;
-                        default:
-                                BOOST_THROW_EXCEPTION(std::domain_error("bad action"));
-                        }
-                }
-                std::vector<std::shared_ptr<branch> > stack{head};
-
-                for(;stack.size();){
-                        head = stack.back();
-                        stack.pop_back();
-
-                        if( head->end_ )
-                                continue;
-
-                        for(auto const& action : choices ){
-                                switch(action.get_kind()){
-                                case AK_Fold:
-                                {
-                                        auto next = head->make_child();
-                                        next->action_ = action;
-                                        next->fold();
-                                        if( ! next->end_ ){
-                                                stack.push_back(next);
-                                        }
-                                }
-                                break;
-                                case AK_Push:
-                                {
-                                        auto next = head->make_child();
-                                        next->action_ = action;
-                                        next->push();
-                                        if( ! next->end_ ){
-                                                stack.push_back(next);
-                                        }
-                                }
-                                break;
-                                default:
-                                        BOOST_THROW_EXCEPTION(std::domain_error("bad action"));
-                                }
-                        }
-                }
-
-                
-                #if 0
-                struct gen_accept : boost::static_visitor<void>{
-                        explicit
-                        gen_accept(gt_context const& gctx, std::shared_ptr<branch> head_)
-                                :gctx_{&gctx}
-                        {
-                                head.push_back(head_);
-                        }
-                        void operator()(decl_post_sb const& a){}
-                        void operator()(decl_post_bb const& a){}
-                        void operator()(decl_push const& a){
-                                // will always be valid
-                                for(auto ptr : head){
-                                        auto next = ptr->make_child();
-                                }
-                        }
-                        void operator()(decl_fold const& a){}
-                        void operator()(decl_pot const& a){}
-                        void operator()(decl_none const& a){}
-                        void next(){
-                                head = std::move(head);
-                                head.clear();
-                        }
-                        gt_context const* gctx_;
-                        std::vector<std::shared_ptr<branch> > head;
-                        std::vector<std::shared_ptr<branch> > next;
-
-                };
-                
-                std::vector<std::shared_ptr<branch> > stack;
-                #endif
-
-                return root;
-        }
-        struct Scratch : Command{
-                explicit
-                Scratch(std::vector<std::string> const& args):players_s_{args}{}
-                virtual int Execute()override{
-                        gt_context gctx{2, 10, 0.5, 1.0};
-                        action_vec forced{decl_action{AK_PostSB}, decl_action{AK_PostSB}};
-                        //action_vec choices{decl_action{AK_Fold}, decl_action{AK_Push}, decl_action{AK_Pot}};
-                        action_vec choices{decl_action{AK_Fold}, decl_action{AK_Push}};
-                        auto root  = branch::generate(gctx, forced, choices);
-                        root->display();
-                        return EXIT_SUCCESS;
-                }
-        private:
-                std::vector<std::string> const& players_s_;
-        };
-        static TrivialCommandDecl<Scratch> ScratchDecl{"scratch"};
-
-        #if 0
-        struct game_tree_builder{
-
-
-                explicit
-                game_tree_builder(gt_context const& ctx)
-                        : gtctx_{&ctx}
-                {
-                        actions_.emplace_back();
-                }
-                void next(){
-                        actions_.emplace_back();
-                }
-                game_tree_builder& post_sb(){
-                        head_->
-                        return *this;
-                }
-                game_tree_builder& post_bb(){
-                        actions_.back().emplace_back(decl_post_bb());
-                        return *this;
-                }
-                game_tree_builder& push(){
-                        actions_.back().emplace_back(decl_push());
-                        return *this;
-                }
-                game_tree_builder& fold(){
-                        actions_.back().emplace_back(decl_fold());
-                        return *this;
-                }
-                game_tree_builder& pot(){
-                        actions_.back().emplace_back(decl_pot());
-                        return *this;
-                }
-                std::shared_ptr<eval_tree_node> make()const{
-
-                        struct branch{
-                                Eigen::VectorXd pot;
-                                Eigen::VectorXd stack;
-                                std::vector<size_t> active;
-                                size_t ptr_{0};
-
-                        };
-                        struct context{
-                                context(gt_context const* gtctx_)
-                                        : gtctx{gtctx_}
-                                {
-                                        graph.emplace_back();
-                                        graph.back().active.resize(num_players_);
-                                        graph.back().active.fill(0.);
-                                        graph.back().pot.resize(num_players_);
-                                        graph.back().pot.fill(0.);
-                                        graph.back().stack.resize(num_players_);
-                                        graph.back().stack.fill(gtctx->eff())
-                                }
-                                gt_context const& gtctx;
-                                std::vector<branch> graph;
-                                std::vector<branch> out;
-                        };
-
-                        struct accept_type : boost::static_visitor<void>{
-                                void operator()(decl_post_sb const& a){
-                                        BOOST_ASSERT( ctx->graph.size() == 1 );
-
-                                        auto new_branch = graph;
-                                        for(auto& _ : copy){
-                                                _.
-                                        }
-                                }
-                                void operator()(decl_post_bb const& a){
-                                        BOOST_ASSERT( ctx->graph.size() == 1 );
-                                        
-                                        auto& g = ctx->graph.back().post_bind( ctx->gtctx->bb() );
-                                }
-                                void operator()(decl_push const& a){
-                                }
-                                void operator()(decl_fold const& a){}
-                                void operator()(decl_pot const& a){}
-                                context* ctx;
-                        };
-                        context ctx(num_players_);
-                        accept_type accept{&ctx};
-
-                        for(auto const& a : actions_){
-                                boost::apply_visitor( accept, a);
-                        }
-                }
-        private:
-                gt_context const& gtctx_;
-                std::shared_ptr<branch> head_;
-                std::vector<std::shared_ptr<branch> > head_;
-        };
-        #endif
-        
-        
 
 
         // returns a vector each players hand value
@@ -1024,89 +611,4 @@ private:
 };
 static TrivialCommandDecl<HeadUpSolverCmd> HeadsUpSolverCmdDecl{"heads-up-solver"};
         
-
-
-
-
-
-
-
-
-
-
-
-
-#if NOT_DEFINED
-        std::vector<Eigen::VectorXd>
-        unilateral_chooser_step(gt_context const& ctx,
-                                std::vector<Eigen::VectorXd> const& state)
-        {
-                auto bb_counter = unilateral_bb_maximal_exploitable(ctx,
-                                                                    cache,
-                                                                    state);
-
-                auto head = unilateral_detail(ctx, cache, 0, state[0], bb_counter, false);
-                auto fold = unilateral_detail(ctx, cache, 0, fold_s, bb_counter, false);
-                auto push = unilateral_detail(ctx, cache, 0, push_s, bb_counter, false);
-
-                using Operator = std::tuple<size_t, double, double, double>;
-
-                std::vector<Operator> ops;
-
-                auto add_cand = [&](size_t idx, double cand, double cand_val){
-                        auto d = cand - head(idx);
-                        if( d > 0.0 ){
-                                ops.emplace_back(idx, cand, cand_val, d);
-                        }
-                };
-
-                for(size_t idx=0;idx!=169;++idx){
-                        add_cand(idx, fold(idx), 0.0);
-                        add_cand(idx, push(idx), 1.0);
-                }
-
-                std::sort(ops.begin(), ops.end(), [](auto const& l, auto const& r){
-                        return std::get<3>(l) > std::get<3>(r);
-                });
-
-                #if 0
-                enum{ CandidateSetSz = 3 };
-                if( ops.size() > CandidateSetSz ){
-                        ops.resize(CandidateSetSz);
-                }
-                std::vector<std::tuple<Eigen::VectorXd, double> > candidates;
-                for(auto const& t : ops){
-                        auto cand_strat = state[0];
-                        cand_strat[std::get<0>(t)] = std::get<2>(t);
-                        auto counter = unilateral_bb_maximal_exploitable(ctx,
-                                                                         cache,
-                                                                         cand_strat);
-                        candidates.emplace_back(cand_strat, unilateral_detail(ctx, cache, 0, cand_strat, counter).sum());
-
-                        std::cout << "holdem_class_decl::get(std::get<0>(t)) => " << holdem_class_decl::get(std::get<0>(t)) << "\n"; // __CandyPrint__(cxx-print-scalar,holdem_class_decl::get(std::get<0>(t)))
-                        std::cout << "std::get<1>(candidates.back()) => " << std::get<1>(candidates.back()) << "\n"; // __CandyPrint__(cxx-print-scalar,std::get<1>(candidates.back()))
-                }
-                std::sort(candidates.begin(), candidates.end(), [](auto const& r, auto const& l){
-                        return std::get<1>(r) < std::get<1>(l);
-                });
-                
-                auto copy = state;
-                if( candidates.size()){
-                        copy[0] = std::get<0>(candidates.back());
-                }
-                copy[1] = bb_counter;
-                #endif
-
-                auto copy = state;
-                ops.resize(ops.size()/2);
-                copy[1] = bb_counter;
-                for(auto const& t : ops){
-                        auto cand_strat = state[0];
-                        copy[0][std::get<0>(t)] = std::get<2>(t);
-                }
-                return copy;
-
-        }
-        #endif // NOT_DEFINED
-
 } // end namespace ps

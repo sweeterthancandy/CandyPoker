@@ -65,7 +65,7 @@ struct rank_hash_eval
                 return ret;
         }
 private:
-        evaluator_6_card_map* e6cm_{evaluator_6_card_map::instance()};
+        evaluator_5_card_map* e6cm_{evaluator_5_card_map::instance()};
         std::vector<ranking_t> card_map_7_;
 };
 

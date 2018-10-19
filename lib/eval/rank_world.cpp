@@ -24,7 +24,7 @@ namespace {
                 
 rank_world::rank_world(){
         rank_world_aux aux;
-        generate(aux);
+        visit_poker_rankings(aux);
         world_ = std::move(aux.result);
 }
 

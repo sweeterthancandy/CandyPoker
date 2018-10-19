@@ -5,6 +5,9 @@
 
 namespace ps{
 
+
+
+        #if 0
 struct evaluator_6_card_map : evaluator_5_card_map{
 
 
@@ -140,6 +143,7 @@ private:
         std::array<int, 52> flush_device_;
         std::array<int, 52> rank_device_;
 };
+#endif
 
 } // ps 
 #endif // PS_EVAL_EVALUATOR_6_CARD_MAP_H

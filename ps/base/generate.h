@@ -11,7 +11,7 @@ namespace ps{
  *    v.next(is_flush, r0, r1, r2, r3, r4)
  */
 template<class V>
-void generate(V& v){
+void visit_poker_rankings(V& v){
         static long _2( 0);
         static long _3( 1);
         static long _4( 2);

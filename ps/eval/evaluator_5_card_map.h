@@ -15,18 +15,113 @@
 #include "ps/base/generate.h"
 
 namespace ps{
+namespace prime_rank_map{
+        
+        //                                                       2 3 4 5  6  7  8  9  T  J  Q  K  A
+        static constexpr std::array<std::uint32_t, 13> Primes = {2,3,5,7,11,13,17,19,23,27,29,31,37};
+
+        using prime_rank_t = std::uint32_t;
+
+        inline
+        prime_rank_t append(prime_rank_t val, rank_id rank)noexcept{
+                return val * Primes[rank];
+        }
+
+        inline
+        prime_rank_t create()noexcept{ return 1; }
+        inline
+        prime_rank_t create(rank_vector const& rv) noexcept{
+                auto val = create();
+                for(auto id : rv )
+                        val = append(val, id);
+                return val;
+        }
+        template<class... Args>
+        prime_rank_t create(Args... args) noexcept{
+                auto val = create();
+                int _[] = {0,  (val = append(val, args),0)...};
+                return val;
+        }
+        template<class... Args>
+        prime_rank_t create_from_cards(Args... args) noexcept{
+                auto val = create();
+                int _[] = {0,  (val = append(val, card_rank_from_id(args)),0)...};
+                return val;
+        }
+        inline
+        const prime_rank_t max()noexcept{
+                return create(12,12,12,12,11,11,11);
+        }
+
+} // end namespace prime_rank_map
+} // end namespace ps
+
+namespace ps{
+namespace prime_suit_map{
+        
+        //                                                       2 3 4 5  6  7  8  9  T  J  Q  K  A
+        static constexpr std::array<std::uint32_t, 13> Primes = {2,3,5,7,11,13,17,19,23,27,29,31,37};
+
+        using prime_suit_t = std::uint32_t;
+        
+        inline
+        prime_suit_t append(prime_suit_t val, suit_id suit)noexcept{
+                return val * Primes[suit];
+        }
+        inline
+        prime_suit_t create()noexcept{ return 1; }
+        template<class... Args>
+        prime_suit_t create(Args... args) noexcept{
+                auto val = create();
+                int _[] = {0,  (val = append(val, args),0)...};
+                return val;
+        }
+        template<class... Args>
+        prime_suit_t create_from_cards(Args... args) noexcept{
+                auto val = create();
+                int _[] = {0,  (val = append(val, card_suit_from_id(args)),0)...};
+                return val;
+        }
+
+        inline bool is_flush(prime_suit_t val)noexcept{
+                switch(val){
+                case 2*2*2*2*2:
+                case 3*3*3*3*3:
+                case 5*5*5*5*5:
+                case 7*7*7*7*7:
+                        return true;
+                default:
+                        return false;
+                }
+        }
+
+
+} // end namespace prime_suit_map
+} // end namespace
+
+namespace ps{
 
 struct evaluator_5_card_map{
         evaluator_5_card_map(){
+
+                struct V{
+                        void begin(std::string const&){}
+                        void end(){}
+                        void next( bool f, long a, long b, long c, long d, long e){
+                                auto m = prime_rank_map::create(a,b,c,d,e);
+                                if( f )
+                                        self_->flush_map_[m] = order_;
+                                else
+                                        self_->rank_map_[m] = order_;
+                                ++order_;
+                        }
+                        evaluator_5_card_map* self_;
+                        size_t order_{1};
+                };
+                V v = {this};
                 flush_map_.resize( 37 * 37 * 37 * 37 * 31 +1 );
                 rank_map_.resize( 37 * 37 * 37 * 37 * 31 +1 );
-
-                std::array<int,4> suit_map = { 2,3,5,7 };
-                for( size_t i{0};i!=52;++i){
-                        flush_device_[i] = suit_map[card_decl::get(i).suit().id()];
-                        rank_device_[i] = card_decl::get(i).rank().id();
-                }
-                generate(*this);
+                visit_poker_rankings(v);
         }
 
 
@@ -34,78 +129,17 @@ struct evaluator_5_card_map{
                 static auto ptr = new evaluator_5_card_map;
                 return ptr;
         }
-
-        void begin(std::string const&){}
-        void end(){}
-        void next( bool f, long a, long b, long c, long d, long e){
-                auto m = map_rank(a,b,c,d,e);
-                if( f )
-                        flush_map_[m] = order_;
-                else
-                        rank_map_[m] = order_;
-                ++order_;
-        }
-        ranking_t eval_flush(std::uint32_t m)const noexcept{
-                return flush_map_[m];
-        }
-        ranking_t eval_flush(long a, long b, long c, long d, long e)const noexcept{
-                std::uint32_t m = map_rank( rank_device_[a],rank_device_[b],
-                                            rank_device_[c],rank_device_[d],
-                                            rank_device_[e]);
-                return eval_flush(m);
-        }
-
-
-        ranking_t eval_rank(std::uint32_t m)const noexcept{
-                return rank_map_[m];
-        }
-        ranking_t eval_rank(long a, long b, long c, long d, long e)const noexcept{
-                std::uint32_t m = map_rank( rank_device_[a],rank_device_[b],
-                                            rank_device_[c],rank_device_[d],
-                                            rank_device_[e]);
-                return eval_rank(m);
-        }
-        ranking_t eval_rank(long a, long b, long c, long d, long e, long f)const noexcept{
-                std::uint32_t m = map_rank( rank_device_[a],rank_device_[b],
-                                            rank_device_[c],rank_device_[d],
-                                            rank_device_[e],rank_device_[f]);
-                return eval_rank(m);
-        }
-
-        std::uint32_t map_rank(long a, long b, long c, long d, long e)const{
-                //                                 2 3 4 5  6  7  8  9  T  J  Q  K  A
-                static std::array<std::uint32_t, 13> p = {2,3,5,7,11,13,17,19,23,27,29,31,37};
-                return p[a] * p[b] * p[c] * p[d] * p[e];
-        }
-        std::uint32_t map_rank(long a, long b, long c, long d, long e, long f)const{
-                //                                 2 3 4 5  6  7  8  9  T  J  Q  K  A
-                static std::array<std::uint32_t, 13> p = {2,3,5,7,11,13,17,19,23,27,29,31,37};
-                return p[a] * p[b] * p[c] * p[d] * p[e] * p[f];
-        }
-
-        // public interface
         ranking_t rank(long a, long b, long c, long d, long e)const{
-                auto f_aux =  flush_device_[a] * flush_device_[b] * flush_device_[c] * flush_device_[d] * flush_device_[e] ;
-                std::uint32_t m = map_rank( rank_device_[a],
-                                            rank_device_[b], 
-                                            rank_device_[c],
-                                            rank_device_[d], 
-                                            rank_device_[e]);
+
+                auto f_aux = prime_suit_map::create_from_cards(a,b,c,d,e);
+                auto m     = prime_rank_map::create_from_cards(a,b,c,d,e);
+
                 ranking_t ret;
-
-
-                switch(f_aux){
-                case 2*2*2*2*2:
-                case 3*3*3*3*3:
-                case 5*5*5*5*5:
-                case 7*7*7*7*7:
-                        ret = eval_flush(m);
-                        break;
-                default:
-                        ret = eval_rank(m);
-                        break;
+                if( prime_suit_map::is_flush(f_aux) ){
+                        ret = flush_map_[m];
+                } else{
+                        ret = rank_map_[m];
                 }
-                //PRINT_SEQ((a)(b)(c)(d)(e)(ret));
                 return ret;
         }
         ranking_t rank(long a, long b, long c, long d, long e, long f)const{
@@ -131,11 +165,7 @@ struct evaluator_5_card_map{
                 };
                 return * std::min_element(aux.begin(), aux.end());
         }
-protected:
-        std::array<int, 52> flush_device_;
-        std::array<int, 52> rank_device_;
 private:
-        size_t order_ = 1;
         std::vector<ranking_t> flush_map_;
         std::vector<ranking_t> rank_map_;
 };

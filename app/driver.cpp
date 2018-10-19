@@ -223,6 +223,36 @@ static TrivialCommandDecl<MaskEval> MaskEvalDecl{"eval"};
 
 
 
+struct IteratorDbg : Command{
+        explicit
+        IteratorDbg(std::vector<std::string> const& args):players_s_{args}{}
+        virtual int Execute()override{
+                enum{ MaxIter = 50 };
+
+                std::cout << "holdem_hand_iterator\n";
+                size_t n = 0;
+                for(holdem_hand_iterator iter(5),end;iter!=end && n < MaxIter;++iter,++n){
+                        std::cout << "    " <<  *iter << "\n";
+                }
+
+                std::cout << "holdem_class_iterator\n";
+                n = 0;
+                for(holdem_class_iterator iter(3),end;iter!=end && n < MaxIter;++iter,++n){
+                        std::cout << "    " <<  *iter << "\n";
+                }
+
+                std::cout << "board_combination_iterator\n";
+                n = 0;
+                for(board_combination_iterator iter(3),end;iter!=end && n < MaxIter;++iter,++n){
+                        std::cout << "    " <<  *iter << "\n";
+                }
+
+                return EXIT_SUCCESS;
+        }
+private:
+        std::vector<std::string> const& players_s_;
+};
+static TrivialCommandDecl<IteratorDbg> IteratorDbgDecl{"iterator-dbg"};
 
 
 

@@ -11,9 +11,9 @@
 #include <boost/timer/timer.hpp>
 #include "ps/detail/visit_combinations.h"
 #include "ps/detail/print.h"
-#include "ps/base/suit_hasher.h"
 
 #include "ps/base/visit_poker_rankings.h"
+#include "ps/base/suit_hasher.h"
 #include "ps/base/prime_rank_map.h"
 
 
@@ -48,20 +48,23 @@ struct evaluator_5_card_map{
                 static auto ptr = new evaluator_5_card_map;
                 return ptr;
         }
-        ranking_t rank(long a, long b, long c, long d, long e)const{
+
+
+
+        ranking_t rank(card_id a, card_id b, card_id c, card_id d, card_id e)const{
 
                 auto f_aux = suit_hasher::create_from_cards(a,b,c,d,e);
                 auto m     = prime_rank_map::create_from_cards(a,b,c,d,e);
 
                 ranking_t ret;
-                if( suit_hasher::has_flush_unsafe(f_aux) ){
+                if( suit_hasher::is_five_card_flush(f_aux) ){
                         ret = flush_map_[m];
                 } else{
                         ret = rank_map_[m];
                 }
                 return ret;
         }
-        ranking_t rank(long a, long b, long c, long d, long e, long f)const{
+        ranking_t rank(card_id a, card_id b, card_id c, card_id d, card_id e, card_id f)const{
                 std::array<ranking_t, 6> aux { 
                         rank(  b,c,d,e,f),
                         rank(a,  c,d,e,f),
@@ -72,7 +75,7 @@ struct evaluator_5_card_map{
                 };
                 return * std::min_element(aux.begin(), aux.end());
         }
-        ranking_t rank(long a, long b, long c, long d, long e, long f, long g)const{
+        ranking_t rank(card_id a, card_id b, card_id c, card_id d, card_id e, card_id f, card_id g)const{
                 std::array<ranking_t, 7> aux = {
                         rank(  b,c,d,e,f,g),
                         rank(a,  c,d,e,f,g),

@@ -16,7 +16,6 @@
 #include "ps/base/suit_hasher.h"
 #include "ps/base/holdem_board_decl.h"
 #include "ps/eval/computer_mask.h"
-#include "ps/eval/computer_eval.h"
 #include "ps/eval/class_cache.h"
 
 #include <boost/timer/timer.hpp>

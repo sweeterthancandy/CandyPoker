@@ -207,22 +207,6 @@ void transform_collect(instruction_list& instr_list){
         }
 }
 
-#if 0
-inline
-std::vector<card_eval_instruction> transform_cast_to_card_eval(instruction_list& instr_list){
-        transform_permutate(instr_list);
-        transform_sort_type(instr_list);
-        transform_collect(instr_list);
-
-        std::vector<card_eval_instruction> result;
-        for(auto instr : instr_list){
-                BOOST_ASSERT(  instr->get_type() == instruction::T_CardEval );
-                auto ptr = reinterpret_cast<card_eval_instruction*>(instr.get());
-                result.emplace_back(ptr->get_vector(), ptr->get_matrix());
-        }
-        return result;
-}
-#endif
 
 inline
 instruction_list frontend_to_instruction_list(std::vector<frontend::range> const& players){
@@ -251,23 +235,6 @@ instruction_list frontend_to_instruction_list(std::vector<frontend::range> const
         return instr_list;
 }
 
-#if 0
-inline
-std::vector<card_eval_instruction> frontend_to_card_instr(std::vector<frontend::range> const& players){
-        auto instr_list = frontend_to_instruction_list(players);
-        return transform_cast_to_card_eval(instr_list);
-}
-#endif
-#if 0
-inline 
-instruction_list instruction_list_deep_copy(instruction_list const& instr_list){
-        instruction_list copy_list;
-        for(auto instr : instr_list){
-                copy_list.push_back(instr->clone());
-        }
-        return copy_list;
-}
-#endif
 
 
 } // end namespace ps

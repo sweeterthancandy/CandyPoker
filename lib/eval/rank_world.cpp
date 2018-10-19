@@ -1,5 +1,5 @@
 #include "ps/eval/rank_world.h"
-#include "ps/base/generate.h"
+#include "ps/base/visit_poker_rankings.h"
 
 namespace ps{
 namespace {

@@ -35,6 +35,9 @@ namespace suit_hasher{
                         return false;
                 return has_flush_unsafe(hash);
         }
+        inline suit_hash_t five_card_max()noexcept{
+                return 37 * 37 * 37 * 37 * 31;
+        }
 } // end namespace suit_hasher
 } // end namespace ps
 

@@ -1,6 +1,7 @@
 #include <thread>
 #include <numeric>
 #include <atomic>
+#include <bitset>
 #include <boost/format.hpp>
 #include "ps/support/config.h"
 #include "ps/base/frontend.h"
@@ -305,6 +306,83 @@ namespace gt{
                 }
         };
 
+        struct three_way_eval_tree : eval_tree_non_terminal{
+                explicit
+                three_way_eval_tree( gt_context const& ctx){
+
+                        // p p p 
+
+                        size_t num_players = 3;
+                                
+                        Eigen::VectorXd v_blinds{num_players};
+                        v_blinds.fill(0.0);
+                        v_blinds[0] = -ctx.sb();
+                        v_blinds[1] = -ctx.bb();
+
+                        auto make_static = [&](size_t target){
+                                auto sv = v_blinds;
+                                sv[target] = v_blinds.sum();
+                                auto walk = std::make_shared<eval_tree_node_static>(sv);
+                                return walk;
+                        };
+
+                        for(unsigned long long mask = ( 1 << num_players ); mask != 0;){
+                                --mask;
+                                std::bitset<32> bs = {mask};
+
+
+                                if( bs.count() == 0 )
+                                        continue;
+                                if( bs.count() == 1 && bs.test(num_players-1) ){
+                                        // walk
+                                        
+                                        auto walk = make_static(num_players-1);
+                                        for(size_t idx=0;idx +1 != num_players;++idx){
+                                                walk->not_times(idx);
+                                        }
+                                        push_back(walk);
+                                } else if( bs.count() == 1 ){
+                                        // steal 
+                                        size_t target = -1;
+                                        for(size_t idx=0;idx != num_players;++idx){
+                                                if( bs.test(idx) ){
+                                                        target = idx;
+                                                        break;
+                                                }
+                                        }
+                                        auto steal = make_static(target);
+                                        for(size_t idx=0;idx!= num_players;++idx){
+                                                if( idx == target ){
+                                                        steal->times(idx);
+                                                } else {
+                                                        steal->not_times(idx);
+                                                }
+                                        }
+                                        push_back(steal);
+                                } else { 
+                                        // push call
+
+                                        std::vector<size_t> active;
+                                        for(size_t idx=0;idx!= num_players;++idx){
+                                                if( bs.test(idx) ){
+                                                        active.push_back(idx);
+                                                }
+                                        }
+                                        auto allin = std::make_shared<eval_tree_node_eval>(active);
+                                        for(size_t idx=0;idx!= num_players;++idx){
+                                                if( bs.test(idx) ){
+                                                        allin->times(idx);
+                                                } else {
+                                                        allin->not_times(idx);
+                                                }
+                                        }
+                                        push_back(allin);
+                                }
+                                
+                        }
+                }
+        };
+
 
         // returns a vector each players hand value
         Eigen::VectorXd combination_value(gt_context const& ctx,
@@ -542,6 +620,9 @@ struct HeadUpSolverCmd : Command{
                 auto enque = [&](double eff){
                         tmp.push_back(std::async([num_players, eff,&cc,&state0](){
                                 gt_context gtctx(num_players, eff, .5, 1.);
+
+                                three_way_eval_tree tw{gtctx};
+
                                 auto root = std::make_shared<hu_eval_tree>(gtctx);
                                 gtctx.use_game_tree(root);
                                 gtctx.use_cache(cc);

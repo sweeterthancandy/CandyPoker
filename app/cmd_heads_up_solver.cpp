@@ -622,9 +622,17 @@ struct HeadUpSolverCmd : Command{
                                 gt_context gtctx(num_players, eff, .5, 1.);
 
                                 three_way_eval_tree tw{gtctx};
-
-                                auto root = std::make_shared<hu_eval_tree>(gtctx);
-                                gtctx.use_game_tree(root);
+                                switch(num_players){
+                                case 2:
+                                        gtctx.use_game_tree(std::make_shared<hu_eval_tree>(gtctx));
+                                        break;
+                                case 3:
+                                        gtctx.use_game_tree(std::make_shared<three_way_eval_tree>(gtctx));
+                                        break;
+                                default:
+                                        BOOST_THROW_EXCEPTION(std::domain_error("unsupported"));
+                                }
+                                        
                                 gtctx.use_cache(cc);
                                 auto result = make_solver(gtctx)
                                         .use_solver(std::make_shared<maximal_exploitable_solver_uniform>())

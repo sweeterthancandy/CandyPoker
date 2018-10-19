@@ -6,6 +6,12 @@
 
 #include "ps/base/cards.h"
 
+/*
+ * This case is just to store the result of computation as a vector of equity.
+ * Computing all-in EV is very slow, so for solving simulations we want to 
+ * store the cable to all-in ev for several players.
+ */
+
 namespace boost{
 namespace serialization{
         struct access;

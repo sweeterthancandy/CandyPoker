@@ -113,18 +113,55 @@ struct pass_permutate : computation_pass{
 };
 struct pass_sort_type : computation_pass{
         virtual void transform(computation_context* ctx, instruction_list* instr_list)override{
-                transform_sort_type(*instr_list);
+                instr_list->sort( [](auto l, auto r){
+                        if( l->get_type() != r->get_type())
+                                return l->get_type() != r->get_type();
+                        switch(l->get_type()){
+                        case instruction::T_CardEval:
+                                {
+                                        auto lt = reinterpret_cast<card_eval_instruction*>(l.get());
+                                        auto rt = reinterpret_cast<card_eval_instruction*>(r.get());
+                                        return lt->get_vector() < rt->get_vector();
+                                }
+                                break;
+                        }
+                        return false;
+                });
         }
 };
 struct pass_collect : computation_pass{
         virtual void transform(computation_context* ctx, instruction_list* instr_list)override{
-                transform_collect(*instr_list);
+                using iter_type = decltype(instr_list->begin());
+
+                std::vector<iter_type> subset;
+
+                for(iter_type iter(instr_list->begin()),end(instr_list->end());iter!=end;++iter){
+                        if( (*iter)->get_type() == instruction::T_CardEval )
+                                subset.push_back(iter);
+                }
+
+
+                for(; subset.size() >= 2 ;){
+                        auto a = reinterpret_cast<card_eval_instruction*>(&**subset[subset.size()-1]);
+                        auto b = reinterpret_cast<card_eval_instruction*>(&**subset[subset.size()-2]);
+
+                        if( a->get_vector() == b->get_vector() ){
+                                b->set_matrix( a->get_matrix() + b->get_matrix() );
+                                instr_list->erase(subset.back());
+                                subset.pop_back();
+                        }  else{
+                                subset.pop_back();
+                        }
+                }
+
         }
 };
 struct pass_print : computation_pass{
         virtual void transform(computation_context* ctx, instruction_list* instr_list)override{
                 std::cout << "--------BEGIN----------\n";
-                transform_print(*instr_list);
+                for(auto instr : *instr_list ){
+                        std::cout << instr->to_string() << "\n";
+                }
                 std::cout << "---------END-----------\n";
         }
 };

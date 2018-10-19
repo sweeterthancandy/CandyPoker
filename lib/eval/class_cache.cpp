@@ -15,6 +15,10 @@
 #include <boost/timer/timer.hpp>
 
 #include "ps/support/command.h"
+
+#include "ps/eval/instruction.h"
+#include "ps/eval/computer.h"
+#include "ps/eval/computer_mask.h"
 	
 namespace ps{
 
@@ -177,7 +181,7 @@ struct CreateCacheCmd : Command{
                 }catch(...){}
                 std::cout << "cc.size() => " << cc.size() << "\n"; // __CandyPrint__(cxx-print-scalar,cc.size())
                 boost::timer::auto_cpu_timer at;
-                class_cache::create(2, &cc, cache_name);
+                class_cache::create(3, &cc, cache_name);
 
                 return EXIT_SUCCESS;
         }

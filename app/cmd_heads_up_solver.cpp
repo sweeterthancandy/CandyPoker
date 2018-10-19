@@ -2,31 +2,36 @@
 #include <numeric>
 #include <atomic>
 #include <bitset>
+#include <fstream>
+
 #include <boost/format.hpp>
-#include "ps/support/config.h"
-#include "ps/base/frontend.h"
-#include "ps/base/cards.h"
-#include "ps/base/tree.h"
-#include "ps/base/board_combination_iterator.h"
-#include "ps/base/cards.h"
-#include "ps/support/index_sequence.h"
+
 #include "app/pretty_printer.h"
 #include "ps/base/algorithm.h"
-#include "ps/eval/instruction.h"
+#include "ps/base/board_combination_iterator.h"
+#include "ps/base/cards.h"
+#include "ps/base/cards.h"
+#include "ps/base/frontend.h"
+#include "ps/base/holdem_board_decl.h"
 #include "ps/base/rank_hasher.h"
 #include "ps/base/suit_hasher.h"
-#include "ps/base/holdem_board_decl.h"
-#include "ps/eval/computer_mask.h"
-#include "ps/eval/computer_eval.h"
-#include "ps/eval/class_cache.h"
+#include "ps/base/tree.h"
+
 #include "ps/detail/tree_printer.h"
+
+#include "ps/eval/class_cache.h"
+#include "ps/eval/computer_eval.h"
+#include "ps/eval/computer_mask.h"
+#include "ps/eval/instruction.h"
+
+#include "ps/support/config.h"
+#include "ps/support/index_sequence.h"
 
 #include <boost/timer/timer.hpp>
 
 #include <boost/log/trivial.hpp>
 
 #include <Eigen/Dense>
-#include <fstream>
 
 #include "ps/support/command.h"
 

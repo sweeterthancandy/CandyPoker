@@ -17,85 +17,7 @@
 
 namespace ps{
         
-using matrix_t = Eigen::Matrix< unsigned long long , Eigen::Dynamic , Eigen::Dynamic >;
 
-/*
- * we want to print a 2x2 matrix as
- *    [[m(0,0), m(1,0)],[m(0,1),m(1,1)]]
- */
-template<class MatrixType>
-inline std::string matrix_to_string(MatrixType const& mat){
-        std::stringstream sstr;
-        std::string sep;
-        sstr << "[";
-        for(size_t j=0;j!=mat.rows();++j){
-                sstr << sep << "[";
-                sep = ",";
-                for(size_t i=0;i!=mat.cols();++i){
-                        sstr << (i!=0?",":"") << mat(i,j);
-                }
-                sstr << "]";
-        }
-        sstr << "]";
-        return sstr.str();
-}
-template<class VectorType>
-inline std::string vector_to_string(VectorType const& vec){
-        std::stringstream sstr;
-        std::string sep;
-        sstr << "[";
-        for(size_t j=0;j!=vec.size();++j){
-                sstr << sep << vec(j);
-                sep = ",";
-        }
-        sstr << "]";
-        return sstr.str();
-}
-
-struct equity_view : std::vector<double>{
-        equity_view(matrix_t const& breakdown){
-                sigma_ = 0;
-                size_t n = breakdown.rows();
-                std::map<long, unsigned long long> sigma_device;
-                for( size_t i=0;i!=n;++i){
-                        for(size_t j=0; j != n; ++j ){
-                                sigma_device[j] += breakdown(j,i);
-                        }
-                }
-                for( size_t i=0;i!=n;++i){
-                        sigma_ += sigma_device[i] / ( i +1 );
-                }
-
-
-                for( size_t i=0;i!=n;++i){
-
-                        double equity = 0.0;
-                        for(size_t j=0; j != n; ++j ){
-                                equity += breakdown(j,i) / ( j +1 );
-                        }
-                        equity /= sigma_;
-                        push_back(equity);
-                }
-        }
-        unsigned long long sigma()const{ return sigma_; }
-        bool valid()const{
-		for(auto _ : *this){
-                        switch(std::fpclassify(_)) {
-                        case FP_INFINITE:
-                        case FP_NAN:
-                        case FP_SUBNORMAL:
-                        default:
-                                return false;
-                        case FP_ZERO:
-                        case FP_NORMAL:
-                                break;	
-                        }
-                }
-                return true;
-        }
-private:
-        unsigned long long sigma_;
-};
 
 struct instruction{
         enum type{
@@ -214,6 +136,7 @@ void transform_print(instruction_list& instr_list){
                 std::cout << instr->to_string() << "\n";
         }
 }
+#if 0
 inline
 void transform_permutate(instruction_list& instr_list){
         for(auto instr : instr_list){
@@ -238,6 +161,7 @@ void transform_permutate(instruction_list& instr_list){
                 ptr->set_matrix( matrix * perm_matrix );
         }
 }
+#endif
 
 
 inline
@@ -283,6 +207,7 @@ void transform_collect(instruction_list& instr_list){
         }
 }
 
+#if 0
 inline
 std::vector<card_eval_instruction> transform_cast_to_card_eval(instruction_list& instr_list){
         transform_permutate(instr_list);
@@ -297,6 +222,7 @@ std::vector<card_eval_instruction> transform_cast_to_card_eval(instruction_list&
         }
         return result;
 }
+#endif
 
 inline
 instruction_list frontend_to_instruction_list(std::vector<frontend::range> const& players){
@@ -325,11 +251,14 @@ instruction_list frontend_to_instruction_list(std::vector<frontend::range> const
         return instr_list;
 }
 
+#if 0
 inline
 std::vector<card_eval_instruction> frontend_to_card_instr(std::vector<frontend::range> const& players){
         auto instr_list = frontend_to_instruction_list(players);
         return transform_cast_to_card_eval(instr_list);
 }
+#endif
+#if 0
 inline 
 instruction_list instruction_list_deep_copy(instruction_list const& instr_list){
         instruction_list copy_list;
@@ -338,6 +267,7 @@ instruction_list instruction_list_deep_copy(instruction_list const& instr_list){
         }
         return copy_list;
 }
+#endif
 
 
 } // end namespace ps

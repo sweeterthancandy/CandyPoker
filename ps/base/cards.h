@@ -3,12 +3,12 @@
 
 #include <vector>
 #include <set>
+#include <map>
 
 
 #include "ps/base/cards_fwd.h"
 #include "ps/detail/void_t.h"
 #include "ps/detail/print.h"
-#include "ps/base/cards.h"
 #include "ps/support/index_sequence.h"
 
 
@@ -433,6 +433,51 @@ namespace ps{
                        std::tuple< std::vector<int>, holdem_class_vector >
                 > to_class_standard_form()const;
 
+        };
+
+        struct equity_view : std::vector<double>{
+                equity_view(matrix_t const& breakdown){
+                        sigma_ = 0;
+                        size_t n = breakdown.rows();
+                        std::map<long, unsigned long long> sigma_device;
+                        for( size_t i=0;i!=n;++i){
+                                for(size_t j=0; j != n; ++j ){
+                                        sigma_device[j] += breakdown(j,i);
+                                }
+                        }
+                        for( size_t i=0;i!=n;++i){
+                                sigma_ += sigma_device[i] / ( i +1 );
+                        }
+
+
+                        for( size_t i=0;i!=n;++i){
+
+                                double equity = 0.0;
+                                for(size_t j=0; j != n; ++j ){
+                                        equity += breakdown(j,i) / ( j +1 );
+                                }
+                                equity /= sigma_;
+                                push_back(equity);
+                        }
+                }
+                unsigned long long sigma()const{ return sigma_; }
+                bool valid()const{
+                        for(auto _ : *this){
+                                switch(std::fpclassify(_)) {
+                                case FP_INFINITE:
+                                case FP_NAN:
+                                case FP_SUBNORMAL:
+                                default:
+                                        return false;
+                                case FP_ZERO:
+                                case FP_NORMAL:
+                                        break;	
+                                }
+                        }
+                        return true;
+                }
+        private:
+                unsigned long long sigma_;
         };
         
         

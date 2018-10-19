@@ -4,6 +4,7 @@
 #include <unordered_map>
 #include <vector>
 #include <string>
+#include <map>
 #include <ostream>
 #include <iostream>
 #include <vector>
@@ -15,8 +16,12 @@
 #include <boost/accumulators/statistics/sum.hpp>
 #include <boost/accumulators/statistics/variance.hpp>
 #include <boost/variant.hpp>
+#include <boost/range/algorithm.hpp>
+#include <boost/lexical_cast.hpp>
 
 #include <Eigen/Dense>
+
+#include "ps/base/cards.h"
 
 
 

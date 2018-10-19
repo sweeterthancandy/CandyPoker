@@ -4,33 +4,16 @@
 #include <string>
 #include <cstdint>
 
+#include <Eigen/Dense>
+
 namespace ps{
-        #if 1
+
         using id_type         = std::uint_fast16_t;
         using suit_id         = std::uint_fast8_t;
         using rank_id         = std::uint_fast8_t; 
         using card_id         = std::uint_fast8_t; 
         using holdem_id       = std::uint_fast16_t;
         using holdem_class_id = std::uint_fast8_t; 
-        #endif
-
-        #if 0
-        using id_type         = std::uint16_t;
-        using suit_id         = std::uint8_t;
-        using rank_id         = std::uint8_t; 
-        using card_id         = std::uint8_t; 
-        using holdem_id       = std::uint16_t;
-        using holdem_class_id = std::uint8_t; 
-        #endif
-
-        #if 0
-        using id_type         = unsigned;
-        using suit_id         = unsigned;
-        using rank_id         = unsigned;
-        using card_id         = unsigned;
-        using holdem_id       = unsigned;
-        using holdem_class_id = unsigned;
-        #endif
 
 
         enum class suit_category{
@@ -57,6 +40,41 @@ namespace ps{
         }
         inline card_id card_rank_from_id(card_id id){
                 return id >> 2;
+        }
+
+        using matrix_t = Eigen::Matrix< unsigned long long , Eigen::Dynamic , Eigen::Dynamic >;
+
+        /*
+         * we want to print a 2x2 matrix as
+         *    [[m(0,0), m(1,0)],[m(0,1),m(1,1)]]
+         */
+        template<class MatrixType>
+        inline std::string matrix_to_string(MatrixType const& mat){
+                std::stringstream sstr;
+                std::string sep;
+                sstr << "[";
+                for(size_t j=0;j!=mat.rows();++j){
+                        sstr << sep << "[";
+                        sep = ",";
+                        for(size_t i=0;i!=mat.cols();++i){
+                                sstr << (i!=0?",":"") << mat(i,j);
+                        }
+                        sstr << "]";
+                }
+                sstr << "]";
+                return sstr.str();
+        }
+        template<class VectorType>
+        inline std::string vector_to_string(VectorType const& vec){
+                std::stringstream sstr;
+                std::string sep;
+                sstr << "[";
+                for(size_t j=0;j!=vec.size();++j){
+                        sstr << sep << vec(j);
+                        sep = ",";
+                }
+                sstr << "]";
+                return sstr.str();
         }
         
 } // ps

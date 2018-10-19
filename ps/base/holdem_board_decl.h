@@ -1,6 +1,8 @@
 #ifndef PS_BASE_HOLDEM_BOARD_DECL_H
 #define PS_BASE_HOLDEM_BOARD_DECL_H
 
+#include "ps/base/rank_hasher.h"
+#include "ps/base/suit_hasher.h"
 #include "ps/base/board_combination_iterator.h"
 
 namespace ps{

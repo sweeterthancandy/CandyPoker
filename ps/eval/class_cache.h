@@ -2,10 +2,9 @@
 #define PS_EVAL_CLASS_CACHE_H
 
 #include <vector>
+#include <map>
+
 #include "ps/base/cards.h"
-#include "ps/eval/instruction.h"
-#include "ps/eval/computer.h"
-#include "ps/eval/computer_mask.h"
 
 namespace boost{
 namespace serialization{

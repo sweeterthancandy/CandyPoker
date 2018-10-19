@@ -191,7 +191,6 @@ struct MaskEval : Command{
                 bool debug = false;
                 
 
-                auto comp = std::make_shared<mask_computer>();
 
                 computation_context comp_ctx{players.size()};
 
@@ -210,7 +209,6 @@ struct MaskEval : Command{
                 boost::timer::auto_cpu_timer at;
 
                 instruction_list instr_list = frontend_to_instruction_list(players);
-                //auto result = comp->compute(comp_ctx, instr_list);
                 auto result = mgr.execute(&comp_ctx, &instr_list);
 
                 if( result ){

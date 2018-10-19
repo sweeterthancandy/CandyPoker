@@ -20,7 +20,7 @@
 #include "ps/detail/tree_printer.h"
 
 #include "ps/eval/class_cache.h"
-#include "ps/eval/computer_mask.h"
+#include "ps/eval/pass_mask_eval.h"
 #include "ps/eval/instruction.h"
 
 #include "ps/support/config.h"

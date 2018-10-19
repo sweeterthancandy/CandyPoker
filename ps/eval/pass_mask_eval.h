@@ -1,8 +1,9 @@
 #ifndef PS_EVAL_COMPUTER_MASK_H
 #define PS_EVAL_COMPUTER_MASK_H
 
-#include "ps/eval/computer.h"
 #include <future>
+
+#include "ps/eval/pass.h"
 #include "ps/detail/dispatch.h"
 #include "ps/eval/evaluator.h"
 #include "ps/base/rank_hasher.h"

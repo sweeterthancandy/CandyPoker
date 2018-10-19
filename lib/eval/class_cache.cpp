@@ -17,8 +17,8 @@
 #include "ps/support/command.h"
 
 #include "ps/eval/instruction.h"
-#include "ps/eval/computer.h"
-#include "ps/eval/computer_mask.h"
+#include "ps/eval/pass.h"
+#include "ps/eval/pass_mask_eval.h"
 	
 namespace ps{
 

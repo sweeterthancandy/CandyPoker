@@ -41,7 +41,10 @@ namespace prime_rank_map{
         }
         
         inline prime_rank_t five_card_max()noexcept{
-                return 37 * 37 * 37 * 37 * 31;
+                return 37*37*37*37*31;
+        }
+        inline prime_rank_t six_card_max()noexcept{
+                return 37*37*37*37*31*31;
         }
 
 } // end namespace prime_rank_map

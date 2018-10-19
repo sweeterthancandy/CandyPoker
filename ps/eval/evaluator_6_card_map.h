@@ -2,22 +2,18 @@
 #define PS_EVAL_EVALUATOR_6_CARD_MAP_H
 
 #include "ps/eval/evaluator_5_card_map.h"
+#include "ps/base/prime_rank_map.h"
 
 namespace ps{
 
 
-
         #if 0
+
 struct evaluator_6_card_map : evaluator_5_card_map{
 
-
         evaluator_6_card_map(){
-                cache_6_.resize( 37*37*37*37*31*31+1);
-                std::array<int,4> suit_map = { 2,3,5,7 };
-                for( size_t i{0};i!=52;++i){
-                        flush_device_[i] = suit_map[card_decl::get(i).suit().id()];
-                        rank_device_[i] = card_decl::get(i).rank().id();
-                }
+                cache_6_.resize( prime_rank_map::six_card_max()+1);
+
                 detail::visit_combinations<6>(
                         [this](long a, long b, long c, long d, long e, long f){
                                 auto m =  map_rank(rank_device_[a],rank_device_[b],rank_device_[c],
@@ -140,9 +136,8 @@ struct evaluator_6_card_map : evaluator_5_card_map{
         }
 private:
         std::vector<ranking_t> cache_6_;
-        std::array<int, 52> flush_device_;
-        std::array<int, 52> rank_device_;
 };
+
 #endif
 
 } // ps 

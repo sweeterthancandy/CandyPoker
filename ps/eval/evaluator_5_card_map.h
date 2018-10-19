@@ -52,6 +52,10 @@ namespace prime_rank_map{
         const prime_rank_t max()noexcept{
                 return create(12,12,12,12,11,11,11);
         }
+        
+        inline prime_rank_t five_card_max()noexcept{
+                return 37 * 37 * 37 * 37 * 31;
+        }
 
 } // end namespace prime_rank_map
 } // end namespace ps
@@ -95,6 +99,10 @@ namespace prime_suit_map{
                 }
         }
 
+        inline prime_suit_t five_card_max()noexcept{
+                return 37 * 37 * 37 * 37 * 31;
+        }
+
 
 } // end namespace prime_suit_map
 } // end namespace
@@ -119,8 +127,8 @@ struct evaluator_5_card_map{
                         size_t order_{1};
                 };
                 V v = {this};
-                flush_map_.resize( 37 * 37 * 37 * 37 * 31 +1 );
-                rank_map_.resize( 37 * 37 * 37 * 37 * 31 +1 );
+                flush_map_.resize( prime_suit_map::five_card_max() +1 );
+                rank_map_.resize( prime_rank_map::five_card_max() + 1 );
                 visit_poker_rankings(v);
         }
 

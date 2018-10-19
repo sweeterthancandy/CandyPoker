@@ -14,10 +14,10 @@ namespace ps{
 
 namespace mask_computer_detail{
 
-struct rank_hash_eval : evaluator
+struct rank_hash_eval
 {
         rank_hash_eval(){
-                impl_ = &evaluator_factory::get("6_card_map");
+                impl_ = any_singleton_factory::get_or_null("6_card_map");
                 card_map_7_.resize(rank_hasher::max());
 
                 using iter_t = basic_index_iterator<
@@ -28,13 +28,13 @@ struct rank_hash_eval : evaluator
                         maybe_add_(*iter);
                 }
         }
-        ranking_t rank(long a, long b, long c, long d, long e)const override{
+        ranking_t rank(long a, long b, long c, long d, long e)const{
                 return impl_->rank(a,b,c,d,e);
         }
-        ranking_t rank(long a, long b, long c, long d, long e, long f)const override{
+        ranking_t rank(long a, long b, long c, long d, long e, long f)const{
                 return impl_->rank(a,b,c,d,e,f);
         }
-        ranking_t rank(long a, long b, long c, long d, long e, long f, long g)const override{
+        ranking_t rank(long a, long b, long c, long d, long e, long f, long g)const{
 
                 auto shash =  suit_hasher::create_from_cards(a,b,c,d,e,f,g);
 

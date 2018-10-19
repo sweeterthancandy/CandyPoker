@@ -16,7 +16,7 @@
 
 namespace ps{
 
-struct evaluator_5_card_map : evaluator{
+struct evaluator_5_card_map{
         evaluator_5_card_map(){
                 flush_map_.resize( 37 * 37 * 37 * 37 * 31 +1 );
                 rank_map_.resize( 37 * 37 * 37 * 37 * 31 +1 );
@@ -77,7 +77,7 @@ struct evaluator_5_card_map : evaluator{
         }
 
         // public interface
-        ranking_t rank(long a, long b, long c, long d, long e)const override{
+        ranking_t rank(long a, long b, long c, long d, long e)const{
                 auto f_aux =  flush_device_[a] * flush_device_[b] * flush_device_[c] * flush_device_[d] * flush_device_[e] ;
                 std::uint32_t m = map_rank( rank_device_[a],
                                             rank_device_[b], 
@@ -101,7 +101,7 @@ struct evaluator_5_card_map : evaluator{
                 //PRINT_SEQ((a)(b)(c)(d)(e)(ret));
                 return ret;
         }
-        ranking_t rank(long a, long b, long c, long d, long e, long f)const override{
+        ranking_t rank(long a, long b, long c, long d, long e, long f)const{
                 std::array<ranking_t, 6> aux { 
                         rank(  b,c,d,e,f),
                         rank(a,  c,d,e,f),
@@ -112,7 +112,7 @@ struct evaluator_5_card_map : evaluator{
                 };
                 return * std::min_element(aux.begin(), aux.end());
         }
-        ranking_t rank(long a, long b, long c, long d, long e, long f, long g)const override{
+        ranking_t rank(long a, long b, long c, long d, long e, long f, long g)const{
                 std::array<ranking_t, 7> aux = {
                         rank(  b,c,d,e,f,g),
                         rank(a,  c,d,e,f,g),

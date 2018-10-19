@@ -59,23 +59,28 @@ template<class T>
 struct singleton_factory {
 
         template<class U>
-                static void register_(std::string const& name = "__default__") {
-                        static_assert(std::is_base_of<T, U>::value, "not a base");
-                        //std::cout << "registration of " << boost::typeindex::type_id<U>().pretty_name() << " as " << name << "\n";
-                        detail::singleton_controller::get_inst()->register_(boost::typeindex::type_id<T>(), std::move(name), [] { return std::make_shared<U>(); });
-                }
+        static void register_(std::string const& name = "__default__") {
+                static_assert(std::is_base_of<T, U>() || std::is_same<void, T>(), "not a base");
+                //std::cout << "registration of " << boost::typeindex::type_id<U>().pretty_name() << " as " << name << "\n";
+                detail::singleton_controller::get_inst()->register_(boost::typeindex::type_id<T>(), std::move(name), [] { return std::make_shared<U>(); });
+        }
         static T* get_or_null(std::string const& name = "__default__") {
                 //std::cout << "getting name = " << name << " for " << boost::typeindex::type_id<T>().pretty_name() << "\n";
                 return reinterpret_cast<T*>(detail::singleton_controller::get_inst()->get_or_null(boost::typeindex::type_id<T>(), name));
         }
+        #if 0
+        template<class U = T, class K = std::enable_if_t< std::is_same<void, U>::value == false> >
         static T& get(std::string const& name = "__default__") {
                 auto ptr = get_or_null(name);
                 if (ptr == nullptr)
                         BOOST_THROW_EXCEPTION(std::domain_error("key doesn't exist " + name));
                 return *ptr;
         }
+        #endif
 
 };
+
+using any_singleton_factory = singleton_factory<void>;
 
 } // support
 } // ps

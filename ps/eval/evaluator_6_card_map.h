@@ -45,7 +45,7 @@ struct evaluator_6_card_map : evaluator_5_card_map{
         }
 
         // only override rank or 6,7
-        ranking_t rank(long a, long b, long c, long d, long e, long f)const override{
+        ranking_t rank(long a, long b, long c, long d, long e, long f)const{
                 //return rank_brute(a,b,c,d,e,f);
                 auto f_aux =  flush_device_[a] * flush_device_[b] * flush_device_[c] * flush_device_[d] * flush_device_[e] * flush_device_[f] ;
 
@@ -75,7 +75,7 @@ struct evaluator_6_card_map : evaluator_5_card_map{
 
                 return cache_6_[m];
         }
-        ranking_t rank(long a, long b, long c, long d, long e, long f, long g)const override{
+        ranking_t rank(long a, long b, long c, long d, long e, long f, long g)const{
                 //return rank_brute(a,b,c,d,e,f,g);
                 auto f_aux = flush_device_[a] * flush_device_[b] * flush_device_[c] * 
                             flush_device_[d] * flush_device_[e] * flush_device_[f] * 

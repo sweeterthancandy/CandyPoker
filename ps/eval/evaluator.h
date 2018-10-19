@@ -22,6 +22,7 @@ namespace ps{
                         Inf { rank(v) : v is 5 cards from w },
         however this isn't too efficent
  */
+#if 0
 struct evaluator{
         virtual ~evaluator()=default;
         //virtual ranking const& rank(std::vector<long> const& cards)const;
@@ -30,7 +31,7 @@ struct evaluator{
         virtual ranking_t rank(long a, long b, long c, long d, long e, long f, long g)const=0;
 };
 
-using evaluator_factory = support::singleton_factory<evaluator>;
+#endif
 
 } // namespace ps
 

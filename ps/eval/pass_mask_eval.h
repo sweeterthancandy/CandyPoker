@@ -5,10 +5,11 @@
 
 #include "ps/eval/pass.h"
 #include "ps/detail/dispatch.h"
-#include "ps/eval/evaluator.h"
 #include "ps/base/rank_hasher.h"
 #include "ps/base/suit_hasher.h"
 #include "ps/base/holdem_board_decl.h"
+
+#include "ps/eval/evaluator_6_card_map.h"
 
 namespace ps{
 
@@ -17,7 +18,6 @@ namespace mask_computer_detail{
 struct rank_hash_eval
 {
         rank_hash_eval(){
-                impl_ = any_singleton_factory::get_or_null("6_card_map");
                 card_map_7_.resize(rank_hasher::max());
 
                 using iter_t = basic_index_iterator<
@@ -25,78 +25,47 @@ struct rank_hash_eval
                 >;
 
                 for(iter_t iter(7,13),end;iter!=end;++iter){
-                        maybe_add_(*iter);
+                        //maybe_add_(*iter);
+                        auto const& b = *iter;
+                        // first check we don't have more than 4 of each card
+                        std::array<int, 13> aux = {0};
+                        for(size_t i=0;i!=7;++i){
+                                ++aux[b[i]];
+                        }
+                        bool is_possible = [&](){
+                                for(size_t i=0;i!=aux.size();++i){
+                                        if( aux[i] > 4 )
+                                                return true;
+                                }
+                                return false;
+                        }();
+                        if( is_possible )
+                                continue;
+
+                        auto hash = rank_hasher::create( b[0], b[1], b[2], b[3], b[4], b[5], b[6] );
+
+                        auto val = e6cm_->rank( card_decl::make_id(0,b[0]),
+                                                card_decl::make_id(0,b[1]),
+                                                card_decl::make_id(0,b[2]),
+                                                card_decl::make_id(0,b[3]),
+                                                card_decl::make_id(1,b[4]),
+                                                card_decl::make_id(1,b[5]),
+                                                card_decl::make_id(1,b[6]) );
+
+                        card_map_7_[hash] = val;
                 }
-        }
-        ranking_t rank(long a, long b, long c, long d, long e)const{
-                return impl_->rank(a,b,c,d,e);
-        }
-        ranking_t rank(long a, long b, long c, long d, long e, long f)const{
-                return impl_->rank(a,b,c,d,e,f);
-        }
-        ranking_t rank(long a, long b, long c, long d, long e, long f, long g)const{
-
-                auto shash =  suit_hasher::create_from_cards(a,b,c,d,e,f,g);
-
-                if( suit_hasher::has_flush(shash)){
-                        //++miss;
-                        return impl_->rank(a,b,c,d,e,f,g);
-                }
-
-                auto rhash = rank_hasher::create_from_cards(a,b,c,d,e,f,g);
-                auto ret = card_map_7_[rhash];
-
-                return ret;
         }
         ranking_t rank(card_vector const& cv, size_t suit_hash, size_t rank_hash, long a, long b)const noexcept{
 
 
                 if( suit_hasher::has_flush_unsafe(suit_hash) ){
-                        //return 0; // XXX
-                        return impl_->rank(a,b,cv[0], cv[1], cv[2], cv[3], cv[4]);
+                        return e6cm_->rank(a,b,cv[0], cv[1], cv[2], cv[3], cv[4]);
                 }
                 auto ret = card_map_7_[rank_hash];
                 return ret;
         }
 private:
-        ranking_t rank_from_rank_impl_(long a, long b, long c, long d, long e, long f, long g)const{
-                return impl_->rank( card_decl::make_id(0,a),
-                                    card_decl::make_id(0,b),
-                                    card_decl::make_id(0,c),
-                                    card_decl::make_id(0,d),
-                                    card_decl::make_id(1,e),
-                                    card_decl::make_id(1,f),
-                                    card_decl::make_id(1,g) );
-        }
-        ranking_t rank_from_rank_(long a, long b, long c, long d, long e, long f, long g)const{
-                return this->rank( card_decl::make_id(0,a),
-                                   card_decl::make_id(0,b),
-                                   card_decl::make_id(0,c),
-                                   card_decl::make_id(0,d),
-                                   card_decl::make_id(1,e),
-                                   card_decl::make_id(1,f),
-                                   card_decl::make_id(1,g) );
-        }
-        void maybe_add_(rank_vector const& b){
-                // first check we don't have more than 4 of each card
-                std::array<int, 13> aux = {0};
-                for(size_t i=0;i!=7;++i){
-                        ++aux[b[i]];
-                }
-                for(size_t i=0;i!=aux.size();++i){
-                        if( aux[i] > 4 )
-                                return;
-                }
-                auto hash = rank_hasher::create( b[0], b[1], b[2], b[3], b[4], b[5], b[6] );
-
-                auto val  = rank_from_rank_impl_( b[0], b[1], b[2], b[3], b[4], b[5], b[6] );
-
-                //std::cout << detail::to_string(aux) << " - " << detail::to_string(b) << " => " << std::bitset<30>(static_cast<unsigned long long>(hash)).to_string() << "\n";
-                //
-
-                card_map_7_[hash] = val;
-        }
-        evaluator* impl_;
+        evaluator_6_card_map* e6cm_{evaluator_6_card_map::instance()};
         std::vector<ranking_t> card_map_7_;
 };
 

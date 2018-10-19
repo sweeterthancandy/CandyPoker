@@ -57,8 +57,6 @@ target_link_libraries(base_lib Eigen3::Eigen)
 set(
         eval_sources 
         
-        lib/eval/evaluator_5_card_map.cpp
-        lib/eval/evaluator_6_card_map.cpp
         lib/eval/rank_world.cpp
         lib/eval/class_cache.cpp
 )

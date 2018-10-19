@@ -28,6 +28,13 @@ struct evaluator_5_card_map{
                 }
                 generate(*this);
         }
+
+
+        static evaluator_5_card_map* instance(){
+                static auto ptr = new evaluator_5_card_map;
+                return ptr;
+        }
+
         void begin(std::string const&){}
         void end(){}
         void next( bool f, long a, long b, long c, long d, long e){

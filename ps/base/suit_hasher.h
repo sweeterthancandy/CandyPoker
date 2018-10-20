@@ -28,6 +28,13 @@ namespace suit_hasher{
                 return hash;
         }
         inline
+        suit_hash_t create(card_vector const& cv) noexcept{
+                auto hash = create();
+                for(auto id : cv )
+                        hash = append(hash, card_suit_from_id(id));
+                return hash;
+        }
+        inline
         bool has_flush_unsafe(suit_hash_t hash)noexcept{
                 return 
                     ((hash % (2*2*2*2*2))*

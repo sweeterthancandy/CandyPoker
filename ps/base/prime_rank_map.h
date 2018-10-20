@@ -13,6 +13,16 @@ namespace prime_rank_map{
         prime_rank_t append(prime_rank_t val, rank_id rank)noexcept{
                 return val * Primes[rank];
         }
+        inline
+        prime_rank_t remove(prime_rank_t val, rank_id rank)noexcept{
+                BOOST_ASSERT( val % rank );
+                return val / Primes[rank];
+        }
+        inline
+        prime_rank_t remove_card(prime_rank_t val, card_id card)noexcept{
+                return remove(val, card_rank_from_id(card));
+        }
+
 
         inline
         prime_rank_t create()noexcept{ return 1; }
@@ -21,6 +31,13 @@ namespace prime_rank_map{
                 auto val = create();
                 for(auto id : rv )
                         val = append(val, id);
+                return val;
+        }
+        inline
+        prime_rank_t create(card_vector const& cv) noexcept{
+                auto val = create();
+                for(auto id : cv )
+                        val = append(val, card_rank_from_id(id));
                 return val;
         }
         template<class... Args>

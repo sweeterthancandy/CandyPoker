@@ -464,6 +464,59 @@ private:
         std::set<prime_rank_map::prime_rank_t> four_straight_;
         std::set<prime_rank_map::prime_rank_t> double_gutter_;
 };
+struct freq_obs_flop_rank_user : frequency_table_observer_excluse_stat{
+        freq_obs_flop_rank_user(){
+                static std::map<std::string, int> aux = {
+                        {"Royal Flush"        ,11},
+                        {"Straight Flush"     ,10},
+                        {"Quads"              , 9},
+                        {"Full House"         , 8},
+                        {"Flush"              , 7},
+                        {"Straight"           , 6},
+                        {"Trips"              , 5},
+                        {"Two pair"           , 4},
+                        {"One pair"           , 3},
+                        {"High Card - 2 Overs", 2},
+                        {"High Card - 1 Over", 1},
+                        {"High Card - Unders" , 0},
+                };
+                auto f = [_=aux](std::string const& name){
+                        return _.find(name)->second;
+                };
+                order_with(f);
+        }
+        virtual void observe(card_vector const& cv, ranking_t r)override{
+                BOOST_ASSERT(cv.size()==5 && "precondition failed");
+                static rank_world rankdev;
+                auto rd = rankdev[r];
+                auto name = [&]()->std::string{
+                        switch(rd.category()){
+                        case HR_HighCard:
+                        {
+                                auto max_board_rank = std::max({card_rank_from_id(cv[0]),
+                                                                card_rank_from_id(cv[1]),
+                                                                card_rank_from_id(cv[2])});
+                                auto max_hand_rank = std::max({card_rank_from_id(cv[3]),
+                                                               card_rank_from_id(cv[4])});
+                                auto min_hand_rank = std::min({card_rank_from_id(cv[3]),
+                                                               card_rank_from_id(cv[4])});
+                                if( max_board_rank < min_hand_rank ){
+                                        return "High Card - 2 Overs";
+                                } else if( max_board_rank < max_hand_rank ){
+                                        return "High Card - 1 Over";
+                                } else{
+                                        return "High Card - Unders";
+                                }
+                                break;
+                        }
+                        default:
+                                return rd.name();
+                        }
+                }();
+                choose(name);
+        }
+        virtual std::string stat_name()const override{ return "Detailed Rank"; }
+};
 
 struct frequency_table_builder{
         frequency_table_builder(){
@@ -513,30 +566,6 @@ private:
         std::vector<std::shared_ptr<frequency_table_observer> > obs_;
 };
 
-struct PokerProbability : Command{
-        explicit
-        PokerProbability(std::vector<std::string> const& args):args_{args}{}
-        virtual int Execute()override{
-
-                frequency_table_builder tab_5;
-                tab_5.use_observer(std::make_shared<freq_obs_flop_rank>());
-                frequency_table_builder tab_7;
-                tab_7.use_observer(std::make_shared<freq_obs_flop_rank>());
-
-                for(board_combination_iterator iter(5),end;iter!=end;++iter){
-                        tab_5.add(*iter);
-                }
-                tab_5.display("5-Card Probability Table");
-                for(board_combination_iterator iter(7),end;iter!=end;++iter){
-                        tab_7.add(*iter);
-                }
-                tab_7.display("7-Card Probability Table");
-                return EXIT_SUCCESS;
-        }
-private:
-        std::vector<std::string> args_;
-};
-static TrivialCommandDecl<PokerProbability> PokerProbabilityDecl{"poker-prob"};
 
 struct FlopZilla : Command{
         enum{ Debug = 1 };
@@ -545,11 +574,41 @@ struct FlopZilla : Command{
         virtual int Execute()override{
 
 
-                frontend::range front_range = frontend::parse(args_.at(0));
-                auto hv = expand(front_range).to_holdem_vector();
+
+                card_vector board;
+                holdem_hand_vector hv; 
+                frontend::range front_range;
+                
+                int arg_ptr = 0;
+                // first parse options
+                for(;arg_ptr + 1 < args_.size();){
+                        if( args_[arg_ptr] == "--board"){
+                                std::string board_s = args_[arg_ptr+1];
+                                board = card_vector::parse(board_s);
+                                if(board.empty()){
+                                        std::cerr << "unable to parse board (" << board_s << ")\n";
+                                        return EXIT_FAILURE;
+                                }
+                                arg_ptr += 2;
+                                continue;
+                        }
+                        front_range = frontend::parse(args_[arg_ptr]);
+                        hv = expand(front_range).to_holdem_vector();
+                        ++arg_ptr;
+                }
+                if( hv.size()){
+                        std::cerr << "need range\n";
+                        return EXIT_FAILURE;
+                }
+                if( arg_ptr != args_.size()){
+                        std::cerr << "unable to parse options at " << args_[arg_ptr] << "\n";
+                        return EXIT_FAILURE;
+                }
+                
 
                 
                 if( Debug ){
+                        std::cout << "board => " << board << "\n"; // __CandyPrint__(cxx-print-scalar,board)
                         std::cout << "front_range => " << front_range << "\n"; // __CandyPrint__(cxx-print-scalar,front_range)
                         std::cout << "expand(front_range) => " << expand(front_range) << "\n"; // __CandyPrint__(cxx-print-scalar,expand(front_range))
                         std::cout << "hv => " << hv << "\n"; // __CandyPrint__(cxx-print-scalar,hv)
@@ -559,7 +618,9 @@ struct FlopZilla : Command{
                 freq_table
                         .use_observer(std::make_shared<freq_obs_flop_rank>())
                         .use_observer(std::make_shared<freq_obs_flush_draw>())
-                        .use_observer(std::make_shared<freq_obs_straight_draw>());
+                        .use_observer(std::make_shared<freq_obs_straight_draw>())
+                        .use_observer(std::make_shared<freq_obs_flop_rank_user>())
+                ;
 
 
                 for(board_combination_iterator iter(3),end;iter!=end;++iter){
@@ -589,8 +650,30 @@ private:
 };
 static TrivialCommandDecl<FlopZilla> FlopZillaDecl{"flopzilla"};
 
+struct PokerProbability : Command{
+        explicit
+        PokerProbability(std::vector<std::string> const& args):args_{args}{}
+        virtual int Execute()override{
 
+                frequency_table_builder tab_5;
+                tab_5.use_observer(std::make_shared<freq_obs_flop_rank>());
+                frequency_table_builder tab_7;
+                tab_7.use_observer(std::make_shared<freq_obs_flop_rank>());
 
+                for(board_combination_iterator iter(5),end;iter!=end;++iter){
+                        tab_5.add(*iter);
+                }
+                tab_5.display("5-Card Probability Table");
+                for(board_combination_iterator iter(7),end;iter!=end;++iter){
+                        tab_7.add(*iter);
+                }
+                tab_7.display("7-Card Probability Table");
+                return EXIT_SUCCESS;
+        }
+private:
+        std::vector<std::string> args_;
+};
+static TrivialCommandDecl<PokerProbability> PokerProbabilityDecl{"poker-prob"};
 
 
 

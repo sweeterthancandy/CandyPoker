@@ -9,14 +9,28 @@ namespace {
                 }
                 void next( bool f, rank_id a, rank_id b, rank_id c, rank_id d, rank_id e){
                         rank_vector aux{a,b,c,d,e};
-                        result.emplace_back(order_, f, name_proto_, std::move(aux));
+                        result.emplace_back(order_, cat_, f, name_proto_, std::move(aux));
                         ++order_;
                 }
                 void begin(std::string const& name){
+                        static std::map<std::string, hand_rank_category> aux = {
+                                {"Royal Flush"        , HR_RoyalFlush},
+                                {"Straight Flush"     , HR_StraightFlush},
+                                {"Quads"              , HR_Quads},
+                                {"Full House"         , HR_FullHouse},
+                                {"Flush"              , HR_Flush},
+                                {"Straight"           , HR_Straight},
+                                {"Trips"              , HR_Trips},
+                                {"Two pair"           , HR_TwoPair},
+                                {"One pair"           , HR_OnePair},
+                                {"High Card"          , HR_HighCard},
+                        };
                         name_proto_ = name;
+                        cat_ = aux.find(name)->second;
                 }
                 void end(){}
                 ranking_t order_ = 1;
+                hand_rank_category cat_{HR_NotAHandRank};
                 std::string name_proto_;
                 std::vector<ranking_decl> result;
         };

@@ -26,6 +26,7 @@ namespace ps{
                         return m;
                 }
                 static inline card_vector from_bitmask(size_t mask);
+                static inline card_vector parse(std::string const& s);
 
                 friend inline std::ostream& operator<<(std::ostream& ostr, card_vector const& self);
         };
@@ -494,6 +495,51 @@ namespace ps{
                         }
                 }
                 return std::move(vec);
+        }
+        card_vector card_vector::parse(std::string const& s){
+                if( s.size() == 0 || s.size()%2 == 1 ){
+                        // failure
+                        return card_vector{};
+                }
+                card_vector result;
+                for(size_t idx=0;idx!=s.size();idx+=2){
+                        auto sub = s.substr(idx,2);
+                        auto cd = card_decl::parse(sub);
+                        result.push_back(cd);
+                }
+                return result;
+        }
+
+        enum hand_rank_category{
+                HR_RoyalFlush,
+                HR_StraightFlush,
+                HR_Quads,
+                HR_FullHouse,
+                HR_Flush,
+                HR_Straight,
+                HR_Trips,
+                HR_TwoPair,
+                HR_OnePair,
+                HR_HighCard,
+
+                HR_NotAHandRank,
+        };
+        inline
+        std::ostream& operator<<(std::ostream& ostr, hand_rank_category cat){
+                switch(cat){
+                case HR_RoyalFlush: return ostr << "RoyalFlush";
+                case HR_StraightFlush: return ostr << "StraightFlush";
+                case HR_Quads: return ostr << "Quads";
+                case HR_FullHouse: return ostr << "FullHouse";
+                case HR_Flush: return ostr << "Flush";
+                case HR_Straight: return ostr << "Straight";
+                case HR_Trips: return ostr << "Trips";
+                case HR_TwoPair: return ostr << "TwoPair";
+                case HR_OnePair: return ostr << "OnePair";
+                case HR_HighCard: return ostr << "HighCard";
+                case HR_NotAHandRank: return ostr << "NotAHandRank";
+                default: return ostr << "(invalid)";
+                }
         }
                 
 

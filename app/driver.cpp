@@ -27,6 +27,7 @@
 #include <fstream>
 
 #include "ps/support/command.h"
+//#include <boost/program_options.hpp>
 
 using namespace ps;
 
@@ -274,55 +275,31 @@ static TrivialCommandDecl<PrintRanks> PrintRanksDecl{"print-ranks"};
 
 
 struct frequency_table_builder{
-private:
-};
-
-struct FlopZilla : Command{
-        explicit
-        FlopZilla(std::vector<std::string> const& args):args_{args}{}
-        virtual int Execute()override{
-
-                frontend::range front_range = frontend::parse(args_.at(0));
-                auto hv = expand(front_range).to_holdem_vector();
-                
-                #if 0
-                std::cout << "front_range => " << front_range << "\n"; // __CandyPrint__(cxx-print-scalar,front_range)
-                std::cout << "expand(front_range) => " << expand(front_range) << "\n"; // __CandyPrint__(cxx-print-scalar,expand(front_range))
-                std::cout << "hv => " << hv << "\n"; // __CandyPrint__(cxx-print-scalar,hv)
-                #endif
-
-                auto* eval = evaluator_5_card_map::instance();
-                
-                rank_world rankdev;
-
-                std::map<std::string, size_t> flop_rank_stat;
-
-                for(board_combination_iterator iter(3),end;iter!=end;++iter){
-                        auto const& b = *iter;
-
-                        for(size_t idx=0;idx!=hv.size();++idx){
-                                auto hd = hv.decl_at(idx);
-
-                                if( b.mask() & hd.mask())
-                                        continue;
-
-                                auto full = b;
-                                full.push_back(hd.first());
-                                full.push_back(hd.second());
-
-                                auto R = eval->rank(full[0],full[1],full[2],full[3],full[4]);
-
-                                auto const& rd = rankdev[R];
-
-                                #if 0
-                                std::cout << hd << " x " << b << "(" << full << ") -> " << R << " : " << rd << "\n";
-
-                                #endif
-                                ++flop_rank_stat[rd.name()];
-
-                        }
+        void add(card_vector const& cv){
+                ranking_t R;
+                switch(cv.size()){
+                case 5:
+                        R = eval->rank(cv[0],cv[1],cv[2],cv[3],cv[4]);
+                        break;
+                case 6:
+                        R = eval->rank(cv[0],cv[1],cv[2],cv[3],cv[4],cv[5]);
+                        break;
+                case 7:
+                        R = eval->rank(cv[0],cv[1],cv[2],cv[3],cv[4],cv[5],cv[6]);
+                        break;
+                default:
+                        R = 0;
                 }
 
+                auto const& rd = rankdev[R];
+
+                #if 0
+                std::cout << hd << " x " << b << "(" << full << ") -> " << R << " : " << rd << "\n";
+
+                #endif
+                ++flop_rank_stat[rd.name()];
+        }
+        void display()const{
                 using namespace Pretty;
 
                 std::vector< LineItem > lines;
@@ -349,8 +326,73 @@ struct FlopZilla : Command{
                 }
 
                 RenderTablePretty(std::cout, lines);
+        }
+private:
+        evaluator_6_card_map* eval = evaluator_6_card_map::instance();
+        rank_world rankdev;
+        std::map<std::string, size_t> flop_rank_stat;
+};
+
+struct PokerProbability : Command{
+        explicit
+        PokerProbability(std::vector<std::string> const& args):args_{args}{}
+        virtual int Execute()override{
+
+                frequency_table_builder tab_5;
+                frequency_table_builder tab_7;
+
+                for(board_combination_iterator iter(5),end;iter!=end;++iter){
+                        tab_5.add(*iter);
+                }
+                tab_5.display();
+                for(board_combination_iterator iter(7),end;iter!=end;++iter){
+                        tab_7.add(*iter);
+                }
+                tab_7.display();
+                return EXIT_SUCCESS;
+        }
+private:
+        std::vector<std::string> args_;
+};
+static TrivialCommandDecl<PokerProbability> PokerProbabilityDecl{"poker-prob"};
+
+struct FlopZilla : Command{
+        explicit
+        FlopZilla(std::vector<std::string> const& args):args_{args}{}
+        virtual int Execute()override{
 
 
+                frontend::range front_range = frontend::parse(args_.at(0));
+                auto hv = expand(front_range).to_holdem_vector();
+                
+                #if 0
+                std::cout << "front_range => " << front_range << "\n"; // __CandyPrint__(cxx-print-scalar,front_range)
+                std::cout << "expand(front_range) => " << expand(front_range) << "\n"; // __CandyPrint__(cxx-print-scalar,expand(front_range))
+                std::cout << "hv => " << hv << "\n"; // __CandyPrint__(cxx-print-scalar,hv)
+                #endif
+
+                frequency_table_builder freq_table;
+
+                for(board_combination_iterator iter(3),end;iter!=end;++iter){
+                        auto const& b = *iter;
+
+                        for(size_t idx=0;idx!=hv.size();++idx){
+                                auto hd = hv.decl_at(idx);
+
+                                if( b.mask() & hd.mask())
+                                        continue;
+
+                                auto full = b;
+                                full.push_back(hd.first());
+                                full.push_back(hd.second());
+
+                                freq_table.add(full);
+
+
+                        }
+                }
+
+                freq_table.display();
                 return EXIT_SUCCESS;
         }
 private:

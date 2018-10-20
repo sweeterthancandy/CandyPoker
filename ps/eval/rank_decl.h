@@ -15,7 +15,7 @@ namespace ps{
         struct ranking_decl{
                 // need to be able to create dummy ones
                 ranking_decl():
-                        rank_{1},
+                        rank_{0},
                         flush_{false},
                         name_{"__invalid__"}
                 {}
@@ -63,6 +63,7 @@ namespace ps{
         
         struct rank_world : boost::noncopyable{
                 rank_world();
+
                 auto const& operator[](size_t idx)const{
                         return world_.at(idx);
                         //return world_[idx];

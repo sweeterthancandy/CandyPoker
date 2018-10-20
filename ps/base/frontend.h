@@ -110,6 +110,7 @@ namespace ps{
                                                         x_, j) );
                                         }
                                 }
+                                std::cout << "A: result.size() => " << result.size() << "\n"; // __CandyPrint__(cxx-print-scalar,result.size())
                                 return std::move(result);
                         }
                         holdem_class_id i_am_a_duck__to_class_id()const{
@@ -628,9 +629,7 @@ namespace ps{
                                 for( auto const& e : subs_){
                                         auto prim = boost::apply_visitor(detail::primitive_cast(), e);
                                         auto hv = to_hand_vector(prim);
-                                        for( auto id : hv ){
-                                                boost::copy( hv, std::back_inserter(result));
-                                        }
+                                        boost::copy( hv, std::back_inserter(result));
                                 }
                                 return std::move(result);
                         }

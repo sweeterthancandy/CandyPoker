@@ -8,6 +8,7 @@
 #include "ps/base/tree.h"
 #include "ps/base/board_combination_iterator.h"
 #include "ps/support/index_sequence.h"
+#include "ps/eval/evaluator_5_card_map.h"
 #include "ps/eval/evaluator_6_card_map.h"
 #include "app/pretty_printer.h"
 #include "ps/base/algorithm.h"
@@ -255,7 +256,107 @@ private:
 static TrivialCommandDecl<IteratorDbg> IteratorDbgDecl{"iterator-dbg"};
 
 
+struct PrintRanks : Command{
+        explicit
+        PrintRanks(std::vector<std::string> const& args):args_{args}{}
+        virtual int Execute()override{
+                rank_world rankdev;
+                for(auto const& rd : rankdev ){
+                        std::cout << rd << "\n";
+                }
 
+                return EXIT_SUCCESS;
+        }
+private:
+        std::vector<std::string> const& args_;
+};
+static TrivialCommandDecl<PrintRanks> PrintRanksDecl{"print-ranks"};
+
+
+struct frequency_table_builder{
+private:
+};
+
+struct FlopZilla : Command{
+        explicit
+        FlopZilla(std::vector<std::string> const& args):args_{args}{}
+        virtual int Execute()override{
+
+                frontend::range front_range = frontend::parse(args_.at(0));
+                auto hv = expand(front_range).to_holdem_vector();
+                
+                #if 0
+                std::cout << "front_range => " << front_range << "\n"; // __CandyPrint__(cxx-print-scalar,front_range)
+                std::cout << "expand(front_range) => " << expand(front_range) << "\n"; // __CandyPrint__(cxx-print-scalar,expand(front_range))
+                std::cout << "hv => " << hv << "\n"; // __CandyPrint__(cxx-print-scalar,hv)
+                #endif
+
+                auto* eval = evaluator_5_card_map::instance();
+                
+                rank_world rankdev;
+
+                std::map<std::string, size_t> flop_rank_stat;
+
+                for(board_combination_iterator iter(3),end;iter!=end;++iter){
+                        auto const& b = *iter;
+
+                        for(size_t idx=0;idx!=hv.size();++idx){
+                                auto hd = hv.decl_at(idx);
+
+                                if( b.mask() & hd.mask())
+                                        continue;
+
+                                auto full = b;
+                                full.push_back(hd.first());
+                                full.push_back(hd.second());
+
+                                auto R = eval->rank(full[0],full[1],full[2],full[3],full[4]);
+
+                                auto const& rd = rankdev[R];
+
+                                #if 0
+                                std::cout << hd << " x " << b << "(" << full << ") -> " << R << " : " << rd << "\n";
+
+                                #endif
+                                ++flop_rank_stat[rd.name()];
+
+                        }
+                }
+
+                using namespace Pretty;
+
+                std::vector< LineItem > lines;
+                lines.emplace_back(std::vector<std::string>{"Rank", "Count", "%"});
+                lines.emplace_back(LineBreak);
+                
+                std::vector<decltype(&*flop_rank_stat.cbegin())> aux;
+                size_t sigma = 0;
+                for(auto const& _ : flop_rank_stat){
+                        aux.emplace_back(&_);
+                        sigma += _.second;
+                }
+                std::sort(aux.begin(), aux.end(), [](auto const& l, auto const& r){
+                        return l->second > r->second;
+                });
+                for(auto const& _ : aux){
+                        auto pct = _->second * 100.0 / sigma;
+                        std::vector<std::string> line;
+                        line.push_back(_->first);
+                        line.push_back(boost::lexical_cast<std::string>(_->second));
+                        line.push_back(boost::lexical_cast<std::string>(pct));
+
+                        lines.push_back(line);
+                }
+
+                RenderTablePretty(std::cout, lines);
+
+
+                return EXIT_SUCCESS;
+        }
+private:
+        std::vector<std::string> args_;
+};
+static TrivialCommandDecl<FlopZilla> FlopZillaDecl{"flopzilla"};
 
 
 

@@ -63,7 +63,7 @@ struct evaluator_5_card_map{
 
 
 
-        ranking_t rank(card_id a, card_id b, card_id c, card_id d, card_id e)const{
+        ranking_t rank(card_id a, card_id b, card_id c, card_id d, card_id e)const noexcept{
 
                 auto f_aux = suit_hasher::create_from_cards(a,b,c,d,e);
                 auto m     = prime_rank_map::create_from_cards(a,b,c,d,e);
@@ -76,7 +76,7 @@ struct evaluator_5_card_map{
                 }
                 return ret;
         }
-        ranking_t rank(card_id a, card_id b, card_id c, card_id d, card_id e, card_id f)const{
+        ranking_t rank(card_id a, card_id b, card_id c, card_id d, card_id e, card_id f)const noexcept{
                 std::array<ranking_t, 6> aux { 
                         rank(  b,c,d,e,f),
                         rank(a,  c,d,e,f),
@@ -87,7 +87,7 @@ struct evaluator_5_card_map{
                 };
                 return * std::min_element(aux.begin(), aux.end());
         }
-        ranking_t rank(card_id a, card_id b, card_id c, card_id d, card_id e, card_id f, card_id g)const{
+        ranking_t rank(card_id a, card_id b, card_id c, card_id d, card_id e, card_id f, card_id g)const noexcept{
                 std::array<ranking_t, 7> aux = {
                         rank(  b,c,d,e,f,g),
                         rank(a,  c,d,e,f,g),

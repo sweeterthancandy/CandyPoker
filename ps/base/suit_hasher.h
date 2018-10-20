@@ -59,6 +59,26 @@ namespace suit_hasher{
                         return false;
                 return has_flush_unsafe(hash);
         }
+        inline
+        bool has_four_flush(suit_hash_t hash)noexcept{
+                if( hash == 0 )
+                        return false;
+                return 
+                    ((hash % (2*2*2*2))*
+                     (hash % (3*3*3*3))*
+                     (hash % (5*5*5*5))*
+                     (hash % (7*7*7*7))) == 0;
+        }
+        inline
+        bool has_three_flush(suit_hash_t hash)noexcept{
+                if( hash == 0 )
+                        return false;
+                return 
+                    ((hash % (2*2*2))*
+                     (hash % (3*3*3))*
+                     (hash % (5*5*5))*
+                     (hash % (7*7*7))) == 0;
+        }
         inline suit_hash_t five_card_max()noexcept{
                 return 37 * 37 * 37 * 37 * 31;
         }

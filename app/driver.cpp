@@ -274,7 +274,186 @@ private:
 static TrivialCommandDecl<PrintRanks> PrintRanksDecl{"print-ranks"};
 
 
+struct frequency_table_observer{
+        virtual ~frequency_table_observer()=default;
+        virtual void observe(card_vector const& cv, ranking_t r)=0;
+        virtual void emit(std::vector<Pretty::LineItem >& lines)const=0;
+};
+struct frequency_table_observer_excluse_stat : frequency_table_observer{
+        using self_type = frequency_table_observer_excluse_stat;
+        using order_fun_type = std::function<size_t(std::string const&)>;
+        virtual void emit(std::vector<Pretty::LineItem >& lines)const override{
+                using namespace Pretty;
+                lines.emplace_back(std::vector<std::string>{stat_name(), "Count", "Prob", "Cum"});
+                lines.emplace_back(LineBreak);
+                
+                std::vector<decltype(&*freq_table_.cbegin())> aux;
+                size_t sigma = 0;
+                for(auto const& _ : freq_table_){
+                        aux.emplace_back(&_);
+                        sigma += _.second;
+                }
+                if( order_fun_){
+                        std::sort(aux.begin(), aux.end(), [this](auto const& l, auto const& r){
+                                return order_fun_(l->first) > order_fun_(r->first);
+                        });
+                } else {
+                        std::sort(aux.begin(), aux.end(), [](auto const& l, auto const& r){
+                                return l->second > r->second;
+                        });
+                }
+                size_t cum_total = 0;
+                for(auto const& _ : aux){
+                        cum_total += _->second;
+                        auto pct = _->second * 100.0 / sigma;
+                        auto cum_pct = cum_total * 100.0 / sigma;
+
+                        std::vector<std::string> line;
+                        line.push_back(_->first);
+                        line.push_back(boost::lexical_cast<std::string>(_->second));
+                        line.push_back(boost::lexical_cast<std::string>(pct));
+                        line.push_back(boost::lexical_cast<std::string>(cum_pct));
+
+                        lines.push_back(line);
+                }
+        }
+protected:
+        virtual std::string stat_name()const{ return "Rank"; }
+        void choose(std::string const& tag){
+                ++freq_table_[tag];
+        }
+        self_type& order_with(order_fun_type f){
+                order_fun_ = f;
+                return *this;
+        }
+        self_type& decl_row(std::string const& name){
+                freq_table_[name];
+                return *this;
+        }
+private:
+
+        order_fun_type order_fun_;
+        std::map<std::string, size_t> freq_table_;
+};
+
+struct freq_obs_flop_rank : frequency_table_observer_excluse_stat{
+        virtual void observe(card_vector const& cv, ranking_t r)override{
+                static rank_world rankdev;
+                auto rd = rankdev[r];
+                choose(rd.name());
+        }
+};
+struct freq_obs_flush_draw : frequency_table_observer_excluse_stat{
+        freq_obs_flush_draw(){
+                auto f = [](std::string const& name){
+                        return name == "Flush"       ? 3 :
+                               name == "Four-Flush"  ? 2 :
+                               name == "Three-Flush" ? 1 :
+                                                       0
+                        ;
+                };
+                order_with(f);
+                decl_row("Flush");
+                decl_row("Four-Flush");
+                decl_row("Three-Flush");
+        }
+        virtual void observe(card_vector const& cv, ranking_t r)override{
+                auto suit_val = suit_hasher::create(cv);
+                auto name = [suit_val](){
+                        if( suit_hasher::has_flush(suit_val)){
+                                return "Flush";
+                        } else if( suit_hasher::has_four_flush(suit_val)){
+                                return "Four-Flush";
+                        } else if( suit_hasher::has_three_flush(suit_val)){
+                                return "Three-Flush";
+                        } else {
+                                return "None";
+                        }
+                }();
+                choose(name);
+        }
+        virtual std::string stat_name()const override{ return "Flush Draw"; }
+};
+namespace permutations{
+        static constexpr std::array<size_t, 4> choose_4_5_0 = {  1,2,3,4};
+        static constexpr std::array<size_t, 4> choose_4_5_1 = {0,  2,3,4};
+        static constexpr std::array<size_t, 4> choose_4_5_2 = {0,1,  3,4};
+        static constexpr std::array<size_t, 4> choose_4_5_3 = {0,1,2,  4};
+        static constexpr std::array<size_t, 4> choose_4_5_4 = {0,1,2,3  };
+        static constexpr std::array<std::array<size_t, 4>, 5> choose_4_5 = {
+                choose_4_5_0, choose_4_5_1, choose_4_5_2, choose_4_5_3, choose_4_5_4
+        };
+} // end namespace permutations
+
+struct freq_obs_straight_draw : frequency_table_observer_excluse_stat{
+        freq_obs_straight_draw(){
+                // 01234
+                for(size_t idx=0;idx+4<13;++idx){
+                        auto proto_val = prime_rank_map::create(idx,idx+1,idx+2,idx+3,idx+4);
+                        straight_.insert(proto_val);
+                }
+                // 0123
+                for(size_t idx=0;idx+3<13;++idx){
+                        auto proto_val = prime_rank_map::create(idx,idx+1,idx+2,idx+3);
+                        four_straight_.insert(proto_val);
+                }
+                //  0_234_6
+                for(size_t idx=0;idx+6<13;++idx){
+                        auto proto_val = prime_rank_map::create(idx,idx+2,idx+3,idx+4,idx+6);
+                        double_gutter_.insert(proto_val);
+                }
+                
+                auto f = [](std::string const& name){
+                        return name == "Straight"       ? 3 :
+                               name == "Four-Straight"  ? 2 :
+                               name == "Double-Gutter"  ? 1 :
+                                                       0
+                        ;
+                };
+                order_with(f);
+                decl_row("Straight");
+                decl_row("Four-Straight");
+                decl_row("Double-Gutter");
+        }
+        virtual void observe(card_vector const& cv, ranking_t r)override{
+                BOOST_ASSERT(cv.size() == 5 );
+
+                auto name = [&](){
+                        auto R = prime_rank_map::create(cv);
+                        if( straight_.count(R)){
+                                return "Straight";
+                        }
+                        for(size_t idx=0;idx!=5;++idx){
+                                auto const& p = permutations::choose_4_5[idx];
+                                auto val = prime_rank_map::create_from_cards(cv[p[0]],
+                                                                             cv[p[1]],
+                                                                             cv[p[2]],
+                                                                             cv[p[3]]);
+                                if( four_straight_.count(val) ){
+                                        return "Four-Straight";
+                                }
+                        }
+                        if( double_gutter_.count(R) ){
+                                return "Double-Gutter";
+                        }
+                        return "None";
+                }();
+                choose(name);
+        }
+        virtual std::string stat_name()const override{ return "Straight Draw"; }
+private:
+        std::set<prime_rank_map::prime_rank_t> straight_;
+        std::set<prime_rank_map::prime_rank_t> four_straight_;
+        std::set<prime_rank_map::prime_rank_t> double_gutter_;
+};
+
 struct frequency_table_builder{
+        frequency_table_builder(){
+        }
+        frequency_table_builder& use_observer(std::shared_ptr<frequency_table_observer> ptr){
+                obs_.push_back(ptr);
+                return *this;
+        }
         void add(card_vector const& cv){
                 ranking_t R;
                 switch(cv.size()){
@@ -291,46 +470,28 @@ struct frequency_table_builder{
                         R = 0;
                 }
 
-                auto const& rd = rankdev[R];
-
-                #if 0
-                std::cout << hd << " x " << b << "(" << full << ") -> " << R << " : " << rd << "\n";
-
-                #endif
-                ++flop_rank_stat[rd.name()];
+                for(auto& _ : obs_){
+                        _->observe(cv, R);
+                }
         }
-        void display()const{
+        void display(std::string const& title)const{
                 using namespace Pretty;
 
                 std::vector< LineItem > lines;
-                lines.emplace_back(std::vector<std::string>{"Rank", "Count", "%"});
-                lines.emplace_back(LineBreak);
-                
-                std::vector<decltype(&*flop_rank_stat.cbegin())> aux;
-                size_t sigma = 0;
-                for(auto const& _ : flop_rank_stat){
-                        aux.emplace_back(&_);
-                        sigma += _.second;
-                }
-                std::sort(aux.begin(), aux.end(), [](auto const& l, auto const& r){
-                        return l->second > r->second;
-                });
-                for(auto const& _ : aux){
-                        auto pct = _->second * 100.0 / sigma;
-                        std::vector<std::string> line;
-                        line.push_back(_->first);
-                        line.push_back(boost::lexical_cast<std::string>(_->second));
-                        line.push_back(boost::lexical_cast<std::string>(pct));
-
-                        lines.push_back(line);
+                bool first = true;
+                for(auto& _ : obs_){
+                        if( ! first ){
+                                lines.emplace_back(LineBreak);
+                        }
+                        _->emit(lines);
+                        first = false;
                 }
 
                 RenderTablePretty(std::cout, lines);
         }
 private:
         evaluator_6_card_map* eval = evaluator_6_card_map::instance();
-        rank_world rankdev;
-        std::map<std::string, size_t> flop_rank_stat;
+        std::vector<std::shared_ptr<frequency_table_observer> > obs_;
 };
 
 struct PokerProbability : Command{
@@ -339,16 +500,18 @@ struct PokerProbability : Command{
         virtual int Execute()override{
 
                 frequency_table_builder tab_5;
+                tab_5.use_observer(std::make_shared<freq_obs_flop_rank>());
                 frequency_table_builder tab_7;
+                tab_7.use_observer(std::make_shared<freq_obs_flop_rank>());
 
                 for(board_combination_iterator iter(5),end;iter!=end;++iter){
                         tab_5.add(*iter);
                 }
-                tab_5.display();
+                tab_5.display("5-Card Probability Table");
                 for(board_combination_iterator iter(7),end;iter!=end;++iter){
                         tab_7.add(*iter);
                 }
-                tab_7.display();
+                tab_7.display("7-Card Probability Table");
                 return EXIT_SUCCESS;
         }
 private:
@@ -372,6 +535,11 @@ struct FlopZilla : Command{
                 #endif
 
                 frequency_table_builder freq_table;
+                freq_table
+                        .use_observer(std::make_shared<freq_obs_flop_rank>())
+                        .use_observer(std::make_shared<freq_obs_flush_draw>())
+                        .use_observer(std::make_shared<freq_obs_straight_draw>());
+
 
                 for(board_combination_iterator iter(3),end;iter!=end;++iter){
                         auto const& b = *iter;
@@ -387,12 +555,12 @@ struct FlopZilla : Command{
                                 full.push_back(hd.second());
 
                                 freq_table.add(full);
-
-
                         }
                 }
 
-                freq_table.display();
+                std::stringstream title;
+                title << "FlopZilla for " << args_.at(0);
+                freq_table.display(title.str());
                 return EXIT_SUCCESS;
         }
 private:

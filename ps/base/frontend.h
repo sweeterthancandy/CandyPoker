@@ -110,7 +110,6 @@ namespace ps{
                                                         x_, j) );
                                         }
                                 }
-                                std::cout << "A: result.size() => " << result.size() << "\n"; // __CandyPrint__(cxx-print-scalar,result.size())
                                 return std::move(result);
                         }
                         holdem_class_id i_am_a_duck__to_class_id()const{

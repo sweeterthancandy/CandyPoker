@@ -337,6 +337,24 @@ private:
 };
 
 struct freq_obs_flop_rank : frequency_table_observer_excluse_stat{
+        freq_obs_flop_rank(){
+                static std::map<std::string, int> aux = {
+                        {"Royal Flush"   ,10},
+                        {"Straight Flush", 9},
+                        {"Quads"         , 8},
+                        {"Full House"    , 7},
+                        {"Flush"         , 6},
+                        {"Straight"      , 5},
+                        {"Trips"         , 4},
+                        {"Two pair"      , 3},
+                        {"One pair"      , 2},
+                        {"High Card"     , 1},
+                };
+                auto f = [_=aux](std::string const& name){
+                        return _.find(name)->second;
+                };
+                order_with(f);
+        }
         virtual void observe(card_vector const& cv, ranking_t r)override{
                 static rank_world rankdev;
                 auto rd = rankdev[r];
@@ -478,6 +496,7 @@ struct frequency_table_builder{
                 using namespace Pretty;
 
                 std::vector< LineItem > lines;
+                lines.emplace_back(LineBreak);
                 bool first = true;
                 for(auto& _ : obs_){
                         if( ! first ){
@@ -486,7 +505,7 @@ struct frequency_table_builder{
                         _->emit(lines);
                         first = false;
                 }
-
+                lines.emplace_back(LineBreak);
                 RenderTablePretty(std::cout, lines);
         }
 private:
@@ -520,6 +539,7 @@ private:
 static TrivialCommandDecl<PokerProbability> PokerProbabilityDecl{"poker-prob"};
 
 struct FlopZilla : Command{
+        enum{ Debug = 1 };
         explicit
         FlopZilla(std::vector<std::string> const& args):args_{args}{}
         virtual int Execute()override{
@@ -527,12 +547,13 @@ struct FlopZilla : Command{
 
                 frontend::range front_range = frontend::parse(args_.at(0));
                 auto hv = expand(front_range).to_holdem_vector();
+
                 
-                #if 0
-                std::cout << "front_range => " << front_range << "\n"; // __CandyPrint__(cxx-print-scalar,front_range)
-                std::cout << "expand(front_range) => " << expand(front_range) << "\n"; // __CandyPrint__(cxx-print-scalar,expand(front_range))
-                std::cout << "hv => " << hv << "\n"; // __CandyPrint__(cxx-print-scalar,hv)
-                #endif
+                if( Debug ){
+                        std::cout << "front_range => " << front_range << "\n"; // __CandyPrint__(cxx-print-scalar,front_range)
+                        std::cout << "expand(front_range) => " << expand(front_range) << "\n"; // __CandyPrint__(cxx-print-scalar,expand(front_range))
+                        std::cout << "hv => " << hv << "\n"; // __CandyPrint__(cxx-print-scalar,hv)
+                }
 
                 frequency_table_builder freq_table;
                 freq_table

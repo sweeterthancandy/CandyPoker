@@ -169,6 +169,21 @@ namespace gt{
                         //std::cout << "factor(" << vector_to_string(s) << ", [" << detail::to_string(p_ticker_) << "]) => " << result << "\n";
                         return result;
                 }
+                virtual void display(std::ostream& ostr = std::cout)const=0;
+        protected:
+                std::string format_factor()const{
+                        std::stringstream sstr;
+                        for(auto op : p_ticker_){
+                                if( op == MinusZero ){
+                                        sstr << "f(0)";
+                                } else if( op >= 0 ){
+                                        sstr << "p(" << op << ")";
+                                } else{
+                                        sstr << "f(" << std::abs(op) << ")";
+                                }
+                        }
+                        return sstr.str();
+                }
         private:
                 // we encode -0 here
                 std::vector<int> p_ticker_;
@@ -192,20 +207,20 @@ namespace gt{
                         //out += vec_ * p;
                         out[vec.size()] += p;
                 }
+                virtual void display(std::ostream& ostr = std::cout)const override{
+                        ostr << "Static{" << format_factor() 
+                                          << ", " << vector_to_string(vec_) << "\n";
+                }
         private:
                 Eigen::VectorXd vec_;
         };
 
         struct eval_tree_node_eval : eval_tree_node{
                 explicit
-                eval_tree_node_eval(std::vector<size_t> mask)
-                        :mask_{mask}
+                eval_tree_node_eval(Eigen::VectorXd const& dead_money,
+                                    Eigen::VectorXd const& active)
+                        :dead_money_{dead_money}, active_{active}
                 {
-                        v_mask_.resize(mask_.size());
-                        v_mask_.fill(0);
-                        for(size_t idx=0;idx!=mask.size();++idx){
-                                v_mask_(mask[idx]) = 1.0;
-                        }
                 }
                 virtual void evaluate(Eigen::VectorXd& out,
                                       double p,
@@ -218,16 +233,44 @@ namespace gt{
                         if( std::fabs(p) < 0.001 )
                                 return;
 
-                        auto ev = ctx.cc()->LookupVector(vec);
+                        std::vector<size_t> perm;
+                        for(size_t idx=0;idx!=active_.size();++idx){
+                                if( std::fabs(active_[idx]) > 0.001 ){
+                                        perm.push_back(idx);
+                                }
+                        }
 
-                        auto equity_vec = ( mask_.size() * ev - v_mask_ ) * ctx.eff() * p;
+                        holdem_class_vector tmp;
+                        for(auto idx : tmp ){
+                                tmp.push_back(vec[idx]);
+                        }
 
-                        out += equity_vec;
+                        auto ev = ctx.cc()->LookupVector(tmp);
+
+                        Eigen::VectorXd ev_v{vec.size()};
+                        ev_v.fill(0);
+                        for(auto idx : tmp ){
+                                ev_v[perm[idx]] = ev[idx];
+                        }
+
+
+                        auto pot_amt = active_.sum() + dead_money_.sum();
+                        auto equity_vec = ( pot_amt * ev );
+
+                        Eigen::VectorXd delta = equity_vec - dead_money_;
+                        delta *= p;
+
+                        out += delta;
                         out[vec.size()] += p;
                 }
+                virtual void display(std::ostream& ostr = std::cout)const override{
+                        ostr << "Eval{" << format_factor() 
+                                        << ", " << vector_to_string(dead_money_)
+                                        << ", " << vector_to_string(active_) << "\n";
+                }
         private:
-                std::vector<size_t> mask_;
-                Eigen::VectorXd v_mask_;
+                Eigen::VectorXd dead_money_;
+                Eigen::VectorXd active_;
         };
 
         struct eval_tree_non_terminal
@@ -245,6 +288,13 @@ namespace gt{
                         for(auto& ptr : *this){
                                 ptr->evaluate(out, p, ctx, vec, s);
                         }
+                }
+                virtual void display(std::ostream& ostr = std::cout)const override{
+                        ostr << "Begin{" << format_factor() << "}\n";
+                        for(auto const& ptr : *this){
+                                ptr->display(ostr);
+                        }
+                        ostr << "End{" << format_factor() << "}\n";
                 }
         };
         
@@ -266,10 +316,11 @@ namespace gt{
                         n_pf->not_times(1);
                         push_back(n_pf);
 
-                        std::vector<size_t> m_pp;
-                        m_pp.push_back(0);
-                        m_pp.push_back(1);
-                        auto n_pp = std::make_shared<eval_tree_node_eval>(m_pp);
+                        Eigen::VectorXd dead_money = Eigen::VectorXd::Zero(2);
+                        Eigen::VectorXd active{2};
+                        active[0] = ctx.eff();
+                        active[1] = ctx.eff();
+                        auto n_pp = std::make_shared<eval_tree_node_eval>(dead_money, active);
                         n_pp->times(0);
                         n_pp->times(1);
                         push_back(n_pp);
@@ -298,10 +349,11 @@ namespace gt{
                         n_pf->not_times(1);
                         n_p_->push_back(n_pf);
 
-                        std::vector<size_t> m_pp;
-                        m_pp.push_back(0);
-                        m_pp.push_back(1);
-                        auto n_pp = std::make_shared<eval_tree_node_eval>(m_pp);
+                        Eigen::VectorXd dead_money = Eigen::VectorXd::Zero(2);
+                        Eigen::VectorXd active{2};
+                        active[0] = ctx.eff();
+                        active[1] = ctx.eff();
+                        auto n_pp = std::make_shared<eval_tree_node_eval>(dead_money, active);
                         n_pp->times(1);
                         n_p_->push_back(n_pp);
 
@@ -318,16 +370,20 @@ namespace gt{
 
                         size_t num_players = 3;
                                 
+                        Eigen::VectorXd stacks{num_players};
+                        for(size_t idx=0;idx!=num_players;++idx){
+                                stacks[idx] = ctx.eff();
+                        }
                         Eigen::VectorXd v_blinds{num_players};
                         v_blinds.fill(0.0);
-                        v_blinds[0] = -ctx.sb();
-                        v_blinds[1] = -ctx.bb();
+                        v_blinds[1] = ctx.sb();
+                        v_blinds[2] = ctx.bb();
 
                         auto make_static = [&](size_t target){
-                                auto sv = v_blinds;
-                                sv[target] = v_blinds.sum();
-                                auto walk = std::make_shared<eval_tree_node_static>(sv);
-                                return walk;
+                                Eigen::VectorXd sv = -v_blinds;
+                                sv[target] += v_blinds.sum();
+                                auto ptr = std::make_shared<eval_tree_node_static>(sv);
+                                return ptr;
                         };
 
                         for(unsigned long long mask = ( 1 << num_players ); mask != 0;){
@@ -366,13 +422,17 @@ namespace gt{
                                 } else { 
                                         // push call
 
-                                        std::vector<size_t> active;
+                                        Eigen::VectorXd dead_money = Eigen::VectorXd::Zero(3);
+                                        Eigen::VectorXd active = Eigen::VectorXd::Zero(3);
+
                                         for(size_t idx=0;idx!= num_players;++idx){
                                                 if( bs.test(idx) ){
-                                                        active.push_back(idx);
+                                                        active[idx] = stacks[idx];
+                                                } else{
+                                                        dead_money[idx] = v_blinds[idx];
                                                 }
                                         }
-                                        auto allin = std::make_shared<eval_tree_node_eval>(active);
+                                        auto allin = std::make_shared<eval_tree_node_eval>(dead_money, active);
                                         for(size_t idx=0;idx!= num_players;++idx){
                                                 if( bs.test(idx) ){
                                                         allin->times(idx);
@@ -602,7 +662,7 @@ struct HeadUpSolverCmd : Command{
         virtual int Execute()override{
                 class_cache cc;
 	
-                std::string cache_name{".cc.bin"};
+                std::string cache_name{".cc.bin.other"};
                 try{
                         cc.load(cache_name);
                 }catch(std::exception const& e){
@@ -620,12 +680,18 @@ struct HeadUpSolverCmd : Command{
                 using result_t = std::future<std::tuple<double, std::vector<Eigen::VectorXd> > >;
                 std::vector<result_t> tmp;
 
+                gt_context gtctx(num_players, 10, .5, 1.);
+
+                fprintf(stderr, "A\n"); // __CandyTag__ 
+                hu_eval_tree{gtctx}.display();
+                fprintf(stderr, "B\n"); // __CandyTag__ 
+                hu_eval_tree_flat{gtctx}.display();
+                fprintf(stderr, "C\n"); // __CandyTag__ 
+                three_way_eval_tree{gtctx}.display();
 
                 auto enque = [&](double eff){
                         tmp.push_back(std::async([num_players, eff,&cc,&state0](){
                                 gt_context gtctx(num_players, eff, .5, 1.);
-
-                                three_way_eval_tree tw{gtctx};
                                 switch(num_players){
                                 case 2:
                                         gtctx.use_game_tree(std::make_shared<hu_eval_tree>(gtctx));

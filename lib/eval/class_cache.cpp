@@ -79,12 +79,14 @@ void class_cache::create(size_t n, class_cache* cache, std::string const& file_n
         {
                 BOOST_ASSERT(cvv.size() == matv.size());
                 std::lock_guard<std::mutex> lock(mtx);
+                size_t count = 0;
 
                 for(size_t idx=0;idx!=cvv.size();++idx){
                         equity_view view( matv[idx].get() );
                         if( ! view.valid() )
                                 continue;
                         cache->add(cvv[idx], view);
+                        ++count;
                         enum{ Debug = true };
                         if( Debug ){
                                 #if 0
@@ -97,7 +99,9 @@ void class_cache::create(size_t n, class_cache* cache, std::string const& file_n
                                 std::cout << cvv[idx] << " -> " << detail::to_string(view) << "\n";
                         }
                 }
-                save_impl();
+                if( count ){
+                        save_impl();
+                }
         };
                 
         computation_context comp_ctx{n};
@@ -174,14 +178,41 @@ struct CreateCacheCmd : Command{
         CreateCacheCmd(std::vector<std::string> const& args):args_{args}{}
         virtual int Execute()override{
                 class_cache cc;
-        
-                std::string cache_name{".cc.bin"};
+
+                std::string cache_name = ".cc.new.bin";
+                size_t n = 2;
+
+                int arg_ptr = 0;
+                for(;arg_ptr < args_.size();){
+                        switch(args_.size()-arg_ptr){
+                        default:
+                        case 2:
+                                if( args_[arg_ptr] == "--file" ){
+                                        cache_name = args_[arg_ptr+1];
+                                        arg_ptr += 2;
+                                        continue;
+                                }
+                                if( args_[arg_ptr] == "--n" ){
+                                        n = boost::lexical_cast<size_t>(args_[arg_ptr+1]);
+                                        if( ! ( 2 <= n && n <= 9 ) ){
+                                                std::cerr << "bad number of players\n";
+                                                return EXIT_FAILURE;
+                                        }
+                                        arg_ptr += 2;
+                                        continue;
+                                }
+                        case 1:
+                                std::cerr << "unknown option " << args_[arg_ptr] << "\n";
+                                return EXIT_FAILURE;
+                        }
+                }
+
                 try{
                         cc.load(cache_name);
                 }catch(...){}
                 std::cout << "cc.size() => " << cc.size() << "\n"; // __CandyPrint__(cxx-print-scalar,cc.size())
                 boost::timer::auto_cpu_timer at;
-                class_cache::create(3, &cc, cache_name);
+                class_cache::create(n, &cc, cache_name);
 
                 return EXIT_SUCCESS;
         }
@@ -197,6 +228,10 @@ struct PrintCacheCmd : Command{
                 class_cache cc;
         
                 std::string cache_name{".cc.bin"};
+                if( args_.size() >= 1 ){
+                        cache_name = args_.at(0);
+                }
+
                 try{
                         cc.load(cache_name);
                         for(auto iter(cc.begin()),end(cc.end());iter!=end;++iter){

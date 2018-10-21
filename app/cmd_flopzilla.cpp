@@ -471,6 +471,11 @@ static TrivialCommandDecl<PokerProbability> PokerProbabilityDecl{"poker-prob"};
 
 /*
         Command that can rank all hands
+
+                <ps> hand-ranking --board 8s7s2d <opt_range>
+
+        From this, every possible hand is then valuatied, and ranked from 
+        strongest absolute value, to lowest absolute value. 
  */
 struct HandRanking : Command{
         explicit
@@ -478,7 +483,7 @@ struct HandRanking : Command{
         virtual int Execute()override{
 
 
-                enum{ Debug = true };
+                enum{ Debug = false };
                 
                 holdem_hand_vector hv; 
                 frontend::range front_range;
@@ -596,8 +601,10 @@ struct HandRanking : Command{
                 }
 
 
-                for(auto const& _ : avg_view ){
-                        std::cout << std::get<1>(_) << "->" << std::get<0>(_) << "\n";
+                if( Debug ){
+                        for(auto const& _ : avg_view ){
+                                std::cout << std::get<1>(_) << "->" << std::get<0>(_) << "\n";
+                        }
                 }
 
                 using namespace Pretty;

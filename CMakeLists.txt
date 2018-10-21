@@ -70,6 +70,7 @@ set(
 
         app/driver.cpp
         app/cmd_heads_up_solver.cpp
+        app/cmd_flopzilla.cpp
 )
 
 add_executable(driver ${driver_sources} )

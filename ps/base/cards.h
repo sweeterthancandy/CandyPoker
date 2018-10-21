@@ -210,6 +210,11 @@ namespace ps{
                 bool is_standard_form()const;
                 size_t mask()const;
                 card_vector to_card_vector()const;
+                std::string to_string()const{
+                        std::stringstream sstr;
+                        sstr << *this;
+                        return sstr.str();
+                }
         };
 
         struct holdem_hand_iterator :

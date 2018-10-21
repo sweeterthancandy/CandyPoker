@@ -468,6 +468,178 @@ private:
 static TrivialCommandDecl<PokerProbability> PokerProbabilityDecl{"poker-prob"};
 
 
+
+/*
+        Command that can rank all hands
+ */
+struct HandRanking : Command{
+        explicit
+        HandRanking(std::vector<std::string> const& args):args_{args}{}
+        virtual int Execute()override{
+
+
+                enum{ Debug = true };
+                
+                holdem_hand_vector hv; 
+                frontend::range front_range;
+                card_vector board;
+
+                boost::optional<holdem_id> specific_hand;
+
+                int arg_ptr = 0;
+                // first parse options
+                for(;arg_ptr < args_.size();){
+                        switch(args_.size()-arg_ptr){
+                        default:
+                        case 2:
+                        if( args_[arg_ptr] == "--board"){
+                                std::string board_s = args_[arg_ptr+1];
+                                board = card_vector::parse(board_s);
+                                if( ! (3 <= board.size() && board.size() <= 5 ) ){
+                                        std::cerr << "unable to parse board (" << board_s << ")\n";
+                                        return EXIT_FAILURE;
+                                }
+                                arg_ptr += 2;
+                                continue;
+                        }
+                        if( args_[arg_ptr] == "--hand"){
+                                std::string s = args_[arg_ptr+1];
+                                specific_hand = holdem_hand_decl::parse(s).id();
+                                arg_ptr += 2;
+                                continue;
+                        }
+                        case 1:
+                                // fallback to implicit option
+                        front_range = frontend::parse(args_[arg_ptr]);
+                        hv = expand(front_range).to_holdem_vector();
+                        ++arg_ptr;
+                        }
+                }
+                if( hv.empty()){
+                        hv = expand(frontend::parse("100%")).to_holdem_vector();
+                }
+                if( Debug ){
+                        std::cout << "board => " << board << "\n"; // __CandyPrint__(cxx-print-scalar,board)
+                        std::cout << "hv => " << hv << "\n"; // __CandyPrint__(cxx-print-scalar,hv)
+                        std::cout << "hv.size() => " << hv.size() << "\n"; // __CandyPrint__(cxx-print-scalar,hv.size())
+                }
+
+                evaluator_6_card_map* eval = evaluator_6_card_map::instance();
+
+                std::map<holdem_id, std::vector<ranking_t> > M;
+
+                auto emit = [&](holdem_id id, auto const& cv){
+                        // assume that cv makes sense, no doubles etc
+                        ranking_t R = eval->rank(board[0],cv[1],cv[2],cv[3],cv[4],cv[5],cv[6]);
+                        evaluator_6_card_map* eval = evaluator_6_card_map::instance();
+                        M[id].push_back(R);
+                };
+
+                card_vector full_board = board;
+                full_board.resize(7);
+                for(board_combination_iterator iter(2, board),end;iter!=end;++iter){
+                        auto const& deal = *iter;
+
+                        if( board.mask() & deal.mask() )
+                                continue;
+                        auto mask = board.mask() | deal.mask();
+
+                        full_board[3] = deal[0];
+                        full_board[4] = deal[1];
+
+
+                        for(size_t idx=0;idx!=hv.size();++idx){
+                                auto hd = hv.decl_at(idx);
+
+                                if( mask & hd.mask())
+                                        continue;
+
+                                full_board[5] = hd.first();
+                                full_board[6] = hd.second();
+
+                                emit(hv[idx], full_board);
+                        }
+                }
+
+                std::list<std::tuple<double, holdem_hand_vector > > avg_view;
+
+                for(auto const& p : M ){
+                        auto average = std::accumulate(p.second.begin(), p.second.end(), 0) * 1.0 / p.second.size();
+                        //std::cout << p.first << "->" << detail::to_string(p.second) << "\n";
+                        //std::cout << p.first << "->" << average << "\n";
+
+                        avg_view.emplace_back(average, holdem_hand_vector{p.first});
+                }
+                avg_view.sort([](auto const& l, auto const& r){
+                        return std::get<0>(l) < std::get<0>(r);
+                });
+
+                if( avg_view.size()){
+                        auto head = avg_view.begin();
+                        auto iter = head;
+                        ++iter;
+                        auto end = avg_view.end();
+                        std::vector<decltype(iter)> to_erase;
+                        for(;iter!=end;++iter){
+                                constexpr double epsilon = 0.001;
+                                bool merge_with_head = ( std::fabs(std::get<0>(*head) - std::get<0>(*iter)) < epsilon );
+                                if( merge_with_head ){
+                                        to_erase.push_back(iter);
+                                        std::get<1>(*head).push_back(std::get<1>(*iter).back());
+                                } else{
+                                        head = iter;
+                                }
+                        }
+                        for(auto const& iter : to_erase ){
+                                avg_view.erase(iter);
+                        }
+                }
+
+
+                for(auto const& _ : avg_view ){
+                        std::cout << std::get<1>(_) << "->" << std::get<0>(_) << "\n";
+                }
+
+                using namespace Pretty;
+                std::vector<LineItem> lines;
+                lines.emplace_back(LineBreak);
+                if( specific_hand ){
+                        lines.emplace_back(std::vector<std::string>{"Hands", "Ranking", "P", "?"});
+                } else {
+                        lines.emplace_back(std::vector<std::string>{"Hands", "Ranking", "P"});
+                }
+                lines.emplace_back(LineBreak);
+                size_t total_hands = M.size();
+                size_t running_total = 0;
+                for(auto const& _ : avg_view ){
+                        running_total += std::get<1>(_).size();
+                        double pct = running_total * 100.0 / total_hands;
+                        std::vector<std::string> line{std::get<1>(_).to_string(),
+                                boost::lexical_cast<std::string>(std::get<0>(_)),
+                                boost::lexical_cast<std::string>(pct)};
+                        if( specific_hand ){
+                                std::string tag;
+                                auto const& v = std::get<1>(_);
+                                if( std::find(v.begin(),v.end(),specific_hand.get()) != v.end()){
+                                        tag = "x";
+                                }
+                                line.push_back(tag);
+                        }
+                        lines.push_back(std::move(line));
+                }
+                lines.emplace_back(LineBreak);
+                RenderTablePretty(std::cout, lines);
+
+
+                
+
+                return EXIT_SUCCESS;
+        }
+private:
+        std::vector<std::string> args_;
+};
+static TrivialCommandDecl<HandRanking> HandRankingDecl{"hand-ranking"};
+
 } // end namespace anon
 
 

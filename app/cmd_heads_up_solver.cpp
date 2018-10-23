@@ -219,8 +219,9 @@ namespace gt{
 
         #if 0
         struct eval_tree_node_eval : eval_tree_node{
+                template<class... Args>
                 explicit
-                eval_tree_node_eval()
+                eval_tree_node_eval(Args&&...)
                 {
                         v_mask_.resize(2);
                         v_mask_.fill(1);
@@ -254,10 +255,26 @@ namespace gt{
         #if 1
         struct eval_tree_node_eval : eval_tree_node{
                 explicit
-                eval_tree_node_eval(Eigen::VectorXd const& dead_money,
+                eval_tree_node_eval(std::vector<size_t> perm,
+                                    Eigen::VectorXd const& dead_money,
                                     Eigen::VectorXd const& active)
-                        :dead_money_{dead_money}, active_{active}
+                        :perm_{perm}, dead_money_{dead_money}, active_{active}
+                        ,pot_amt_{active_.sum() + dead_money_.sum()}
                 {
+
+                        delta_proto_.resize(dead_money_.size()+1);
+                        delta_proto_.fill(0);
+                        for(size_t idx=0;idx!=active_.size();++idx){
+                                delta_proto_[idx] -= active_[idx];
+                                delta_proto_[idx] -= dead_money_[idx];
+                        }
+                        
+                        std::cout << "perm => " << detail::to_string(perm) << "\n"; // __CandyPrint__(cxx-print-scalar,perm)
+                        std::cout << "dead_money_ => " << vector_to_string(dead_money_) << "\n"; // __CandyPrint__(cxx-print-scalar,dead_money_)
+                        std::cout << "active_ => " << vector_to_string(active_) << "\n"; // __CandyPrint__(cxx-print-scalar,active_)
+                        std::cout << "delta_proto_ => " << vector_to_string(delta_proto_) << "\n"; // __CandyPrint__(cxx-print-scalar,delta_proto_)
+                        std::cout << "pot_amt_ => " << pot_amt_ << "\n"; // __CandyPrint__(cxx-print-scalar,pot_amt_)
+
                 }
                 virtual void evaluate(Eigen::VectorXd& out,
                                       double p,
@@ -270,37 +287,26 @@ namespace gt{
                         if( std::fabs(p) < 0.001 )
                                 return;
 
-                        std::vector<size_t> perm;
-                        for(size_t idx=0;idx!=active_.size();++idx){
-                                if( std::fabs(active_[idx]) > 0.001 ){
-                                        perm.push_back(idx);
-                                }
-                        }
-
                         holdem_class_vector tmp;
-                        for(auto idx : perm ){
-                                tmp.push_back(vec[idx]);
+                        for(auto _ : perm_ ){
+                                tmp.push_back(vec[_]);
                         }
-
-                        BOOST_ASSERT( tmp.size() == ctx.num_players());
+                        
                         auto ev = ctx.cc()->LookupVector(tmp);
+                        
 
-                        Eigen::VectorXd ev_v{vec.size()};
-                        ev_v.fill(0);
-                        for(auto idx : perm ){
-                                ev_v[perm[idx]] = ev[idx];
+                        Eigen::VectorXd delta = delta_proto_;
+
+                        size_t ev_idx = 0;
+                        for( auto _ :perm_ ){
+                                delta[_] += pot_amt_ * ev[ev_idx];
+                                ++ev_idx;
                         }
 
-
-                        auto pot_amt = active_.sum() + dead_money_.sum();
-                        auto equity_vec = ( pot_amt * ev );
-
-                        Eigen::VectorXd delta = equity_vec - dead_money_;
                         delta *= p;
 
-                        for(size_t idx=0;idx!=ctx.num_players();++idx){
-                                out[idx] += delta[idx];
-                        }
+                        out += delta;
+                        // for checking
                         out[ctx.num_players()] += p;
                 }
                 virtual void display(std::ostream& ostr = std::cout)const override{
@@ -309,8 +315,11 @@ namespace gt{
                                         << ", " << vector_to_string(active_) << "\n";
                 }
         private:
+                std::vector<size_t> perm_;
                 Eigen::VectorXd dead_money_;
                 Eigen::VectorXd active_;
+                Eigen::VectorXd delta_proto_;
+                double pot_amt_;
         };
         #endif
 
@@ -361,8 +370,8 @@ namespace gt{
                         Eigen::VectorXd active{2};
                         active[0] = ctx.eff();
                         active[1] = ctx.eff();
-                        //auto n_pp = std::make_shared<eval_tree_node_eval>(dead_money, active);
-                        auto n_pp = std::make_shared<eval_tree_node_eval>();
+                        auto n_pp = std::make_shared<eval_tree_node_eval>(std::vector<size_t>{0,1}, dead_money, active);
+                        //auto n_pp = std::make_shared<eval_tree_node_eval>();
                         n_pp->times(0);
                         n_pp->times(1);
                         push_back(n_pp);
@@ -395,8 +404,8 @@ namespace gt{
                         Eigen::VectorXd active{2};
                         active[0] = ctx.eff();
                         active[1] = ctx.eff();
-                        //auto n_pp = std::make_shared<eval_tree_node_eval>(dead_money, active);
-                        auto n_pp = std::make_shared<eval_tree_node_eval>();
+                        auto n_pp = std::make_shared<eval_tree_node_eval>(std::vector<size_t>{0,1}, dead_money, active);
+                        //auto n_pp = std::make_shared<eval_tree_node_eval>();
                         n_pp->times(1);
                         n_p_->push_back(n_pp);
 
@@ -405,7 +414,7 @@ namespace gt{
                 }
         };
 
-        #if 0
+        #ifdef NOT_DEFINED
         struct three_way_eval_tree : eval_tree_non_terminal{
                 explicit
                 three_way_eval_tree( gt_context const& ctx){
@@ -701,6 +710,11 @@ namespace gt{
 
 } // end namespace gt
 
+
+namespace application{
+
+} // end namespace application
+
 struct HeadUpSolverCmd : Command{
         explicit
         HeadUpSolverCmd(std::vector<std::string> const& args):args_{args}{}
@@ -736,45 +750,52 @@ struct HeadUpSolverCmd : Command{
                 three_way_eval_tree{gtctx}.display();
                 #endif
 
-                auto enque = [&](double eff){
-                        tmp.push_back(std::async([num_players, eff,&cc,&state0](){
-                                gt_context gtctx(num_players, eff, .5, 1.);
-                                switch(num_players){
-                                case 2:
-                                        gtctx.use_game_tree(std::make_shared<hu_eval_tree>(gtctx));
-                                        break;
+                auto solve = [&](auto num_players, auto eff){
+                        gt_context gtctx(num_players, eff, .5, 1.);
+                        switch(num_players){
+                        case 2:
+                                gtctx.use_game_tree(std::make_shared<hu_eval_tree>(gtctx));
+                                break;
                                 #if 0
-                                case 3:
-                                        gtctx.use_game_tree(std::make_shared<three_way_eval_tree>(gtctx));
-                                        break;
+                        case 3:
+                                gtctx.use_game_tree(std::make_shared<three_way_eval_tree>(gtctx));
+                                break;
                                 #endif
-                                default:
-                                        BOOST_THROW_EXCEPTION(std::domain_error("unsupported"));
-                                }
-                                        
-                                gtctx.use_cache(cc);
-                                auto result = make_solver(gtctx)
-                                        .use_solver(std::make_shared<maximal_exploitable_solver_uniform>())
-                                        .stoppage_condition(cond_single_strategy_lp1(0, 0.1))
-                                        .init_state(state0)
-                                        .observer([](auto const& vec){
-                                                  for(auto const& s : vec ){
-                                                          pretty_print_strat(s, 2);
-                                                  }
-                                        })
-                                        .run();
+                        default:
+                                BOOST_THROW_EXCEPTION(std::domain_error("unsupported"));
+                        }
+
+                        gtctx.use_cache(cc);
+                        auto result = make_solver(gtctx)
+                                .use_solver(std::make_shared<maximal_exploitable_solver_uniform>())
+                                .stoppage_condition(cond_single_strategy_lp1(0, 0.1))
+                                .init_state(state0)
+                                #if 0
+                                .observer([](auto const& vec){
+                                          for(auto const& s : vec ){
+                                          pretty_print_strat(s, 2);
+                                          }
+                                          })
+                                #endif
+                                .run();
+                        return result;
+                };
+
+                auto enque = [&](double eff){
+                        tmp.push_back(std::async([&,num_players, eff](){
+                                auto result = solve(num_players, eff);
                                 return std::make_tuple(eff, result);
                         }));
                 };
                 #if 0
-                for(double eff = 10.0;eff <= 20.0;eff+=1){
+                for(double eff = 5.0;eff <= 50.0;eff+=1){
                         enque(eff);
                 }
                 #else
-                enque(20);
+                enque(50);
                 #endif
 
-                #if 0
+                #if 1
                 Eigen::VectorXd s0(169);
                 s0.fill(.0);
                 Eigen::VectorXd s1(169);
@@ -791,8 +812,42 @@ struct HeadUpSolverCmd : Command{
                 
                 pretty_print_strat(s0, 1);
                 pretty_print_strat(s1, 1);
+
+
+                auto order_cards = [](auto const& strat){
+                        struct HandAux{
+                                HandAux(size_t id_, double level_)
+                                        :id(id_),
+                                        level(level_),
+                                        decl{&holdem_hand_decl::get(id)}
+                                {}
+                                size_t id;
+                                double level;
+                                holdem_hand_decl const* decl;
+                                double cum_{.0};
+                        };
+                        std::vector<HandAux> aux;
+                        for(size_t idx=0;idx!=strat.size();++idx){
+                                aux.emplace_back(idx, strat[idx]);
+                        }
+                        // first sort by level
+                        std::sort( aux.begin(), aux.end(), [](auto const& l, auto const& r){
+                                return l.level > r.level;
+                        });
+                        holdem_hand_vector result;
+                        for(auto const& _ : aux){
+                                result.push_back(_.id);
+                        }
+                        
+
+                        return result;
+                };
+
+
+
                 #endif
 
+                #if 0
                 for(auto& _ : tmp){
                         auto aux = _.get();
                         auto const& vec = std::get<1>(aux);
@@ -800,6 +855,7 @@ struct HeadUpSolverCmd : Command{
                                 pretty_print_strat(s, 2);
                         }
                 }
+                #endif
 
 
 

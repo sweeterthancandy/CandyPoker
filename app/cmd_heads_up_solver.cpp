@@ -5,6 +5,7 @@
 #include <fstream>
 
 #include <boost/format.hpp>
+#include <boost/assert.hpp>
 
 #include "app/pretty_printer.h"
 #include "ps/base/algorithm.h"
@@ -33,6 +34,7 @@
 #include <Eigen/Dense>
 
 #include "ps/support/command.h"
+
 
 /*
  * 2 player
@@ -215,6 +217,41 @@ namespace gt{
                 Eigen::VectorXd vec_;
         };
 
+        #if 0
+        struct eval_tree_node_eval : eval_tree_node{
+                explicit
+                eval_tree_node_eval()
+                {
+                        v_mask_.resize(2);
+                        v_mask_.fill(1);
+                }
+                virtual void evaluate(Eigen::VectorXd& out,
+                                      double p,
+                                      gt_context const& ctx,
+                                      holdem_class_vector const& vec,
+                                      Eigen::VectorXd const& s)override
+                {
+                        auto q = factor(s);
+                        p *= q;
+                        if( std::fabs(p) < 0.001 )
+                                return;
+
+                        auto ev = ctx.cc()->LookupVector(vec);
+
+                        auto equity_vec = ( v_mask_.size() * ev - v_mask_ ) * ctx.eff() * p;
+
+                        out += equity_vec;
+                        out[vec.size()] += p;
+                }
+                virtual void display(std::ostream& ostr = std::cout)const override{
+                        ostr << "Eval{" << vector_to_string(v_mask_) << "\n";
+                }
+        private:
+                Eigen::VectorXd v_mask_;
+        };
+        #endif
+
+        #if 1
         struct eval_tree_node_eval : eval_tree_node{
                 explicit
                 eval_tree_node_eval(Eigen::VectorXd const& dead_money,
@@ -241,15 +278,16 @@ namespace gt{
                         }
 
                         holdem_class_vector tmp;
-                        for(auto idx : tmp ){
+                        for(auto idx : perm ){
                                 tmp.push_back(vec[idx]);
                         }
 
+                        BOOST_ASSERT( tmp.size() == ctx.num_players());
                         auto ev = ctx.cc()->LookupVector(tmp);
 
                         Eigen::VectorXd ev_v{vec.size()};
                         ev_v.fill(0);
-                        for(auto idx : tmp ){
+                        for(auto idx : perm ){
                                 ev_v[perm[idx]] = ev[idx];
                         }
 
@@ -260,8 +298,10 @@ namespace gt{
                         Eigen::VectorXd delta = equity_vec - dead_money_;
                         delta *= p;
 
-                        out += delta;
-                        out[vec.size()] += p;
+                        for(size_t idx=0;idx!=ctx.num_players();++idx){
+                                out[idx] += delta[idx];
+                        }
+                        out[ctx.num_players()] += p;
                 }
                 virtual void display(std::ostream& ostr = std::cout)const override{
                         ostr << "Eval{" << format_factor() 
@@ -272,6 +312,7 @@ namespace gt{
                 Eigen::VectorXd dead_money_;
                 Eigen::VectorXd active_;
         };
+        #endif
 
         struct eval_tree_non_terminal
                 : public eval_tree_node
@@ -320,7 +361,8 @@ namespace gt{
                         Eigen::VectorXd active{2};
                         active[0] = ctx.eff();
                         active[1] = ctx.eff();
-                        auto n_pp = std::make_shared<eval_tree_node_eval>(dead_money, active);
+                        //auto n_pp = std::make_shared<eval_tree_node_eval>(dead_money, active);
+                        auto n_pp = std::make_shared<eval_tree_node_eval>();
                         n_pp->times(0);
                         n_pp->times(1);
                         push_back(n_pp);
@@ -353,7 +395,8 @@ namespace gt{
                         Eigen::VectorXd active{2};
                         active[0] = ctx.eff();
                         active[1] = ctx.eff();
-                        auto n_pp = std::make_shared<eval_tree_node_eval>(dead_money, active);
+                        //auto n_pp = std::make_shared<eval_tree_node_eval>(dead_money, active);
+                        auto n_pp = std::make_shared<eval_tree_node_eval>();
                         n_pp->times(1);
                         n_p_->push_back(n_pp);
 
@@ -362,6 +405,7 @@ namespace gt{
                 }
         };
 
+        #if 0
         struct three_way_eval_tree : eval_tree_non_terminal{
                 explicit
                 three_way_eval_tree( gt_context const& ctx){
@@ -446,6 +490,7 @@ namespace gt{
                         }
                 }
         };
+        #endif
 
 
         // returns a vector each players hand value
@@ -682,12 +727,14 @@ struct HeadUpSolverCmd : Command{
 
                 gt_context gtctx(num_players, 10, .5, 1.);
 
+                #if 0
                 fprintf(stderr, "A\n"); // __CandyTag__ 
                 hu_eval_tree{gtctx}.display();
                 fprintf(stderr, "B\n"); // __CandyTag__ 
                 hu_eval_tree_flat{gtctx}.display();
                 fprintf(stderr, "C\n"); // __CandyTag__ 
                 three_way_eval_tree{gtctx}.display();
+                #endif
 
                 auto enque = [&](double eff){
                         tmp.push_back(std::async([num_players, eff,&cc,&state0](){
@@ -696,9 +743,11 @@ struct HeadUpSolverCmd : Command{
                                 case 2:
                                         gtctx.use_game_tree(std::make_shared<hu_eval_tree>(gtctx));
                                         break;
+                                #if 0
                                 case 3:
                                         gtctx.use_game_tree(std::make_shared<three_way_eval_tree>(gtctx));
                                         break;
+                                #endif
                                 default:
                                         BOOST_THROW_EXCEPTION(std::domain_error("unsupported"));
                                 }
@@ -708,6 +757,11 @@ struct HeadUpSolverCmd : Command{
                                         .use_solver(std::make_shared<maximal_exploitable_solver_uniform>())
                                         .stoppage_condition(cond_single_strategy_lp1(0, 0.1))
                                         .init_state(state0)
+                                        .observer([](auto const& vec){
+                                                  for(auto const& s : vec ){
+                                                          pretty_print_strat(s, 2);
+                                                  }
+                                        })
                                         .run();
                                 return std::make_tuple(eff, result);
                         }));

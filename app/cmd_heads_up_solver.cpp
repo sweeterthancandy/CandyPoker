@@ -515,8 +515,7 @@ namespace gt{
 
         Eigen::VectorXd unilateral_detail(gt_context const& ctx,
                                           size_t idx,
-                                          std::vector<Eigen::VectorXd> const& S,
-                                          double weighted = true)
+                                          std::vector<Eigen::VectorXd> const& S)
         {
                 Eigen::VectorXd result(169);
                 result.fill(.0);
@@ -527,6 +526,7 @@ namespace gt{
 
                         auto const& cv = *iter;
                         auto p = cv.prob();
+                        // create a view of the vector, nothing fancy
                         for(size_t idx=0;idx!=cv.size();++idx){
                                 s[idx] = S[idx][cv[idx]];
                         }
@@ -576,24 +576,6 @@ namespace gt{
                 virtual std::vector<Eigen::VectorXd> step(gt_context const& ctx,
                                                           std::vector<Eigen::VectorXd> const& state)=0;
         };
-        struct maximal_exploitable_solver : solver{
-                explicit maximal_exploitable_solver(double factor = 0.05):factor_{factor}{}
-                virtual std::vector<Eigen::VectorXd> step(gt_context const& ctx,
-                                                          std::vector<Eigen::VectorXd> const& state)override
-                {
-                        auto bb_counter = unilateral_maximal_exploitable(ctx, 1, state);
-                        auto tmp = state;
-                        tmp[1] = bb_counter;
-                        auto sb_counter = unilateral_maximal_exploitable(ctx, 0, tmp);
-                        auto copy = state;
-                        copy[0] *= ( 1 - factor_ );
-                        copy[0] +=  factor_ * sb_counter;
-                        copy[1]  = bb_counter;
-                        return copy;
-                }
-        private:
-                double factor_;
-        };
         struct maximal_exploitable_solver_uniform : solver{
                 explicit maximal_exploitable_solver_uniform(double factor = 0.05):factor_{factor}{}
                 virtual std::vector<Eigen::VectorXd> step(gt_context const& ctx,
@@ -611,6 +593,7 @@ namespace gt{
         private:
                 double factor_;
         };
+
 
         struct cond_single_strategy_lp1{
                 using state_t = std::vector<Eigen::VectorXd>;
@@ -710,10 +693,11 @@ namespace gt{
 
 } // end namespace gt
 
+struct memory_decl{
+};
+struct persistent_memory{
+};
 
-namespace application{
-
-} // end namespace application
 
 struct HeadUpSolverCmd : Command{
         explicit
@@ -814,6 +798,8 @@ struct HeadUpSolverCmd : Command{
                 pretty_print_strat(s1, 1);
 
 
+
+
                 auto order_cards = [](auto const& strat){
                         struct HandAux{
                                 HandAux(size_t id_, double level_)
@@ -842,7 +828,6 @@ struct HeadUpSolverCmd : Command{
 
                         return result;
                 };
-
 
 
                 #endif

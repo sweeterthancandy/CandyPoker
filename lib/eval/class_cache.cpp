@@ -179,7 +179,7 @@ struct CreateCacheCmd : Command{
         virtual int Execute()override{
                 class_cache cc;
 
-                std::string cache_name = ".cc.new.bin";
+                std::string cache_name = ".cc.bin";
                 size_t n = 2;
 
                 int arg_ptr = 0;

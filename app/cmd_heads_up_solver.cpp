@@ -172,6 +172,9 @@ namespace gt{
                 double result = 1.0;
                 std::string sub;
                 for(size_t idx=0;idx!=key.size();++idx){
+                        if( reg_alloc.count(sub) == 0 ){
+                                throw std::domain_error("bad");
+                        }
                         auto reg = reg_alloc[sub];
                         switch(key[idx]){
                         case 'p':
@@ -489,7 +492,7 @@ namespace gt{
                         }
                 }
         };
-
+        
 
         // returns a vector each players hand value
         Eigen::VectorXd combination_value(gt_context const& ctx,
@@ -553,6 +556,8 @@ namespace gt{
                 auto fold = unilateral_detail(ctx, idx, copy);
                 copy[idx] = push_s;
                 auto push = unilateral_detail(ctx, idx, copy);
+                std::cout << "============== idx = " << idx << " =====================\n";
+                pretty_print_strat(push, 1);
                 return choose_push_fold(push, fold);
         }
 
@@ -683,10 +688,6 @@ namespace gt{
 
 } // end namespace gt
 
-struct memory_decl{
-};
-struct persistent_memory{
-};
 
 
 struct HeadUpSolverCmd : Command{
@@ -705,10 +706,10 @@ struct HeadUpSolverCmd : Command{
 
                 using namespace gt;
 
-                size_t num_players = 2;
+                size_t num_players = 3;
 
                 // create a vector of num_players of zero vectors
-                std::vector<Eigen::VectorXd> state0( ( num_players == 2 ? 2 : 4 ) , Eigen::VectorXd::Zero(169));
+                std::vector<Eigen::VectorXd> state0( ( num_players == 2 ? 2 : 6 ) , Eigen::VectorXd::Zero(169));
 
                 using result_t = std::future<std::tuple<double, std::vector<Eigen::VectorXd> > >;
                 std::vector<result_t> tmp;
@@ -747,10 +748,12 @@ struct HeadUpSolverCmd : Command{
                                 .init_state(state0)
                                 #if 1
                                 .observer([](auto const& vec){
-                                          for(auto const& s : vec ){
-                                          pretty_print_strat(s, 2);
+                                          static std::vector<std::string> v = { ""  , "p" , "f" , "pp", "pf", "fp" };
+                                          for(size_t idx=0;idx!=vec.size();++idx){
+                                                  std::cout << "--------" << v[idx] << "-------------\n";
+                                                  pretty_print_strat(vec[idx], 2);
                                           }
-                                          })
+                                })
                                 #endif
                                 .run();
                         return result;

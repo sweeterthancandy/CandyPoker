@@ -35,6 +35,70 @@
 #include <Eigen/Dense>
 
 #include "ps/support/command.h"
+#include "ps/support/persistent.h"
+
+namespace ps{
+struct holdem_class_perm_cache_item_type{
+        friend std::ostream& operator<<(std::ostream& ostr, holdem_class_perm_cache_item_type const& self){
+                ostr << "cv = " << self.cv;
+                ostr << ", count = " << self.count;
+                ostr << ", prob = " << self.prob;
+                return ostr;
+        }
+        holdem_class_vector cv;
+        size_t count{0};
+        double prob{0};
+private:
+        friend class boost::serialization::access;
+        template<class Archive>
+        void serialize(Archive & ar, const unsigned int version){
+                ar & cv;
+                ar & count;
+                ar & prob;
+        }
+};
+using holdem_class_perm_cache_type = std::vector<holdem_class_perm_cache_item_type>;
+
+
+static support::persistent_memory_decl<holdem_class_perm_cache_type> Memory_ThreePlayerClassVector( "three_player_class",
+[](){
+        boost::timer::auto_cpu_timer at;
+        auto ptr = std::make_shared<holdem_class_perm_cache_type>();
+        std::vector<holdem_class_perm_cache_item_type> cache;
+        double total_count = 0.0;
+        size_t n = 0;
+        for(holdem_class_perm_iterator iter(3),end;iter!=end;++iter){
+                auto const& cv = *iter;
+                auto const& A =  holdem_class_decl::get(cv[0]).get_hand_set() ;
+                auto const& B =  holdem_class_decl::get(cv[1]).get_hand_set() ;
+                auto const& C =  holdem_class_decl::get(cv[2]).get_hand_set() ;
+                size_t count = 0;
+                for( auto const& a : A ){
+                        for( auto const& b : B ){
+                                for( auto const& c : C ){
+                                        if( disjoint(a,b,c) ){
+                                                ++count;
+                                        }
+                                }
+                        }
+                }
+                if( count == 0 )
+                        continue;
+
+                total_count += count;
+
+                ptr->emplace_back();
+                ptr->back().cv = *iter;
+                ptr->back().count = count;
+                ++n;
+                if( n % 10 ) std::cout << "( n / 169.0/169.0/169.0 ) => " << ( n / 169.0/169.0/169.0 ) << "\n"; // __CandyPrint__(cxx-print-scalar,( n / 169.0/169.0/169.0 ))
+        }
+        for(auto& _ : *ptr){
+                _.prob = _.count / total_count;
+        }
+        return ptr;
+});
+} // end namespace ps
 
 
 /*
@@ -171,6 +235,7 @@ namespace gt{
                 };
                 double result = 1.0;
                 std::string sub;
+                std::stringstream dbg;
                 for(size_t idx=0;idx!=key.size();++idx){
                         if( reg_alloc.count(sub) == 0 ){
                                 throw std::domain_error("bad");
@@ -180,6 +245,7 @@ namespace gt{
                         case 'p':
                         case 'P':
                         {
+                                dbg << "P<" << reg << ">";
                                 result *= vec[reg];
                                 sub += 'p';
                                 break;
@@ -515,16 +581,31 @@ namespace gt{
                         
                 Eigen::VectorXd s(ctx.num_players());
 
-                for(holdem_class_perm_iterator iter(ctx.num_players()),end;iter!=end;++iter){
-
-                        auto const& cv = *iter;
-                        auto p = cv.prob();
-                        // create a view of the vector, nothing fancy
-                        for(size_t idx=0;idx!=cv.size();++idx){
-                                s[idx] = S[idx][cv[idx]];
+                if( ctx.num_players() == 3 ){
+                        for(auto const& _ : *Memory_ThreePlayerClassVector){
+                                auto const& cv = _.cv;
+                                // create a view of the vector, nothing fancy
+                                //
+                                // The strategy vector is of size 2,6,etc, each a vector of size 169
+                                // for a realization, we want to take 
+                                for(size_t idx=0;idx!=cv.size();++idx){
+                                        s[idx] = S[idx][cv[idx]];
+                                }
+                                auto meta_result = combination_value(ctx, cv, s);
+                                result(cv[idx]) += _.prob * meta_result[idx];
                         }
-                        auto meta_result = combination_value(ctx, cv, s);
-                        result(cv[idx]) += p * meta_result[idx];
+                } else {
+                        for(holdem_class_perm_iterator iter(ctx.num_players()),end;iter!=end;++iter){
+
+                                auto const& cv = *iter;
+                                auto p = cv.prob();
+                                // create a view of the vector, nothing fancy
+                                for(size_t idx=0;idx!=cv.size();++idx){
+                                        s[idx] = S[idx][cv[idx]];
+                                }
+                                auto meta_result = combination_value(ctx, cv, s);
+                                result(cv[idx]) += p * meta_result[idx];
+                        }
                 }
 
                 return result;

@@ -415,19 +415,11 @@ namespace gt{
                 
                 virtual double probability_of_event(std::string const& key, holdem_class_vector const& cv, strategy_impl_t const& impl)const{
                         auto a = impl[0][cv[0]];
-                        if( key == "p" ){
-                                return a;
-                        }
-                        if( key == "f" ){
-                                return ( 1.0 - a);
-                        }
                         auto b = impl[1][cv[1]];
-                        if( key == "pp"){
-                                return a * b;
-                        }
-                        if( key == "pf" ){
-                                return a * (1.0 - b );
-                        }
+                        //if( key == "p" ){ return a; }
+                        if( key == "f" ){ return ( 1.0 - a); }
+                        if( key == "pp"){ return a * b; }
+                        if( key == "pf"){ return a * (1.0 - b ); }
                         std::stringstream sstr;
                         sstr << "unknown key " << key;
                         throw std::domain_error(sstr.str());
@@ -440,7 +432,6 @@ namespace gt{
                                 check_probability_of_event(cv, impl);
                                 auto p = cv.prob();
                                 auto ev = expected_value_of_vector(cv, impl);
-                                ev *= p;
                                 result(cv[player_idx]) += p * ev[player_idx];
                         }
                         return result;
@@ -1199,11 +1190,30 @@ struct BetterHeadUpSolverCmd : Command{
                                 auto push_s = si->make_all_push(state);
                                 auto push_ev = desc.expected_value_by_class_id(si->player_index(), push_s);
 
-                                auto push_ev_detail_AA_KK = desc.expected_value_of_vector(holdem_class_vector{0,1}, push_s);
+                                #if 0
+                                do{
+                                        holdem_class_vector AA_KK{(holdem_class_id)0,(holdem_class_id)1};
+                                        std::cout << "------------- " << AA_KK << " delta ---------\n";
+                                        auto push_ev_detail_AA_KK = desc.expected_value_of_vector(AA_KK, push_s);
+                                        Eigen::VectorXd aux{2};
+                                        aux[0] = push_s[0][AA_KK[0]];
+                                        aux[1] = push_s[1][AA_KK[1]];
+                                        auto other_push_ev_detail_AA_KK = combination_value(gtctx, AA_KK, aux);
+                                        auto delta = push_ev_detail_AA_KK - other_push_ev_detail_AA_KK;
+                                        if(Debug){
+                                                std::cout << vector_to_string(push_ev_detail_AA_KK) << "\n";
+                                                std::cout << vector_to_string(other_push_ev_detail_AA_KK) << "\n";
+                                                std::cout << vector_to_string(delta) << "\n";
+                                        }
+                                }while(0);
 
-                                auto other_push_ev = unilateral_detail(gtctx, si->vector_index(), push_s);
-                                auto delta = push_ev - other_push_ev;
-                                if(Debug) pretty_print_strat(delta, 5);
+                                do{
+                                        std::cout << "------------- unilateral_detail delta ---------\n";
+                                        auto other_push_ev = unilateral_detail(gtctx, si->vector_index(), push_s);
+                                        auto delta = push_ev - other_push_ev;
+                                        if(Debug) pretty_print_strat(delta, 5);
+                                }while(0);
+                                #endif
 
                                 auto counter= choose_push_fold(push_ev, fold_ev);
 

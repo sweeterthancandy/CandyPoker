@@ -118,14 +118,16 @@ namespace ps{
                 }
 
                 struct strategy_decl{
-                        strategy_decl(size_t vec_idx, size_t player_idx, std::string const& desc)
+                        strategy_decl(size_t vec_idx, size_t player_idx, std::string const& desc, std::string const& action)
                                 :vec_idx_(vec_idx),
                                 player_idx_(player_idx),
-                                desc_(desc)
+                                desc_(desc),
+                                action_(action)
                         {}
                         size_t vector_index()const{ return vec_idx_; }
                         size_t player_index()const{ return player_idx_; }
                         std::string const& description()const{ return desc_; }
+                        std::string const& action()const{ return action_; }
                         strategy_impl_t make_all_fold(strategy_impl_t const& impl)const{
                                 auto result = impl;
                                 result[vec_idx_].fill(0);
@@ -141,6 +143,7 @@ namespace ps{
                         size_t vec_idx_;
                         size_t player_idx_;
                         std::string desc_;
+                        std::string action_;
                 };
                 using strategy_vector = std::vector<strategy_decl>;
                 using strategy_iterator = strategy_vector::const_iterator;
@@ -277,8 +280,8 @@ namespace ps{
                         auto n_pp = std::make_shared<eval_event>(&cc_, "pp", std::vector<size_t>{0,1}, dead_money, active);
                         events_.push_back(n_pp);
 
-                        strats_.emplace_back(0,0, "SB Pushing");
-                        strats_.emplace_back(1,1, "BB Calling, given a SB push");
+                        strats_.emplace_back(0,0, "SB Pushing", "");
+                        strats_.emplace_back(1,1, "BB Calling, given a SB push", "p");
                 }
                 virtual strategy_impl_t make_inital_state()const override{
                         Eigen::VectorXd proto(169);
@@ -397,12 +400,12 @@ namespace ps{
                                 
                         }
 
-                        strats_.emplace_back(0,0, "BTN Pushing");
-                        strats_.emplace_back(1,1, "SB Calling, given BTN Push");
-                        strats_.emplace_back(2,1, "SB Pushing, given BTN Fold"); 
-                        strats_.emplace_back(3,2, "BB Calling, given BTN Push, SB Call");
-                        strats_.emplace_back(4,2, "BB Calling, given BTN Push, SB Fold");
-                        strats_.emplace_back(5,2, "BB Calling, given BTN Fold, SB Push");
+                        strats_.emplace_back(0,0, "BTN Pushing", "");
+                        strats_.emplace_back(1,1, "SB Calling, given BTN Push", "p");
+                        strats_.emplace_back(2,1, "SB Pushing, given BTN Fold", "f"); 
+                        strats_.emplace_back(3,2, "BB Calling, given BTN Push, SB Call", "pp");
+                        strats_.emplace_back(4,2, "BB Calling, given BTN Push, SB Fold", "pf");
+                        strats_.emplace_back(5,2, "BB Calling, given BTN Fold, SB Push", "fp");
                 }
                 virtual strategy_impl_t make_inital_state()const override{
                         Eigen::VectorXd proto(169);
@@ -421,6 +424,28 @@ namespace ps{
                 virtual double eff()const{ return eff_; }
                 virtual size_t num_players()const{ return 3; }
                 
+                /*
+                         The index of the strategy vector, for example
+                         for hu index 0 is for sb to push, whilst index
+                         1 is for bb to call a push (given the action p),
+                         ie 
+                                Index |Player|  key  | Given |   P
+                                ------+------+-------+-------+------
+                                  0   |   0  |   p   |       | P(p)
+                                  1   |   1  |   pp  |   p   | P(p|p)
+
+                        For three player this canonical mapping doesn't
+                        apply, we have
+                                
+                                Index |Player|  Key  | Given |   P
+                                ------+------+-------+-------+------
+                                  0   |   0  |   p   |       | P(p)
+                                  1   |   1  |   pp  |   p   | P(p|p)
+                                  2   |   1  |   fp  |   f   | P(p|f)
+                                  3   |   2  |   ppp |   pp  | P(p|pp)
+                                  4   |   2  |   pfp |   pf  | P(p|pf)
+                                  5   |   2  |   fpp |   fp  | P(p|fp)
+                */
                 virtual double probability_of_event(std::string const& key, holdem_class_vector const& cv, strategy_impl_t const& impl)const{
                         enum{ Debug = 0 };
                         static std::unordered_map<std::string, size_t> reg_alloc = {
@@ -495,14 +520,14 @@ namespace ps{
                 return s;
         }
 
-        struct BetterHeadUpSolverCmd : Command{
+        struct SolverCmd : Command{
                 enum{ Debug = 1};
                 enum{ Dp = 2 };
                 explicit
-                BetterHeadUpSolverCmd(std::vector<std::string> const& args):args_{args}{}
+                SolverCmd(std::vector<std::string> const& args):args_{args}{}
                 virtual int Execute()override{
-                        //heads_up_description desc(0.5, 1, 10);
-                        three_player_description desc(0.5, 1, 10);
+                        heads_up_description desc(0.5, 1, 10);
+                        //three_player_description desc(0.5, 1, 10);
 
                         auto state0 = desc.make_inital_state();
 
@@ -510,11 +535,23 @@ namespace ps{
 
                         double factor = 0.10;
 
-                        for(auto ei=desc.begin_event(),ee=desc.end_event();ei!=ee;++ei){
-                                std::cout << ei->to_string() << "\n";
-                        }
 
-                        auto step = [&](auto const& state)->binary_strategy_description::strategy_impl_t
+                        using namespace Pretty;
+                        std::vector<LineItem> lines;
+                        size_t line_idx = 0;
+                        std::vector<std::string> header;
+                        header.push_back("n");
+                        for(auto si=desc.begin_strategy(),se=desc.end_strategy();si!=se;++si){
+                                header.push_back(si->action());
+                        }
+                        header.push_back("max");
+                        lines.push_back(std::move(header));
+                        lines.push_back(LineBreak);
+
+
+                        using state_type = binary_strategy_description::strategy_impl_t;
+
+                        auto step = [&](auto const& state)->state_type
                         {
                                 boost::timer::auto_cpu_timer at;
                                 using result_t = std::future<std::tuple<size_t, Eigen::VectorXd> >;
@@ -542,6 +579,34 @@ namespace ps{
                                 return result;
                         };
                         
+
+                        auto stoppage_condition = [&](state_type const& from, state_type const& to)->bool
+                        {
+                                std::vector<double> norm_vec;
+                                for(size_t idx=0;idx!=from.size();++idx){
+                                        auto delta = from[idx] - to[idx];
+                                        auto norm = delta.lpNorm<1>();
+                                        norm_vec.push_back(norm);
+                                }
+                                auto norm = *std::max_element(norm_vec.begin(),norm_vec.end());
+                                
+                                std::vector<std::string> line;
+                                line.push_back(boost::lexical_cast<std::string>(line_idx));
+                                for(size_t idx=0;idx!=norm_vec.size();++idx){
+                                        line.push_back(boost::lexical_cast<std::string>(norm_vec[idx]));
+                                }
+
+                                
+                                line.push_back(boost::lexical_cast<std::string>(norm));
+                                lines.push_back(std::move(line));
+                                ++line_idx;
+
+                                RenderTablePretty(std::cout, lines);
+
+                                double epsilon = 0.05;
+                                return norm < epsilon;
+                        };
+                        
                         auto print = [&]()
                         {
                                 for(auto si=desc.begin_strategy(),se=desc.end_strategy();si!=se;++si){
@@ -553,12 +618,8 @@ namespace ps{
                         for(;;){
                                 auto next = step(state);
 
-                                auto delta = next[0] - state[0];
-                                auto norm = delta.lpNorm<1>();
-                                if( norm < 0.1 )
+                                if( stoppage_condition(state, next) )
                                         break;
-
-                                std::cout << "norm => " << norm << "\n"; // __CandyPrint__(cxx-print-scalar,norm)
 
                                 state = next;
                                 if(Debug) print();
@@ -573,7 +634,7 @@ namespace ps{
         private:
                 std::vector<std::string> const& args_;
         };
-        static TrivialCommandDecl<BetterHeadUpSolverCmd> BetterHeadUpSolverCmdDecl{"better-heads-up-solver"};
+        static TrivialCommandDecl<SolverCmd> SolverCmdDecl{"solver"};
 } // end namespace ps
 
 #endif // PS_CMD_BETTER_SOLVER_H

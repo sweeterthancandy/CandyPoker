@@ -163,6 +163,7 @@ namespace gt{
         };
 
         double eval_prob_from_key(std::string const& key, Eigen::VectorXd const& vec){
+                enum{ Debug = 0 };
                 static std::unordered_map<std::string, size_t> reg_alloc = {
                         { ""  , 0 },
                         { "p" , 1 },
@@ -183,7 +184,7 @@ namespace gt{
                         case 'p':
                         case 'P':
                         {
-                                dbg << "P<" << reg << ">";
+                                dbg << "P<" << reg << "," << ( vec[reg] ) << ">";
                                 result *= vec[reg];
                                 sub += 'p';
                                 break;
@@ -191,16 +192,94 @@ namespace gt{
                         case 'f':
                         case 'F':
                         {
+                                dbg << "F<" << reg << "," << ( 1 - vec[reg] )<<">";
                                 result *= ( 1 - vec[reg] );
                                 sub += 'f';
                                 break;
                         }}
                 }
+                if( Debug ) std::cout << dbg.str() << "\n";
                 return result;
         }
+        void __eval_prob_from_key_test(){
+                Eigen::VectorXd v(6);
+                double a =  0.2; // <nothing>
+                double b =  0.3; // p
+                double c =  0.5; // f
+                double d =  0.7; // pp
+                double e = 0.11; // pf
+                double f = 0.13; // fp
+                
+                double A = ( 1.0 - a);
+                double B = ( 1.0 - b);
+                double C = ( 1.0 - c);
+                double D = ( 1.0 - d);
+                double E = ( 1.0 - e);
+                double F = ( 1.0 - f);
+
+                v[0] = a;
+                v[1] = b;
+                v[2] = c;
+                v[3] = d;
+                v[4] = e;
+                v[5] = f;
+
+                auto check = [](std::string const& expr_s, auto expr,
+                                std::string const& exp_s, auto exp){
+                        double epsilon = 1e-3;
+                        if( ! (std::fabs(expr - exp) < epsilon ) ){
+                                std::stringstream sstr;
+                                sstr << std::fixed;
+                                sstr << expr_s << "=" << expr << ", ";
+                                sstr << exp_s << "=" << exp;
+                                throw std::domain_error(sstr.str());
+                        }
+                };
+                #define check(expr,exp) check(#expr, expr, #exp, exp)
+                check( eval_prob_from_key("p"  , v), a    );
+                check( eval_prob_from_key("f"  , v), A    );
+                check( eval_prob_from_key("pp" , v), a*b  );
+                check( eval_prob_from_key("pf" , v), a*B  );
+                check( eval_prob_from_key("fp" , v), A*c  );
+                check( eval_prob_from_key("ff" , v), A*C  );
+                
+                check( eval_prob_from_key("ppp" , v), a*b*d  );
+                check( eval_prob_from_key("pfp" , v), a*B*e  );
+                check( eval_prob_from_key("fpp" , v), A*c*f  );
+                //check( eval_prob_from_key("ffp" , v), A*C  );
+                check( eval_prob_from_key("ppf" , v), a*b*D  );
+                check( eval_prob_from_key("pff" , v), a*B*E  );
+                check( eval_prob_from_key("fpf" , v), A*c*F  );
+                //check( eval_prob_from_key("fff" , v), A*C  );
+
+                
+                #undef check
+
+        }
+        static int __eval_prob_from_key_test_mem = ( __eval_prob_from_key_test(), 0 );
+
 
 
         struct eval_tree_node{
+                /*
+                        \param[out]  out   A vector of size ctx.num_players(), which will be 
+                                           used to hold the probability weight result
+  
+                        \param[in]   ctx   A gt_context for sb,bb,eff etc
+
+                        \param[in]   vec   A holdem class vector, representing the combination
+                                           of hand deals between the players. For any N-player
+                                           game, any hand deal can be represented of some 
+                                           N-tuple of holdem class ids.
+
+                        \param[in]   s     A probability realization of the strategy vector.
+                                           This is equivalent to
+                                                P(c=c0)P(c=c1|x)P(c=c2|xx)...,
+                                           ie each 
+
+
+                                   
+                 */
                 virtual void evaluate(Eigen::VectorXd& out,
                                       gt_context const& ctx,
                                       holdem_class_vector const& vec,
@@ -218,6 +297,7 @@ namespace gt{
                                       Eigen::VectorXd const& s)override
                 {
                         auto p = eval_prob_from_key(key_, s);
+                        //std::cout << "--" << key_ << " => " << p << "\n";
                         for(size_t idx=0;idx!=vec_.size();++idx){
                                 out[idx] += vec_[idx] * p;
                         }
@@ -301,6 +381,10 @@ namespace gt{
                                       Eigen::VectorXd const& s)override
                 {
                         auto p = eval_prob_from_key(key_, s);
+
+                        //std::cout << "--" << key_ << " => " << p << "\n";
+
+                        // short circuit for optimization purposes
                         if( std::fabs(p) < 0.001 )
                                 return;
 
@@ -321,6 +405,8 @@ namespace gt{
                         }
 
                         delta *= p;
+
+                        //std::cout << "cv << vector_to_string(delta) => " << vector_to_string(delta) << "\n"; // __CandyPrint__(cxx-print-scalar,vector_to_string(delta))
 
                         out += delta;
                         // for checking
@@ -351,9 +437,11 @@ namespace gt{
                                       holdem_class_vector const& vec,
                                       Eigen::VectorXd const& s)override
                 {
+                        //std::cout << "Begin{}\n";
                         for(auto& ptr : *this){
                                 ptr->evaluate(out, ctx, vec, s);
                         }
+                        //std::cout << "End{}\n";
                 }
                 virtual void display(std::ostream& ostr = std::cout)const override{
                         ostr << "Begin{}\n";
@@ -517,7 +605,7 @@ namespace gt{
                 Eigen::VectorXd result(169);
                 result.fill(.0);
                         
-                Eigen::VectorXd s(ctx.num_players());
+                Eigen::VectorXd s(S.size());
 
                 if( ctx.num_players() == 3 ){
                         for(auto const& _ : *Memory_ThreePlayerClassVector){
@@ -526,11 +614,12 @@ namespace gt{
                                 //
                                 // The strategy vector is of size 2,6,etc, each a vector of size 169
                                 // for a realization, we want to take 
-                                for(size_t idx=0;idx!=cv.size();++idx){
+                                for(size_t idx=0;idx!=s.size();++idx){
                                         s[idx] = S[idx][cv[idx]];
                                 }
                                 auto meta_result = combination_value(ctx, cv, s);
                                 result(cv[idx]) += _.prob * meta_result[idx];
+                                //result(cv[idx]) += meta_result[idx];
                         }
                 } else {
                         for(holdem_class_perm_iterator iter(ctx.num_players()),end;iter!=end;++iter){
@@ -538,7 +627,7 @@ namespace gt{
                                 auto const& cv = *iter;
                                 auto p = cv.prob();
                                 // create a view of the vector, nothing fancy
-                                for(size_t idx=0;idx!=cv.size();++idx){
+                                for(size_t idx=0;idx!=s.size();++idx){
                                         s[idx] = S[idx][cv[idx]];
                                 }
                                 auto meta_result = combination_value(ctx, cv, s);
@@ -570,13 +659,17 @@ namespace gt{
         Eigen::VectorXd unilateral_maximal_exploitable(gt_context const& ctx, size_t idx, std::vector<Eigen::VectorXd> const& S)
         {
 
+                enum{ Dp = 4 };
+                std::cout << "============== idx = " << idx << " =====================\n";
                 auto copy = S;
-                copy[idx] = fold_s;
-                auto fold = unilateral_detail(ctx, idx, copy);
                 copy[idx] = push_s;
                 auto push = unilateral_detail(ctx, idx, copy);
-                std::cout << "============== idx = " << idx << " =====================\n";
-                pretty_print_strat(push, 1);
+                pretty_print_strat(push, Dp);
+
+                copy[idx] = fold_s;
+                auto fold = unilateral_detail(ctx, idx, copy);
+                pretty_print_strat(fold, Dp);
+
                 return choose_push_fold(push, fold);
         }
 
@@ -729,6 +822,41 @@ struct HeadUpSolverCmd : Command{
 
                 // create a vector of num_players of zero vectors
                 std::vector<Eigen::VectorXd> state0( ( num_players == 2 ? 2 : 6 ) , Eigen::VectorXd::Zero(169));
+                for(auto& _ : state0){
+                        _.fill(0.5);
+                }
+                if(num_players == 3){
+                        Eigen::VectorXd v(6);
+                        v.fill(0.5);
+                        std::cout << "eval_prob_from_key(\"\"  , v) => " << eval_prob_from_key(""  , v) << "\n"; // __CandyPrint__(cxx-print-scalar,eval_prob_from_key(""  , v))
+                        std::cout << "eval_prob_from_key(\"p\" , v) => " << eval_prob_from_key("p" , v) << "\n"; // __CandyPrint__(cxx-print-scalar,eval_prob_from_key("p" , v))
+                        std::cout << "eval_prob_from_key(\"f\" , v) => " << eval_prob_from_key("f" , v) << "\n"; // __CandyPrint__(cxx-print-scalar,eval_prob_from_key("f" , v))
+                        std::cout << "eval_prob_from_key(\"pp\", v) => " << eval_prob_from_key("pp", v) << "\n"; // __CandyPrint__(cxx-print-scalar,eval_prob_from_key("pp", v))
+                        std::cout << "eval_prob_from_key(\"pf\", v) => " << eval_prob_from_key("pf", v) << "\n"; // __CandyPrint__(cxx-print-scalar,eval_prob_from_key("pf", v))
+                        std::cout << "eval_prob_from_key(\"fp\", v) => " << eval_prob_from_key("fp", v) << "\n"; // __CandyPrint__(cxx-print-scalar,eval_prob_from_key("fp", v))
+                        v[0] = 1.0;
+                        std::cout << "eval_prob_from_key(\"\"  , v) => " << eval_prob_from_key(""  , v) << "\n"; // __CandyPrint__(cxx-print-scalar,eval_prob_from_key(""  , v))
+                        std::cout << "eval_prob_from_key(\"p\" , v) => " << eval_prob_from_key("p" , v) << "\n"; // __CandyPrint__(cxx-print-scalar,eval_prob_from_key("p" , v))
+                        std::cout << "eval_prob_from_key(\"f\" , v) => " << eval_prob_from_key("f" , v) << "\n"; // __CandyPrint__(cxx-print-scalar,eval_prob_from_key("f" , v))
+                        std::cout << "eval_prob_from_key(\"pp\", v) => " << eval_prob_from_key("pp", v) << "\n"; // __CandyPrint__(cxx-print-scalar,eval_prob_from_key("pp", v))
+                        std::cout << "eval_prob_from_key(\"pf\", v) => " << eval_prob_from_key("pf", v) << "\n"; // __CandyPrint__(cxx-print-scalar,eval_prob_from_key("pf", v))
+                        std::cout << "eval_prob_from_key(\"fp\", v) => " << eval_prob_from_key("fp", v) << "\n"; // __CandyPrint__(cxx-print-scalar,eval_prob_from_key("fp", v))
+                        v[1] = 0.0;
+                        std::cout << "eval_prob_from_key(\"\"  , v) => " << eval_prob_from_key(""  , v) << "\n"; // __CandyPrint__(cxx-print-scalar,eval_prob_from_key(""  , v))
+                        std::cout << "eval_prob_from_key(\"p\" , v) => " << eval_prob_from_key("p" , v) << "\n"; // __CandyPrint__(cxx-print-scalar,eval_prob_from_key("p" , v))
+                        std::cout << "eval_prob_from_key(\"f\" , v) => " << eval_prob_from_key("f" , v) << "\n"; // __CandyPrint__(cxx-print-scalar,eval_prob_from_key("f" , v))
+                        std::cout << "eval_prob_from_key(\"pp\", v) => " << eval_prob_from_key("pp", v) << "\n"; // __CandyPrint__(cxx-print-scalar,eval_prob_from_key("pp", v))
+                        std::cout << "eval_prob_from_key(\"pf\", v) => " << eval_prob_from_key("pf", v) << "\n"; // __CandyPrint__(cxx-print-scalar,eval_prob_from_key("pf", v))
+                        std::cout << "eval_prob_from_key(\"fp\", v) => " << eval_prob_from_key("fp", v) << "\n"; // __CandyPrint__(cxx-print-scalar,eval_prob_from_key("fp", v))
+                        v[2] = 1.0;
+                        std::cout << "eval_prob_from_key(\"\"  , v) => " << eval_prob_from_key(""  , v) << "\n"; // __CandyPrint__(cxx-print-scalar,eval_prob_from_key(""  , v))
+                        std::cout << "eval_prob_from_key(\"p\" , v) => " << eval_prob_from_key("p" , v) << "\n"; // __CandyPrint__(cxx-print-scalar,eval_prob_from_key("p" , v))
+                        std::cout << "eval_prob_from_key(\"f\" , v) => " << eval_prob_from_key("f" , v) << "\n"; // __CandyPrint__(cxx-print-scalar,eval_prob_from_key("f" , v))
+                        std::cout << "eval_prob_from_key(\"pp\", v) => " << eval_prob_from_key("pp", v) << "\n"; // __CandyPrint__(cxx-print-scalar,eval_prob_from_key("pp", v))
+                        std::cout << "eval_prob_from_key(\"pf\", v) => " << eval_prob_from_key("pf", v) << "\n"; // __CandyPrint__(cxx-print-scalar,eval_prob_from_key("pf", v))
+                        std::cout << "eval_prob_from_key(\"fp\", v) => " << eval_prob_from_key("fp", v) << "\n"; // __CandyPrint__(cxx-print-scalar,eval_prob_from_key("fp", v))
+                }
+                
 
                 using result_t = std::future<std::tuple<double, std::vector<Eigen::VectorXd> > >;
                 std::vector<result_t> tmp;

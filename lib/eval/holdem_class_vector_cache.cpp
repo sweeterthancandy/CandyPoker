@@ -46,9 +46,12 @@ namespace{
                 }
                 virtual void display(std::ostream& ostr)const override{
                         auto const& obj = *reinterpret_cast<holdem_class_vector_cache const*>(ptr());
+                        double sigma = 0.0;
                         for( auto const& _ : obj){
                                 std::cout << _ << "\n";
+                                sigma += _.prob;
                         }
+                        std::cout << "sigma => " << sigma << "\n"; // __CandyPrint__(cxx-print-scalar,sigma)
                 }
         };
 } // end namespace anon

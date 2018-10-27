@@ -49,6 +49,7 @@ set(base_sources
         
         lib/eval/rank_world.cpp
         lib/eval/class_cache.cpp
+        lib/eval/holdem_class_vector_cache.cpp
         
         lib/support/singleton_factory.cpp
 )

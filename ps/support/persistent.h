@@ -1,72 +1,105 @@
 #ifndef PS_SUPPORT_PERSISTENT_HPP
 #define PS_SUPPORT_PERSISTENT_HPP
 
-#include <boost/archive/text_iarchive.hpp>
-#include <boost/archive/text_oarchive.hpp>
-#include <boost/archive/binary_iarchive.hpp>
-#include <boost/archive/binary_oarchive.hpp>
-#include <boost/serialization/base_object.hpp>
-#include <boost/serialization/utility.hpp>
-#include <boost/serialization/map.hpp>
-#include <boost/serialization/vector.hpp>
-#include <boost/serialization/assume_abstract.hpp>
+
+#include <functional>
+#include <vector>
+#include <boost/intrusive/list.hpp>
+#include "ps/detail/reinterpret_pointer_cast.h"
 
 namespace ps{
 namespace support{
-template<class T>
-struct persistent_memory_decl{
-        using te_maker_type = std::function<std::shared_ptr<T>()>;
-        template<class F>
-        explicit persistent_memory_decl(std::string const& name, F&& f)
-                :maker_{f}
-                ,name_{".persistent." + name}
-        {
-        }
-        std::shared_ptr<T> load(std::string const& path)const{
-                using archive_type = boost::archive::text_iarchive;
-                auto ptr = std::make_shared<T>();
-                std::ifstream ofs(path);
-                archive_type oa(ofs);
-                oa >> *ptr;
+
+struct persistent_memory_base : boost::intrusive::list_base_hook<>{
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+        // impl base 
+        struct impl_base{
+                virtual ~impl_base()=default;
+                virtual std::string name()const=0;
+                #if 0
+                virtual std::shared_ptr<void> make()const=0;
+                virtual std::shared_ptr<void> load(std::string const& path)=0;
+                virtual void save(std::shared_ptr<void> ptr, std::string const& path)const=0;
+                #endif
+                virtual void const* ptr()const=0;
+                virtual void display(std::ostream& ostr)const{}
+        };
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+        // controller
+        struct controller{
+                virtual ~controller()=default;
+                virtual std::string alloc_path(std::string const& token)=0;
+        };
+        struct default_controller : controller{
+                virtual std::string alloc_path(std::string const& token)override{
+                        return ".persistent." + token;
+                }
+        };
+
+        using controller_vector = std::vector<std::shared_ptr<controller> >;
+        static controller* get_default_controller(){
+                static auto ptr = new default_controller;
                 return ptr;
         }
-        void save(std::shared_ptr<T> ptr, std::string const& path)const{
-                using archive_type = boost::archive::text_oarchive;
-                auto typed = reinterpret_cast<T*>(ptr.get());
-                std::ofstream ofs(path);
-                archive_type oa(ofs);
-                oa << *typed;
+        static controller_vector* get_controller_vec(){
+                static auto ptr = new controller_vector;
+                ptr->push_back(std::shared_ptr<controller>(get_default_controller(),[](auto){}));
+                return ptr;
         }
-        T const* operator->()const{
-                return ptr_();
+        static void push_controller(std::shared_ptr<controller> ctrl){
+                get_controller_vec()->push_back(ctrl);
         }
-        T const& operator*()const{
-                return *ptr_();
-        }
-private:
-        T const* ptr_()const{
-                if( loaded_ ){
-                        return memory_.get();
-                }
-                std::lock_guard<std::mutex> lock(mtx_);
-                if( loaded_ ){
-                        return memory_.get();
-                }
-                try{
-                        memory_ = load(name_);
-                } catch(...){
-                        memory_ = maker_();
-                        save(memory_, name_);
-                }
-                loaded_ = true;
-                return memory_.get();
+        static controller* get_controller(){
+                return get_controller_vec()->back().get();
         }
 
-        te_maker_type maker_;
-        std::string name_;
-        mutable bool loaded_{false};
-        mutable std::shared_ptr<T> memory_;
-        mutable std::mutex mtx_;
+        
+        
+        ///////////////////////////////////////////////////////////////////////////////////////////
+        // memory list
+        using memory_list = boost::intrusive::list<persistent_memory_base>;
+        static memory_list* get_memory_list(){
+                static auto ptr = new memory_list;
+                return ptr;
+        }
+        using decl_iterator = memory_list::iterator;
+        static decl_iterator begin_decl(){ return get_memory_list()->begin(); }
+        static decl_iterator end_decl(){ return get_memory_list()->end(); }
+        persistent_memory_base()
+        {
+                get_memory_list()->push_back(*this);
+        }
+
+        virtual std::string name()const=0;
+        virtual void display(std::ostream& ostr = std::cout)const=0;
+};
+
+// treat T as an incomplete type
+template<class T>
+struct persistent_memory_decl : persistent_memory_base{
+        using te_maker_type = std::function<std::shared_ptr<T>()>;
+
+        explicit
+        persistent_memory_decl(std::unique_ptr<impl_base> pimpl)
+                : pimpl_{std::move(pimpl)}
+        {}
+        T const* operator->()const{
+                return reinterpret_cast<T const*>(pimpl_->ptr());
+        }
+        T const& operator*()const{
+                return *reinterpret_cast<T const*>(pimpl_->ptr());
+        }
+
+        virtual std::string name()const override{
+                return pimpl_->name();
+        }
+        virtual void display(std::ostream& ostr)const override{
+                pimpl_->display(ostr);
+        }
+private:
+        std::unique_ptr<impl_base> pimpl_;
 };
 } // end namespace support
 } // end namespace ps

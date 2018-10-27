@@ -35,70 +35,8 @@
 #include <Eigen/Dense>
 
 #include "ps/support/command.h"
-#include "ps/support/persistent.h"
 
-namespace ps{
-struct holdem_class_perm_cache_item_type{
-        friend std::ostream& operator<<(std::ostream& ostr, holdem_class_perm_cache_item_type const& self){
-                ostr << "cv = " << self.cv;
-                ostr << ", count = " << self.count;
-                ostr << ", prob = " << self.prob;
-                return ostr;
-        }
-        holdem_class_vector cv;
-        size_t count{0};
-        double prob{0};
-private:
-        friend class boost::serialization::access;
-        template<class Archive>
-        void serialize(Archive & ar, const unsigned int version){
-                ar & cv;
-                ar & count;
-                ar & prob;
-        }
-};
-using holdem_class_perm_cache_type = std::vector<holdem_class_perm_cache_item_type>;
-
-
-static support::persistent_memory_decl<holdem_class_perm_cache_type> Memory_ThreePlayerClassVector( "three_player_class",
-[](){
-        boost::timer::auto_cpu_timer at;
-        auto ptr = std::make_shared<holdem_class_perm_cache_type>();
-        std::vector<holdem_class_perm_cache_item_type> cache;
-        double total_count = 0.0;
-        size_t n = 0;
-        for(holdem_class_perm_iterator iter(3),end;iter!=end;++iter){
-                auto const& cv = *iter;
-                auto const& A =  holdem_class_decl::get(cv[0]).get_hand_set() ;
-                auto const& B =  holdem_class_decl::get(cv[1]).get_hand_set() ;
-                auto const& C =  holdem_class_decl::get(cv[2]).get_hand_set() ;
-                size_t count = 0;
-                for( auto const& a : A ){
-                        for( auto const& b : B ){
-                                for( auto const& c : C ){
-                                        if( disjoint(a,b,c) ){
-                                                ++count;
-                                        }
-                                }
-                        }
-                }
-                if( count == 0 )
-                        continue;
-
-                total_count += count;
-
-                ptr->emplace_back();
-                ptr->back().cv = *iter;
-                ptr->back().count = count;
-                ++n;
-                if( n % 10 ) std::cout << "( n / 169.0/169.0/169.0 ) => " << ( n / 169.0/169.0/169.0 ) << "\n"; // __CandyPrint__(cxx-print-scalar,( n / 169.0/169.0/169.0 ))
-        }
-        for(auto& _ : *ptr){
-                _.prob = _.count / total_count;
-        }
-        return ptr;
-});
-} // end namespace ps
+#include "ps/eval/holdem_class_vector_cache.h"
 
 
 /*

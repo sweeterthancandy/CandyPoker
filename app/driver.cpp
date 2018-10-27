@@ -30,10 +30,27 @@
 #include "ps/support/persistent.h"
 #include <boost/intrusive/list.hpp>
 //#include <boost/program_options.hpp>
+#include "ps/eval/holdem_class_vector_cache.h"
 
 using namespace ps;
 
 namespace{
+
+struct PrintMemory : Command{
+        explicit
+        PrintMemory(std::vector<std::string> const& args):players_s_{args}{}
+        virtual int Execute()override{
+                using namespace support;
+                for(auto iter=persistent_memory_base::begin_decl(), end = persistent_memory_base::end_decl();iter!=end;++iter){
+                        std::cout << iter->name() << "\n";
+                        iter->display(std::cout);
+                }
+                return EXIT_SUCCESS;
+        }
+private:
+        std::vector<std::string> const& players_s_;
+};
+static TrivialCommandDecl<PrintMemory> PrintMemoryDecl{"print-memory"};
 
 struct PrintTree : Command{
         explicit

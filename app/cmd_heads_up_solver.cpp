@@ -1308,8 +1308,8 @@ struct BetterHeadUpSolverCmd : Command{
         BetterHeadUpSolverCmd(std::vector<std::string> const& args):args_{args}{}
         virtual int Execute()override{
                 using namespace gt;
-                //heads_up_description desc(0.5, 1, 10);
-                three_player_description desc(0.5, 1, 10);
+                heads_up_description desc(0.5, 1, 10);
+                //three_player_description desc(0.5, 1, 10);
 
                 auto state0 = desc.make_inital_state();
 
@@ -1321,7 +1321,36 @@ struct BetterHeadUpSolverCmd : Command{
                         std::cout << ei->to_string() << "\n";
                 }
 
+                auto step = [&](auto const& state)->binary_strategy_description::strategy_impl_t
+                {
+                        boost::timer::auto_cpu_timer at;
+                        using result_t = std::future<std::tuple<size_t, Eigen::VectorXd> >;
+                        std::vector<result_t> tmp;
+                        for(auto si=desc.begin_strategy(),se=desc.end_strategy();si!=se;++si){
+                                auto fut = std::async(std::launch::async, [&,si](){
+                                        auto fold_s = si->make_all_fold(state);
+                                        auto fold_ev = desc.expected_value_by_class_id(si->player_index(), fold_s);
+
+                                        auto push_s = si->make_all_push(state);
+                                        auto push_ev = desc.expected_value_by_class_id(si->player_index(), push_s);
+
+                                        auto counter= choose_push_fold(push_ev, fold_ev);
+                                        return std::make_tuple(si->vector_index(), counter);
+                                });
+                                tmp.emplace_back(std::move(fut));
+                        }
+                        auto result = state;
+                        for(auto& _ : tmp){
+                                auto ret = _.get();
+                                auto idx            = std::get<0>(ret);
+                                auto const& counter = std::get<1>(ret);
+                                result[idx] = state[idx] * ( 1.0 - factor ) + counter * factor;
+                        }
+                        return result;
+                };
+
                 for(;;){
+                        #if 0
                         auto next = state;
                         for(auto si=desc.begin_strategy(),se=desc.end_strategy();si!=se;++si){
                                 auto fold_s = si->make_all_fold(state);
@@ -1336,6 +1365,8 @@ struct BetterHeadUpSolverCmd : Command{
                                 next[si->vector_index()] = state[si->vector_index()] * ( 1.0 - factor ) + counter * factor;
 
                         }
+                        #endif
+                        auto next = step(state);
 
                         auto delta = next[0] - state[0];
                         auto norm = delta.lpNorm<1>();

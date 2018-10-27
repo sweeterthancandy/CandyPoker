@@ -36,6 +36,7 @@
 
 #include "ps/support/command.h"
 
+#include <boost/iterator/indirect_iterator.hpp>
 #include "ps/eval/holdem_class_vector_cache.h"
 
 
@@ -161,6 +162,248 @@ namespace gt{
                 std::shared_ptr<eval_tree_node> gt_;
                 class_cache const* cc_;
         };
+        
+        struct eval_tree_node;
+
+        /*
+                Need a way to abstract the strategy represention.
+                
+                For a hu game, we have a representation of a 2-vector,
+                each of size 169, which a value \in [0,1] which represents
+                the probabilty of pushing.
+
+                For a three player game, we have a 6-vector of 169-vectors,
+                which each value \in [0,1] which reprents of the probaily
+                of pushing, given the previous action
+         */
+        struct binary_strategy_description{
+                using strategy_impl_t = std::vector<Eigen::VectorXd>;
+
+                // 
+                virtual double sb()const=0;
+                virtual double bb()const=0;
+                virtual double eff()const=0;
+                virtual size_t num_players()const=0;
+
+                virtual strategy_impl_t make_inital_state()const=0;
+                /*
+                 *  We are constraied to only events which can be represented by a key,
+                 *  for push/fold solving this is appropraite.
+                 */
+
+                struct event_decl{
+                        virtual ~event_decl()=default;
+                        virtual std::string key()const=0;
+                        virtual void value_of_event(Eigen::VectorXd& out, holdem_class_vector const& cv, double p = 1.0)const=0;
+                        virtual void expected_value_of_event(binary_strategy_description const* desc, Eigen::VectorXd& out, holdem_class_vector const& cv, strategy_impl_t const& impl)const{
+                                auto p = desc->probability_of_event(key(), cv, impl);
+                                value_of_event(out, cv, p);
+                        }
+                        double probability_of_event(binary_strategy_description* desc, holdem_class_vector const& cv, strategy_impl_t const& impl)const{
+                                return desc->probability_of_event(key(), cv, impl);
+                        }
+                };
+                using event_vector = std::vector<std::shared_ptr<event_decl> >;
+                using event_iterator = boost::indirect_iterator<event_vector::const_iterator>;
+                event_iterator begin_event()const{ return events_.begin(); }
+                event_iterator end_event()const{ return events_.end(); }
+
+                Eigen::VectorXd expected_value(holdem_class_vector const& cv, strategy_impl_t const& impl)const{
+                        Eigen::VectorXd vec(num_players());
+                        vec.fill(0);
+                        for(auto iter(begin_event()),end(end_event());iter!=end;++iter){
+                                iter->expected_value_of_event(this, vec, cv, impl);
+                        }
+                        return vec;
+                }
+                virtual double probability_of_event(std::string const& key, holdem_class_vector const& cv, strategy_impl_t const& impl)const=0;
+
+                void check_probability_of_event(holdem_class_vector const& cv, strategy_impl_t const& impl)const{
+                        double sigma = 0.0;
+                        for(auto iter(begin_event()),end(end_event());iter!=end;++iter){
+                                probability_of_event(iter->key(), cv, impl);
+                        }
+                        double epsilon = 1e-4;
+                        if( std::fabs(sigma - 1.0) > epsilon ){
+                                std::stringstream sstr;
+                                sstr << std::fixed;
+                                sstr << "bad events sigma=" << sigma;
+                                throw std::domain_error(sstr.str());
+                        }
+                }
+
+                struct strategy_decl{
+                        strategy_decl(size_t vec_idx, size_t player_idx, std::string const& desc)
+                                :vec_idx_(vec_idx),
+                                player_idx_(player_idx),
+                                desc_(desc)
+                        {}
+                        size_t vector_index()const{ return vec_idx_; }
+                        size_t player_index()const{ return player_idx_; }
+                        std::string const& description()const{ return desc_; }
+                private:
+                        size_t vec_idx_;
+                        size_t player_idx_;
+                        std::string desc_;
+                };
+                using strategy_vector = std::vector<strategy_decl>;
+                using strategy_iterator = strategy_vector::const_iterator;
+                strategy_iterator begin_strategy()const{ return strats_.begin(); }
+                strategy_iterator end_strategy()const{ return strats_.end(); }
+        protected:
+                event_vector events_;
+                strategy_vector strats_;
+
+        };
+        struct static_event : binary_strategy_description::event_decl{
+                explicit static_event(std::string const& key, Eigen::VectorXd vec):
+                        key_{key}, vec_{vec}
+                {}
+                virtual std::string key()const override{ return key_; }
+                virtual void value_of_event(Eigen::VectorXd& out, holdem_class_vector const& cv, double p = 1.0)const override{
+                        for(size_t idx=0;idx!=vec_.size();++idx){
+                                out[idx] += vec_[idx] * p;
+                        }
+                }
+        private:
+                std::string key_;
+                Eigen::VectorXd vec_;
+        };
+        struct eval_event : binary_strategy_description::event_decl{
+                enum{ Debug = 0 };
+                explicit
+                eval_event(class_cache const* cc,
+                           std::string const& key,
+                           std::vector<size_t> perm,
+                           Eigen::VectorXd const& dead_money,
+                           Eigen::VectorXd const& active)
+                        :cc_{cc}, key_(key), perm_{perm}, dead_money_{dead_money}, active_{active}
+                        ,pot_amt_{active_.sum() + dead_money_.sum()}
+                {
+
+                        delta_proto_.resize(dead_money_.size()+1);
+                        delta_proto_.fill(0);
+                        for(size_t idx=0;idx!=active_.size();++idx){
+                                delta_proto_[idx] -= active_[idx];
+                                delta_proto_[idx] -= dead_money_[idx];
+                        }
+                        
+                        if( Debug ){
+                                std::cout << "perm => " << detail::to_string(perm) << "\n"; // __CandyPrint__(cxx-print-scalar,perm)
+                                std::cout << "dead_money_ => " << vector_to_string(dead_money_) << "\n"; // __CandyPrint__(cxx-print-scalar,dead_money_)
+                                std::cout << "active_ => " << vector_to_string(active_) << "\n"; // __CandyPrint__(cxx-print-scalar,active_)
+                                std::cout << "delta_proto_ => " << vector_to_string(delta_proto_) << "\n"; // __CandyPrint__(cxx-print-scalar,delta_proto_)
+                                std::cout << "pot_amt_ => " << pot_amt_ << "\n"; // __CandyPrint__(cxx-print-scalar,pot_amt_)
+                        }
+
+                }
+                virtual std::string key()const override{ return key_; }
+                virtual void value_of_event(Eigen::VectorXd& out, holdem_class_vector const& cv, double p = 1.0)const override{
+
+                        // short circuit for optimization purposes
+                        if( std::fabs(p) < 0.001 )
+                                return;
+
+                        holdem_class_vector tmp;
+                        for(auto _ : perm_ ){
+                                tmp.push_back(cv[_]);
+                        }
+                        
+                        auto ev = cc_->LookupVector(tmp);
+                        
+
+                        Eigen::VectorXd delta = delta_proto_;
+
+                        size_t ev_idx = 0;
+                        for( auto _ :perm_ ){
+                                delta[_] += pot_amt_ * ev[ev_idx];
+                                ++ev_idx;
+                        }
+
+                        //std::cout << "key=" << key_ << ",p" << p << ", cv=" << cv << ", delta=" << vector_to_string(delta) << "\n"; // __CandyPrint__(cxx-print-scalar,vector_to_string(delta))
+                        delta *= p;
+
+                        out += delta;
+                }
+        private:
+                class_cache const* cc_;
+                std::string key_;
+                std::vector<size_t> perm_;
+                Eigen::VectorXd dead_money_;
+                Eigen::VectorXd active_;
+                Eigen::VectorXd delta_proto_;
+                double pot_amt_;
+        };
+
+
+        struct heads_up_description : binary_strategy_description{
+                heads_up_description(double sb, double bb, double eff)
+                        : sb_{sb}, bb_{bb}, eff_{eff}
+                {
+
+	
+                        std::string cache_name{".cc.bin"};
+                        cc_.load(cache_name);
+
+
+                        Eigen::VectorXd v_f_{2};
+                        v_f_(0) = -sb_;
+                        v_f_(1) =  sb_;
+                        auto n_f_ = std::make_shared<static_event>("f", v_f_);
+                        events_.push_back(n_f_);
+
+                        Eigen::VectorXd v_pf{2};
+                        v_pf(0) =  bb_;
+                        v_pf(1) = -bb_;
+                        auto n_pf = std::make_shared<static_event>("pf", v_pf);
+                        events_.push_back(n_pf);
+
+                        Eigen::VectorXd dead_money = Eigen::VectorXd::Zero(2);
+                        Eigen::VectorXd active{2};
+                        active[0] = eff_;
+                        active[1] = eff_;
+                        auto n_pp = std::make_shared<eval_event>(&cc_, "pp", std::vector<size_t>{0,1}, dead_money, active);
+
+                        events_.push_back(n_pp);
+
+                        strats_.emplace_back(0,0, "SB Pushing");
+                        strats_.emplace_back(1,1, "BB Calling, given a sb push");
+                }
+                virtual strategy_impl_t make_inital_state()const override{
+                        Eigen::VectorXd proto(169);
+                        proto.fill(0.5);
+                        strategy_impl_t vec;
+                        vec.emplace_back(proto);
+                        vec.emplace_back(proto);
+                        return vec;
+                }
+                virtual double sb()const{ return sb_; }
+                virtual double bb()const{ return bb_; }
+                virtual double eff()const{ return eff_; }
+                virtual size_t num_players()const{ return 2; }
+                
+                virtual double probability_of_event(std::string const& key, holdem_class_vector const& cv, strategy_impl_t const& impl)const{
+                        if( key == "p" ){
+                                return impl[0][cv[0]];
+                        }
+                        if( key == "pp"){
+                                return impl[0][cv[0]] * impl[1][cv[1]];
+                        }
+                        if( key == "pf" ){
+                                return impl[0][cv[0]] * (1.0 - impl[1][cv[1]] );
+                        }
+                        return -1.0;
+                }
+        private:
+                double sb_;
+                double bb_;
+                double eff_;
+
+                strategy_vector strats_;
+                event_vector events_;
+
+                class_cache cc_;
+        };
 
         double eval_prob_from_key(std::string const& key, Eigen::VectorXd const& vec){
                 enum{ Debug = 0 };
@@ -277,9 +520,6 @@ namespace gt{
                                            This is equivalent to
                                                 P(c=c0)P(c=c1|x)P(c=c2|xx)...,
                                            ie each 
-
-
-                                   
                  */
                 virtual void evaluate(Eigen::VectorXd& out,
                                       gt_context const& ctx,
@@ -758,7 +998,7 @@ namespace gt{
                         std::vector<Eigen::VectorXd> result(state.size());
                         for(auto& _ : tmp){
                                 auto ret = _.get();
-                                auto idx = std::get<0>(ret);
+                                auto idx            = std::get<0>(ret);
                                 auto const& counter = std::get<1>(ret);
                                 result[idx] = state[idx] * ( 1.0 - factor_ ) + counter * factor_;
                         }
@@ -940,6 +1180,7 @@ struct HeadUpSolverCmd : Command{
                 #endif
 
                 auto solve = [&](auto num_players, auto eff){
+                        heads_up_description(0.5, 1, 10);
                         gt_context gtctx(num_players, eff, .5, 1.);
                         std::shared_ptr<eval_tree_node> gt;
                         switch(num_players){

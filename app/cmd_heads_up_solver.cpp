@@ -105,14 +105,14 @@
                     q(1) = {ppp,ppf},{pfp,pff},{fpp,fpf},{ff}
                             _^  _^    _^  _^    _^  _^    _^
                     
-                    q(2) = {ppp},{ppf},{pfp},{pff},{fpp},{fpf},{ff}
+                    q(2) = {ppp},{ppf},{pfp},{pff},{fpp},{fpf },{ff}
                             __^   __^   __^   __^   __^   __^
 
 
 
  */
 
-namespace ps{
+namespace ps {
 namespace gt{
 
 
@@ -165,12 +165,13 @@ namespace gt{
         double eval_prob_from_key(std::string const& key, Eigen::VectorXd const& vec){
                 enum{ Debug = 0 };
                 static std::unordered_map<std::string, size_t> reg_alloc = {
-                        { ""  , 0 },
-                        { "p" , 1 },
-                        { "f" , 2 },
-                        { "pp", 3 },
-                        { "pf", 4 },
-                        { "fp", 5 }
+                                     //  Player
+                        { ""  , 0 }, //   0
+                        { "p" , 1 }, //   1
+                        { "f" , 2 }, //   1
+                        { "pp", 3 }, //   2
+                        { "pf", 4 }, //   2
+                        { "fp", 5 }  //   2
                 };
                 double result = 1.0;
                 std::string sub;
@@ -377,7 +378,7 @@ namespace gt{
                 }
                 virtual void evaluate(Eigen::VectorXd& out,
                                       gt_context const& ctx,
-                                      holdem_class_vector const& vec,
+                                      holdem_class_vector const& cv,
                                       Eigen::VectorXd const& s)override
                 {
                         auto p = eval_prob_from_key(key_, s);
@@ -390,7 +391,7 @@ namespace gt{
 
                         holdem_class_vector tmp;
                         for(auto _ : perm_ ){
-                                tmp.push_back(vec[_]);
+                                tmp.push_back(cv[_]);
                         }
                         
                         auto ev = ctx.cc()->LookupVector(tmp);
@@ -404,9 +405,9 @@ namespace gt{
                                 ++ev_idx;
                         }
 
+                        //std::cout << "key=" << key_ << ",p" << p << ", cv=" << cv << ", delta=" << vector_to_string(delta) << "\n"; // __CandyPrint__(cxx-print-scalar,vector_to_string(delta))
                         delta *= p;
 
-                        //std::cout << "cv << vector_to_string(delta) => " << vector_to_string(delta) << "\n"; // __CandyPrint__(cxx-print-scalar,vector_to_string(delta))
 
                         out += delta;
                         // for checking
@@ -598,6 +599,28 @@ namespace gt{
                 return result;
         }
 
+        /*
+                \param[in]  idx  The index of the strategy vector, for example
+                                 for hu index 0 is for sb to push, whilst index
+                                 1 is for bb to call a push (given the action p),
+                                 ie 
+                                        Index |Player|  key  | Given |   P
+                                        ------+------+-------+-------+------
+                                          0   |   0  |   p   |       | P(p)
+                                          1   |   1  |   pp  |   p   | P(p|p)
+
+                                For three player this canonical mapping doesn't
+                                apply, we have
+                                        
+                                        Index |Player|  Key  | Given |   P
+                                        ------+------+-------+-------+------
+                                          0   |   0  |   p   |       | P(p)
+                                          1   |   1  |   pp  |   p   | P(p|p)
+                                          2   |   1  |   fp  |   f   | P(p|f)
+                                          3   |   2  |   ppp |   pp  | P(p|pp)
+                                          4   |   2  |   pfp |   pf  | P(p|pf)
+                                          5   |   2  |   fpp |   fp  | P(p|fp)
+        */
         Eigen::VectorXd unilateral_detail(gt_context const& ctx,
                                           size_t idx,
                                           std::vector<Eigen::VectorXd> const& S)
@@ -607,6 +630,21 @@ namespace gt{
                         
                 Eigen::VectorXd s(S.size());
 
+                auto player_idx = [](auto id){
+                        switch(id){
+                        case 0:
+                                return 0;
+                        case 1:
+                        case 2:
+                                return 1;
+                        case 3:
+                        case 4:
+                        case 5:
+                                return 2;
+                        }
+                        PS_UNREACHABLE();
+                };
+
                 if( ctx.num_players() == 3 ){
                         for(auto const& _ : *Memory_ThreePlayerClassVector){
                                 auto const& cv = _.cv;
@@ -614,12 +652,11 @@ namespace gt{
                                 //
                                 // The strategy vector is of size 2,6,etc, each a vector of size 169
                                 // for a realization, we want to take 
-                                for(size_t idx=0;idx!=s.size();++idx){
-                                        s[idx] = S[idx][cv[idx]];
+                                for(size_t j=0;j!=s.size();++j){
+                                        s[j] = S[j][cv[player_idx(j)]];
                                 }
                                 auto meta_result = combination_value(ctx, cv, s);
-                                result(cv[idx]) += _.prob * meta_result[idx];
-                                //result(cv[idx]) += meta_result[idx];
+                                result(cv[player_idx(idx)]) += _.prob * meta_result[player_idx(idx)];
                         }
                 } else {
                         for(holdem_class_perm_iterator iter(ctx.num_players()),end;iter!=end;++iter){
@@ -654,21 +691,22 @@ namespace gt{
                 return s;
         }
         
-        static Eigen::VectorXd fold_s = Eigen::VectorXd::Zero(169);
-        static Eigen::VectorXd push_s = Eigen::VectorXd::Ones(169);
         Eigen::VectorXd unilateral_maximal_exploitable(gt_context const& ctx, size_t idx, std::vector<Eigen::VectorXd> const& S)
         {
 
                 enum{ Dp = 4 };
-                std::cout << "============== idx = " << idx << " =====================\n";
+                enum{ Debug = 0};
+                static Eigen::VectorXd fold_s = Eigen::VectorXd::Zero(169);
+                static Eigen::VectorXd push_s = Eigen::VectorXd::Ones(169);
+                if(Debug) std::cout << "============== idx = " << idx << " =====================\n";
                 auto copy = S;
                 copy[idx] = push_s;
                 auto push = unilateral_detail(ctx, idx, copy);
-                pretty_print_strat(push, Dp);
+                if(Debug) pretty_print_strat(push, Dp);
 
                 copy[idx] = fold_s;
                 auto fold = unilateral_detail(ctx, idx, copy);
-                pretty_print_strat(fold, Dp);
+                if(Debug) pretty_print_strat(fold, Dp);
 
                 return choose_push_fold(push, fold);
         }
@@ -690,9 +728,38 @@ namespace gt{
                 {
                         std::vector<Eigen::VectorXd> result(state.size());
                         
-                        for(size_t idx=0;idx!=state.size();++idx){
+                        //for(size_t idx=0;idx!=state.size();++idx){
+                        for(size_t idx=state.size();idx!=0;){
+                                --idx;
 
                                 auto counter = unilateral_maximal_exploitable(ctx,idx, state);
+                                result[idx] = state[idx] * ( 1.0 - factor_ ) + counter * factor_;
+                        }
+                        return result;
+                }
+        private:
+                double factor_;
+        };
+        struct maximal_exploitable_solver_uniform_mt : solver{
+                explicit maximal_exploitable_solver_uniform_mt(double factor = 0.05):factor_{factor}{}
+                virtual std::vector<Eigen::VectorXd> step(gt_context const& ctx,
+                                                          std::vector<Eigen::VectorXd> const& state)override
+                {
+                        boost::timer::auto_cpu_timer at;
+                        using result_t = std::future<std::tuple<size_t, Eigen::VectorXd> >;
+                        std::vector<result_t> tmp;
+                        for(size_t idx=0;idx!=state.size();++idx){
+                                auto fut = std::async(std::launch::async, [idx,&ctx,&state,this](){
+                                        return std::make_tuple(idx,unilateral_maximal_exploitable(ctx,idx, state));
+                                });
+                                tmp.emplace_back(std::move(fut));
+                        }
+                        std::cout << "tmp.size() => " << tmp.size() << "\n"; // __CandyPrint__(cxx-print-scalar,tmp.size())
+                        std::vector<Eigen::VectorXd> result(state.size());
+                        for(auto& _ : tmp){
+                                auto ret = _.get();
+                                auto idx = std::get<0>(ret);
+                                auto const& counter = std::get<1>(ret);
                                 result[idx] = state[idx] * ( 1.0 - factor_ ) + counter * factor_;
                         }
                         return result;
@@ -890,7 +957,7 @@ struct HeadUpSolverCmd : Command{
 
                         gtctx.use_cache(cc);
                         auto result = make_solver(gtctx)
-                                .use_solver(std::make_shared<maximal_exploitable_solver_uniform>())
+                                .use_solver(std::make_shared<maximal_exploitable_solver_uniform_mt>())
                                 .stoppage_condition(cond_single_strategy_lp1(0, 0.1))
                                 .init_state(state0)
                                 #if 1

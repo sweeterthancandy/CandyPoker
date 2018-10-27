@@ -443,6 +443,161 @@ namespace gt{
 
                 class_cache cc_;
         };
+        
+        
+        struct three_player_description : binary_strategy_description{
+                three_player_description(double sb, double bb, double eff)
+                        : sb_{sb}, bb_{bb}, eff_{eff}
+                {
+
+	
+                        std::string cache_name{".cc.bin"};
+                        cc_.load(cache_name);
+
+
+                        size_t num_players = 3;
+                                
+
+                        Eigen::VectorXd stacks{num_players};
+                        for(size_t idx=0;idx!=num_players;++idx){
+                                stacks[idx] = eff_;
+                        }
+
+
+                        Eigen::VectorXd v_blinds{num_players};
+                        v_blinds.fill(0.0);
+                        v_blinds[1] = sb_;
+                        v_blinds[2] = bb_;
+
+                        auto make_static = [&](std::string const& key, size_t target){
+                                Eigen::VectorXd sv = -v_blinds;
+                                sv[target] += v_blinds.sum();
+                                auto ptr = std::make_shared<static_event>(key, sv);
+                                return ptr;
+                        };
+
+                        for(unsigned long long mask = ( 1 << num_players ); mask != 0;){
+                                --mask;
+                                std::bitset<32> bs = {mask};
+
+
+                                std::string key;
+                                std::vector<size_t> perm;
+                                Eigen::VectorXd dead_money = Eigen::VectorXd::Zero(3);
+                                Eigen::VectorXd active     = Eigen::VectorXd::Zero(3);
+
+                                for(size_t idx=0;idx!= num_players;++idx){
+                                        if( bs.test(idx) ){
+                                                active[idx] = stacks[idx];
+                                                perm.push_back(idx);
+                                                key += "p";
+                                        } else{
+                                                dead_money[idx] = v_blinds[idx];
+                                                key += "f";
+                                        }
+                                }
+
+                                if( bs.count() == 0 )
+                                        continue;
+                                if( bs.count() == 1 && bs.test(num_players-1) ){
+                                        // walk
+                                        std::string degenerate_key(num_players-1, 'f');
+                                        auto walk = make_static(degenerate_key, num_players-1);
+                                        events_.push_back(walk);
+                                } else if( bs.count() == 1 ){
+                                        // steal 
+                                        auto steal = make_static(key, perm[0]);
+                                        events_.push_back(steal);
+                                } else { 
+                                        // push call
+
+                                        auto allin = std::make_shared<eval_event>(&cc_, key, perm, dead_money, active);
+                                        events_.push_back(allin);
+                                }
+                                
+                        }
+
+                        strats_.emplace_back(0,0, "BTN Pushing");
+                        strats_.emplace_back(1,1, "SB Calling, given BTN Push");
+                        strats_.emplace_back(2,1, "SB Pushing, given BTN Fold"); 
+                        strats_.emplace_back(3,2, "BB Calling, given BTN Push, SB Call");
+                        strats_.emplace_back(4,2, "BB Calling, given BTN Push, SB Fold");
+                        strats_.emplace_back(5,2, "BB Calling, given BTN Fold, SB Push");
+                }
+                virtual strategy_impl_t make_inital_state()const override{
+                        Eigen::VectorXd proto(169);
+                        proto.fill(0.0);
+                        strategy_impl_t vec;
+                        vec.emplace_back(proto);
+                        vec.emplace_back(proto);
+                        vec.emplace_back(proto);
+                        vec.emplace_back(proto);
+                        vec.emplace_back(proto);
+                        vec.emplace_back(proto);
+                        return vec;
+                }
+                virtual double sb()const{ return sb_; }
+                virtual double bb()const{ return bb_; }
+                virtual double eff()const{ return eff_; }
+                virtual size_t num_players()const{ return 3; }
+                
+                virtual double probability_of_event(std::string const& key, holdem_class_vector const& cv, strategy_impl_t const& impl)const{
+                        enum{ Debug = 0 };
+                        static std::unordered_map<std::string, size_t> reg_alloc = {
+                                             //  Player
+                                { ""  , 0 }, //   0
+                                { "p" , 1 }, //   1
+                                { "f" , 2 }, //   1
+                                { "pp", 3 }, //   2
+                                { "pf", 4 }, //   2
+                                { "fp", 5 }  //   2
+                        };
+                        double result = 1.0;
+                        std::string sub;
+                        std::stringstream dbg;
+                        for(size_t idx=0;idx!=key.size();++idx){
+                                if( reg_alloc.count(sub) == 0 ){
+                                        throw std::domain_error("bad");
+                                }
+                                auto reg = reg_alloc[sub];
+                                switch(key[idx]){
+                                case 'p':
+                                case 'P':
+                                {
+                                        dbg << "P<" << reg << "," << ( impl[reg][cv[idx]] ) << ">";
+                                        result *= impl[reg][cv[idx]];
+                                        sub += 'p';
+                                        break;
+                                }
+                                case 'f':
+                                case 'F':
+                                {
+                                        dbg << "F<" << reg << "," << ( 1 - impl[reg][cv[idx]] )<<">";
+                                        result *= ( 1 - impl[reg][cv[idx]] );
+                                        sub += 'f';
+                                        break;
+                                }}
+                        }
+                        if( Debug ) std::cout << dbg.str() << "\n";
+                        return result;
+                }
+                virtual Eigen::VectorXd expected_value_by_class_id(size_t player_idx, strategy_impl_t const& impl)const override{
+                        Eigen::VectorXd result(169);
+                        result.fill(0);
+                        for(auto const& _ : *Memory_ThreePlayerClassVector){
+                                auto const& cv = _.cv;
+                                auto ev = expected_value_of_vector(cv, impl);
+                                result(cv[player_idx]) += _.prob * ev[player_idx];
+                        }
+                        return result;
+                }
+        private:
+                double sb_;
+                double bb_;
+                double eff_;
+
+                class_cache cc_;
+        };
 
         double eval_prob_from_key(std::string const& key, Eigen::VectorXd const& vec){
                 enum{ Debug = 0 };
@@ -1153,29 +1308,14 @@ struct BetterHeadUpSolverCmd : Command{
         BetterHeadUpSolverCmd(std::vector<std::string> const& args):args_{args}{}
         virtual int Execute()override{
                 using namespace gt;
-                heads_up_description desc(0.5, 1, 10);
+                //heads_up_description desc(0.5, 1, 10);
+                three_player_description desc(0.5, 1, 10);
 
                 auto state0 = desc.make_inital_state();
 
                 auto state = state0;
 
                 double factor = 0.05;
-
-
-                gt_context gtctx(2, 10, .5, 1.);
-                auto other_gt = std::make_shared<hu_eval_tree_flat>(gtctx);
-                gtctx.use_game_tree(other_gt);
-                class_cache cc;
-                std::string cache_name{".cc.bin"};
-                try{
-                        cc.load(cache_name);
-                }catch(std::exception const& e){
-                        std::cerr << "Failed to load (" << e.what() << ")\n";
-                        throw;
-                }
-                gtctx.use_cache(cc);
-
-
 
                 for(auto ei=desc.begin_event(),ee=desc.end_event();ei!=ee;++ei){
                         std::cout << ei->to_string() << "\n";
@@ -1190,44 +1330,10 @@ struct BetterHeadUpSolverCmd : Command{
                                 auto push_s = si->make_all_push(state);
                                 auto push_ev = desc.expected_value_by_class_id(si->player_index(), push_s);
 
-                                #if 0
-                                do{
-                                        holdem_class_vector AA_KK{(holdem_class_id)0,(holdem_class_id)1};
-                                        std::cout << "------------- " << AA_KK << " delta ---------\n";
-                                        auto push_ev_detail_AA_KK = desc.expected_value_of_vector(AA_KK, push_s);
-                                        Eigen::VectorXd aux{2};
-                                        aux[0] = push_s[0][AA_KK[0]];
-                                        aux[1] = push_s[1][AA_KK[1]];
-                                        auto other_push_ev_detail_AA_KK = combination_value(gtctx, AA_KK, aux);
-                                        auto delta = push_ev_detail_AA_KK - other_push_ev_detail_AA_KK;
-                                        if(Debug){
-                                                std::cout << vector_to_string(push_ev_detail_AA_KK) << "\n";
-                                                std::cout << vector_to_string(other_push_ev_detail_AA_KK) << "\n";
-                                                std::cout << vector_to_string(delta) << "\n";
-                                        }
-                                }while(0);
-
-                                do{
-                                        std::cout << "------------- unilateral_detail delta ---------\n";
-                                        auto other_push_ev = unilateral_detail(gtctx, si->vector_index(), push_s);
-                                        auto delta = push_ev - other_push_ev;
-                                        if(Debug) pretty_print_strat(delta, 5);
-                                }while(0);
-                                #endif
-
                                 auto counter= choose_push_fold(push_ev, fold_ev);
-
-                                #if 0
-                                auto other_counter = unilateral_maximal_exploitable(gtctx,si->vector_index(), state);
-
-                                auto delta = counter - other_counter;
-                                if(Debug) pretty_print_strat(delta, Dp);
-                                #endif
 
 
                                 next[si->vector_index()] = state[si->vector_index()] * ( 1.0 - factor ) + counter * factor;
-
-
 
                         }
 

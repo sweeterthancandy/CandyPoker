@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.6)
 
 find_package (Eigen3 3.3 REQUIRED NO_MODULE)
+project(ps)
 
 
 if( WIN32 )
@@ -37,10 +38,6 @@ include_directories(${Boost_INCLUDE_DIRS})
 
 include_directories(.)
 
-set(support_sources
-        lib/support/singleton_factory.cpp
-)
-add_library(support_lib SHARED ${support_sources}) 
 
 #aux_source_directory(lib/base base_sources)
 set(base_sources
@@ -49,20 +46,16 @@ set(base_sources
         lib/base/frontend.cpp
         lib/base/board_combination_iterator.cpp
         lib/base/tree.cpp
-)
-add_library(base_lib SHARED ${base_sources}) 
-target_link_libraries(base_lib ${Boost_LIBRARIES})
-target_link_libraries(base_lib Eigen3::Eigen)
-
-set(
-        eval_sources 
         
         lib/eval/rank_world.cpp
         lib/eval/class_cache.cpp
+        
+        lib/support/singleton_factory.cpp
 )
-add_library(eval_lib SHARED ${eval_sources}) 
-target_link_libraries(eval_lib ${Boost_LIBRARIES})
-target_link_libraries(eval_lib Eigen3::Eigen)
+add_library(ps_lib SHARED ${base_sources}) 
+target_link_libraries(ps_lib ${Boost_LIBRARIES})
+target_link_libraries(ps_lib Eigen3::Eigen)
+
                 
 
 set( 
@@ -76,7 +69,7 @@ set(
 add_executable(driver ${driver_sources} )
 target_link_libraries(driver pthread )
 target_link_libraries(driver ${Boost_LIBRARIES})
-target_link_libraries(driver support_lib base_lib eval_lib )
+target_link_libraries(driver ps_lib )
 target_link_libraries(driver Eigen3::Eigen)
 
 

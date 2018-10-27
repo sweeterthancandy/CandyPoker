@@ -202,26 +202,31 @@ namespace gt{
                         double probability_of_event(binary_strategy_description* desc, holdem_class_vector const& cv, strategy_impl_t const& impl)const{
                                 return desc->probability_of_event(key(), cv, impl);
                         }
+                        virtual std::string to_string()const=0;
                 };
                 using event_vector = std::vector<std::shared_ptr<event_decl> >;
                 using event_iterator = boost::indirect_iterator<event_vector::const_iterator>;
                 event_iterator begin_event()const{ return events_.begin(); }
                 event_iterator end_event()const{ return events_.end(); }
 
-                Eigen::VectorXd expected_value(holdem_class_vector const& cv, strategy_impl_t const& impl)const{
-                        Eigen::VectorXd vec(num_players());
+                // the ev GIVEN a certain deal
+                //    result = \sum P(q) * E[q]
+                Eigen::VectorXd expected_value_of_vector(holdem_class_vector const& cv, strategy_impl_t const& impl)const{
+                        Eigen::VectorXd vec(num_players()+1);
                         vec.fill(0);
                         for(auto iter(begin_event()),end(end_event());iter!=end;++iter){
                                 iter->expected_value_of_event(this, vec, cv, impl);
                         }
                         return vec;
                 }
+                virtual Eigen::VectorXd expected_value_by_class_id(size_t player_idx, strategy_impl_t const& impl)const=0;
+
                 virtual double probability_of_event(std::string const& key, holdem_class_vector const& cv, strategy_impl_t const& impl)const=0;
 
                 void check_probability_of_event(holdem_class_vector const& cv, strategy_impl_t const& impl)const{
                         double sigma = 0.0;
                         for(auto iter(begin_event()),end(end_event());iter!=end;++iter){
-                                probability_of_event(iter->key(), cv, impl);
+                                sigma += probability_of_event(iter->key(), cv, impl);
                         }
                         double epsilon = 1e-4;
                         if( std::fabs(sigma - 1.0) > epsilon ){
@@ -241,6 +246,17 @@ namespace gt{
                         size_t vector_index()const{ return vec_idx_; }
                         size_t player_index()const{ return player_idx_; }
                         std::string const& description()const{ return desc_; }
+                        strategy_impl_t make_all_fold(strategy_impl_t const& impl)const{
+                                auto result = impl;
+                                result[vec_idx_].fill(0);
+                                return result;
+                        }
+                        strategy_impl_t make_all_push(strategy_impl_t const& impl)const{
+                                auto result = impl;
+                                result[vec_idx_].fill(1);
+                                return result;
+                        }
+
                 private:
                         size_t vec_idx_;
                         size_t player_idx_;
@@ -260,10 +276,15 @@ namespace gt{
                         key_{key}, vec_{vec}
                 {}
                 virtual std::string key()const override{ return key_; }
-                virtual void value_of_event(Eigen::VectorXd& out, holdem_class_vector const& cv, double p = 1.0)const override{
+                virtual void value_of_event(Eigen::VectorXd& out, holdem_class_vector const& cv, double p)const override{
                         for(size_t idx=0;idx!=vec_.size();++idx){
                                 out[idx] += vec_[idx] * p;
                         }
+                }
+                virtual std::string to_string()const override{
+                        std::stringstream sstr;
+                        sstr << "Static{key=" << key_ << ", vec_=" << vector_to_string(vec_) << "}";
+                        return sstr.str();
                 }
         private:
                 std::string key_;
@@ -298,7 +319,7 @@ namespace gt{
 
                 }
                 virtual std::string key()const override{ return key_; }
-                virtual void value_of_event(Eigen::VectorXd& out, holdem_class_vector const& cv, double p = 1.0)const override{
+                virtual void value_of_event(Eigen::VectorXd& out, holdem_class_vector const& cv, double p)const override{
 
                         // short circuit for optimization purposes
                         if( std::fabs(p) < 0.001 )
@@ -324,6 +345,17 @@ namespace gt{
                         delta *= p;
 
                         out += delta;
+                }
+                virtual std::string to_string()const override{
+                        std::stringstream sstr;
+                        sstr << std::fixed;
+                        sstr << "Eval  {key=" << key_ << ", perm=" << detail::to_string(perm_) 
+                                << ", dead=" << vector_to_string(dead_money_)
+                                << ", active=" << vector_to_string(active_)
+                                << ", proto=" << vector_to_string(delta_proto_)
+                                << ", pot=" << pot_amt_ 
+                                << "}";
+                        return sstr.str();
                 }
         private:
                 class_cache const* cc_;
@@ -363,15 +395,14 @@ namespace gt{
                         active[0] = eff_;
                         active[1] = eff_;
                         auto n_pp = std::make_shared<eval_event>(&cc_, "pp", std::vector<size_t>{0,1}, dead_money, active);
-
                         events_.push_back(n_pp);
 
                         strats_.emplace_back(0,0, "SB Pushing");
-                        strats_.emplace_back(1,1, "BB Calling, given a sb push");
+                        strats_.emplace_back(1,1, "BB Calling, given a SB push");
                 }
                 virtual strategy_impl_t make_inital_state()const override{
                         Eigen::VectorXd proto(169);
-                        proto.fill(0.5);
+                        proto.fill(0.0);
                         strategy_impl_t vec;
                         vec.emplace_back(proto);
                         vec.emplace_back(proto);
@@ -383,24 +414,41 @@ namespace gt{
                 virtual size_t num_players()const{ return 2; }
                 
                 virtual double probability_of_event(std::string const& key, holdem_class_vector const& cv, strategy_impl_t const& impl)const{
+                        auto a = impl[0][cv[0]];
                         if( key == "p" ){
-                                return impl[0][cv[0]];
+                                return a;
                         }
+                        if( key == "f" ){
+                                return ( 1.0 - a);
+                        }
+                        auto b = impl[1][cv[1]];
                         if( key == "pp"){
-                                return impl[0][cv[0]] * impl[1][cv[1]];
+                                return a * b;
                         }
                         if( key == "pf" ){
-                                return impl[0][cv[0]] * (1.0 - impl[1][cv[1]] );
+                                return a * (1.0 - b );
                         }
-                        return -1.0;
+                        std::stringstream sstr;
+                        sstr << "unknown key " << key;
+                        throw std::domain_error(sstr.str());
+                }
+                virtual Eigen::VectorXd expected_value_by_class_id(size_t player_idx, strategy_impl_t const& impl)const override{
+                        Eigen::VectorXd result(169);
+                        result.fill(0);
+                        for(holdem_class_perm_iterator iter(2),end;iter!=end;++iter){
+                                auto const& cv = *iter;
+                                check_probability_of_event(cv, impl);
+                                auto p = cv.prob();
+                                auto ev = expected_value_of_vector(cv, impl);
+                                ev *= p;
+                                result(cv[player_idx]) += p * ev[player_idx];
+                        }
+                        return result;
                 }
         private:
                 double sb_;
                 double bb_;
                 double eff_;
-
-                strategy_vector strats_;
-                event_vector events_;
 
                 class_cache cc_;
         };
@@ -1107,6 +1155,97 @@ namespace gt{
 
 } // end namespace gt
 
+struct BetterHeadUpSolverCmd : Command{
+        enum{ Debug = 1};
+        enum{ Dp = 2 };
+        explicit
+        BetterHeadUpSolverCmd(std::vector<std::string> const& args):args_{args}{}
+        virtual int Execute()override{
+                using namespace gt;
+                heads_up_description desc(0.5, 1, 10);
+
+                auto state0 = desc.make_inital_state();
+
+                auto state = state0;
+
+                double factor = 0.05;
+
+
+                gt_context gtctx(2, 10, .5, 1.);
+                auto other_gt = std::make_shared<hu_eval_tree_flat>(gtctx);
+                gtctx.use_game_tree(other_gt);
+                class_cache cc;
+                std::string cache_name{".cc.bin"};
+                try{
+                        cc.load(cache_name);
+                }catch(std::exception const& e){
+                        std::cerr << "Failed to load (" << e.what() << ")\n";
+                        throw;
+                }
+                gtctx.use_cache(cc);
+
+
+
+                for(auto ei=desc.begin_event(),ee=desc.end_event();ei!=ee;++ei){
+                        std::cout << ei->to_string() << "\n";
+                }
+
+                for(;;){
+                        auto next = state;
+                        for(auto si=desc.begin_strategy(),se=desc.end_strategy();si!=se;++si){
+                                auto fold_s = si->make_all_fold(state);
+                                auto fold_ev = desc.expected_value_by_class_id(si->player_index(), fold_s);
+
+                                auto push_s = si->make_all_push(state);
+                                auto push_ev = desc.expected_value_by_class_id(si->player_index(), push_s);
+
+                                auto push_ev_detail_AA_KK = desc.expected_value_of_vector(holdem_class_vector{0,1}, push_s);
+
+                                auto other_push_ev = unilateral_detail(gtctx, si->vector_index(), push_s);
+                                auto delta = push_ev - other_push_ev;
+                                if(Debug) pretty_print_strat(delta, 5);
+
+                                auto counter= choose_push_fold(push_ev, fold_ev);
+
+                                #if 0
+                                auto other_counter = unilateral_maximal_exploitable(gtctx,si->vector_index(), state);
+
+                                auto delta = counter - other_counter;
+                                if(Debug) pretty_print_strat(delta, Dp);
+                                #endif
+
+
+                                next[si->vector_index()] = state[si->vector_index()] * ( 1.0 - factor ) + counter * factor;
+
+
+
+                        }
+
+                        auto delta = next[0] - state[0];
+                        auto norm = delta.lpNorm<1>();
+                        if( norm < 0.1 )
+                                break;
+
+                        std::cout << "norm => " << norm << "\n"; // __CandyPrint__(cxx-print-scalar,norm)
+
+                        state = next;
+                        if(Debug) pretty_print_strat(state[0], Dp);
+                        if(Debug) pretty_print_strat(state[1], Dp);
+                }
+                for(auto& _ : state){
+                        _ = clamp(_);
+                        
+                }
+                for(auto si=desc.begin_strategy(),se=desc.end_strategy();si!=se;++si){
+                        std::cout << si->description() << "\n";
+                        pretty_print_strat(state[si->vector_index()], Dp);
+                }
+                return EXIT_SUCCESS;
+        }
+private:
+        std::vector<std::string> const& args_;
+};
+static TrivialCommandDecl<BetterHeadUpSolverCmd> BetterHeadUpSolverCmdDecl{"better-heads-up-solver"};
 
 
 struct HeadUpSolverCmd : Command{
@@ -1125,43 +1264,12 @@ struct HeadUpSolverCmd : Command{
 
                 using namespace gt;
 
-                size_t num_players = 3;
+                size_t num_players = 2;
 
                 // create a vector of num_players of zero vectors
                 std::vector<Eigen::VectorXd> state0( ( num_players == 2 ? 2 : 6 ) , Eigen::VectorXd::Zero(169));
                 for(auto& _ : state0){
                         _.fill(0.5);
-                }
-                if(num_players == 3){
-                        Eigen::VectorXd v(6);
-                        v.fill(0.5);
-                        std::cout << "eval_prob_from_key(\"\"  , v) => " << eval_prob_from_key(""  , v) << "\n"; // __CandyPrint__(cxx-print-scalar,eval_prob_from_key(""  , v))
-                        std::cout << "eval_prob_from_key(\"p\" , v) => " << eval_prob_from_key("p" , v) << "\n"; // __CandyPrint__(cxx-print-scalar,eval_prob_from_key("p" , v))
-                        std::cout << "eval_prob_from_key(\"f\" , v) => " << eval_prob_from_key("f" , v) << "\n"; // __CandyPrint__(cxx-print-scalar,eval_prob_from_key("f" , v))
-                        std::cout << "eval_prob_from_key(\"pp\", v) => " << eval_prob_from_key("pp", v) << "\n"; // __CandyPrint__(cxx-print-scalar,eval_prob_from_key("pp", v))
-                        std::cout << "eval_prob_from_key(\"pf\", v) => " << eval_prob_from_key("pf", v) << "\n"; // __CandyPrint__(cxx-print-scalar,eval_prob_from_key("pf", v))
-                        std::cout << "eval_prob_from_key(\"fp\", v) => " << eval_prob_from_key("fp", v) << "\n"; // __CandyPrint__(cxx-print-scalar,eval_prob_from_key("fp", v))
-                        v[0] = 1.0;
-                        std::cout << "eval_prob_from_key(\"\"  , v) => " << eval_prob_from_key(""  , v) << "\n"; // __CandyPrint__(cxx-print-scalar,eval_prob_from_key(""  , v))
-                        std::cout << "eval_prob_from_key(\"p\" , v) => " << eval_prob_from_key("p" , v) << "\n"; // __CandyPrint__(cxx-print-scalar,eval_prob_from_key("p" , v))
-                        std::cout << "eval_prob_from_key(\"f\" , v) => " << eval_prob_from_key("f" , v) << "\n"; // __CandyPrint__(cxx-print-scalar,eval_prob_from_key("f" , v))
-                        std::cout << "eval_prob_from_key(\"pp\", v) => " << eval_prob_from_key("pp", v) << "\n"; // __CandyPrint__(cxx-print-scalar,eval_prob_from_key("pp", v))
-                        std::cout << "eval_prob_from_key(\"pf\", v) => " << eval_prob_from_key("pf", v) << "\n"; // __CandyPrint__(cxx-print-scalar,eval_prob_from_key("pf", v))
-                        std::cout << "eval_prob_from_key(\"fp\", v) => " << eval_prob_from_key("fp", v) << "\n"; // __CandyPrint__(cxx-print-scalar,eval_prob_from_key("fp", v))
-                        v[1] = 0.0;
-                        std::cout << "eval_prob_from_key(\"\"  , v) => " << eval_prob_from_key(""  , v) << "\n"; // __CandyPrint__(cxx-print-scalar,eval_prob_from_key(""  , v))
-                        std::cout << "eval_prob_from_key(\"p\" , v) => " << eval_prob_from_key("p" , v) << "\n"; // __CandyPrint__(cxx-print-scalar,eval_prob_from_key("p" , v))
-                        std::cout << "eval_prob_from_key(\"f\" , v) => " << eval_prob_from_key("f" , v) << "\n"; // __CandyPrint__(cxx-print-scalar,eval_prob_from_key("f" , v))
-                        std::cout << "eval_prob_from_key(\"pp\", v) => " << eval_prob_from_key("pp", v) << "\n"; // __CandyPrint__(cxx-print-scalar,eval_prob_from_key("pp", v))
-                        std::cout << "eval_prob_from_key(\"pf\", v) => " << eval_prob_from_key("pf", v) << "\n"; // __CandyPrint__(cxx-print-scalar,eval_prob_from_key("pf", v))
-                        std::cout << "eval_prob_from_key(\"fp\", v) => " << eval_prob_from_key("fp", v) << "\n"; // __CandyPrint__(cxx-print-scalar,eval_prob_from_key("fp", v))
-                        v[2] = 1.0;
-                        std::cout << "eval_prob_from_key(\"\"  , v) => " << eval_prob_from_key(""  , v) << "\n"; // __CandyPrint__(cxx-print-scalar,eval_prob_from_key(""  , v))
-                        std::cout << "eval_prob_from_key(\"p\" , v) => " << eval_prob_from_key("p" , v) << "\n"; // __CandyPrint__(cxx-print-scalar,eval_prob_from_key("p" , v))
-                        std::cout << "eval_prob_from_key(\"f\" , v) => " << eval_prob_from_key("f" , v) << "\n"; // __CandyPrint__(cxx-print-scalar,eval_prob_from_key("f" , v))
-                        std::cout << "eval_prob_from_key(\"pp\", v) => " << eval_prob_from_key("pp", v) << "\n"; // __CandyPrint__(cxx-print-scalar,eval_prob_from_key("pp", v))
-                        std::cout << "eval_prob_from_key(\"pf\", v) => " << eval_prob_from_key("pf", v) << "\n"; // __CandyPrint__(cxx-print-scalar,eval_prob_from_key("pf", v))
-                        std::cout << "eval_prob_from_key(\"fp\", v) => " << eval_prob_from_key("fp", v) << "\n"; // __CandyPrint__(cxx-print-scalar,eval_prob_from_key("fp", v))
                 }
                 
 
@@ -1171,16 +1279,13 @@ struct HeadUpSolverCmd : Command{
                 gt_context gtctx(num_players, 10, .5, 1.);
 
                 #if 0
-                fprintf(stderr, "A\n"); // __CandyTag__ 
                 hu_eval_tree{gtctx}.display();
-                fprintf(stderr, "B\n"); // __CandyTag__ 
                 hu_eval_tree_flat{gtctx}.display();
-                fprintf(stderr, "C\n"); // __CandyTag__ 
                 three_way_eval_tree{gtctx}.display();
                 #endif
 
+
                 auto solve = [&](auto num_players, auto eff){
-                        heads_up_description(0.5, 1, 10);
                         gt_context gtctx(num_players, eff, .5, 1.);
                         std::shared_ptr<eval_tree_node> gt;
                         switch(num_players){

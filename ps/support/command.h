@@ -54,7 +54,12 @@ struct CommandDecl{
                         PrintHelp(argv[0]);
                         return EXIT_FAILURE;
                 }
-                return cmd->Execute();
+                try{
+                        return cmd->Execute();
+                } catch(std::exception const& e){
+                        std::cerr << "Exception: " << e.what() << "\n";
+                        return EXIT_FAILURE;
+                }
         }
 };
 template<class T>

@@ -37,6 +37,7 @@ private:
 using holdem_class_vector_cache = std::vector<holdem_class_vector_cache_item>;
 
 extern support::persistent_memory_decl<holdem_class_vector_cache> Memory_ThreePlayerClassVector;
+extern support::persistent_memory_decl<holdem_class_vector_cache> Memory_TwoPlayerClassVector;
 
 } // end namespace ps
 

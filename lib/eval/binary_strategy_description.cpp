@@ -204,6 +204,7 @@ namespace ps{
                 virtual Eigen::VectorXd expected_value_by_class_id(size_t player_idx, strategy_impl_t const& impl)const override{
                         Eigen::VectorXd result(169);
                         result.fill(0);
+                        #if 0
                         for(holdem_class_perm_iterator iter(2),end;iter!=end;++iter){
                                 auto const& cv = *iter;
                                 check_probability_of_event(cv, impl);
@@ -211,11 +212,18 @@ namespace ps{
                                 auto ev = expected_value_of_vector(cv, impl);
                                 result(cv[player_idx]) += p * ev[player_idx];
                         }
+                        #endif
+                        for(auto const& _ : *Memory_TwoPlayerClassVector){
+                                auto const& cv = _.cv;
+                                auto ev = expected_value_of_vector(cv, impl);
+                                result(cv[player_idx]) += _.prob * ev[player_idx];
+                        }
                         return result;
                 }
                 virtual Eigen::VectorXd expected_value(strategy_impl_t const& impl)const override{
                         Eigen::VectorXd result(2);
                         result.fill(0);
+                        #if 0
                         for(holdem_class_perm_iterator iter(2),end;iter!=end;++iter){
                                 auto const& cv = *iter;
                                 check_probability_of_event(cv, impl);
@@ -223,6 +231,13 @@ namespace ps{
                                 auto ev = expected_value_of_vector(cv, impl);
                                 result[0] += p * ev[0];
                                 result[1] += p * ev[1];
+                        }
+                        #endif
+                        for(auto const& _ : *Memory_TwoPlayerClassVector){
+                                auto const& cv = _.cv;
+                                auto ev = expected_value_of_vector(cv, impl);
+                                result[0] += _.prob * ev[0];
+                                result[1] += _.prob * ev[1];
                         }
                         return result;
                 }

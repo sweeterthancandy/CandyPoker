@@ -74,10 +74,10 @@ namespace ps{
                 struct event_decl{
                         virtual ~event_decl()=default;
                         virtual std::string key()const=0;
-                        virtual void value_of_event(Eigen::VectorXd& out, holdem_class_vector const& cv, double p = 1.0)const=0;
+                        virtual void expected_value_given_event(Eigen::VectorXd& out, holdem_class_vector const& cv, double p = 1.0)const=0;
                         virtual void expected_value_of_event(binary_strategy_description const* desc, Eigen::VectorXd& out, holdem_class_vector const& cv, strategy_impl_t const& impl)const{
                                 auto p = desc->probability_of_event(key(), cv, impl);
-                                value_of_event(out, cv, p);
+                                expected_value_given_event(out, cv, p);
                         }
                         double probability_of_event(binary_strategy_description* desc, holdem_class_vector const& cv, strategy_impl_t const& impl)const{
                                 return desc->probability_of_event(key(), cv, impl);
@@ -100,6 +100,7 @@ namespace ps{
                         return vec;
                 }
                 virtual Eigen::VectorXd expected_value_by_class_id(size_t player_idx, strategy_impl_t const& impl)const=0;
+                virtual Eigen::VectorXd expected_value(strategy_impl_t const& impl)const=0;
 
                 virtual double probability_of_event(std::string const& key, holdem_class_vector const& cv, strategy_impl_t const& impl)const=0;
 
@@ -159,7 +160,7 @@ namespace ps{
                         key_{key}, vec_{vec}
                 {}
                 virtual std::string key()const override{ return key_; }
-                virtual void value_of_event(Eigen::VectorXd& out, holdem_class_vector const& cv, double p)const override{
+                virtual void expected_value_given_event(Eigen::VectorXd& out, holdem_class_vector const& cv, double p)const override{
                         for(size_t idx=0;idx!=vec_.size();++idx){
                                 out[idx] += vec_[idx] * p;
                         }
@@ -202,12 +203,32 @@ namespace ps{
 
                 }
                 virtual std::string key()const override{ return key_; }
-                virtual void value_of_event(Eigen::VectorXd& out, holdem_class_vector const& cv, double p)const override{
+                virtual void expected_value_given_event(Eigen::VectorXd& out, holdem_class_vector const& cv, double p)const override{
 
                         // short circuit for optimization purposes
                         if( std::fabs(p) < 0.001 )
                                 return;
 
+                        // new way
+                        #if 0
+                        holdem_class_vector tmp;
+                        for(auto _ : perm_ ){
+                                tmp.push_back(cv[_]);
+                        }
+                        
+                        auto ev = cc_->LookupVector(tmp);
+                        
+                        out += delta_proto_ * p;
+
+                        size_t ev_idx = 0;
+                        for( auto _ :perm_ ){
+                                out[_] += pot_amt_ * ev[ev_idx] * p;
+                                ++ev_idx;
+                        }
+                        #endif
+
+                        // old way
+                        #if 1
                         holdem_class_vector tmp;
                         for(auto _ : perm_ ){
                                 tmp.push_back(cv[_]);
@@ -228,6 +249,7 @@ namespace ps{
                         delta *= p;
 
                         out += delta;
+                        #endif
                 }
                 virtual std::string to_string()const override{
                         std::stringstream sstr;
@@ -316,6 +338,19 @@ namespace ps{
                                 auto p = cv.prob();
                                 auto ev = expected_value_of_vector(cv, impl);
                                 result(cv[player_idx]) += p * ev[player_idx];
+                        }
+                        return result;
+                }
+                virtual Eigen::VectorXd expected_value(strategy_impl_t const& impl)const override{
+                        Eigen::VectorXd result(2);
+                        result.fill(0);
+                        for(holdem_class_perm_iterator iter(2),end;iter!=end;++iter){
+                                auto const& cv = *iter;
+                                check_probability_of_event(cv, impl);
+                                auto p = cv.prob();
+                                auto ev = expected_value_of_vector(cv, impl);
+                                result[0] += p * ev[0];
+                                result[1] += p * ev[1];
                         }
                         return result;
                 }
@@ -496,6 +531,18 @@ namespace ps{
                         }
                         return result;
                 }
+                virtual Eigen::VectorXd expected_value(strategy_impl_t const& impl)const override{
+                        Eigen::VectorXd result(3);
+                        result.fill(0);
+                        for(auto const& _ : *Memory_ThreePlayerClassVector){
+                                auto const& cv = _.cv;
+                                auto ev = expected_value_of_vector(cv, impl);
+                                result[0] += _.prob * ev[0];
+                                result[1] += _.prob * ev[1];
+                                result[2] += _.prob * ev[2];
+                        }
+                        return result;
+                }
         private:
                 double sb_;
                 double bb_;
@@ -520,16 +567,23 @@ namespace ps{
                 return s;
         }
 
+
         struct SolverCmd : Command{
                 enum{ Debug = 1};
                 enum{ Dp = 2 };
                 explicit
                 SolverCmd(std::vector<std::string> const& args):args_{args}{}
                 virtual int Execute()override{
-                        heads_up_description desc(0.5, 1, 10);
-                        //three_player_description desc(0.5, 1, 10);
+                        std::unique_ptr<binary_strategy_description> desc;
 
-                        auto state0 = desc.make_inital_state();
+                        if( args_.size() && args_[0] == "three"){
+                                desc = std::make_unique<three_player_description>(0.5, 1, 6);
+                        } else{
+                                desc = std::make_unique<heads_up_description>(0.5, 1, 6);
+                        }
+
+
+                        auto state0 = desc->make_inital_state();
 
                         auto state = state0;
 
@@ -541,10 +595,15 @@ namespace ps{
                         size_t line_idx = 0;
                         std::vector<std::string> header;
                         header.push_back("n");
-                        for(auto si=desc.begin_strategy(),se=desc.end_strategy();si!=se;++si){
+                        for(auto si=desc->begin_strategy(),se=desc->end_strategy();si!=se;++si){
                                 header.push_back(si->action());
                         }
                         header.push_back("max");
+                        for(size_t idx=0;idx!=desc->num_players();++idx){
+                                std::stringstream sstr;
+                                sstr << "ev[" << idx << "]";
+                                header.push_back(sstr.str());
+                        }
                         lines.push_back(std::move(header));
                         lines.push_back(LineBreak);
 
@@ -556,13 +615,13 @@ namespace ps{
                                 boost::timer::auto_cpu_timer at;
                                 using result_t = std::future<std::tuple<size_t, Eigen::VectorXd> >;
                                 std::vector<result_t> tmp;
-                                for(auto si=desc.begin_strategy(),se=desc.end_strategy();si!=se;++si){
+                                for(auto si=desc->begin_strategy(),se=desc->end_strategy();si!=se;++si){
                                         auto fut = std::async(std::launch::async, [&,si](){
                                                 auto fold_s = si->make_all_fold(state);
-                                                auto fold_ev = desc.expected_value_by_class_id(si->player_index(), fold_s);
+                                                auto fold_ev = desc->expected_value_by_class_id(si->player_index(), fold_s);
 
                                                 auto push_s = si->make_all_push(state);
-                                                auto push_ev = desc.expected_value_by_class_id(si->player_index(), push_s);
+                                                auto push_ev = desc->expected_value_by_class_id(si->player_index(), push_s);
 
                                                 auto counter= choose_push_fold(push_ev, fold_ev);
                                                 return std::make_tuple(si->vector_index(), counter);
@@ -598,6 +657,10 @@ namespace ps{
 
                                 
                                 line.push_back(boost::lexical_cast<std::string>(norm));
+                                auto ev = desc->expected_value(to);
+                                for(size_t idx=0;idx!=desc->num_players();++idx){
+                                        line.push_back(boost::lexical_cast<std::string>(ev[idx]));
+                                }
                                 lines.push_back(std::move(line));
                                 ++line_idx;
 
@@ -609,7 +672,7 @@ namespace ps{
                         
                         auto print = [&]()
                         {
-                                for(auto si=desc.begin_strategy(),se=desc.end_strategy();si!=se;++si){
+                                for(auto si=desc->begin_strategy(),se=desc->end_strategy();si!=se;++si){
                                         std::cout << si->description() << "\n";
                                         pretty_print_strat(state[si->vector_index()], Dp);
                                 }

@@ -17,11 +17,13 @@ struct holdem_class_vector_cache_item{
                 ostr << "cv = " << self.cv;
                 ostr << ", count = " << self.count;
                 ostr << ", prob = " << self.prob;
+                ostr << ", ev = " << detail::to_string(self.ev);
                 return ostr;
         }
         holdem_class_vector cv;
         size_t count{0};
         double prob{0};
+        std::vector<double> ev;
 private:
         friend class boost::serialization::access;
         template<class Archive>
@@ -29,6 +31,7 @@ private:
                 ar & cv;
                 ar & count;
                 ar & prob;
+                ar & ev;
         }
 };
 using holdem_class_vector_cache = std::vector<holdem_class_vector_cache_item>;

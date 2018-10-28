@@ -123,6 +123,9 @@ namespace ps{
                                 sstr << *this;
                                 return sstr.str();
                         }
+                        operator holdem_class_id()const{
+                                return holdem_class_decl::make_id(holdem_class_type::pocket_pair,x_,x_);
+                        }
                 private:
                         rank_id x_;
                 };

@@ -15,7 +15,6 @@
 #include "ps/base/algorithm.h"
 #include "ps/base/board_combination_iterator.h"
 #include "ps/base/cards.h"
-#include "ps/base/cards.h"
 #include "ps/base/frontend.h"
 #include "ps/base/holdem_board_decl.h"
 #include "ps/base/rank_hasher.h"
@@ -104,6 +103,164 @@ namespace ps{
                         return counter;
                 }
         };
+        struct counter_strategy_aggresive : counter_strategy_concept{
+                struct Context{
+                        Eigen::VectorXd& counter;
+                        binary_strategy_description const& strategy_desc;
+                        binary_strategy_description::strategy_decl const& decl;
+                        binary_strategy_description::strategy_impl_t const& state;
+                        binary_strategy_description::strategy_impl_t fold_s;
+                        binary_strategy_description::strategy_impl_t push_s;
+                        std::set<holdem_class_id> __check;
+                };
+                struct Op{
+                        explicit Op(holdem_class_id cid):cid_{cid}, decl_{holdem_class_decl::get(cid_)}{}
+                        virtual void push_or_fold(Context& ctx)const{
+                                do_push_or_fold(ctx);
+                        }
+                        virtual std::string to_string()const{
+                                std::stringstream sstr;
+                                sstr << "Op{" << decl_ << "}";
+                                return sstr.str();
+                        }
+                protected:
+                        void do_push_or_fold(Context& ctx)const
+                        {
+                                auto fold_ev = ctx.strategy_desc.expected_value_for_class_id(ctx.decl.player_index(),
+                                                                                 cid_,
+                                                                                 ctx.fold_s);
+                                auto push_ev = ctx.strategy_desc.expected_value_for_class_id(ctx.decl.player_index(),
+                                                                                 cid_,
+                                                                                 ctx.push_s);
+                                double val = ( fold_ev <= push_ev ? 1.0 : 0.0 );
+                                ctx.counter[cid_] = val;
+                                ctx.__check.insert(cid_);
+                        }
+                        holdem_class_id cid_;
+                        holdem_class_decl const& decl_;
+                };
+                struct Any : Op{
+                        enum{ Debug = 0 };
+                        explicit Any(holdem_class_id cid):Op{cid}{}
+                        virtual void push_or_fold(Context& ctx)const override{
+                                for(auto derived_cid : derived_true_){
+                                        if( ctx.__check.count(derived_cid) == 0){
+                                                std::cout << "derived_cid => " << (int)derived_cid << "\n"; // __CandyPrint__(cxx-print-scalar,derived_cid)
+                                                holdem_class_vector tmp(ctx.__check.begin(), ctx.__check.end());
+                                                std::cout << "tmp => " << tmp << "\n"; // __CandyPrint__(cxx-print-scalar,tmp)
+                                                throw std::domain_error("bad order");
+                                        }
+                                        if( ctx.counter[derived_cid] == 1.0 ){
+                                                ctx.counter[cid_] = 1.0;
+                                                ctx.__check.insert(cid_);
+                                                if( Debug ){
+                                                        std::cout << "derived " << holdem_class_decl::get(cid_) 
+                                                                << " from " << holdem_class_decl::get(derived_cid ) << "\n";
+                                                }
+                                                return;
+                                        }
+                                }
+                                for(auto derived_cid : derived_false_){
+                                        if( ctx.__check.count(derived_cid) == 0){
+                                                std::cout << "derived_cid => " << (int)derived_cid << "\n"; // __CandyPrint__(cxx-print-scalar,derived_cid)
+                                                holdem_class_vector tmp(ctx.__check.begin(), ctx.__check.end());
+                                                std::cout << "tmp => " << tmp << "\n"; // __CandyPrint__(cxx-print-scalar,tmp)
+                                                throw std::domain_error("bad order");
+                                        }
+                                        if( ctx.counter[derived_cid] == 0.0 ){
+                                                ctx.counter[cid_] = 0.0;
+                                                ctx.__check.insert(cid_);
+                                                if( Debug ){
+                                                        std::cout << "derived " << holdem_class_decl::get(cid_) 
+                                                                << " from " << holdem_class_decl::get(derived_cid ) << "\n";
+                                                }
+                                                return;
+                                        }
+                                }
+                                do_push_or_fold(ctx);
+                        }
+                        virtual std::string to_string()const override{
+                                std::stringstream sstr;
+                                sstr << "Any{" << decl_ << ", true=" << derived_true_ << ", false=" << derived_false_ << "}";
+                                return sstr.str();
+                        }
+                        void take_true(holdem_class_id cid){
+                                derived_true_.push_back(cid);
+                        }
+                        void take_false(holdem_class_id cid){
+                                derived_false_.push_back(cid);
+                        }
+                private:
+                        holdem_class_vector derived_true_;
+                        holdem_class_vector derived_false_;
+                };
+                counter_strategy_aggresive(){
+                        // pocket pairs
+                        
+                        for(size_t A=13;A!=0;){
+                                --A;
+                                auto cid = holdem_class_decl::make_id(holdem_class_type::pocket_pair, A, A);
+                                auto op = std::make_shared<Any>(cid);
+                                ops_.push_back(op);
+                                if( A != 12 ){
+                                        auto prev = holdem_class_decl::make_id(holdem_class_type::pocket_pair,A+1,A+1);
+                                        op->take_true(prev);
+                                }
+                        }
+                        
+                        // suited
+                        for(size_t A=13;A!=0;){
+                                --A;
+                                for(size_t B=13;;){
+                                        --B;
+                                        if( B == A )
+                                                break;
+                                        auto cid = holdem_class_decl::make_id(holdem_class_type::suited, A, B);
+                                        auto op = std::make_shared<Any>(cid);
+                                        ops_.push_back(op);
+                                }
+                        }
+
+                        // offsuit
+                        for(size_t A=13;A!=0;){
+                                --A;
+                                for(size_t B=13;;){
+                                        --B;
+                                        if( B == A )
+                                                break;
+
+                                        auto cid = holdem_class_decl::make_id(holdem_class_type::offsuit, A, B);
+                                        auto op = std::make_shared<Any>(cid);
+                                        ops_.push_back(op);
+
+                                        auto suited_id = holdem_class_decl::make_id(holdem_class_type::suited, A, B);
+                                }
+                        }
+
+                        for(auto const& _ : ops_){
+                                std::cout << _->to_string() << "\n";
+                        }
+                }
+                virtual Eigen::VectorXd counter(binary_strategy_description const& strategy_desc,
+                                                binary_strategy_description::strategy_decl const& decl,
+                                                binary_strategy_description::strategy_impl_t const& state)const override
+                {
+                        Eigen::VectorXd counter(169);
+                        counter.fill(0);
+                        Context ctx = {
+                                counter, strategy_desc, decl, state, 
+                                decl.make_all_fold(state), decl.make_all_push(state)
+                        };
+                        for(auto const& _ : ops_){
+                                _->push_or_fold(ctx);
+                        }
+                        if( ctx.__check.size() != 169 )
+                                throw std::domain_error("bad mapping");
+                        return counter;
+                }
+        private:
+                std::vector<std::shared_ptr<Op> > ops_;
+        };
 
         struct SolverCmd : Command{
                 enum{ Debug = 1};
@@ -112,7 +269,7 @@ namespace ps{
                 SolverCmd(std::vector<std::string> const& args):args_{args}{}
                 virtual int Execute()override{
                         std::unique_ptr<binary_strategy_description> desc;
-                        std::unique_ptr<counter_strategy_concept> cptr(new counter_strategy_elementwise);
+                        std::unique_ptr<counter_strategy_concept> cptr(new counter_strategy_aggresive);
 
                         if( args_.size() && args_[0] == "three"){
                                 desc = binary_strategy_description::make_three_player_description(0.5, 1, 10);

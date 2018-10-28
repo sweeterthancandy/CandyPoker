@@ -112,6 +112,7 @@ namespace ps{
                         binary_strategy_description::strategy_impl_t fold_s;
                         binary_strategy_description::strategy_impl_t push_s;
                         std::set<holdem_class_id> __check;
+                        size_t derived_counter{0};
                 };
                 struct Op{
                         explicit Op(holdem_class_id cid):cid_{cid}, decl_{holdem_class_decl::get(cid_)}{}
@@ -140,7 +141,7 @@ namespace ps{
                         holdem_class_decl const& decl_;
                 };
                 struct Any : Op{
-                        enum{ Debug = 0 };
+                        enum{ Debug = 1 };
                         explicit Any(holdem_class_id cid):Op{cid}{}
                         virtual void push_or_fold(Context& ctx)const override{
                                 for(auto derived_cid : derived_true_){
@@ -152,6 +153,7 @@ namespace ps{
                                         }
                                         if( ctx.counter[derived_cid] == 1.0 ){
                                                 ctx.counter[cid_] = 1.0;
+                                                ++ctx.derived_counter;
                                                 ctx.__check.insert(cid_);
                                                 if( Debug ){
                                                         std::cout << "derived " << holdem_class_decl::get(cid_) 
@@ -170,6 +172,7 @@ namespace ps{
                                         if( ctx.counter[derived_cid] == 0.0 ){
                                                 ctx.counter[cid_] = 0.0;
                                                 ctx.__check.insert(cid_);
+                                                ++ctx.derived_counter;
                                                 if( Debug ){
                                                         std::cout << "derived " << holdem_class_decl::get(cid_) 
                                                                 << " from " << holdem_class_decl::get(derived_cid ) << "\n";
@@ -218,6 +221,14 @@ namespace ps{
                                         auto cid = holdem_class_decl::make_id(holdem_class_type::suited, A, B);
                                         auto op = std::make_shared<Any>(cid);
                                         ops_.push_back(op);
+
+                                        if( A != 0 ){
+                                                if( B != 12 ){
+                                                        auto lower_kicker = holdem_class_decl::make_id(holdem_class_type::suited, A, B+1);
+                                                        op->take_true(lower_kicker);
+                                                }
+                                        }
+
                                 }
                         }
 
@@ -256,6 +267,7 @@ namespace ps{
                         }
                         if( ctx.__check.size() != 169 )
                                 throw std::domain_error("bad mapping");
+                        std::cout << "ctx.derived_counter => " << ctx.derived_counter << "\n"; // __CandyPrint__(cxx-print-scalar,ctx.derived_counter)
                         return counter;
                 }
         private:

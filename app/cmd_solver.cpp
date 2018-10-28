@@ -75,6 +75,35 @@ namespace ps{
                 return s;
         }
 
+        struct counter_strategy_concept{
+                virtual ~counter_strategy_concept()=default;
+                virtual Eigen::VectorXd counter(binary_strategy_description const& strategy_desc,
+                                                binary_strategy_description::strategy_decl const& decl,
+                                                binary_strategy_description::strategy_impl_t const& state)const=0;
+        };
+        struct counter_strategy_elementwise : counter_strategy_concept{
+                virtual Eigen::VectorXd counter(binary_strategy_description const& strategy_desc,
+                                                binary_strategy_description::strategy_decl const& decl,
+                                                binary_strategy_description::strategy_impl_t const& state)const override
+                {
+                        auto fold_s = decl.make_all_fold(state);
+                        auto push_s = decl.make_all_push(state);
+
+                        Eigen::VectorXd counter(169);
+                        counter.fill(0);
+                        for(holdem_class_id class_idx=0;class_idx!=169;++class_idx){
+                                auto fold_ev = strategy_desc.expected_value_for_class_id(decl.player_index(),
+                                                                                 class_idx,
+                                                                                 fold_s);
+                                auto push_ev = strategy_desc.expected_value_for_class_id(decl.player_index(),
+                                                                                 class_idx,
+                                                                                 push_s);
+                                double val = ( fold_ev <= push_ev ? 1.0 : 0.0 );
+                                counter[class_idx] = val;
+                        }
+                        return counter;
+                }
+        };
 
         struct SolverCmd : Command{
                 enum{ Debug = 1};
@@ -83,6 +112,7 @@ namespace ps{
                 SolverCmd(std::vector<std::string> const& args):args_{args}{}
                 virtual int Execute()override{
                         std::unique_ptr<binary_strategy_description> desc;
+                        std::unique_ptr<counter_strategy_concept> cptr(new counter_strategy_elementwise);
 
                         if( args_.size() && args_[0] == "three"){
                                 desc = binary_strategy_description::make_three_player_description(0.5, 1, 10);
@@ -127,14 +157,7 @@ namespace ps{
                                 std::vector<result_t> tmp;
                                 for(auto si=desc->begin_strategy(),se=desc->end_strategy();si!=se;++si){
                                         auto fut = std::async(std::launch::async, [&,si](){
-                                                auto fold_s = si->make_all_fold(state);
-                                                auto fold_ev = desc->expected_value_by_class_id(si->player_index(), fold_s);
-
-                                                auto push_s = si->make_all_push(state);
-                                                auto push_ev = desc->expected_value_by_class_id(si->player_index(), push_s);
-
-                                                auto counter= choose_push_fold(push_ev, fold_ev);
-                                                return std::make_tuple(si->vector_index(), counter);
+                                                return std::make_tuple(si->vector_index(), cptr->counter(*desc, *si, state));
                                         });
                                         tmp.emplace_back(std::move(fut));
                                 }

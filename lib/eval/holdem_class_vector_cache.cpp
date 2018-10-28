@@ -68,12 +68,12 @@ namespace{
                         std::cout << "sigma => " << sigma << "\n"; // __CandyPrint__(cxx-print-scalar,sigma)
                 }
         };
-        struct two_player_impl : support::persistent_memory_impl_serializer<holdem_class_vector_cache>{
+        struct two_player_impl : support::persistent_memory_impl_serializer<holdem_class_vector_pair_cache>{
                 virtual std::string name()const{
-                        return "two_player_class_2";
+                        return "two_player_class_pair";
                 }
-                virtual std::shared_ptr<holdem_class_vector_cache> make()const override{
-                        auto ptr = std::make_shared<holdem_class_vector_cache>();
+                virtual std::shared_ptr<holdem_class_vector_pair_cache> make()const override{
+                        auto ptr = std::make_shared<holdem_class_vector_pair_cache>();
                         std::vector<holdem_class_vector_cache_item> cache;
                         double total_count = 0.0;
                         size_t n = 0;
@@ -81,6 +81,8 @@ namespace{
                         class_cache cc;
                         std::string cache_name{".cc.bin"};
                         cc.load(cache_name);
+
+                        holdem_class_vector_cache_item_pair* head = nullptr;
 
                         for(holdem_class_perm_iterator iter(2),end;iter!=end;++iter){
                                 auto const& cv = *iter;
@@ -101,26 +103,37 @@ namespace{
                                 
                                 auto ev = cc.LookupVector(cv);
 
-                                ptr->emplace_back();
-                                ptr->back().cv = *iter;
-                                ptr->back().count = count;
-                                ptr->back().ev.resize(2);
-                                ptr->back().ev[0] = ev[0];
-                                ptr->back().ev[1] = ev[1];
+                                if( head == nullptr || head->cid != cv[0] ){
+                                        ptr->emplace_back();
+                                        head = &ptr->back();
+                                        head->cid = cv[0];
+                                }
+
+                                head->vec.emplace_back();
+                                head->vec.back().cv = *iter;
+                                head->vec.back().count = count;
+                                head->vec.back().ev.resize(2);
+                                head->vec.back().ev[0] = ev[0];
+                                head->vec.back().ev[1] = ev[1];
                                 ++n;
                         }
-                        for(auto& _ : *ptr){
-                                _.prob = _.count / total_count;
+                        for(auto& group : *ptr){
+                                for(auto& _ : group.vec){
+                                        _.prob = _.count / total_count;
+                                }
                         }
                         return ptr;
                 }
                 virtual void display(std::ostream& ostr)const override{
-                        auto const& obj = *reinterpret_cast<holdem_class_vector_cache const*>(ptr());
+                        auto const& obj = *reinterpret_cast<holdem_class_vector_pair_cache const*>(ptr());
                         double sigma = 0.0;
-                        for( auto const& _ : obj){
-                                std::cout << _ << "\n";
-                                sigma += _.prob;
+                        for(auto& group : obj){
+                                for(auto& _ : group.vec){
+                                        std::cout << _ << "\n";
+                                        sigma += _.prob;
+                                }
                         }
+
                         std::cout << "sigma => " << sigma << "\n"; // __CandyPrint__(cxx-print-scalar,sigma)
                 }
         };
@@ -129,6 +142,6 @@ namespace{
 namespace ps{
 
 support::persistent_memory_decl<holdem_class_vector_cache> Memory_ThreePlayerClassVector( std::make_unique<three_player_impl>() );
-support::persistent_memory_decl<holdem_class_vector_cache> Memory_TwoPlayerClassVector( std::make_unique<two_player_impl>() );
+support::persistent_memory_decl<holdem_class_vector_pair_cache> Memory_TwoPlayerClassVector( std::make_unique<two_player_impl>() );
 
 } // end namespace ps

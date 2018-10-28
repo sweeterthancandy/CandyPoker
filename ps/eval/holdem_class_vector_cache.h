@@ -34,10 +34,23 @@ private:
                 ar & ev;
         }
 };
+struct holdem_class_vector_cache_item_pair{
+        holdem_class_id cid;
+        std::vector<holdem_class_vector_cache_item> vec;
+private:
+        friend class boost::serialization::access;
+        template<class Archive>
+        void serialize(Archive & ar, const unsigned int version){
+                ar & cid;
+                ar & vec;
+        }
+};
 using holdem_class_vector_cache = std::vector<holdem_class_vector_cache_item>;
 
+using holdem_class_vector_pair_cache = std::vector<holdem_class_vector_cache_item_pair>;
+
 extern support::persistent_memory_decl<holdem_class_vector_cache> Memory_ThreePlayerClassVector;
-extern support::persistent_memory_decl<holdem_class_vector_cache> Memory_TwoPlayerClassVector;
+extern support::persistent_memory_decl<holdem_class_vector_pair_cache> Memory_TwoPlayerClassVector;
 
 } // end namespace ps
 

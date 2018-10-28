@@ -64,6 +64,9 @@ namespace ps{
                         return vec;
                 }
                 virtual Eigen::VectorXd expected_value_by_class_id(size_t player_idx, strategy_impl_t const& impl)const=0;
+                virtual double expected_value_for_class_id(size_t player_idx, holdem_class_id class_id, strategy_impl_t const& impl)const{
+                        throw std::domain_error("not implemented");
+                }
                 virtual Eigen::VectorXd expected_value(strategy_impl_t const& impl)const=0;
 
                 virtual double probability_of_event(std::string const& key, holdem_class_vector const& cv, strategy_impl_t const& impl)const=0;

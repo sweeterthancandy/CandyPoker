@@ -1,5 +1,5 @@
 #!/bin/bash
 
-#cmake -DCMAKE_BUILD_TYPE=Release
-cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -G Ninja
+#cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo
+cmake -DCMAKE_BUILD_TYPE=Release -G Ninja -DCMAKE_CXX_FLAGS=-pg -DCMAKE_EXE_LINKER_FLAGS=-pg -DCMAKE_SHARED_LINKER_FLAGS=-pg 
 

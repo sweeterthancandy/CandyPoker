@@ -32,6 +32,12 @@ struct class_cache{
                         return nullptr;
                 return &iter->second;
 	}
+        std::vector<double> const* fast_lookup_no_perm(holdem_class_vector const& vec)const{
+                auto iter = cache_.find(vec);
+                if( iter == cache_.end())
+                        return nullptr;
+                return &iter->second;
+        }
         Eigen::VectorXd LookupVector(holdem_class_vector const& vec)const{
                 #if 0
                 if( std::is_sorted(vec.begin(), vec.end()) ){
@@ -92,6 +98,45 @@ private:
 private:
         std::map<std::vector<holdem_class_id>, std::vector<double> > cache_;
 };
+
+#if NOT_DEFINED
+
+#include <boost/functional/hash.hpp>
+#include <unordered_map>
+// I saw only a 3% increate with this
+struct hash_class_cache{
+        hash_class_cache(){
+                std::string cache_name{".cc.bin"};
+                cc.load(cache_name);
+                for(auto const& p : cc){
+                        //S.emplace(p.first, p.second);
+                        S[p.first] = p.second;
+                }
+        }
+        std::vector<double> const* fast_lookup_no_perm(holdem_class_vector const& vec)const{
+                auto iter = S.find(vec);
+                if( iter == S.end())
+                        return nullptr;
+                #if 0
+                if( iter->first != vec ){
+                        throw std::domain_error("ne");
+                }
+                if( iter->second != *cc.fast_lookup_no_perm(vec) )
+                        throw std::domain_error("nee");
+                #endif
+                return &iter->second;
+        }
+private:
+        std::unordered_map<
+                holdem_class_vector,
+                std::vector<double>,
+                boost::hash<holdem_class_vector>
+        > S;
+        class_cache cc;
+};
+
+
+#endif // NOT_DEFINED
 
 } // end namespace ps
 

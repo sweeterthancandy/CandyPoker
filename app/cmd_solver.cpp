@@ -116,7 +116,6 @@ namespace ps{
                         binary_strategy_description::strategy_impl_t const& state;
                         binary_strategy_description::strategy_impl_t fold_s;
                         binary_strategy_description::strategy_impl_t push_s;
-                        std::set<holdem_class_id> __check;
                         size_t derived_counter{0};
                         std::array<MaybeBool, 169> result;
 
@@ -136,14 +135,18 @@ namespace ps{
                                 Eigen::VectorXd counter{169};
                                 for(size_t idx=0;idx!=169;++idx){
                                         switch(result[idx]){
-                                        case MB_True:
-                                                counter[idx] = 1.0;
-                                                break;
-                                        case MB_False:
-                                                counter[idx] = 0.0;
-                                                break;
-                                        case MB_Unknown:
-                                                throw std::domain_error("not defined");
+                                                case MB_True:
+                                                        counter[idx] = 1.0;
+                                                        break;
+                                                case MB_False:
+                                                        counter[idx] = 0.0;
+                                                        break;
+                                                case MB_Unknown:
+                                                {
+                                                        std::stringstream sstr;
+                                                        sstr << "not defined " << holdem_class_decl::get(idx);
+                                                        throw std::domain_error(sstr.str());
+                                                }
                                         }
                                 }
                                 return counter;
@@ -177,8 +180,10 @@ namespace ps{
                                 PS_UNREACHABLE();
                         }
                         void SetValue(holdem_class_id cid, MaybeBool val){
-                                if( result[cid] != MB_Unknown)
+                                if( result[cid] != MB_Unknown){
+                                        std::cout << "holdem_class_decl::get(cid) => " << holdem_class_decl::get(cid) << "\n"; // __CandyPrint__(cxx-print-scalar,holdem_class_decl::get(cid))
                                         throw std::domain_error("cid already sett");
+                                }
                                 assert( val != MB_Unknown && "precondition failed");
                                 result[cid] = val;
                         }
@@ -194,6 +199,7 @@ namespace ps{
                                         }
                                 }
                                 SetValue(cid, val);
+                                ++derived_counter;
                         }
                         MaybeBool UnderlyingComputation(holdem_class_id cid)const
                         {
@@ -212,19 +218,22 @@ namespace ps{
                         virtual std::string to_string()const=0;
                 };
                 struct Row : Op, holdem_class_vector{
+                        virtual MaybeBool Compute(Context& ctx, holdem_class_id cid)const{
+                                return ctx.GetMaybeValueOrCompute(cid);
+                        }
                         virtual void push_or_fold(Context& ctx)const override{
                                 // we just start at the front untill we find one that is zero
-                                auto first_false_idx = [&](){
+                                auto start = [&](){
                                         size_t idx=0;
                                         for(;idx!=size();++idx){
                                                 auto cid = at(idx);
-                                                if( ctx.GetMaybeValueOrCompute(cid) == MB_False )
-                                                        return idx;
+                                                if( Compute(ctx, cid) == MB_False )
+                                                        return idx + 1;
                                         }
                                         return idx;
                                 }();
-                                for(;first_false_idx!=size();++first_false_idx){
-                                        auto cid = at(first_false_idx);
+                                for(;start!=size();++start){
+                                        auto cid = at(start);
                                         ctx.TakeDerived(cid, MB_False);
                                 }
                         }
@@ -232,6 +241,29 @@ namespace ps{
                                 std::stringstream sstr;
                                 sstr << "Row{" << *this << "}";
                                 return sstr.str();
+                        }
+                };
+                struct SuitedRow : Row{
+                        virtual MaybeBool Compute(Context& ctx, holdem_class_id cid)const override{
+                                auto const& decl = holdem_class_decl::get(cid);
+                                auto offsuit_cid = holdem_class_decl::make_id(holdem_class_type::offsuit, decl.first(), decl.second());
+                                switch(ctx.GetMaybeValue(offsuit_cid)){
+                                        case MB_True:
+                                        {
+                                                // if the offsuit card is true, then flush must be true
+                                                ctx.TakeDerived(cid, MB_True);
+                                                return MB_True;
+                                        }
+                                        // if the offsuit card is false, then maybe
+                                        case MB_False:
+                                        case MB_Unknown:
+                                        {
+                                                auto ret = ctx.UnderlyingComputation(cid);
+                                                ctx.SetValue(cid, ret);
+                                                return ret;
+                                        }
+                                }
+                                PS_UNREACHABLE();
                         }
                 };
                 struct Any : Op{
@@ -272,6 +304,7 @@ namespace ps{
                 counter_strategy_aggresive(){
                         // pocket pairs
                         
+                        #if 0
                         for(size_t A=0;A!=13;++A){
                                 auto cid = holdem_class_decl::make_id(holdem_class_type::pocket_pair, A, A);
                                 auto op = std::make_shared<Any>(cid);
@@ -307,35 +340,8 @@ namespace ps{
 #endif
                                 }
                         }
+                        #endif
 
-                        for(auto const& _ : ops_){
-                                std::cout << _->to_string() << "\n";
-                        }
-                }
-                virtual Eigen::VectorXd counter(binary_strategy_description const& strategy_desc,
-                                                binary_strategy_description::strategy_decl const& decl,
-                                                binary_strategy_description::strategy_impl_t const& state)const override
-                {
-                        Eigen::VectorXd counter(169);
-                        counter.fill(0);
-                        Context ctx(strategy_desc, decl, state);
-                        for(auto const& _ : ops_){
-                                _->push_or_fold(ctx);
-                        }
-                        return ctx.Counter();
-                }
-        private:
-                std::vector<std::shared_ptr<Op> > ops_;
-        };
-
-        #if 0
-        struct counter_strategy_smart : counter_strategy_concept{
-                struct Row : std::vector<holdem_class_id>{
-                };
-                virtual Eigen::VectorXd counter(binary_strategy_description const& strategy_desc,
-                                                binary_strategy_description::strategy_decl const& decl,
-                                                binary_strategy_description::strategy_impl_t const& state)const override
-                {
                         /*
                                 The idea is that for any strategy, we ALWAYS have the constaruct that 
                                 the top-left to bottom-right diagonal is monotonic. 
@@ -378,9 +384,57 @@ namespace ps{
 
 
                          */
+                        auto pp = std::make_shared<Row>();
+                        for(size_t A=13;A!=0;){
+                                --A;
+                                pp->push_back( holdem_class_decl::make_id(holdem_class_type::pocket_pair, A, A));
+                        }
+                        ops_.push_back(pp);
+
+                        for(size_t d = 1; d != 13; ++d){
+                                auto ptr = std::make_shared<Row>();
+                                for(size_t A=13;A!=0;){
+                                        --A;
+                                        if( A >= d ){
+                                                ptr->push_back( holdem_class_decl::make_id(holdem_class_type::offsuit, A, A-d));
+                                        }
+                                }
+                                ops_.push_back(ptr);
+                        }
+
+                        for(size_t d = 1; d != 13; ++d){
+                                auto ptr = std::make_shared<SuitedRow>();
+                                for(size_t A=13;A!=0;){
+                                        --A;
+                                        if( A >= d ){
+                                                ptr->push_back( holdem_class_decl::make_id(holdem_class_type::suited, A, A-d));
+                                        }
+                                }
+                                ops_.push_back(ptr);
+                        }
+
+
+                        for(auto const& _ : ops_){
+                                std::cout << _->to_string() << "\n";
+                        }
                 }
+                virtual Eigen::VectorXd counter(binary_strategy_description const& strategy_desc,
+                                                binary_strategy_description::strategy_decl const& decl,
+                                                binary_strategy_description::strategy_impl_t const& state)const override
+                {
+                        Eigen::VectorXd counter(169);
+                        counter.fill(0);
+                        Context ctx(strategy_desc, decl, state);
+                        for(auto const& _ : ops_){
+                                _->push_or_fold(ctx);
+                        }
+                        std::cout << "ctx.derived_counter => " << ctx.derived_counter << "\n"; // __CandyPrint__(cxx-print-scalar,ctx.derived_counter)
+                        return ctx.Counter();
+                }
+        private:
+                std::vector<std::shared_ptr<Op> > ops_;
         };
-        #endif
+
         struct SolverCmd : Command{
                 enum{ Debug = 0};
                 enum{ Dp = 2 };
@@ -389,6 +443,7 @@ namespace ps{
                 virtual int Execute()override{
                         std::unique_ptr<binary_strategy_description> desc;
                         std::unique_ptr<counter_strategy_concept> cptr(new counter_strategy_aggresive);
+                        //std::unique_ptr<counter_strategy_concept> cptr(new counter_strategy_elementwise);
 
                         if( args_.size() && args_[0] == "three"){
                                 desc = binary_strategy_description::make_three_player_description(0.5, 1, 10);
@@ -433,6 +488,7 @@ namespace ps{
                                 std::vector<result_t> tmp;
                                 for(auto si=desc->begin_strategy(),se=desc->end_strategy();si!=se;++si){
                                         auto fut = std::async(std::launch::async, [&,si](){
+                                                boost::timer::auto_cpu_timer at;
                                                 return std::make_tuple(si->vector_index(), cptr->counter(*desc, *si, state));
                                         });
                                         tmp.emplace_back(std::move(fut));

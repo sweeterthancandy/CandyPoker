@@ -104,8 +104,13 @@ namespace ps{
                 }
         };
         struct counter_strategy_aggresive : counter_strategy_concept{
+                enum MaybeBool{
+                        MB_False,
+                        MB_True,
+                        MB_Unknown,
+                };
                 struct Context{
-                        Eigen::VectorXd& counter;
+                        enum{ Debug = false };
                         binary_strategy_description const& strategy_desc;
                         binary_strategy_description::strategy_decl const& decl;
                         binary_strategy_description::strategy_impl_t const& state;
@@ -113,90 +118,116 @@ namespace ps{
                         binary_strategy_description::strategy_impl_t push_s;
                         std::set<holdem_class_id> __check;
                         size_t derived_counter{0};
+                        std::array<MaybeBool, 169> result;
+
+                        Context( binary_strategy_description const& strategy_desc_,
+                                 binary_strategy_description::strategy_decl const& decl_,
+                                 binary_strategy_description::strategy_impl_t const& state_)
+                                : strategy_desc(strategy_desc_)
+                                , decl(decl_)
+                                , state(state_)
+                                , fold_s( decl.make_all_fold(state) )
+                                , push_s( decl.make_all_push(state) )
+                        {
+                                result.fill(MB_Unknown);
+                        }
+
+                        Eigen::VectorXd Counter()const{
+                                Eigen::VectorXd counter{169};
+                                for(size_t idx=0;idx!=169;++idx){
+                                        switch(result[idx]){
+                                        case MB_True:
+                                                counter[idx] = 1.0;
+                                                break;
+                                        case MB_False:
+                                                counter[idx] = 0.0;
+                                                break;
+                                        case MB_Unknown:
+                                                throw std::domain_error("not defined");
+                                        }
+                                }
+                                return counter;
+                        }
+                        MaybeBool GetMaybeValue(holdem_class_id cid)const{
+                                return result[cid];
+                        }
+                        double GetRealValue(holdem_class_id cid)const{
+                                switch(result[cid]){
+                                case MB_True:
+                                        return 1.0;
+                                case MB_False:
+                                        return 0.0;
+                                default:
+                                        throw std::domain_error("cid not set");
+                                }
+                        }
+                        void SetValue(holdem_class_id cid, MaybeBool val){
+                                if( result[cid] != MB_Unknown)
+                                        throw std::domain_error("cid already sett");
+                                assert( val != MB_Unknown && "precondition failed");
+                                result[cid] = val;
+                        }
+                        void TakeDerived(holdem_class_id cid, MaybeBool val){
+                                if( Debug ){
+                                        if( result[cid] != MB_Unknown )
+                                                throw std::domain_error("cid already set");
+                                        auto real_val = UnderlyingComputation(cid);
+                                        if( real_val != val ){
+                                                std::stringstream sstr;
+                                                sstr << "bad val " << real_val << " <> " << val;
+                                                throw std::domain_error(sstr.str());
+                                        }
+                                }
+                                SetValue(cid, val);
+                        }
+                        MaybeBool UnderlyingComputation(holdem_class_id cid)const
+                        {
+                                auto fold_ev = strategy_desc.expected_value_for_class_id(decl.player_index(),
+                                                                                         cid,
+                                                                                         fold_s);
+                                auto push_ev = strategy_desc.expected_value_for_class_id(decl.player_index(),
+                                                                                         cid,
+                                                                                         push_s);
+                                return ( fold_ev <= push_ev ? MB_True : MB_False );
+                        }
+
                 };
                 struct Op{
-                        explicit Op(holdem_class_id cid):cid_{cid}, decl_{holdem_class_decl::get(cid_)}{}
-                        virtual void push_or_fold(Context& ctx)const{
-                                do_push_or_fold(ctx);
+                        virtual void push_or_fold(Context& ctx)const=0;
+                        virtual std::string to_string()const=0;
+                };
+                #if 0
+                struct Row : Op, holdem_class_vector{
+                        virtual void push_or_fold(Context& ctx)const override{
+                                // we just start at the front untill we find one that is zero
+                                for(auto id : ctx){
+                                        auto ret = do_push_or_fold_impl(
+                                }
                         }
                         virtual std::string to_string()const{
                                 std::stringstream sstr;
-                                sstr << "Op{" << decl_ << "}";
+                                sstr << "Row{" << *this << "}";
                                 return sstr.str();
                         }
-                protected:
-                        double do_push_or_fold_impl(Context& ctx)const
-                        {
-                                auto fold_ev = ctx.strategy_desc.expected_value_for_class_id(ctx.decl.player_index(),
-                                                                                 cid_,
-                                                                                 ctx.fold_s);
-                                auto push_ev = ctx.strategy_desc.expected_value_for_class_id(ctx.decl.player_index(),
-                                                                                 cid_,
-                                                                                 ctx.push_s);
-                                double val = ( fold_ev <= push_ev ? 1.0 : 0.0 );
-                                return val;
-                        }
-                        void do_push_or_fold(Context& ctx)const
-                        {
-                                ctx.counter[cid_] = do_push_or_fold_impl(ctx);
-                                ctx.__check.insert(cid_);
-                        }
-                        holdem_class_id cid_;
-                        holdem_class_decl const& decl_;
                 };
+                #endif
                 struct Any : Op{
                         enum{ Debug = 1 };
-                        explicit Any(holdem_class_id cid):Op{cid}{}
+                        explicit Any(holdem_class_id cid):cid_{cid}, decl_{holdem_class_decl::get(cid_)}{}
                         virtual void push_or_fold(Context& ctx)const override{
                                 for(auto derived_cid : derived_true_){
-                                        if( ctx.__check.count(derived_cid) == 0){
-                                                std::cout << "derived_cid => " << (int)derived_cid << "\n"; // __CandyPrint__(cxx-print-scalar,derived_cid)
-                                                holdem_class_vector tmp(ctx.__check.begin(), ctx.__check.end());
-                                                std::cout << "tmp => " << tmp << "\n"; // __CandyPrint__(cxx-print-scalar,tmp)
-                                                throw std::domain_error("bad order");
-                                        }
-                                        if( ctx.counter[derived_cid] == 1.0 ){
-                                                if( Debug ){
-                                                        if( do_push_or_fold_impl(ctx) != 1.0 ){
-                                                                std::cout << to_string() << "\n";
-                                                                throw std::domain_error("bad map");
-                                                        }
-                                                }
-                                                ctx.counter[cid_] = 1.0;
-                                                ++ctx.derived_counter;
-                                                ctx.__check.insert(cid_);
-                                                if( Debug ){
-                                                        std::cout << "derived " << holdem_class_decl::get(cid_) 
-                                                                << " from " << holdem_class_decl::get(derived_cid ) << "\n";
-                                                }
+                                        if(ctx.GetMaybeValue(derived_cid) == MB_True){
+                                                ctx.TakeDerived(cid_, MB_True);
                                                 return;
                                         }
                                 }
                                 for(auto derived_cid : derived_false_){
-                                        if( ctx.__check.count(derived_cid) == 0){
-                                                std::cout << "derived_cid => " << (int)derived_cid << "\n"; // __CandyPrint__(cxx-print-scalar,derived_cid)
-                                                holdem_class_vector tmp(ctx.__check.begin(), ctx.__check.end());
-                                                std::cout << "tmp => " << tmp << "\n"; // __CandyPrint__(cxx-print-scalar,tmp)
-                                                throw std::domain_error("bad order");
-                                        }
-                                        if( ctx.counter[derived_cid] == 0.0 ){
-                                                if( Debug ){
-                                                        if( do_push_or_fold_impl(ctx) != 0.0 ){
-                                                                std::cout << to_string() << "\n";
-                                                                throw std::domain_error("bad map");
-                                                        }
-                                                }
-                                                ctx.counter[cid_] = 0.0;
-                                                ctx.__check.insert(cid_);
-                                                ++ctx.derived_counter;
-                                                if( Debug ){
-                                                        std::cout << "derived " << holdem_class_decl::get(cid_) 
-                                                                << " from " << holdem_class_decl::get(derived_cid ) << "\n";
-                                                }
+                                        if(ctx.GetMaybeValue(derived_cid) == MB_False){
+                                                ctx.TakeDerived(cid_, MB_False);
                                                 return;
                                         }
                                 }
-                                do_push_or_fold(ctx);
+                                ctx.SetValue(cid_, ctx.UnderlyingComputation(cid_));
                         }
                         virtual std::string to_string()const override{
                                 std::stringstream sstr;
@@ -210,6 +241,8 @@ namespace ps{
                                 derived_false_.push_back(cid);
                         }
                 private:
+                        holdem_class_id cid_;
+                        holdem_class_decl const& decl_;
                         holdem_class_vector derived_true_;
                         holdem_class_vector derived_false_;
                 };
@@ -260,22 +293,69 @@ namespace ps{
                 {
                         Eigen::VectorXd counter(169);
                         counter.fill(0);
-                        Context ctx = {
-                                counter, strategy_desc, decl, state, 
-                                decl.make_all_fold(state), decl.make_all_push(state)
-                        };
+                        Context ctx(strategy_desc, decl, state);
                         for(auto const& _ : ops_){
                                 _->push_or_fold(ctx);
                         }
-                        if( ctx.__check.size() != 169 )
-                                throw std::domain_error("bad mapping");
-                        std::cout << "ctx.derived_counter => " << ctx.derived_counter << "\n"; // __CandyPrint__(cxx-print-scalar,ctx.derived_counter)
-                        return counter;
+                        return ctx.Counter();
                 }
         private:
                 std::vector<std::shared_ptr<Op> > ops_;
         };
 
+        #if 0
+        struct counter_strategy_smart : counter_strategy_concept{
+                struct Row : std::vector<holdem_class_id>{
+                };
+                virtual Eigen::VectorXd counter(binary_strategy_description const& strategy_desc,
+                                                binary_strategy_description::strategy_decl const& decl,
+                                                binary_strategy_description::strategy_impl_t const& state)const override
+                {
+                        /*
+                                The idea is that for any strategy, we ALWAYS have the constaruct that 
+                                the top-left to bottom-right diagonal is monotonic. 
+
+                                                   A K Q J T 9 8 7 6 5 4 3 2 
+                                                  +--------------------------
+                                                A |1 1 1 1 1 1 1 1 1 1 1 1 1
+                                                K |1 1 1 1 1 1 1 1 1 1 1 1 1
+                                                Q |1 1 1 1 1 1 1 1 0 0 0 0 0
+                                                J |1 1 1 1 1 1 1 0 0 0 0 0 0
+                                                T |1 1 1 1 1 1 0 0 0 0 0 0 0
+                                                9 |1 1 1 0 0 1 0 0 0 0 0 0 0
+                                                8 |1 1 0 0 0 0 1 0 0 0 0 0 0
+                                                7 |1 1 0 0 0 0 0 1 0 0 0 0 0
+                                                6 |1 1 0 0 0 0 0 0 1 0 0 0 0
+                                                5 |1 1 0 0 0 0 0 0 0 1 0 0 0
+                                                4 |1 0 0 0 0 0 0 0 0 0 1 0 0
+                                                3 |1 0 0 0 0 0 0 0 0 0 0 1 0
+                                                2 |1 0 0 0 0 0 0 0 0 0 0 0 1
+
+                                This strategy is that we want, for each diagonal on the offsuit side, 
+                                we want to choose which is the point where either 
+                                                The right end is One => all One
+                                                The left end is Zero => all zero
+                                                X is One and  X+1 is Zero 
+
+                                        ( A2 )
+                                        ( A3, K2 )
+                                        ( A4, K3, Q2 )
+                                        ( A5, K4, Q3, J2 )
+                                        ( A6, K5, Q4, J3, T2 )
+                                        ( A7, K6, Q5, J4, T3, 92 )
+                                        ( A8, K7, Q6, J5, T4, 93, 82 )
+                                        ( A9, K8, Q7, J6, T5, 94, 83, 72 )
+                                        ( AT, K9, Q8, J7, T6, 95, 84, 73, 62 )
+                                        ( AJ, KT, Q9, J8, T7, 96, 85, 74, 63, 52 )
+                                        ( AQ, KJ, QT, J9, T8, 97, 86, 75, 64, 53, 42)
+                                        ( AK, KQ, QJ, JT, T9, 98, 87, 76, 65, 54, 43, 32)
+
+
+
+                         */
+                }
+        };
+        #endif
         struct SolverCmd : Command{
                 enum{ Debug = 0};
                 enum{ Dp = 2 };

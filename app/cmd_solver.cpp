@@ -161,6 +161,21 @@ namespace ps{
                                         throw std::domain_error("cid not set");
                                 }
                         }
+                        MaybeBool GetMaybeValueOrCompute(holdem_class_id cid){
+                                switch(result[cid]){
+                                        case MB_True:
+                                                return MB_True;
+                                        case MB_False:
+                                                return MB_False;
+                                        case MB_Unknown:
+                                        {
+                                                auto ret = UnderlyingComputation(cid);
+                                                SetValue(cid, ret);
+                                                return ret;
+                                        }
+                                }
+                                PS_UNREACHABLE();
+                        }
                         void SetValue(holdem_class_id cid, MaybeBool val){
                                 if( result[cid] != MB_Unknown)
                                         throw std::domain_error("cid already sett");
@@ -196,12 +211,21 @@ namespace ps{
                         virtual void push_or_fold(Context& ctx)const=0;
                         virtual std::string to_string()const=0;
                 };
-                #if 0
                 struct Row : Op, holdem_class_vector{
                         virtual void push_or_fold(Context& ctx)const override{
                                 // we just start at the front untill we find one that is zero
-                                for(auto id : ctx){
-                                        auto ret = do_push_or_fold_impl(
+                                auto first_false_idx = [&](){
+                                        size_t idx=0;
+                                        for(;idx!=size();++idx){
+                                                auto cid = at(idx);
+                                                if( ctx.GetMaybeValueOrCompute(cid) == MB_False )
+                                                        return idx;
+                                        }
+                                        return idx;
+                                }();
+                                for(;first_false_idx!=size();++first_false_idx){
+                                        auto cid = at(first_false_idx);
+                                        ctx.TakeDerived(cid, MB_False);
                                 }
                         }
                         virtual std::string to_string()const{
@@ -210,7 +234,6 @@ namespace ps{
                                 return sstr.str();
                         }
                 };
-                #endif
                 struct Any : Op{
                         enum{ Debug = 1 };
                         explicit Any(holdem_class_id cid):cid_{cid}, decl_{holdem_class_decl::get(cid_)}{}
@@ -277,9 +300,11 @@ namespace ps{
                                         auto cid = holdem_class_decl::make_id(holdem_class_type::offsuit, A, B);
                                         auto op = std::make_shared<Any>(cid);
                                         ops_.push_back(op);
+#if 0
 
                                         auto suited_id = holdem_class_decl::make_id(holdem_class_type::suited, A, B);
                                         op->take_false(suited_id);
+#endif
                                 }
                         }
 

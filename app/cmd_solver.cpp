@@ -145,7 +145,7 @@ namespace ps{
                         holdem_class_decl const& decl_;
                 };
                 struct Any : Op{
-                        enum{ Debug = 0 };
+                        enum{ Debug = 1 };
                         explicit Any(holdem_class_id cid):Op{cid}{}
                         virtual void push_or_fold(Context& ctx)const override{
                                 for(auto derived_cid : derived_true_){
@@ -218,18 +218,12 @@ namespace ps{
                         
                         for(size_t A=0;A!=13;++A){
                                 auto cid = holdem_class_decl::make_id(holdem_class_type::pocket_pair, A, A);
-                                #if 0
-                                std::cout << "A => " << A << "\n"; // __CandyPrint__(cxx-print-scalar,A)
-                                std::cout << "holdem_class_decl::get(cid) => " << holdem_class_decl::get(cid) << "\n"; // __CandyPrint__(cxx-print-scalar,holdem_class_decl::get(cid))
-                                #endif
                                 auto op = std::make_shared<Any>(cid);
                                 ops_.push_back(op);
-                                #if 1
                                 if( A != 0 ){
                                         auto prev = holdem_class_decl::make_id(holdem_class_type::pocket_pair,A-1,A-1);
                                         op->take_true(prev);
                                 }
-                                #endif
                         }
                         
                         // suited
@@ -239,22 +233,6 @@ namespace ps{
                                         auto cid = holdem_class_decl::make_id(holdem_class_type::suited, A, B);
                                         auto op = std::make_shared<Any>(cid);
                                         ops_.push_back(op);
-
-                                        #if 0
-                                        std::cout << "A => " << A << "\n"; // __CandyPrint__(cxx-print-scalar,A)
-                                        std::cout << "B => " << B << "\n"; // __CandyPrint__(cxx-print-scalar,B)
-                                        std::cout << "holdem_class_decl::get(cid) => " << holdem_class_decl::get(cid) << "\n"; // __CandyPrint__(cxx-print-scalar,holdem_class_decl::get(cid))
-                                        #endif
-
-                                        #if 0
-                                        if( A != 12 ){
-                                                if( B != 0 ){
-                                                        auto lower_kicker = holdem_class_decl::make_id(holdem_class_type::suited, A, B-1);
-                                                        op->take_true(lower_kicker);
-                                                }
-                                        }
-                                        #endif
-
                                 }
                         }
 
@@ -267,10 +245,8 @@ namespace ps{
                                         auto op = std::make_shared<Any>(cid);
                                         ops_.push_back(op);
 
-                                        #if 1
                                         auto suited_id = holdem_class_decl::make_id(holdem_class_type::suited, A, B);
                                         op->take_false(suited_id);
-                                        #endif
                                 }
                         }
 
@@ -301,7 +277,7 @@ namespace ps{
         };
 
         struct SolverCmd : Command{
-                enum{ Debug = 1};
+                enum{ Debug = 0};
                 enum{ Dp = 2 };
                 explicit
                 SolverCmd(std::vector<std::string> const& args):args_{args}{}
@@ -310,9 +286,9 @@ namespace ps{
                         std::unique_ptr<counter_strategy_concept> cptr(new counter_strategy_aggresive);
 
                         if( args_.size() && args_[0] == "three"){
-                                desc = binary_strategy_description::make_three_player_description(0.5, 1, 20);
+                                desc = binary_strategy_description::make_three_player_description(0.5, 1, 10);
                         } else{
-                                desc = binary_strategy_description::make_hu_description(0.5, 1, 20);
+                                desc = binary_strategy_description::make_hu_description(0.5, 1, 10);
                         }
 
 

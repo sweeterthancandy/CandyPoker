@@ -442,7 +442,6 @@ namespace ps{
                         for(auto const& _ : ops_){
                                 _->push_or_fold(ctx);
                         }
-                        std::cout << "ctx.derived_counter => " << ctx.derived_counter << "\n"; // __CandyPrint__(cxx-print-scalar,ctx.derived_counter)
                         return ctx.Counter();
                 }
         private:
@@ -580,7 +579,6 @@ namespace ps{
                                 std::vector<result_t> tmp;
                                 for(auto si=desc_->begin_strategy(),se=desc_->end_strategy();si!=se;++si){
                                         auto fut = std::async(std::launch::async, [&,si](){
-                                                boost::timer::auto_cpu_timer at;
                                                 return std::make_tuple(si->vector_index(), counter_strategy_->counter(*desc_, *si, state));
                                         });
                                         tmp.emplace_back(std::move(fut));
@@ -704,6 +702,9 @@ namespace ps{
         };
         
         struct lp_inf_stoppage_condition : holdem_binary_solver_any_observer{
+                explicit lp_inf_stoppage_condition(double epsilon = 0.05)
+                        : epsilon_{epsilon}
+                {}
                 virtual holdem_binary_solver_ctrl step(holdem_binary_solver const*, state_type const& from, state_type const& to)override{
                         std::vector<double> norm_vec;
                         for(size_t idx=0;idx!=from.size();++idx){
@@ -713,14 +714,13 @@ namespace ps{
                         }
                         auto norm = *std::max_element(norm_vec.begin(),norm_vec.end());
 
-
-
-                        double epsilon = 0.05;
-                        bool cond = norm < epsilon;
+                        bool cond = norm < epsilon_;
                         if( cond )
                                 return Break{};
                         return Continue{};
                 }
+        private:
+                double epsilon_;
         };
         struct strategy_printer : holdem_binary_solver_any_observer{
                 enum{ Dp = 2 };
@@ -769,9 +769,10 @@ namespace ps{
                 holdem_binary_strategy_ledger ledger_;
         };
 
+        
+
         struct SolverCmd : Command{
                 enum{ Debug = 1};
-                enum{ Dp = 2 };
                 explicit
                 SolverCmd(std::vector<std::string> const& args):args_{args}{}
                 virtual int Execute()override{
@@ -807,6 +808,74 @@ namespace ps{
                 std::vector<std::string> const& args_;
         };
         static TrivialCommandDecl<SolverCmd> SolverCmdDecl{"solver"};
+        
+        
+        struct hu_table_maker{
+                using state_type = binary_strategy_description::strategy_impl_t;
+                template<class FutureMaker>
+                static state_type make_table(FutureMaker&& solver){
+                        using result_t = std::future<std::tuple<double, state_type > >;
+                        std::vector<result_t> tmp;
+                        for(double eff=10;eff!=20;++eff){
+                                tmp.emplace_back(std::async([&,e=eff](){
+                                        return std::make_tuple(e, solver(e));
+                                }));
+                        }
+                        state_type state;
+                        
+                        for(auto& _ : tmp){
+                                auto aux = _.get();
+                                auto eff        = std::get<0>(aux);
+                                auto const& vec = std::get<1>(aux);
+                                for(; state.size() < vec.size();){
+                                        state.emplace_back(169);
+                                        state.back().fill(0.0);
+                                }
+                                for(size_t i=0;i!=vec.size();++i){
+                                        for(size_t cid=0;cid!=169;++cid){
+                                                if( state[i][cid] < eff*vec[i][cid] ){
+                                                        state[i][cid] = eff*vec[i][cid];
+                                                }
+                                        }
+                                }
+                        }
+                        return state;
+                }
+        };
+        struct HuTable : Command{
+                enum{ Debug = 1};
+                explicit
+                HuTable(std::vector<std::string> const& args):args_{args}{}
+                virtual int Execute()override{
+
+                        using state_type = binary_strategy_description::strategy_impl_t;
+                        auto maker = [](double eff)->state_type
+                        {
+                                auto desc = binary_strategy_description::make_hu_description(0.5, 1, eff);
+                                auto desc_sptr = std::shared_ptr<binary_strategy_description>(desc.get(), [](auto _){});
+
+                                holdem_binary_solver solver;
+                                solver.use_description(desc_sptr);
+                                solver.use_strategy(std::make_shared<counter_strategy_aggresive>());
+                                solver.add_observer(std::make_shared<lp_inf_stoppage_condition>());
+                                auto result = solver.compute();
+                                for(auto& _ : result){
+                                        _ = clamp(_);
+                                }
+                                return result;
+                        };
+                        auto table = hu_table_maker::make_table(maker);
+                        for(auto const& s : table){
+                                pretty_print_strat(s, 0);
+                        }
+
+
+                        return EXIT_SUCCESS;
+                }
+        private:
+                std::vector<std::string> const& args_;
+        };
+        static TrivialCommandDecl<HuTable> HuTableDecl{"hu-table"};
 } // end namespace ps
 
 #endif // PS_CMD_BETTER_SOLVER_H

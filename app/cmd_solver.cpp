@@ -528,12 +528,234 @@ namespace ps{
                 std::vector<std::pair<double, holdem_binary_strategy> > solutions_;
         };
 
+
+        struct Continue{};
+        struct Break{};
+        using  holdem_binary_solver_ctrl = boost::variant<Continue, Break>;
+
+        struct holdem_binary_solver;
+
+        struct holdem_binary_solver_any_observer{
+                using state_type = binary_strategy_description::strategy_impl_t;
+                virtual ~holdem_binary_solver_any_observer()=default;
+                virtual holdem_binary_solver_ctrl start(state_type const& state){ return Continue{}; }
+                virtual holdem_binary_solver_ctrl step(state_type const& from, state_type const& to){ return Continue{}; }
+                virtual holdem_binary_solver_ctrl finish(state_type const& state){ return Continue{}; }
+                virtual void imbue(holdem_binary_solver* solver){}
+        };
+
+        struct holdem_binary_solver{
+                using state_type = binary_strategy_description::strategy_impl_t;
+                void use_description(std::shared_ptr<binary_strategy_description> desc){
+                        desc_ = desc;
+                }
+                void use_strategy(std::shared_ptr<counter_strategy_concept> counter_strat){
+                        counter_strategy_ = counter_strat;
+                }
+                void add_observer(std::shared_ptr<holdem_binary_solver_any_observer> obs){
+                        obs_.push_back(obs);
+                }
+                void use_inital_state(state_type state){
+                        initial_state_ = std::move(state);
+                }
+                state_type compute(){
+                        state_type state;
+
+                        if( initial_state_ ){
+                                state = *initial_state_;
+                        } else {
+                                state = desc_->make_inital_state();
+                        }
+                        
+
+                        double factor = 0.10;
+                        auto step = [&](auto const& state)->state_type
+                        {
+                                using result_t = std::future<std::tuple<size_t, Eigen::VectorXd> >;
+                                std::vector<result_t> tmp;
+                                for(auto si=desc_->begin_strategy(),se=desc_->end_strategy();si!=se;++si){
+                                        auto fut = std::async(std::launch::async, [&,si](){
+                                                boost::timer::auto_cpu_timer at;
+                                                return std::make_tuple(si->vector_index(), counter_strategy_->counter(*desc_, *si, state));
+                                        });
+                                        tmp.emplace_back(std::move(fut));
+                                }
+                                auto result = state;
+                                for(auto& _ : tmp){
+                                        auto ret = _.get();
+                                        auto idx            = std::get<0>(ret);
+                                        auto const& counter = std::get<1>(ret);
+                                        result[idx] = state[idx] * ( 1.0 - factor ) + counter * factor;
+                                }
+                                return result;
+                        };
+
+                        for(auto& _ : obs_ ){
+                                _->start(state);
+                        }
+
+                        for(;;){
+                                auto next = step(state);
+
+                                bool break_condition = [&](){
+                                        for(auto& _ : obs_ ){
+                                                auto result = _->step(state, next);
+                                                if( auto ptr = boost::get<Break>(&result)){
+                                                        return true;
+                                                }
+                                        }
+                                        return false;
+                                }();
+                                if( break_condition ){
+                                        break;
+                                }
+
+                                state = next;
+                        }
+                        return state;
+                }
+        private:
+                boost::optional<state_type> initial_state_;
+                // desripbes the game
+                std::shared_ptr<binary_strategy_description> desc_;
+                // computes the coutner strategy
+                std::shared_ptr<counter_strategy_concept> counter_strategy_;
+
+                // all the observers
+                std::vector<std::shared_ptr<holdem_binary_solver_any_observer> > obs_;
+        };
+
+        struct table_observer : holdem_binary_solver_any_observer{
+                table_observer(binary_strategy_description* desc)
+                        : desc_{desc}
+                {
+                        using namespace Pretty;
+                        std::vector<std::string> header;
+                        header.push_back("n");
+                        for(auto si=desc->begin_strategy(),se=desc->end_strategy();si!=se;++si){
+                                header.push_back(si->action());
+                        }
+                        header.push_back("max");
+                        for(size_t idx=0;idx!=desc->num_players();++idx){
+                                std::stringstream sstr;
+                                sstr << "ev[" << idx << "]";
+                                header.push_back(sstr.str());
+                        }
+                        header.push_back("time");
+                        lines.push_back(std::move(header));
+                        lines.push_back(LineBreak);
+
+                        timer.start();
+                }
+                virtual holdem_binary_solver_ctrl step(state_type const& from, state_type const& to)override{
+
+                        std::vector<std::string> norm_vec_s;
+                        std::vector<double> norm_vec;
+
+                        for(size_t idx=0;idx!=from.size();++idx){
+                                auto delta = from[idx] - to[idx];
+                                auto norm = delta.lpNorm<1>();
+                                norm_vec.push_back(norm);
+                        }
+                        auto norm = *std::max_element(norm_vec.begin(),norm_vec.end());
+
+                        for(auto val : norm_vec){
+                                norm_vec_s.push_back(boost::lexical_cast<std::string>(val));
+                        }
+                        norm_vec_s.push_back(boost::lexical_cast<std::string>(norm));
+
+
+                        using namespace Pretty;
+                        std::vector<std::string> line;
+                        line.push_back(boost::lexical_cast<std::string>(n_));
+                        for(size_t idx=0;idx!=norm_vec_s.size();++idx){
+                                line.push_back(boost::lexical_cast<std::string>(norm_vec_s[idx]));
+                        }
+
+                        
+                        auto ev = desc_->expected_value(to);
+                        for(size_t idx=0;idx!=desc_->num_players();++idx){
+                                line.push_back(boost::lexical_cast<std::string>(ev[idx]));
+                        }
+                        line.push_back(format(timer.elapsed(), 2, "%w(%t cpu)"));
+                        timer.start();
+                        lines.push_back(std::move(line));
+                        RenderTablePretty(std::cout, lines);
+                        ++n_;
+                        last_ = to;
+                        return Continue{};
+                }
+        private:
+                binary_strategy_description* desc_;
+                size_t n_{0};
+                std::vector<Pretty::LineItem> lines;
+                boost::timer::cpu_timer timer;
+                boost::optional<state_type> last_;
+        };
+        
+        struct lp_inf_stoppage_condition : holdem_binary_solver_any_observer{
+                virtual holdem_binary_solver_ctrl step(state_type const& from, state_type const& to)override{
+                        std::vector<double> norm_vec;
+                        for(size_t idx=0;idx!=from.size();++idx){
+                                auto delta = from[idx] - to[idx];
+                                auto norm = delta.lpNorm<1>();
+                                norm_vec.push_back(norm);
+                        }
+                        auto norm = *std::max_element(norm_vec.begin(),norm_vec.end());
+
+
+
+                        double epsilon = 0.05;
+                        bool cond = norm < epsilon;
+                        if( cond )
+                                return Break{};
+                        return Continue{};
+                }
+        };
+        struct strategy_printer : holdem_binary_solver_any_observer{
+                enum{ Dp = 2 };
+                strategy_printer(binary_strategy_description* desc)
+                        : desc_{desc}
+                {
+                }
+                virtual holdem_binary_solver_ctrl step(state_type const& from, state_type const& to)override{
+                        for(auto si=desc_->begin_strategy(),se=desc_->end_strategy();si!=se;++si){
+                                std::cout << si->description() << "\n";
+                                pretty_print_strat(to[si->vector_index()], Dp);
+                        }
+                        return Continue{};
+                }
+        private:
+                binary_strategy_description* desc_;
+        };
+
         struct SolverCmd : Command{
                 enum{ Debug = 1};
                 enum{ Dp = 2 };
                 explicit
                 SolverCmd(std::vector<std::string> const& args):args_{args}{}
                 virtual int Execute()override{
+
+
+                        std::unique_ptr<binary_strategy_description> desc;
+                        std::string ledger_path;
+                        if( args_.size() && args_[0] == "three"){
+                                desc = binary_strategy_description::make_three_player_description(0.5, 1, 10);
+                                ledger_path = ".3_player_ledger.bin";
+                        } else{
+                                desc = binary_strategy_description::make_hu_description(0.5, 1, 10);
+                                ledger_path = ".2_player_ledger.bin";
+                        }
+
+                        holdem_binary_solver solver;
+                        solver.use_description(std::shared_ptr<binary_strategy_description>(desc.get(), [](auto _){}));
+                        solver.use_strategy(std::make_shared<counter_strategy_aggresive>());
+                        solver.add_observer(std::make_shared<lp_inf_stoppage_condition>());
+                        solver.add_observer(std::make_shared<table_observer>(desc.get()));
+
+                        auto result = solver.compute();
+
+                        #if 0
                         std::unique_ptr<binary_strategy_description> desc;
                         std::unique_ptr<counter_strategy_concept> cptr(new counter_strategy_aggresive);
                         //std::unique_ptr<counter_strategy_concept> cptr(new counter_strategy_elementwise);
@@ -555,80 +777,11 @@ namespace ps{
                         double factor = 0.10;
                         
                         using state_type = binary_strategy_description::strategy_impl_t;
-
-                        struct table_observer{
-                                table_observer(binary_strategy_description* desc)
-                                        : desc_{desc}
-                                {
-                                        using namespace Pretty;
-                                        std::vector<std::string> header;
-                                        header.push_back("n");
-                                        for(auto si=desc->begin_strategy(),se=desc->end_strategy();si!=se;++si){
-                                                header.push_back(si->action());
-                                        }
-                                        header.push_back("max");
-                                        for(size_t idx=0;idx!=desc->num_players();++idx){
-                                                std::stringstream sstr;
-                                                sstr << "ev[" << idx << "]";
-                                                header.push_back(sstr.str());
-                                        }
-                                        header.push_back("time");
-                                        lines.push_back(std::move(header));
-                                        lines.push_back(LineBreak);
-
-                                        timer.start();
-                                }
-                                void observe(state_type const& state){
-
-                                        std::vector<std::string> norm_vec_s;
-                                        if( last_ ){
-                                                std::vector<double> norm_vec;
-                                                auto const& from = *last_;
-
-                                                for(size_t idx=0;idx!=from.size();++idx){
-                                                        auto delta = from[idx] - state[idx];
-                                                        auto norm = delta.lpNorm<1>();
-                                                        norm_vec.push_back(norm);
-                                                }
-                                                auto norm = *std::max_element(norm_vec.begin(),norm_vec.end());
-
-                                                for(auto val : norm_vec){
-                                                        norm_vec_s.push_back(boost::lexical_cast<std::string>(val));
-                                                }
-                                                norm_vec_s.push_back(boost::lexical_cast<std::string>(norm));
-                                        } else {
-                                                norm_vec_s.resize(state.size()+1); // +1 for max
-                                        }
+                        #endif
 
 
-                                        using namespace Pretty;
-                                        std::vector<std::string> line;
-                                        line.push_back(boost::lexical_cast<std::string>(n_));
-                                        for(size_t idx=0;idx!=norm_vec_s.size();++idx){
-                                                line.push_back(boost::lexical_cast<std::string>(norm_vec_s[idx]));
-                                        }
 
-                                        
-                                        auto ev = desc_->expected_value(state);
-                                        for(size_t idx=0;idx!=desc_->num_players();++idx){
-                                                line.push_back(boost::lexical_cast<std::string>(ev[idx]));
-                                        }
-                                        line.push_back(format(timer.elapsed(), 2, "%w(%t cpu)"));
-                                        timer.start();
-                                        lines.push_back(std::move(line));
-                                        RenderTablePretty(std::cout, lines);
-                                        ++n_;
-                                        last_ = state;
-                                }
-                        private:
-                                binary_strategy_description* desc_;
-                                size_t n_{0};
-                                std::vector<Pretty::LineItem> lines;
-                                boost::timer::cpu_timer timer;
-                                boost::optional<state_type> last_;
-                        };
-
-
+#if 0
 
 
 
@@ -668,18 +821,6 @@ namespace ps{
 
                         auto stoppage_condition = [&](state_type const& from, state_type const& to)->bool
                         {
-                                std::vector<double> norm_vec;
-                                for(size_t idx=0;idx!=from.size();++idx){
-                                        auto delta = from[idx] - to[idx];
-                                        auto norm = delta.lpNorm<1>();
-                                        norm_vec.push_back(norm);
-                                }
-                                auto norm = *std::max_element(norm_vec.begin(),norm_vec.end());
-                                
-
-
-                                double epsilon = 0.05;
-                                return norm < epsilon;
                         };
                         
                         auto print = [&]()
@@ -689,7 +830,9 @@ namespace ps{
                                         pretty_print_strat(state[si->vector_index()], Dp);
                                 }
                         };
+#endif
 
+                        #if 0
                         tableobs.observe(state);
                         for(;;){
                                 auto next = step(state);
@@ -711,6 +854,7 @@ namespace ps{
                                 
                         }
                         print();
+                        #endif
                         return EXIT_SUCCESS;
                 }
         private:

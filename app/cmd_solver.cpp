@@ -553,37 +553,85 @@ namespace ps{
                         auto state = state0;
 
                         double factor = 0.10;
+                        
+                        using state_type = binary_strategy_description::strategy_impl_t;
 
                         struct table_observer{
                                 table_observer(binary_strategy_description* desc)
                                         : desc_{desc}
                                 {
+                                        using namespace Pretty;
+                                        std::vector<std::string> header;
+                                        header.push_back("n");
+                                        for(auto si=desc->begin_strategy(),se=desc->end_strategy();si!=se;++si){
+                                                header.push_back(si->action());
+                                        }
+                                        header.push_back("max");
+                                        for(size_t idx=0;idx!=desc->num_players();++idx){
+                                                std::stringstream sstr;
+                                                sstr << "ev[" << idx << "]";
+                                                header.push_back(sstr.str());
+                                        }
+                                        header.push_back("time");
+                                        lines.push_back(std::move(header));
+                                        lines.push_back(LineBreak);
+
+                                        timer.start();
                                 }
+                                void observe(state_type const& state){
+
+                                        std::vector<std::string> norm_vec_s;
+                                        if( last_ ){
+                                                std::vector<double> norm_vec;
+                                                auto const& from = *last_;
+
+                                                for(size_t idx=0;idx!=from.size();++idx){
+                                                        auto delta = from[idx] - state[idx];
+                                                        auto norm = delta.lpNorm<1>();
+                                                        norm_vec.push_back(norm);
+                                                }
+                                                auto norm = *std::max_element(norm_vec.begin(),norm_vec.end());
+
+                                                for(auto val : norm_vec){
+                                                        norm_vec_s.push_back(boost::lexical_cast<std::string>(val));
+                                                }
+                                                norm_vec_s.push_back(boost::lexical_cast<std::string>(norm));
+                                        } else {
+                                                norm_vec_s.resize(state.size()+1); // +1 for max
+                                        }
+
+
+                                        using namespace Pretty;
+                                        std::vector<std::string> line;
+                                        line.push_back(boost::lexical_cast<std::string>(n_));
+                                        for(size_t idx=0;idx!=norm_vec_s.size();++idx){
+                                                line.push_back(boost::lexical_cast<std::string>(norm_vec_s[idx]));
+                                        }
+
+                                        
+                                        auto ev = desc_->expected_value(state);
+                                        for(size_t idx=0;idx!=desc_->num_players();++idx){
+                                                line.push_back(boost::lexical_cast<std::string>(ev[idx]));
+                                        }
+                                        line.push_back(format(timer.elapsed(), 2, "%w(%t cpu)"));
+                                        timer.start();
+                                        lines.push_back(std::move(line));
+                                        RenderTablePretty(std::cout, lines);
+                                        ++n_;
+                                        last_ = state;
+                                }
+                        private:
+                                binary_strategy_description* desc_;
+                                size_t n_{0};
+                                std::vector<Pretty::LineItem> lines;
+                                boost::timer::cpu_timer timer;
+                                boost::optional<state_type> last_;
                         };
 
 
-                        using namespace Pretty;
-                        std::vector<LineItem> lines;
-                        size_t line_idx = 0;
-                        std::vector<std::string> header;
-                        header.push_back("n");
-                        for(auto si=desc->begin_strategy(),se=desc->end_strategy();si!=se;++si){
-                                header.push_back(si->action());
-                        }
-                        header.push_back("max");
-                        for(size_t idx=0;idx!=desc->num_players();++idx){
-                                std::stringstream sstr;
-                                sstr << "ev[" << idx << "]";
-                                header.push_back(sstr.str());
-                        }
-                        header.push_back("time");
-                        lines.push_back(std::move(header));
-                        lines.push_back(LineBreak);
-
-                        boost::timer::cpu_timer timer;
 
 
-                        using state_type = binary_strategy_description::strategy_impl_t;
+
 
                         holdem_binary_strategy_ledger ledger;
                         try{
@@ -594,6 +642,7 @@ namespace ps{
                                 ledger.save(ledger_path);
                         }
 
+                        table_observer tableobs(desc.get());
 
                         auto step = [&](auto const& state)->state_type
                         {
@@ -627,23 +676,7 @@ namespace ps{
                                 }
                                 auto norm = *std::max_element(norm_vec.begin(),norm_vec.end());
                                 
-                                std::vector<std::string> line;
-                                line.push_back(boost::lexical_cast<std::string>(line_idx));
-                                for(size_t idx=0;idx!=norm_vec.size();++idx){
-                                        line.push_back(boost::lexical_cast<std::string>(norm_vec[idx]));
-                                }
 
-                                
-                                line.push_back(boost::lexical_cast<std::string>(norm));
-                                auto ev = desc->expected_value(to);
-                                for(size_t idx=0;idx!=desc->num_players();++idx){
-                                        line.push_back(boost::lexical_cast<std::string>(ev[idx]));
-                                }
-                                line.push_back(format(timer.elapsed(), 2, "%w(%t cpu)"));
-                                lines.push_back(std::move(line));
-                                ++line_idx;
-
-                                RenderTablePretty(std::cout, lines);
 
                                 double epsilon = 0.05;
                                 return norm < epsilon;
@@ -657,14 +690,15 @@ namespace ps{
                                 }
                         };
 
+                        tableobs.observe(state);
                         for(;;){
-                                timer.start();
                                 auto next = step(state);
+
+                                tableobs.observe(next);
+                                
                                 ledger.push(next);
                                 ledger.save(ledger_path);
                                 ledger.save(ledger_path + ".other");
-
-                                timer.stop();
 
                                 if( stoppage_condition(state, next) )
                                         break;

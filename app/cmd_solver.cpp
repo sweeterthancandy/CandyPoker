@@ -538,9 +538,9 @@ namespace ps{
         struct holdem_binary_solver_any_observer{
                 using state_type = binary_strategy_description::strategy_impl_t;
                 virtual ~holdem_binary_solver_any_observer()=default;
-                virtual holdem_binary_solver_ctrl start(state_type const& state){ return Continue{}; }
-                virtual holdem_binary_solver_ctrl step(state_type const& from, state_type const& to){ return Continue{}; }
-                virtual holdem_binary_solver_ctrl finish(state_type const& state){ return Continue{}; }
+                virtual holdem_binary_solver_ctrl start(holdem_binary_solver const*, state_type const& state){ return Continue{}; }
+                virtual holdem_binary_solver_ctrl step(holdem_binary_solver const*, state_type const& from, state_type const& to){ return Continue{}; }
+                virtual holdem_binary_solver_ctrl finish(holdem_binary_solver const*, state_type const& state){ return Continue{}; }
                 virtual void imbue(holdem_binary_solver* solver){}
         };
 
@@ -559,6 +559,11 @@ namespace ps{
                         initial_state_ = std::move(state);
                 }
                 state_type compute(){
+                        
+                        for(auto& _ : obs_ ){
+                                _->imbue(this);
+                        }
+
                         state_type state;
 
                         if( initial_state_ ){
@@ -589,22 +594,24 @@ namespace ps{
                                 }
                                 return result;
                         };
+                        
 
                         for(auto& _ : obs_ ){
-                                _->start(state);
+                                _->start(this, state);
                         }
 
                         for(;;){
                                 auto next = step(state);
 
                                 bool break_condition = [&](){
+                                        bool cond = false;
                                         for(auto& _ : obs_ ){
-                                                auto result = _->step(state, next);
+                                                auto result = _->step(this, state, next);
                                                 if( auto ptr = boost::get<Break>(&result)){
-                                                        return true;
+                                                        cond = true;
                                                 }
                                         }
-                                        return false;
+                                        return cond;
                                 }();
                                 if( break_condition ){
                                         break;
@@ -613,6 +620,9 @@ namespace ps{
                                 state = next;
                         }
                         return state;
+                }
+                std::shared_ptr<binary_strategy_description> get_description()const{
+                        return desc_;
                 }
         private:
                 boost::optional<state_type> initial_state_;
@@ -647,7 +657,7 @@ namespace ps{
 
                         timer.start();
                 }
-                virtual holdem_binary_solver_ctrl step(state_type const& from, state_type const& to)override{
+                virtual holdem_binary_solver_ctrl step(holdem_binary_solver const*, state_type const& from, state_type const& to)override{
 
                         std::vector<std::string> norm_vec_s;
                         std::vector<double> norm_vec;
@@ -694,7 +704,7 @@ namespace ps{
         };
         
         struct lp_inf_stoppage_condition : holdem_binary_solver_any_observer{
-                virtual holdem_binary_solver_ctrl step(state_type const& from, state_type const& to)override{
+                virtual holdem_binary_solver_ctrl step(holdem_binary_solver const*, state_type const& from, state_type const& to)override{
                         std::vector<double> norm_vec;
                         for(size_t idx=0;idx!=from.size();++idx){
                                 auto delta = from[idx] - to[idx];
@@ -714,12 +724,9 @@ namespace ps{
         };
         struct strategy_printer : holdem_binary_solver_any_observer{
                 enum{ Dp = 2 };
-                strategy_printer(binary_strategy_description* desc)
-                        : desc_{desc}
-                {
-                }
-                virtual holdem_binary_solver_ctrl step(state_type const& from, state_type const& to)override{
-                        for(auto si=desc_->begin_strategy(),se=desc_->end_strategy();si!=se;++si){
+                virtual holdem_binary_solver_ctrl step(holdem_binary_solver const* solver, state_type const& from, state_type const& to)override{
+                        auto desc = solver->get_description();
+                        for(auto si=desc->begin_strategy(),se=desc->end_strategy();si!=se;++si){
                                 std::cout << si->description() << "\n";
                                 pretty_print_strat(to[si->vector_index()], Dp);
                         }
@@ -727,6 +734,39 @@ namespace ps{
                 }
         private:
                 binary_strategy_description* desc_;
+        };
+
+        struct solver_ledger : holdem_binary_solver_any_observer{
+                explicit solver_ledger(std::string const& filename)
+                        : filename_{filename}
+                {}
+                virtual holdem_binary_solver_ctrl start(holdem_binary_solver const*, state_type const& state)override{
+                        if( ! skip_start_ ){
+                                ledger_.push(state);
+                                ledger_.save(filename_);
+                                ledger_.save(filename_ + ".other");
+                        }
+                        return Continue{};
+                }
+                virtual holdem_binary_solver_ctrl step(holdem_binary_solver const*, state_type const& from, state_type const& to)override{
+                        ledger_.push(to);
+                        ledger_.save(filename_);
+                        ledger_.save(filename_ + ".other");
+                        return Continue{};
+                }
+                virtual void imbue(holdem_binary_solver* solver)override{
+                        try{
+                                ledger_.load(filename_);
+                                auto state0 = ledger_.back().to_eigen();
+                                solver->use_inital_state(std::move(state0));
+                        }catch(...){
+                                skip_start_ = false;
+                        }
+                }
+        private:
+                std::string filename_;
+                bool skip_start_{true};
+                holdem_binary_strategy_ledger ledger_;
         };
 
         struct SolverCmd : Command{
@@ -746,115 +786,21 @@ namespace ps{
                                 desc = binary_strategy_description::make_hu_description(0.5, 1, 10);
                                 ledger_path = ".2_player_ledger.bin";
                         }
+                        auto desc_sptr = std::shared_ptr<binary_strategy_description>(desc.get(), [](auto _){});
 
                         holdem_binary_solver solver;
-                        solver.use_description(std::shared_ptr<binary_strategy_description>(desc.get(), [](auto _){}));
+                        solver.use_description(desc_sptr);
                         solver.use_strategy(std::make_shared<counter_strategy_aggresive>());
                         solver.add_observer(std::make_shared<lp_inf_stoppage_condition>());
                         solver.add_observer(std::make_shared<table_observer>(desc.get()));
+                        solver.add_observer(std::make_shared<solver_ledger>(ledger_path));
+                        solver.add_observer(std::make_shared<strategy_printer>());
 
                         auto result = solver.compute();
-
-                        #if 0
-                        std::unique_ptr<binary_strategy_description> desc;
-                        std::unique_ptr<counter_strategy_concept> cptr(new counter_strategy_aggresive);
-                        //std::unique_ptr<counter_strategy_concept> cptr(new counter_strategy_elementwise);
-
-                        std::string ledger_path;
-                        if( args_.size() && args_[0] == "three"){
-                                desc = binary_strategy_description::make_three_player_description(0.5, 1, 10);
-                                ledger_path = ".3_player_ledger.bin";
-                        } else{
-                                desc = binary_strategy_description::make_hu_description(0.5, 1, 10);
-                                ledger_path = ".2_player_ledger.bin";
-                        }
-
-
-                        auto state0 = desc->make_inital_state();
-
-                        auto state = state0;
-
-                        double factor = 0.10;
-                        
-                        using state_type = binary_strategy_description::strategy_impl_t;
-                        #endif
-
-
-
-#if 0
-
-
-
-
-                        holdem_binary_strategy_ledger ledger;
-                        try{
-                                ledger.load(ledger_path);
-                                state = ledger.back().to_eigen();
-                        }catch(...){
-                                ledger.push(state0);
-                                ledger.save(ledger_path);
-                        }
-
-                        table_observer tableobs(desc.get());
-
-                        auto step = [&](auto const& state)->state_type
-                        {
-                                using result_t = std::future<std::tuple<size_t, Eigen::VectorXd> >;
-                                std::vector<result_t> tmp;
-                                for(auto si=desc->begin_strategy(),se=desc->end_strategy();si!=se;++si){
-                                        auto fut = std::async(std::launch::async, [&,si](){
-                                                boost::timer::auto_cpu_timer at;
-                                                return std::make_tuple(si->vector_index(), cptr->counter(*desc, *si, state));
-                                        });
-                                        tmp.emplace_back(std::move(fut));
-                                }
-                                auto result = state;
-                                for(auto& _ : tmp){
-                                        auto ret = _.get();
-                                        auto idx            = std::get<0>(ret);
-                                        auto const& counter = std::get<1>(ret);
-                                        result[idx] = state[idx] * ( 1.0 - factor ) + counter * factor;
-                                }
-                                return result;
-                        };
-                        
-
-                        auto stoppage_condition = [&](state_type const& from, state_type const& to)->bool
-                        {
-                        };
-                        
-                        auto print = [&]()
-                        {
-                                for(auto si=desc->begin_strategy(),se=desc->end_strategy();si!=se;++si){
-                                        std::cout << si->description() << "\n";
-                                        pretty_print_strat(state[si->vector_index()], Dp);
-                                }
-                        };
-#endif
-
-                        #if 0
-                        tableobs.observe(state);
-                        for(;;){
-                                auto next = step(state);
-
-                                tableobs.observe(next);
-                                
-                                ledger.push(next);
-                                ledger.save(ledger_path);
-                                ledger.save(ledger_path + ".other");
-
-                                if( stoppage_condition(state, next) )
-                                        break;
-
-                                state = next;
-                                if(Debug) print();
-                        }
-                        for(auto& _ : state){
+                        for(auto& _ : result){
                                 _ = clamp(_);
-                                
                         }
-                        print();
-                        #endif
+
                         return EXIT_SUCCESS;
                 }
         private:

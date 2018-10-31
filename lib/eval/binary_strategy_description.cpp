@@ -204,15 +204,6 @@ namespace ps{
                 virtual Eigen::VectorXd expected_value_by_class_id(size_t player_idx, strategy_impl_t const& impl)const override{
                         Eigen::VectorXd result(169);
                         result.fill(0);
-                        #if 0
-                        for(holdem_class_perm_iterator iter(2),end;iter!=end;++iter){
-                                auto const& cv = *iter;
-                                check_probability_of_event(cv, impl);
-                                auto p = cv.prob();
-                                auto ev = expected_value_of_vector(cv, impl);
-                                result(cv[player_idx]) += p * ev[player_idx];
-                        }
-                        #endif
                         for(auto const& group : *Memory_TwoPlayerClassVector){
                                 for(auto const& _ : group.vec){
                                         auto const& cv = _.cv;
@@ -225,19 +216,10 @@ namespace ps{
                 virtual Eigen::VectorXd expected_value(strategy_impl_t const& impl)const override{
                         Eigen::VectorXd result(2);
                         result.fill(0);
-                        #if 0
-                        for(holdem_class_perm_iterator iter(2),end;iter!=end;++iter){
-                                auto const& cv = *iter;
-                                check_probability_of_event(cv, impl);
-                                auto p = cv.prob();
-                                auto ev = expected_value_of_vector(cv, impl);
-                                result[0] += p * ev[0];
-                                result[1] += p * ev[1];
-                        }
-                        #endif
                         for(auto const& group : *Memory_TwoPlayerClassVector){
                                 for(auto const& _ : group.vec){
                                         auto const& cv = _.cv;
+                                        check_probability_of_event(cv, impl);
                                         auto ev = expected_value_of_vector(cv, impl);
                                         result[0] += _.prob * ev[0];
                                         result[1] += _.prob * ev[1];
@@ -247,18 +229,6 @@ namespace ps{
                 }
                 virtual double expected_value_for_class_id(size_t player_idx, holdem_class_id class_id, strategy_impl_t const& impl)const override{
                         double result = 0.0;
-                        #if 0
-                        for(auto const& group : *Memory_TwoPlayerClassVector){
-                                for(auto const& _ : group.vec){
-                                        auto const& cv = _.cv;
-                                        if( cv[player_idx] != class_id )
-                                                continue;
-                                        auto ev = expected_value_of_vector(cv, impl);
-                                        result += _.prob * ev[player_idx];
-                                }
-                        }
-                        #endif
-                        #if 1
                         holdem_class_vector cv;
                         for(auto const& group : *Memory_TwoPlayerClassVector){
                                 if( group.cid != class_id)
@@ -271,7 +241,6 @@ namespace ps{
                                         result += _.prob * ev[player_idx];
                                 }
                         }
-                        #endif
                         return result;
                 }
         private:
@@ -446,22 +415,42 @@ namespace ps{
                 virtual Eigen::VectorXd expected_value_by_class_id(size_t player_idx, strategy_impl_t const& impl)const override{
                         Eigen::VectorXd result(169);
                         result.fill(0);
-                        for(auto const& _ : *Memory_ThreePlayerClassVector){
-                                auto const& cv = _.cv;
-                                auto ev = expected_value_of_vector(cv, impl);
-                                result(cv[player_idx]) += _.prob * ev[player_idx];
+                        for(auto const& group : *Memory_ThreePlayerClassVector){
+                                for(auto const& _ : group.vec){
+                                        auto const& cv = _.cv;
+                                        auto ev = expected_value_of_vector(cv, impl);
+                                        result(cv[player_idx]) += _.prob * ev[player_idx];
+                                }
                         }
                         return result;
                 }
                 virtual Eigen::VectorXd expected_value(strategy_impl_t const& impl)const override{
                         Eigen::VectorXd result(3);
                         result.fill(0);
-                        for(auto const& _ : *Memory_ThreePlayerClassVector){
-                                auto const& cv = _.cv;
-                                auto ev = expected_value_of_vector(cv, impl);
-                                result[0] += _.prob * ev[0];
-                                result[1] += _.prob * ev[1];
-                                result[2] += _.prob * ev[2];
+                        for(auto const& group : *Memory_ThreePlayerClassVector){
+                                for(auto const& _ : group.vec){
+                                        auto const& cv = _.cv;
+                                        auto ev = expected_value_of_vector(cv, impl);
+                                        result[0] += _.prob * ev[0];
+                                        result[1] += _.prob * ev[1];
+                                        result[2] += _.prob * ev[2];
+                                }
+                        }
+                        return result;
+                }
+                virtual double expected_value_for_class_id(size_t player_idx, holdem_class_id class_id, strategy_impl_t const& impl)const override{
+                        double result = 0.0;
+                        holdem_class_vector cv;
+                        for(auto const& group : *Memory_ThreePlayerClassVector){
+                                if( group.cid != class_id)
+                                        continue;
+                                for(auto const& _ : group.vec){
+                                        cv = _.cv;
+                                        if( player_idx != 0 )
+                                                std::swap(cv[0], cv[player_idx]);
+                                        auto ev = expected_value_of_vector(cv, impl);
+                                        result += _.prob * ev[player_idx];
+                                }
                         }
                         return result;
                 }

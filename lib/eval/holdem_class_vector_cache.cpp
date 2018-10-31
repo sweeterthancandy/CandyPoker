@@ -5,6 +5,7 @@
 
 namespace{
         using namespace ps;
+        #if NOT_DEFINED
         struct three_player_impl : support::persistent_memory_impl_serializer<holdem_class_vector_cache>{
                 virtual std::string name()const{
                         return "three_player_class_2";
@@ -68,9 +69,11 @@ namespace{
                         std::cout << "sigma => " << sigma << "\n"; // __CandyPrint__(cxx-print-scalar,sigma)
                 }
         };
-        struct two_player_impl : support::persistent_memory_impl_serializer<holdem_class_vector_pair_cache>{
-                virtual std::string name()const{
-                        return "two_player_class_pair";
+        #endif
+        struct n_player_impl : support::persistent_memory_impl_serializer<holdem_class_vector_pair_cache>{
+                explicit n_player_impl(size_t N):N_{N}{}
+                virtual std::string name()const override{
+                        return "n_player_impl@" + boost::lexical_cast<std::string>(N_);
                 }
                 virtual std::shared_ptr<holdem_class_vector_pair_cache> make()const override{
                         auto ptr = std::make_shared<holdem_class_vector_pair_cache>();
@@ -84,20 +87,51 @@ namespace{
 
                         holdem_class_vector_cache_item_pair* head = nullptr;
 
-                        for(holdem_class_perm_iterator iter(2),end;iter!=end;++iter){
+                        for(holdem_class_perm_iterator iter(N_),end;iter!=end;++iter){
                                 auto const& cv = *iter;
-                                auto const& A =  holdem_class_decl::get(cv[0]).get_hand_set() ;
-                                auto const& B =  holdem_class_decl::get(cv[1]).get_hand_set() ;
+                        
                                 size_t count = 0;
-                                for( auto const& a : A ){
-                                        for( auto const& b : B ){
-                                                if( ! disjoint(a,b) )
+                                switch(N_){
+                                        case 2:
+                                        {
+                                                auto const& A =  holdem_class_decl::get(cv[0]).get_hand_set() ;
+                                                auto const& B =  holdem_class_decl::get(cv[1]).get_hand_set() ;
+                                                for( auto const& a : A ){
+                                                        for( auto const& b : B ){
+                                                                if( ! disjoint(a,b) )
+                                                                        continue;
+                                                                ++count;
+                                                        }
+                                                }
+                                                if( count == 0 )
                                                         continue;
-                                                ++count;
+                                                break;
+                                        }
+                                        case 3:
+                                        {
+                                                auto const& A =  holdem_class_decl::get(cv[0]).get_hand_set() ;
+                                                auto const& B =  holdem_class_decl::get(cv[1]).get_hand_set() ;
+                                                auto const& C =  holdem_class_decl::get(cv[2]).get_hand_set() ;
+                                                for( auto const& a : A ){
+                                                        for( auto const& b : B ){
+                                                                if( ! disjoint(a,b) )
+                                                                        continue;
+                                                                for( auto const& c : C ){
+                                                                        if( ! disjoint(a,b,c) )
+                                                                                continue;
+                                                                        ++count;
+                                                                }
+                                                        }
+                                                }
+                                                if( count == 0 )
+                                                        continue;
+                                                break;
+                                        }
+                                        default:
+                                        {
+                                                throw std::domain_error("not implemented");
                                         }
                                 }
-                                if( count == 0 )
-                                        continue;
 
                                 total_count += count;
                                 
@@ -112,10 +146,14 @@ namespace{
                                 head->vec.emplace_back();
                                 head->vec.back().cv = *iter;
                                 head->vec.back().count = count;
-                                head->vec.back().ev.resize(2);
-                                head->vec.back().ev[0] = ev[0];
-                                head->vec.back().ev[1] = ev[1];
+                                head->vec.back().ev.resize(N_);
+                                for(size_t idx=0;idx!=N_;++idx){
+                                        head->vec.back().ev[idx] = ev[idx];
+                                }
                                 ++n;
+                                double factor = std::pow(169.0, 1.0 * N_);
+                                if( n % 169 == 0 ) 
+                                        std::cout << "n * 100.0 / factor => " << n * 100.0 / factor << "\n"; // __CandyPrint__(cxx-print-scalar,n * 100.0 / factor)
                         }
                         for(auto& group : *ptr){
                                 for(auto& _ : group.vec){
@@ -136,12 +174,14 @@ namespace{
 
                         std::cout << "sigma => " << sigma << "\n"; // __CandyPrint__(cxx-print-scalar,sigma)
                 }
+        private:
+                size_t N_;
         };
 } // end namespace anon
 
 namespace ps{
 
-support::persistent_memory_decl<holdem_class_vector_cache> Memory_ThreePlayerClassVector( std::make_unique<three_player_impl>() );
-support::persistent_memory_decl<holdem_class_vector_pair_cache> Memory_TwoPlayerClassVector( std::make_unique<two_player_impl>() );
+support::persistent_memory_decl<holdem_class_vector_pair_cache> Memory_ThreePlayerClassVector( std::make_unique<n_player_impl>(3) );
+support::persistent_memory_decl<holdem_class_vector_pair_cache> Memory_TwoPlayerClassVector( std::make_unique<n_player_impl>(2) );
 
 } // end namespace ps

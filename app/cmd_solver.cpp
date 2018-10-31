@@ -42,6 +42,17 @@
 #include "ps/eval/holdem_class_vector_cache.h"
 #include "ps/eval/binary_strategy_description.h"
 
+#include <boost/archive/text_iarchive.hpp>
+#include <boost/archive/text_oarchive.hpp>
+#include <boost/archive/binary_iarchive.hpp>
+#include <boost/archive/binary_oarchive.hpp>
+#include <boost/serialization/base_object.hpp>
+#include <boost/serialization/utility.hpp>
+#include <boost/serialization/map.hpp>
+#include <boost/serialization/vector.hpp>
+#include <boost/serialization/assume_abstract.hpp>
+
+
 
 namespace ps{
 
@@ -104,6 +115,7 @@ namespace ps{
                 }
         };
         struct counter_strategy_aggresive : counter_strategy_concept{
+                enum{ Debug = false };
                 enum MaybeBool{
                         MB_False,
                         MB_True,
@@ -414,8 +426,10 @@ namespace ps{
                         }
 
 
-                        for(auto const& _ : ops_){
-                                std::cout << _->to_string() << "\n";
+                        if( Debug ){
+                                for(auto const& _ : ops_){
+                                        std::cout << _->to_string() << "\n";
+                                }
                         }
                 }
                 virtual Eigen::VectorXd counter(binary_strategy_description const& strategy_desc,
@@ -435,8 +449,87 @@ namespace ps{
                 std::vector<std::shared_ptr<Op> > ops_;
         };
 
+        // basically a wrapper class
+        struct holdem_binary_strategy{
+                holdem_binary_strategy()=default;
+                /* implicit */ holdem_binary_strategy(std::vector<Eigen::VectorXd> const& state){
+                        for(auto const& vec : state){
+                                state_.emplace_back();
+                                state_.back().resize(vec.size());
+                                for(size_t idx=0;idx!=vec.size();++idx){
+                                        state_.back()[idx] = vec[idx];
+                                }
+                        }
+                }
+                std::vector<Eigen::VectorXd> to_eigen()const{
+                        std::vector<Eigen::VectorXd> tmp;
+                        for(auto const& v : state_){
+                                Eigen::VectorXd ev(v.size());
+                                for(size_t idx=0;idx!=v.size();++idx){
+                                        ev[idx] = v[idx];
+                                }
+                                tmp.push_back(std::move(ev));
+                        }
+                        return tmp;
+                }
+        private:
+                friend class boost::serialization::access;
+                template<class Archive>
+                void serialize(Archive & ar, const unsigned int version){
+                        ar & state_;
+                }
+        private:
+                std::vector< std::vector<double> > state_;
+        };
+
+        template<class ImplType>
+        struct serialization_base{
+                void load(std::string const& path){
+                        using archive_type = boost::archive::text_iarchive;
+                        std::ifstream ofs(path);
+                        archive_type oa(ofs);
+                        oa >> *reinterpret_cast<ImplType*>(this);
+                }
+                void save(std::string const& path)const {
+                        using archive_type = boost::archive::text_oarchive;
+                        std::ofstream ofs(path);
+                        archive_type oa(ofs);
+                        oa << *reinterpret_cast<ImplType const*>(this);
+                }
+        };
+
+        struct holdem_binary_strategy_ledger : serialization_base<holdem_binary_strategy_ledger>{
+                void push(holdem_binary_strategy s){
+                        ledger_.emplace_back(std::move(s));
+                }
+                auto size()const{ return ledger_; }
+                auto const& back()const{ return ledger_.back(); }
+        private:
+                friend class boost::serialization::access;
+                template<class Archive>
+                void serialize(Archive & ar, const unsigned int version){
+                        ar & ledger_;
+                }
+        private:
+                std::vector<holdem_binary_strategy> ledger_;
+        };
+
+        struct holdem_binary_solution_set : serialization_base<holdem_binary_solution_set>{
+                void add_solution(double eff, holdem_binary_strategy solution){
+                        solutions_.emplace_back(eff, std::move(solution));
+                }
+        private:
+                friend class boost::serialization::access;
+                template<class Archive>
+                void serialize(Archive & ar, const unsigned int version){
+                        ar & solutions_;
+                }
+        private:
+                std::vector<std::pair<double, holdem_binary_strategy> > solutions_;
+        };
+
         struct SolverCmd : Command{
-                enum{ Debug = 0};
+                enum{ Debug = 1};
                 enum{ Dp = 2 };
                 explicit
                 SolverCmd(std::vector<std::string> const& args):args_{args}{}
@@ -445,10 +538,13 @@ namespace ps{
                         std::unique_ptr<counter_strategy_concept> cptr(new counter_strategy_aggresive);
                         //std::unique_ptr<counter_strategy_concept> cptr(new counter_strategy_elementwise);
 
+                        std::string ledger_path;
                         if( args_.size() && args_[0] == "three"){
                                 desc = binary_strategy_description::make_three_player_description(0.5, 1, 10);
+                                ledger_path = ".3_player_ledger.bin";
                         } else{
                                 desc = binary_strategy_description::make_hu_description(0.5, 1, 10);
+                                ledger_path = ".2_player_ledger.bin";
                         }
 
 
@@ -457,6 +553,13 @@ namespace ps{
                         auto state = state0;
 
                         double factor = 0.10;
+
+                        struct table_observer{
+                                table_observer(binary_strategy_description* desc)
+                                        : desc_{desc}
+                                {
+                                }
+                        };
 
 
                         using namespace Pretty;
@@ -481,6 +584,16 @@ namespace ps{
 
 
                         using state_type = binary_strategy_description::strategy_impl_t;
+
+                        holdem_binary_strategy_ledger ledger;
+                        try{
+                                ledger.load(ledger_path);
+                                state = ledger.back().to_eigen();
+                        }catch(...){
+                                ledger.push(state0);
+                                ledger.save(ledger_path);
+                        }
+
 
                         auto step = [&](auto const& state)->state_type
                         {
@@ -547,6 +660,10 @@ namespace ps{
                         for(;;){
                                 timer.start();
                                 auto next = step(state);
+                                ledger.push(next);
+                                ledger.save(ledger_path);
+                                ledger.save(ledger_path + ".other");
+
                                 timer.stop();
 
                                 if( stoppage_condition(state, next) )

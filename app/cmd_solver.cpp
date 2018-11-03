@@ -538,11 +538,16 @@ namespace ps{
 
         struct holdem_binary_solver_any_observer{
                 using state_type = binary_strategy_description::strategy_impl_t;
+                explicit holdem_binary_solver_any_observer(std::string const& name):name_{name}{}
                 virtual ~holdem_binary_solver_any_observer()=default;
                 virtual holdem_binary_solver_ctrl start(holdem_binary_solver const*, state_type const& state){ return Continue{}; }
                 virtual holdem_binary_solver_ctrl step(holdem_binary_solver const*, state_type const& from, state_type const& to){ return Continue{}; }
                 virtual holdem_binary_solver_ctrl finish(holdem_binary_solver const*, state_type const& state){ return Continue{}; }
                 virtual void imbue(holdem_binary_solver* solver){}
+
+                std::string const& get_name()const{ return name_; }
+        private:
+                std::string name_;
         };
 
         struct holdem_binary_solver_result{
@@ -565,6 +570,15 @@ namespace ps{
                 }
                 void add_observer(std::shared_ptr<holdem_binary_solver_any_observer> obs){
                         obs_.push_back(obs);
+                }
+                template<class T>
+                T const* get_observer()const{
+                        for(auto const& _ : obs_){
+                                if( _->get_name() == T::static_get_name()){
+                                        return reinterpret_cast<T const*>(_.get());
+                                }
+                        }
+                        return nullptr;
                 }
                 void use_inital_state(state_type state){
                         initial_state_ = std::move(state);
@@ -648,7 +662,7 @@ namespace ps{
 
         struct table_observer : holdem_binary_solver_any_observer{
                 table_observer(binary_strategy_description* desc)
-                        : desc_{desc}
+                        : holdem_binary_solver_any_observer{"table_observer"}, desc_{desc}
                 {
                         using namespace Pretty;
                         std::vector<std::string> header;
@@ -716,7 +730,8 @@ namespace ps{
         
         struct lp_inf_stoppage_condition : holdem_binary_solver_any_observer{
                 explicit lp_inf_stoppage_condition(double epsilon = 0.05)
-                        : epsilon_{epsilon}
+                        : holdem_binary_solver_any_observer{"lp_inf_stoppage_condition"}
+                        , epsilon_{epsilon}
                 {}
                 virtual holdem_binary_solver_ctrl step(holdem_binary_solver const*, state_type const& from, state_type const& to)override{
                         std::vector<double> norm_vec;
@@ -735,8 +750,122 @@ namespace ps{
         private:
                 double epsilon_;
         };
+        // for this stoppage condtiion, we want that the ev is less than norm
+        struct ev_diff_stoppage_condition : holdem_binary_solver_any_observer{
+                explicit ev_diff_stoppage_condition(double epsilon = 0.000001, size_t stride = 1)
+                        : holdem_binary_solver_any_observer{"ev_diff_stoppage_condition"}
+                        , epsilon_{epsilon}, stride_{stride}
+                {
+                        assert( stride != 0 );
+                }
+                virtual holdem_binary_solver_ctrl step(holdem_binary_solver const* solver, state_type const& from, state_type const& to)override{
+                        if( ++count_ % stride_ != 0 )
+                                return Continue{};
+                        auto desc = solver->get_description();
+                        auto from_ev = desc->expected_value(from);
+                        auto to_ev = desc->expected_value(to);
+
+                        auto delta = from_ev - to_ev;
+                        auto norm = delta.lpNorm<1>();
+                        auto cond = ( norm < epsilon_ );
+                        if( cond ){
+                                std::stringstream sstr;
+                                sstr << std::fixed;
+                                sstr << "ev_diff_stoppage_condition: norm=" << norm << ", epsilon=" << epsilon_;
+                                return Break{sstr.str()};
+                        }
+                        return Continue{};
+                }
+        private:
+                double epsilon_;
+                size_t stride_;
+                size_t count_{0};
+        };
+        struct ev_seq : holdem_binary_solver_any_observer{
+                static std::string static_get_name(){ return "ev_seq"; }
+                ev_seq() : holdem_binary_solver_any_observer{static_get_name()}{}
+                struct min_max_type{
+                        double min_;
+                        double max_;
+                };
+
+                virtual void imbue(holdem_binary_solver* solver)override{
+                        n_ = solver->get_description()->num_players();
+                }
+                virtual holdem_binary_solver_ctrl step(holdem_binary_solver const* solver, state_type const& from, state_type const& to)override{
+                        auto desc = solver->get_description();
+                        auto to_ev = desc->expected_value(to);
+                        seq_.push_back(to_ev);
+                        return Continue{};
+                }
+                boost::optional<std::vector<min_max_type> > make_min_max(size_t lookback)const{
+                        Eigen::VectorXd min_(n_), max_(n_);
+                        min_.fill(+DBL_MAX);;
+                        max_.fill(-DBL_MAX);
+                        if(seq_.size() < lookback )
+                                return boost::none;
+                        for(size_t idx=lookback; idx!=0;){
+                                --idx;
+                                auto const& v = seq_[seq_.size()-1-idx];
+                                for(size_t j=0;j!=v.size();++j){
+                                        if( v[j] < min_[j]){
+                                                min_[j] = v[j];
+                                        }
+                                        if( v[j] > max_[j]){
+                                                max_[j] = v[j];
+                                        }
+                                }
+                        }
+                        std::vector<min_max_type> result;
+                        for(size_t idx=0;idx!=n_;++idx){
+                                result.emplace_back( min_max_type{ min_[idx], max_[idx] } );
+                        }
+                        return result;
+                }
+        private:
+                size_t n_{0};
+                std::vector< Eigen::VectorXd > seq_;
+        };
+
+        struct ev_seq_printer : holdem_binary_solver_any_observer{
+                ev_seq_printer(): holdem_binary_solver_any_observer{"ev_seq_printer"}{}
+                virtual holdem_binary_solver_ctrl step(holdem_binary_solver const* solver, state_type const& from, state_type const& to)override{
+                        enum{ Lookback = 100 };
+
+                        auto ptr = solver->get_observer<ev_seq>();
+                        if( ! ptr )
+                                return Continue{};
+
+                        auto opt = ptr->make_min_max(Lookback);
+                        if( ! opt )
+                                return Continue{};
+                        table_.push_back(std::move(*opt));
+
+                        using namespace Pretty;
+                        std::vector<LineItem> lines;
+                        lines.push_back(std::vector<std::string>{"range[0]", "delta[0]", "range[1]", "delta[1]"});
+                        lines.push_back(LineBreak);
+                        for(auto const& row : table_){
+                                std::vector<std::string> line;
+                                for(auto const& col : row ){
+                                        std::stringstream sstr;
+                                        sstr << std::fixed << std::setprecision(10);
+                                        sstr << "(" << col.min_ << "," << col.max_ << ")";
+                                        line.emplace_back(sstr.str());
+                                        sstr.str("");
+                                        sstr << col.max_ - col.min_;
+                                        line.emplace_back(sstr.str());
+                                }
+                                lines.push_back(std::move(line));
+                        }
+                        RenderTablePretty(std::cout, lines);
+                        return Continue{};
+
+                }
+                std::vector< std::vector< ev_seq::min_max_type > > table_;
+        };
         struct max_steps_condition : holdem_binary_solver_any_observer{
-                explicit max_steps_condition(size_t n):n_{n}{}
+                explicit max_steps_condition(size_t n):holdem_binary_solver_any_observer{"max_steps_condition"}, n_{n}{}
                 virtual holdem_binary_solver_ctrl step(holdem_binary_solver const* solver, state_type const& from, state_type const& to)override{
                         if( ++count_ > n_){
                                 std::stringstream sstr;
@@ -751,6 +880,7 @@ namespace ps{
         };
         struct strategy_printer : holdem_binary_solver_any_observer{
                 enum{ Dp = 2 };
+                strategy_printer():holdem_binary_solver_any_observer{"strategy_printer"}{}
                 virtual holdem_binary_solver_ctrl step(holdem_binary_solver const* solver, state_type const& from, state_type const& to)override{
                         auto desc = solver->get_description();
                         for(auto si=desc->begin_strategy(),se=desc->end_strategy();si!=se;++si){
@@ -765,7 +895,8 @@ namespace ps{
 
         struct solver_ledger : holdem_binary_solver_any_observer{
                 explicit solver_ledger(std::string const& filename)
-                        : filename_{filename}
+                        : holdem_binary_solver_any_observer{"solver_ledger"}
+                        , filename_{filename}
                 {}
                 virtual holdem_binary_solver_ctrl start(holdem_binary_solver const*, state_type const& state)override{
                         if( ! skip_start_ ){
@@ -797,7 +928,6 @@ namespace ps{
         };
 
         
-
         struct SolverCmd : Command{
                 enum{ Debug = 1};
                 explicit
@@ -811,7 +941,7 @@ namespace ps{
                                 desc = binary_strategy_description::make_three_player_description(0.5, 1, 10);
                                 ledger_path = ".3_player_ledger.bin";
                         } else{
-                                desc = binary_strategy_description::make_hu_description(0.5, 1, 10);
+                                desc = binary_strategy_description::make_hu_description(0.5, 1, 8);
                                 ledger_path = ".2_player_ledger.bin";
                         }
 
@@ -819,10 +949,13 @@ namespace ps{
                         solver.use_description(desc);
                         solver.use_strategy(std::make_shared<counter_strategy_aggresive>());
 
-                        solver.add_observer(std::make_shared<table_observer>(desc.get()));
+                        solver.add_observer(std::make_shared<ev_seq>());
+                        solver.add_observer(std::make_shared<ev_seq_printer>());
+                        //solver.add_observer(std::make_shared<table_observer>(desc.get()));
                         //solver.add_observer(std::make_shared<solver_ledger>(ledger_path));
-                        solver.add_observer(std::make_shared<strategy_printer>());
-                        solver.add_observer(std::make_shared<lp_inf_stoppage_condition>());
+                        //solver.add_observer(std::make_shared<strategy_printer>());
+                        //solver.add_observer(std::make_shared<lp_inf_stoppage_condition>());
+                        //solver.add_observer(std::make_shared<ev_diff_stoppage_condition>());
 
                         auto result = solver.compute();
                         if( auto ptr = boost::get<Break>(&result.stop_condition)){
@@ -890,7 +1023,7 @@ namespace ps{
                 HuTable(std::vector<std::string> const& args):args_{args}{}
                 virtual int Execute()override{
 
-                        enum{ MaxSteps = 1000 };
+                        enum{ MaxSteps = 500 };
 
                         auto maker = [](double eff)
                         {
@@ -913,6 +1046,7 @@ namespace ps{
                         auto table = hu_table_maker::make_table(maker);
                         for(auto const& s : table){
                                 pretty_print_strat(s, 1);
+                                std::cout << "\n";
                         }
 
 

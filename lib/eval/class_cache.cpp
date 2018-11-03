@@ -247,6 +247,38 @@ private:
         std::vector<std::string> const& args_;
 };
 static TrivialCommandDecl<PrintCacheCmd> PrintCacheCmdDecl{"print-cache"};
+} // end namespace ps
 
+
+#include "ps/support/persistent_impl.h"
+
+namespace{
+        using namespace ps;
+        struct class_cache_impl : support::persistent_memory_impl_serializer<class_cache>{
+                virtual std::string name()const override{
+                        return "class_cache";
+                }
+                virtual std::shared_ptr<class_cache> make()const override{
+                        // boot strap
+                        std::string cache_name{".cc.bin"};
+                        auto ptr = std::make_shared<class_cache>();
+                        ptr->load(cache_name);
+                        return ptr;
+                }
+                virtual void display(std::ostream& ostr)const override{
+                        auto const& obj = *reinterpret_cast<class_cache const*>(ptr());
+                        for(auto const& _ : obj){
+                                holdem_class_vector cv(_.first.begin(), _.first.end());
+                                std::cout << cv << "=>" << detail::to_string(_.second) << "\n";
+                        }
+                }
+        private:
+                size_t N_;
+        };
+} // end namespace anon
+
+namespace ps{
+
+support::persistent_memory_decl<class_cache> Memory_ClassCache{std::make_unique<class_cache_impl>()};
 
 } // end namespace ps

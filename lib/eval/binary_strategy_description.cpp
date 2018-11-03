@@ -42,6 +42,8 @@
 
 namespace ps{
 
+
+
         struct static_event : binary_strategy_description::event_decl{
                 explicit static_event(std::string const& key, Eigen::VectorXd vec):
                         key_{key}, vec_{vec}

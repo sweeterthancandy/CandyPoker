@@ -5,6 +5,7 @@
 #include <map>
 
 #include "ps/base/cards.h"
+#include "ps/support/persistent.h"
 
 /*
  * This case is just to store the result of computation as a vector of equity.
@@ -98,6 +99,9 @@ private:
 private:
         std::map<std::vector<holdem_class_id>, std::vector<double> > cache_;
 };
+
+extern support::persistent_memory_decl<class_cache> Memory_ClassCache;
+
 
 #if NOT_DEFINED
 

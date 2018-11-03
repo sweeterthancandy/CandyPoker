@@ -93,6 +93,9 @@ struct persistent_memory_decl : persistent_memory_base{
         persistent_memory_decl(std::unique_ptr<impl_base> pimpl)
                 : pimpl_{std::move(pimpl)}
         {}
+        T const* get()const{
+                return reinterpret_cast<T const*>(pimpl_->ptr());
+        }
         T const* operator->()const{
                 return reinterpret_cast<T const*>(pimpl_->ptr());
         }

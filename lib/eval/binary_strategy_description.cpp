@@ -66,12 +66,11 @@ namespace ps{
         struct eval_event : binary_strategy_description::event_decl{
                 enum{ Debug = 0 };
                 explicit
-                eval_event(class_cache const* cc,
-                           std::string const& key,
+                eval_event( std::string const& key,
                            std::vector<size_t> perm,
                            Eigen::VectorXd const& dead_money,
                            Eigen::VectorXd const& active)
-                        :cc_{cc}, key_(key), perm_{perm}, dead_money_{dead_money}, active_{active}
+                        :key_(key), perm_{perm}, dead_money_{dead_money}, active_{active}
                         ,pot_amt_{active_.sum() + dead_money_.sum()}
                 {
 
@@ -111,8 +110,8 @@ namespace ps{
                                 tmp.push_back(cv[re_perm[idx]]);
                         }
                         
-                        //auto ev = cc_->LookupVector(tmp);
-                        auto ev_ptr = cc_->fast_lookup_no_perm(tmp);
+                        auto cc = Memory_ClassCache.get();
+                        auto ev_ptr = cc->fast_lookup_no_perm(tmp);
                         auto const& ev = *ev_ptr;
                         
                         out += delta_proto_ * p;
@@ -135,7 +134,6 @@ namespace ps{
                         return sstr.str();
                 }
         private:
-                class_cache const* cc_;
                 std::string key_;
                 std::vector<size_t> perm_;
                 Eigen::VectorXd dead_money_; // not used
@@ -150,11 +148,6 @@ namespace ps{
                         : sb_{sb}, bb_{bb}, eff_{eff}
                 {
 
-	
-                        #if 1
-                        std::string cache_name{".cc.bin"};
-                        cc_.load(cache_name);
-                        #endif
 
 
                         Eigen::VectorXd v_f_{2};
@@ -173,7 +166,7 @@ namespace ps{
                         Eigen::VectorXd active{2};
                         active[0] = eff_;
                         active[1] = eff_;
-                        auto n_pp = std::make_shared<eval_event>(&cc_, "pp", std::vector<size_t>{0,1}, dead_money, active);
+                        auto n_pp = std::make_shared<eval_event>("pp", std::vector<size_t>{0,1}, dead_money, active);
                         events_.push_back(n_pp);
 
                         strats_.emplace_back(0,0, "SB Pushing", "");
@@ -249,8 +242,6 @@ namespace ps{
                 double sb_;
                 double bb_;
                 double eff_;
-
-                class_cache cc_;
         };
         
         
@@ -258,12 +249,6 @@ namespace ps{
                 three_player_description(double sb, double bb, double eff)
                         : sb_{sb}, bb_{bb}, eff_{eff}
                 {
-
-	
-                        #if 1
-                        std::string cache_name{".cc.bin"};
-                        cc_.load(cache_name);
-                        #endif
 
 
                         size_t num_players = 3;
@@ -322,7 +307,7 @@ namespace ps{
                                 } else { 
                                         // push call
 
-                                        auto allin = std::make_shared<eval_event>(&cc_, key, perm, dead_money, active);
+                                        auto allin = std::make_shared<eval_event>(key, perm, dead_money, active);
                                         events_.push_back(allin);
                                 }
                                 
@@ -460,8 +445,6 @@ namespace ps{
                 double sb_;
                 double bb_;
                 double eff_;
-
-                class_cache cc_;
         };
                 
         std::shared_ptr<binary_strategy_description> binary_strategy_description::make_hu_description(double sb, double bb, double eff){

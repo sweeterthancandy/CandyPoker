@@ -22,7 +22,7 @@ namespace serialization{
 namespace ps{
 
 
-struct class_cache{
+struct class_cache : boost::noncopyable{
         void add(std::vector<holdem_class_id> vec, std::vector<double> equity){
                 cache_.emplace(std::move(vec), std::move(equity));
         }
@@ -102,7 +102,7 @@ private:
 
 extern support::persistent_memory_decl<class_cache> Memory_ClassCache;
 
-
+// TODO, look at this again
 #if NOT_DEFINED
 
 #include <boost/functional/hash.hpp>

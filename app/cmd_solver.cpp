@@ -529,7 +529,7 @@ namespace ps{
 
 
         struct Continue{};
-        struct Break{};
+        struct Break{ std::string msg; };
         struct Error{ std::string msg; };
 
         using  holdem_binary_solver_ctrl = boost::variant<Continue, Break, Error>;
@@ -729,7 +729,7 @@ namespace ps{
 
                         bool cond = norm < epsilon_;
                         if( cond )
-                                return Break{};
+                                return Break{"lp_inf_stoppage_condition"};
                         return Continue{};
                 }
         private:
@@ -818,16 +818,22 @@ namespace ps{
                         holdem_binary_solver solver;
                         solver.use_description(desc);
                         solver.use_strategy(std::make_shared<counter_strategy_aggresive>());
-                        solver.add_observer(std::make_shared<lp_inf_stoppage_condition>());
+
                         solver.add_observer(std::make_shared<table_observer>(desc.get()));
-                        solver.add_observer(std::make_shared<solver_ledger>(ledger_path));
+                        //solver.add_observer(std::make_shared<solver_ledger>(ledger_path));
                         solver.add_observer(std::make_shared<strategy_printer>());
+                        solver.add_observer(std::make_shared<lp_inf_stoppage_condition>());
 
                         auto result = solver.compute();
-                        if( result.success() ){
+                        if( auto ptr = boost::get<Break>(&result.stop_condition)){
+                                std::cerr << "Break: " << ptr->msg << "\n";
                                 for(auto& _ : result.state){
                                         _ = clamp(_);
                                 }
+                        } else if( auto ptr = boost::get<Error>(&result.stop_condition)){
+                                std::cerr << "Error: " << ptr->msg << "\n";
+                        } else{
+                                std::cerr << "unknown093\n";
                         }
 
                         return EXIT_SUCCESS;
@@ -844,7 +850,8 @@ namespace ps{
                 static state_type make_table(FutureMaker&& solver){
                         using result_t = std::future<std::tuple<double, holdem_binary_solver_result > >;
                         std::vector<result_t> tmp;
-                        for(double eff=2;eff!=20;eff+=0.1){
+                        double d = 0.1;
+                        for(double eff=2;eff - 1e-3<20;eff+=d){
                                 tmp.emplace_back(std::async([&,e=eff](){
                                         return std::make_tuple(e, solver(e));
                                 }));
@@ -883,7 +890,7 @@ namespace ps{
                 HuTable(std::vector<std::string> const& args):args_{args}{}
                 virtual int Execute()override{
 
-                        enum{ MaxSteps = 400 };
+                        enum{ MaxSteps = 1000 };
 
                         auto maker = [](double eff)
                         {
@@ -905,7 +912,7 @@ namespace ps{
                         };
                         auto table = hu_table_maker::make_table(maker);
                         for(auto const& s : table){
-                                pretty_print_strat(s, 0);
+                                pretty_print_strat(s, 1);
                         }
 
 

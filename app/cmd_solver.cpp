@@ -844,7 +844,7 @@ namespace ps{
                 static state_type make_table(FutureMaker&& solver){
                         using result_t = std::future<std::tuple<double, holdem_binary_solver_result > >;
                         std::vector<result_t> tmp;
-                        for(double eff=10;eff!=20;++eff){
+                        for(double eff=2;eff!=20;eff+=0.1){
                                 tmp.emplace_back(std::async([&,e=eff](){
                                         return std::make_tuple(e, solver(e));
                                 }));
@@ -883,6 +883,8 @@ namespace ps{
                 HuTable(std::vector<std::string> const& args):args_{args}{}
                 virtual int Execute()override{
 
+                        enum{ MaxSteps = 400 };
+
                         auto maker = [](double eff)
                         {
                                 auto desc = binary_strategy_description::make_hu_description(0.5, 1, eff);
@@ -892,7 +894,7 @@ namespace ps{
                                 solver.use_description(desc_sptr);
                                 solver.use_strategy(std::make_shared<counter_strategy_aggresive>());
                                 solver.add_observer(std::make_shared<lp_inf_stoppage_condition>());
-                                solver.add_observer(std::make_shared<max_steps_condition>(200));
+                                solver.add_observer(std::make_shared<max_steps_condition>(MaxSteps));
                                 auto result = solver.compute();
                                 if( result.success()){
                                         for(auto& _ : result.state){

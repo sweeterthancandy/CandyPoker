@@ -21,11 +21,14 @@ namespace support{
         template<class T>
         struct persistent_memory_impl_serializer : persistent_memory_base::impl_base{
                 virtual std::shared_ptr<void> load(std::string const& path)const{
+                        auto ctrl = persistent_memory_base::get_controller();
+                        ctrl->begin_load(path);
                         using archive_type = boost::archive::text_iarchive;
                         auto ptr = std::make_shared<T>();
                         std::ifstream ofs(path);
                         archive_type oa(ofs);
                         oa >> *ptr;
+                        ctrl->end_load(path);
                         return ptr;
                 }
                 virtual void save(std::shared_ptr<void> ptr, std::string const& path)const {
@@ -40,7 +43,8 @@ namespace support{
                                 return memory_.get();
                         }
                         std::lock_guard<std::mutex> lock(mtx_);
-                        auto path = persistent_memory_base::get_controller()->alloc_path(name());
+                        auto ctrl = persistent_memory_base::get_controller();
+                        auto path = ctrl->alloc_path(name());
                         if( loaded_ ){
                                 return memory_.get();
                         }
@@ -59,19 +63,6 @@ namespace support{
                 mutable std::shared_ptr<T> memory_;
                 mutable std::mutex mtx_;
         };
-        #if 0
-                using te_maker_type = std::function<std::shared_ptr<T>()>;
-                persistent_memory_impl(std::string const& name, te_maker_type maker)
-                        : name_(name)
-                        , maker_(std::move(maker))
-                {}
-                virtual std::string Name()const{
-                        return name_;
-                }
-                virtual std::shared_ptr<void> make()const override{
-                        return maker_();
-                }
-        #endif
 
 } // end namespace support
 } // end namespace ps

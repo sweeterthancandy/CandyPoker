@@ -31,10 +31,18 @@ struct persistent_memory_base : boost::intrusive::list_base_hook<>{
         struct controller{
                 virtual ~controller()=default;
                 virtual std::string alloc_path(std::string const& token)=0;
+                virtual void begin_load(std::string const& path)=0;
+                virtual void end_load(std::string const& path)=0;
         };
         struct default_controller : controller{
                 virtual std::string alloc_path(std::string const& token)override{
                         return ".persistent." + token;
+                }
+                virtual void begin_load(std::string const& path){
+                        std::cerr << "begin_load(" << path << ")\n";
+                }
+                virtual void end_load(std::string const& path){
+                        std::cerr << "end_load(" << path << ")\n";
                 }
         };
 

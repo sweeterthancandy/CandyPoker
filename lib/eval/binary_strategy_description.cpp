@@ -462,11 +462,11 @@ namespace ps{
                 class_cache cc_;
         };
                 
-        std::unique_ptr<binary_strategy_description> binary_strategy_description::make_hu_description(double sb, double bb, double eff){
-                return std::make_unique<heads_up_description>(sb, bb, eff);
+        std::shared_ptr<binary_strategy_description> binary_strategy_description::make_hu_description(double sb, double bb, double eff){
+                return std::make_shared<heads_up_description>(sb, bb, eff);
         }
-        std::unique_ptr<binary_strategy_description> binary_strategy_description::make_three_player_description(double sb, double bb, double eff){
-                return std::make_unique<three_player_description>(sb, bb, eff);
+        std::shared_ptr<binary_strategy_description> binary_strategy_description::make_three_player_description(double sb, double bb, double eff){
+                return std::make_shared<three_player_description>(sb, bb, eff);
         }
 
 } // end namespace ps

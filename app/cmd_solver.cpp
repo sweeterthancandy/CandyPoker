@@ -530,7 +530,9 @@ namespace ps{
 
         struct Continue{};
         struct Break{};
-        using  holdem_binary_solver_ctrl = boost::variant<Continue, Break>;
+        struct Error{ std::string msg; };
+
+        using  holdem_binary_solver_ctrl = boost::variant<Continue, Break, Error>;
 
         struct holdem_binary_solver;
 
@@ -543,6 +545,16 @@ namespace ps{
                 virtual void imbue(holdem_binary_solver* solver){}
         };
 
+        struct holdem_binary_solver_result{
+                using state_type = binary_strategy_description::strategy_impl_t;
+                state_type state;
+                size_t n{0};
+                holdem_binary_solver_ctrl stop_condition;
+                
+                bool success()const{
+                        return ( boost::get<Break>(&stop_condition) != nullptr );
+                }
+        };
         struct holdem_binary_solver{
                 using state_type = binary_strategy_description::strategy_impl_t;
                 void use_description(std::shared_ptr<binary_strategy_description> desc){
@@ -557,22 +569,13 @@ namespace ps{
                 void use_inital_state(state_type state){
                         initial_state_ = std::move(state);
                 }
-                state_type compute(){
+                holdem_binary_solver_result compute(){
+                        static double const factor = 0.10;
                         
                         for(auto& _ : obs_ ){
                                 _->imbue(this);
                         }
 
-                        state_type state;
-
-                        if( initial_state_ ){
-                                state = *initial_state_;
-                        } else {
-                                state = desc_->make_inital_state();
-                        }
-                        
-
-                        double factor = 0.10;
                         auto step = [&](auto const& state)->state_type
                         {
                                 using result_t = std::future<std::tuple<size_t, Eigen::VectorXd> >;
@@ -593,31 +596,41 @@ namespace ps{
                                 return result;
                         };
                         
+                        state_type state;
+
+                        if( initial_state_ ){
+                                state = *initial_state_;
+                        } else {
+                                state = desc_->make_inital_state();
+                        }
+                        
+
 
                         for(auto& _ : obs_ ){
                                 _->start(this, state);
                         }
 
-                        for(;;){
+                        size_t n = 0;
+                        for(;;++n){
                                 auto next = step(state);
 
-                                bool break_condition = [&](){
-                                        bool cond = false;
-                                        for(auto& _ : obs_ ){
-                                                auto result = _->step(this, state, next);
-                                                if( auto ptr = boost::get<Break>(&result)){
-                                                        cond = true;
-                                                }
+                                for(auto& _ : obs_ ){
+                                        auto result = _->step(this, state, next);
+                                        if( auto ptr = boost::get<Continue>(&result)){
+                                                continue;
                                         }
-                                        return cond;
-                                }();
-                                if( break_condition ){
-                                        break;
+                                        if( auto ptr = boost::get<Break>(&result)){
+                                                return { state, n, result };
+                                        }
+                                        if( auto ptr = boost::get<Error>(&result)){
+                                                return { state, n, result };
+                                        }
+                                        PS_UNREACHABLE();
                                 }
 
                                 state = next;
                         }
-                        return state;
+                        PS_UNREACHABLE();
                 }
                 std::shared_ptr<binary_strategy_description> get_description()const{
                         return desc_;
@@ -722,6 +735,20 @@ namespace ps{
         private:
                 double epsilon_;
         };
+        struct max_steps_condition : holdem_binary_solver_any_observer{
+                explicit max_steps_condition(size_t n):n_{n}{}
+                virtual holdem_binary_solver_ctrl step(holdem_binary_solver const* solver, state_type const& from, state_type const& to)override{
+                        if( ++count_ > n_){
+                                std::stringstream sstr;
+                                sstr << "Too many steps (" << n_ << ") for " << solver->get_description()->string_representation();
+                                return Error{sstr.str()};
+                        }
+                        return Continue{};
+                }
+        private:
+                size_t n_;
+                size_t count_{0};
+        };
         struct strategy_printer : holdem_binary_solver_any_observer{
                 enum{ Dp = 2 };
                 virtual holdem_binary_solver_ctrl step(holdem_binary_solver const* solver, state_type const& from, state_type const& to)override{
@@ -778,7 +805,7 @@ namespace ps{
                 virtual int Execute()override{
 
 
-                        std::unique_ptr<binary_strategy_description> desc;
+                        std::shared_ptr<binary_strategy_description> desc;
                         std::string ledger_path;
                         if( args_.size() && args_[0] == "three"){
                                 desc = binary_strategy_description::make_three_player_description(0.5, 1, 10);
@@ -787,10 +814,9 @@ namespace ps{
                                 desc = binary_strategy_description::make_hu_description(0.5, 1, 10);
                                 ledger_path = ".2_player_ledger.bin";
                         }
-                        auto desc_sptr = std::shared_ptr<binary_strategy_description>(desc.get(), [](auto _){});
 
                         holdem_binary_solver solver;
-                        solver.use_description(desc_sptr);
+                        solver.use_description(desc);
                         solver.use_strategy(std::make_shared<counter_strategy_aggresive>());
                         solver.add_observer(std::make_shared<lp_inf_stoppage_condition>());
                         solver.add_observer(std::make_shared<table_observer>(desc.get()));
@@ -798,8 +824,10 @@ namespace ps{
                         solver.add_observer(std::make_shared<strategy_printer>());
 
                         auto result = solver.compute();
-                        for(auto& _ : result){
-                                _ = clamp(_);
+                        if( result.success() ){
+                                for(auto& _ : result.state){
+                                        _ = clamp(_);
+                                }
                         }
 
                         return EXIT_SUCCESS;
@@ -814,7 +842,7 @@ namespace ps{
                 using state_type = binary_strategy_description::strategy_impl_t;
                 template<class FutureMaker>
                 static state_type make_table(FutureMaker&& solver){
-                        using result_t = std::future<std::tuple<double, state_type > >;
+                        using result_t = std::future<std::tuple<double, holdem_binary_solver_result > >;
                         std::vector<result_t> tmp;
                         for(double eff=10;eff!=20;++eff){
                                 tmp.emplace_back(std::async([&,e=eff](){
@@ -826,7 +854,14 @@ namespace ps{
                         for(auto& _ : tmp){
                                 auto aux = _.get();
                                 auto eff        = std::get<0>(aux);
-                                auto const& vec = std::get<1>(aux);
+                                auto const& ret = std::get<1>(aux);
+                                if( ! ret.success() ){
+                                        if( auto ptr = boost::get<Error>(&ret.stop_condition)){
+                                                std::cerr << "Error: " << ptr->msg << "\n";
+                                        }
+                                        continue;
+                                }
+                                auto const& vec = ret.state;
                                 for(; state.size() < vec.size();){
                                         state.emplace_back(169);
                                         state.back().fill(0.0);
@@ -848,8 +883,7 @@ namespace ps{
                 HuTable(std::vector<std::string> const& args):args_{args}{}
                 virtual int Execute()override{
 
-                        using state_type = binary_strategy_description::strategy_impl_t;
-                        auto maker = [](double eff)->state_type
+                        auto maker = [](double eff)
                         {
                                 auto desc = binary_strategy_description::make_hu_description(0.5, 1, eff);
                                 auto desc_sptr = std::shared_ptr<binary_strategy_description>(desc.get(), [](auto _){});
@@ -858,9 +892,12 @@ namespace ps{
                                 solver.use_description(desc_sptr);
                                 solver.use_strategy(std::make_shared<counter_strategy_aggresive>());
                                 solver.add_observer(std::make_shared<lp_inf_stoppage_condition>());
+                                solver.add_observer(std::make_shared<max_steps_condition>(200));
                                 auto result = solver.compute();
-                                for(auto& _ : result){
-                                        _ = clamp(_);
+                                if( result.success()){
+                                        for(auto& _ : result.state){
+                                                _ = clamp(_);
+                                        }
                                 }
                                 return result;
                         };

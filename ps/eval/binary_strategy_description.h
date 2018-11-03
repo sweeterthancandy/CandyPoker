@@ -29,6 +29,15 @@ namespace ps{
                 virtual double eff()const=0;
                 virtual size_t num_players()const=0;
 
+                virtual std::string string_representation()const{
+                        std::stringstream sstr;
+                        sstr << num_players() << "-players ";
+                        sstr << sb() << ":" << bb() << ":" << eff();
+                        return sstr.str();
+                }
+
+
+
                 virtual strategy_impl_t make_inital_state()const=0;
                 /*
                  *  We are constraied to only events which can be represented by a key,
@@ -119,8 +128,8 @@ namespace ps{
                 strategy_iterator end_strategy()const{ return strats_.end(); }
 
 
-                static std::unique_ptr<binary_strategy_description> make_hu_description(double sb, double bb, double eff);
-                static std::unique_ptr<binary_strategy_description> make_three_player_description(double sb, double bb, double eff);
+                static std::shared_ptr<binary_strategy_description> make_hu_description(double sb, double bb, double eff);
+                static std::shared_ptr<binary_strategy_description> make_three_player_description(double sb, double bb, double eff);
         protected:
                 event_vector events_;
                 strategy_vector strats_;

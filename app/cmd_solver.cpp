@@ -787,6 +787,8 @@ namespace ps{
                 struct min_max_type{
                         double min_;
                         double max_;
+
+                        double delta()const{ return max_ - min_; }
                 };
 
                 virtual void imbue(holdem_binary_solver* solver)override{
@@ -863,6 +865,33 @@ namespace ps{
 
                 }
                 std::vector< std::vector< ev_seq::min_max_type > > table_;
+        };
+
+        struct ev_seq_break : holdem_binary_solver_any_observer{
+                explicit ev_seq_break(double epsilon): holdem_binary_solver_any_observer{"ev_seq_break"}, epsilon_{epsilon}{}
+                virtual holdem_binary_solver_ctrl step(holdem_binary_solver const* solver, state_type const& from, state_type const& to)override{
+                        enum{ Lookback = 100 };
+
+                        auto ptr = solver->get_observer<ev_seq>();
+                        if( ! ptr )
+                                return Continue{};
+
+                        auto opt = ptr->make_min_max(Lookback);
+                        if( ! opt )
+                                return Continue{};
+
+                        auto delta =  opt->at(0).delta();
+                        auto cond = ( delta < epsilon_ );
+                        if( cond ){
+                                std::stringstream sstr;
+                                sstr << std::fixed << std::setprecision(10);
+                                sstr << "ev_seq_break: delta=" << delta << ", epsilon=" << epsilon_;
+                                return Break{sstr.str()};
+                        }
+                        return Continue{};
+                }
+        private:
+                double epsilon_;
         };
         struct max_steps_condition : holdem_binary_solver_any_observer{
                 explicit max_steps_condition(size_t n):holdem_binary_solver_any_observer{"max_steps_condition"}, n_{n}{}
@@ -951,6 +980,7 @@ namespace ps{
 
                         solver.add_observer(std::make_shared<ev_seq>());
                         solver.add_observer(std::make_shared<ev_seq_printer>());
+                        solver.add_observer(std::make_shared<ev_seq_break>(1e-5));
                         //solver.add_observer(std::make_shared<table_observer>(desc.get()));
                         //solver.add_observer(std::make_shared<solver_ledger>(ledger_path));
                         //solver.add_observer(std::make_shared<strategy_printer>());

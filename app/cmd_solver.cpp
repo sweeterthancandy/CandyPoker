@@ -52,6 +52,7 @@
 #include <boost/serialization/vector.hpp>
 #include <boost/serialization/assume_abstract.hpp>
 
+#include "ps/support/persistent_impl.h"
 
 
 namespace ps{
@@ -221,6 +222,10 @@ namespace ps{
                                 auto push_ev = strategy_desc.expected_value_for_class_id(decl.player_index(),
                                                                                          cid,
                                                                                          push_s);
+                                #if 0
+                                std::cout << "[" << holdem_class_decl::get(cid) << "] ";
+                                std::cout << "fold_ev => " << fold_ev << "\n"; // __CandyPrint__(cxx-print-scalar,fold_ev)
+                                #endif
                                 return ( fold_ev <= push_ev ? MB_True : MB_False );
                         }
 
@@ -314,45 +319,6 @@ namespace ps{
                         holdem_class_vector derived_false_;
                 };
                 counter_strategy_aggresive(){
-                        // pocket pairs
-                        
-                        #if 0
-                        for(size_t A=0;A!=13;++A){
-                                auto cid = holdem_class_decl::make_id(holdem_class_type::pocket_pair, A, A);
-                                auto op = std::make_shared<Any>(cid);
-                                ops_.push_back(op);
-                                if( A != 0 ){
-                                        auto prev = holdem_class_decl::make_id(holdem_class_type::pocket_pair,A-1,A-1);
-                                        op->take_true(prev);
-                                }
-                        }
-                        
-                        // suited
-                        for(size_t A=13;A!=0;){
-                                --A;
-                                for(size_t B=0;B!=A;++B){
-                                        auto cid = holdem_class_decl::make_id(holdem_class_type::suited, A, B);
-                                        auto op = std::make_shared<Any>(cid);
-                                        ops_.push_back(op);
-                                }
-                        }
-
-                        // offsuit
-                        for(size_t A=13;A!=0;){
-                                --A;
-                                for(size_t B=0;B!=A;++B){
-
-                                        auto cid = holdem_class_decl::make_id(holdem_class_type::offsuit, A, B);
-                                        auto op = std::make_shared<Any>(cid);
-                                        ops_.push_back(op);
-#if 0
-
-                                        auto suited_id = holdem_class_decl::make_id(holdem_class_type::suited, A, B);
-                                        op->take_false(suited_id);
-#endif
-                                }
-                        }
-                        #endif
 
                         /*
                                 The idea is that for any strategy, we ALWAYS have the constaruct that 
@@ -517,6 +483,8 @@ namespace ps{
                 void add_solution(double eff, holdem_binary_strategy solution){
                         solutions_.emplace_back(eff, std::move(solution));
                 }
+                auto begin()const{ return solutions_.begin(); }
+                auto end()const{ return solutions_.end(); }
         private:
                 friend class boost::serialization::access;
                 template<class Archive>
@@ -1012,13 +980,12 @@ namespace ps{
                         solver.use_description(desc);
                         solver.use_strategy(std::make_shared<counter_strategy_aggresive>());
 
-                        //solver.add_observer(std::make_shared<ev_seq>());
                         solver.add_observer(std::make_shared<ev_seq_printer>());
-                        solver.add_observer(std::make_shared<ev_seq_break>(5e-5));
-                        //solver.add_observer(std::make_shared<table_observer>(desc.get()));
+                        //solver.add_observer(std::make_shared<ev_seq_break>(5e-5));
+                        solver.add_observer(std::make_shared<table_observer>(desc.get()));
                         //solver.add_observer(std::make_shared<solver_ledger>(ledger_path));
-                        //solver.add_observer(std::make_shared<strategy_printer>());
-                        //solver.add_observer(std::make_shared<lp_inf_stoppage_condition>());
+                        solver.add_observer(std::make_shared<strategy_printer>());
+                        solver.add_observer(std::make_shared<lp_inf_stoppage_condition>());
                         //solver.add_observer(std::make_shared<ev_diff_stoppage_condition>());
 
                         auto result = solver.compute();
@@ -1112,6 +1079,7 @@ namespace ps{
                                 }
                                 return result;
                         };
+
                         auto table = hu_table_maker::make_table(maker);
                         for(auto const& s : table){
                                 pretty_print_strat(s, 1);

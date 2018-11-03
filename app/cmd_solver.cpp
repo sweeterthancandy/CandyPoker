@@ -546,6 +546,8 @@ namespace ps{
                 virtual void imbue(holdem_binary_solver* solver){}
 
                 std::string const& get_name()const{ return name_; }
+
+                virtual size_t precedence()const{ return 10; }
         private:
                 std::string name_;
         };
@@ -569,6 +571,7 @@ namespace ps{
                         counter_strategy_ = counter_strat;
                 }
                 void add_observer(std::shared_ptr<holdem_binary_solver_any_observer> obs){
+                        obs->imbue(this);
                         obs_.push_back(obs);
                 }
                 template<class T>
@@ -580,15 +583,23 @@ namespace ps{
                         }
                         return nullptr;
                 }
+                // this is intended to be used for the Imbue section
+                template<class T>
+                void use_observer(){
+                        auto ptr = this->get_observer<T>();
+                        if( ptr == nullptr){
+                                add_observer( std::make_shared<T>() );
+                        }
+                }
                 void use_inital_state(state_type state){
                         initial_state_ = std::move(state);
                 }
                 holdem_binary_solver_result compute(){
                         static double const factor = 0.10;
-                        
-                        for(auto& _ : obs_ ){
-                                _->imbue(this);
-                        }
+
+                        std::stable_sort(obs_.begin(), obs_.end(), [](auto const& r, auto const& l){
+                                return r->precedence() < l->precedence();
+                        });
 
                         auto step = [&](auto const& state)->state_type
                         {
@@ -824,6 +835,7 @@ namespace ps{
                         }
                         return result;
                 }
+                virtual size_t precedence()const override{ return 0; }
         private:
                 size_t n_{0};
                 std::vector< Eigen::VectorXd > seq_;
@@ -831,6 +843,9 @@ namespace ps{
 
         struct ev_seq_printer : holdem_binary_solver_any_observer{
                 ev_seq_printer(): holdem_binary_solver_any_observer{"ev_seq_printer"}{}
+                virtual void imbue(holdem_binary_solver* solver)override{
+                        solver->use_observer<ev_seq>();
+                }
                 virtual holdem_binary_solver_ctrl step(holdem_binary_solver const* solver, state_type const& from, state_type const& to)override{
                         enum{ Lookback = 100 };
 
@@ -869,6 +884,9 @@ namespace ps{
 
         struct ev_seq_break : holdem_binary_solver_any_observer{
                 explicit ev_seq_break(double epsilon): holdem_binary_solver_any_observer{"ev_seq_break"}, epsilon_{epsilon}{}
+                virtual void imbue(holdem_binary_solver* solver)override{
+                        solver->use_observer<ev_seq>();
+                }
                 virtual holdem_binary_solver_ctrl step(holdem_binary_solver const* solver, state_type const& from, state_type const& to)override{
                         enum{ Lookback = 100 };
 
@@ -893,8 +911,24 @@ namespace ps{
         private:
                 double epsilon_;
         };
+
+
         struct max_steps_condition : holdem_binary_solver_any_observer{
                 explicit max_steps_condition(size_t n):holdem_binary_solver_any_observer{"max_steps_condition"}, n_{n}{}
+                virtual holdem_binary_solver_ctrl step(holdem_binary_solver const* solver, state_type const& from, state_type const& to)override{
+                        if( ++count_ > n_){
+                                std::stringstream sstr;
+                                sstr << "Done " << n_ << " steps for " << solver->get_description()->string_representation();
+                                return Break{sstr.str()};
+                        }
+                        return Continue{};
+                }
+        private:
+                size_t n_;
+                size_t count_{0};
+        };
+        struct max_steps_error_condition : holdem_binary_solver_any_observer{
+                explicit max_steps_error_condition(size_t n):holdem_binary_solver_any_observer{"max_steps_error_condition"}, n_{n}{}
                 virtual holdem_binary_solver_ctrl step(holdem_binary_solver const* solver, state_type const& from, state_type const& to)override{
                         if( ++count_ > n_){
                                 std::stringstream sstr;
@@ -970,7 +1004,7 @@ namespace ps{
                                 desc = binary_strategy_description::make_three_player_description(0.5, 1, 10);
                                 ledger_path = ".3_player_ledger.bin";
                         } else{
-                                desc = binary_strategy_description::make_hu_description(0.5, 1, 8);
+                                desc = binary_strategy_description::make_hu_description(0.5, 1, 6);
                                 ledger_path = ".2_player_ledger.bin";
                         }
 
@@ -978,9 +1012,9 @@ namespace ps{
                         solver.use_description(desc);
                         solver.use_strategy(std::make_shared<counter_strategy_aggresive>());
 
-                        solver.add_observer(std::make_shared<ev_seq>());
+                        //solver.add_observer(std::make_shared<ev_seq>());
                         solver.add_observer(std::make_shared<ev_seq_printer>());
-                        solver.add_observer(std::make_shared<ev_seq_break>(1e-5));
+                        solver.add_observer(std::make_shared<ev_seq_break>(5e-5));
                         //solver.add_observer(std::make_shared<table_observer>(desc.get()));
                         //solver.add_observer(std::make_shared<solver_ledger>(ledger_path));
                         //solver.add_observer(std::make_shared<strategy_printer>());
@@ -1014,7 +1048,7 @@ namespace ps{
                         using result_t = std::future<std::tuple<double, holdem_binary_solver_result > >;
                         std::vector<result_t> tmp;
                         double d = 0.1;
-                        for(double eff=2;eff - 1e-3<20;eff+=d){
+                        for(double eff=1;eff - 1e-3<2;eff+=d){
                                 tmp.emplace_back(std::async([&,e=eff](){
                                         return std::make_tuple(e, solver(e));
                                 }));
@@ -1063,13 +1097,10 @@ namespace ps{
                                 holdem_binary_solver solver;
                                 solver.use_description(desc_sptr);
                                 solver.use_strategy(std::make_shared<counter_strategy_aggresive>());
-                                #if 0
+                                // short circuit
                                 solver.add_observer(std::make_shared<lp_inf_stoppage_condition>());
-                                #else
-                                solver.add_observer(std::make_shared<ev_seq>());
-                                solver.add_observer(std::make_shared<ev_seq_break>(1e-5));
-                                #endif
-
+                                // currently don't always converge, after N steps though we have a cyclic solution
+                                // which is approximatly the gt optimal solution
                                 solver.add_observer(std::make_shared<max_steps_condition>(MaxSteps));
 
 

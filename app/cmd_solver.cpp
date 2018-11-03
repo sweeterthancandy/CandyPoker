@@ -1063,8 +1063,16 @@ namespace ps{
                                 holdem_binary_solver solver;
                                 solver.use_description(desc_sptr);
                                 solver.use_strategy(std::make_shared<counter_strategy_aggresive>());
+                                #if 0
                                 solver.add_observer(std::make_shared<lp_inf_stoppage_condition>());
+                                #else
+                                solver.add_observer(std::make_shared<ev_seq>());
+                                solver.add_observer(std::make_shared<ev_seq_break>(1e-5));
+                                #endif
+
                                 solver.add_observer(std::make_shared<max_steps_condition>(MaxSteps));
+
+
                                 auto result = solver.compute();
                                 if( result.success()){
                                         for(auto& _ : result.state){

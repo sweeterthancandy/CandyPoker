@@ -691,8 +691,8 @@ namespace ps{
         };
 
         struct table_observer : holdem_binary_solver_any_observer{
-                table_observer(binary_strategy_description* desc)
-                        : holdem_binary_solver_any_observer{"table_observer"}, desc_{desc}
+                table_observer(binary_strategy_description* desc, bool print_step = false)
+                        : holdem_binary_solver_any_observer{"table_observer"}, desc_{desc}, print_step_{print_step}
                 {
                         using namespace Pretty;
                         std::vector<std::string> header;
@@ -744,6 +744,12 @@ namespace ps{
                         lines.push_back(std::move(line));
                         ++n_;
                         last_ = to;
+
+                        // don't want this for hu
+                        if( print_step_ ){
+                                RenderTablePretty(std::cout, lines);
+                        }
+
                         return Continue{};
                 }
                 virtual holdem_binary_solver_ctrl finish(holdem_binary_solver const*, state_type const& state)override{
@@ -753,6 +759,7 @@ namespace ps{
                 }
         private:
                 binary_strategy_description* desc_;
+                bool print_step_;
                 size_t n_{0};
                 std::vector<Pretty::LineItem> lines;
                 boost::timer::cpu_timer timer;
@@ -1219,8 +1226,8 @@ namespace ps{
                                 solver.use_description(desc_);
                                 solver.use_strategy(std::make_shared<counter_strategy_aggresive>());
                                 if( Debug ){
-                                        solver.add_observer(std::make_shared<table_observer>(desc_.get()));
-                                        //solver.add_observer(std::make_shared<strategy_printer>());
+                                        solver.add_observer(std::make_shared<table_observer>(desc_.get(), true));
+                                        solver.add_observer(std::make_shared<strategy_printer>());
                                 }
                                 solver.add_observer(std::make_shared<solver_ledger>(ledger));
                                 solver.add_observer(std::make_shared<lp_inf_stoppage_condition>(lp_epsilon_));
@@ -1361,11 +1368,13 @@ namespace ps{
                         std::string dir = ".SolverCache";
                         cd.Directory = dir;
 
+                        double d = 0.1;
                         if( args_.size() && args_[0] == "three"){
                                 cd.N = 3;
+                                d = 1.0;
                         }
 
-                        for(double eff=2.0;eff-1e-5 < 20.0;eff += 0.1 ){
+                        for(double eff=2.0;eff-1e-5 < 20.0;eff += d ){
                                 cd.EffectiveStacks.push_back(eff);
                         }
 

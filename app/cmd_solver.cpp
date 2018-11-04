@@ -320,12 +320,16 @@ namespace ps{
                         }
                         MaybeBool UnderlyingComputation(holdem_class_id cid)const
                         {
+                                #if 0
                                 auto fold_ev = strategy_desc.expected_value_for_class_id(decl.player_index(),
                                                                                          cid,
                                                                                          fold_s);
                                 auto push_ev = strategy_desc.expected_value_for_class_id(decl.player_index(),
                                                                                          cid,
                                                                                          push_s);
+                                #endif
+                                auto fold_ev = decl.expected_value_for_class_id(cid, fold_s);
+                                auto push_ev = decl.expected_value_for_class_id(cid, push_s);
                                 #if 0
                                 std::cout << "[" << holdem_class_decl::get(cid) << "] ";
                                 std::cout << "fold_ev => " << fold_ev << "\n"; // __CandyPrint__(cxx-print-scalar,fold_ev)

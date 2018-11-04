@@ -171,6 +171,8 @@ namespace ps{
 
                         strats_.emplace_back(this, 0,0, "SB Pushing", "", std::vector<double>{});
                         strats_.emplace_back(this, 1,1, "BB Calling, given a SB push", "p", std::vector<double>{1.0});
+                        
+                        finish();
                 }
                 virtual strategy_impl_t make_inital_state()const override{
                         Eigen::VectorXd proto(169);
@@ -203,7 +205,7 @@ namespace ps{
                         for(auto const& group : *Memory_TwoPlayerClassVector){
                                 for(auto const& _ : group.vec){
                                         auto const& cv = _.cv;
-                                        auto ev = expected_value_of_vector(cv, impl);
+                                        auto ev = expected_value_of_vector(aux_event_set_, cv, impl);
                                         result(cv[player_idx]) += _.prob * ev[player_idx];
                                 }
                         }
@@ -216,14 +218,14 @@ namespace ps{
                                 for(auto const& _ : group.vec){
                                         auto const& cv = _.cv;
                                         check_probability_of_event(cv, impl);
-                                        auto ev = expected_value_of_vector(cv, impl);
+                                        auto ev = expected_value_of_vector(aux_event_set_, cv, impl);
                                         result[0] += _.prob * ev[0];
                                         result[1] += _.prob * ev[1];
                                 }
                         }
                         return result;
                 }
-                virtual double expected_value_for_class_id(size_t player_idx, holdem_class_id class_id, strategy_impl_t const& impl)const override{
+                virtual double expected_value_for_class_id_es(event_set const& es, size_t player_idx, holdem_class_id class_id, strategy_impl_t const& impl)const override{
                         double result = 0.0;
                         holdem_class_vector cv;
                         for(auto const& group : *Memory_TwoPlayerClassVector){
@@ -233,7 +235,7 @@ namespace ps{
                                         cv = _.cv;
                                         if( player_idx != 0 )
                                                 std::swap(cv[0], cv[player_idx]);
-                                        auto ev = expected_value_of_vector(cv, impl);
+                                        auto ev = expected_value_of_vector(es, cv, impl);
                                         result += _.prob * ev[player_idx];
                                 }
                         }
@@ -323,6 +325,8 @@ namespace ps{
                         strats_.emplace_back(this, 5,2, "BB Calling, given BTN Fold, SB Push", "fp", std::vector<double>{0.0, ___, 1.0});
                         //                                                                                          ^    ^    ^
                         //                                                                                          P   P|P  P|F
+        
+                        finish();
                 }
                 virtual strategy_impl_t make_inital_state()const override{
                         Eigen::VectorXd proto(169);
@@ -410,7 +414,7 @@ namespace ps{
                         for(auto const& group : *Memory_ThreePlayerClassVector){
                                 for(auto const& _ : group.vec){
                                         auto const& cv = _.cv;
-                                        auto ev = expected_value_of_vector(cv, impl);
+                                        auto ev = expected_value_of_vector(aux_event_set_, cv, impl);
                                         result(cv[player_idx]) += _.prob * ev[player_idx];
                                 }
                         }
@@ -422,7 +426,7 @@ namespace ps{
                         for(auto const& group : *Memory_ThreePlayerClassVector){
                                 for(auto const& _ : group.vec){
                                         auto const& cv = _.cv;
-                                        auto ev = expected_value_of_vector(cv, impl);
+                                        auto ev = expected_value_of_vector(aux_event_set_, cv, impl);
                                         result[0] += _.prob * ev[0];
                                         result[1] += _.prob * ev[1];
                                         result[2] += _.prob * ev[2];
@@ -430,7 +434,7 @@ namespace ps{
                         }
                         return result;
                 }
-                virtual double expected_value_for_class_id(size_t player_idx, holdem_class_id class_id, strategy_impl_t const& impl)const override{
+                virtual double expected_value_for_class_id_es(event_set const& es, size_t player_idx, holdem_class_id class_id, strategy_impl_t const& impl)const override{
                         double result = 0.0;
                         holdem_class_vector cv;
                         for(auto const& group : *Memory_ThreePlayerClassVector){
@@ -440,7 +444,7 @@ namespace ps{
                                         cv = _.cv;
                                         if( player_idx != 0 )
                                                 std::swap(cv[0], cv[player_idx]);
-                                        auto ev = expected_value_of_vector(cv, impl);
+                                        auto ev = expected_value_of_vector(es, cv, impl);
                                         result += _.prob * ev[player_idx];
                                 }
                         }

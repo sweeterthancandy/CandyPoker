@@ -450,6 +450,7 @@ namespace ps{
         template<class ImplType>
         struct serialization_base{
                 void load(std::string const& path){
+                        std::lock_guard<std::mutex> lock(mtx_);
                         using archive_type = boost::archive::text_iarchive;
                         std::ifstream ofs(path);
                         archive_type oa(ofs);
@@ -471,6 +472,7 @@ namespace ps{
                         }
                 }
                 void save_as(std::string const& path)const {
+                        std::lock_guard<std::mutex> lock(mtx_);
                         using archive_type = boost::archive::text_oarchive;
                         std::ofstream ofs(path);
                         archive_type oa(ofs);
@@ -482,6 +484,7 @@ namespace ps{
                         }
                 }
         private:
+                mutable std::mutex mtx_;
                 std::string path_;
         };
 
@@ -503,8 +506,10 @@ namespace ps{
 
         struct holdem_binary_solution_set : serialization_base<holdem_binary_solution_set>{
                 void add_solution(std::string const& key, holdem_binary_strategy solution){
+                        std::lock_guard<std::mutex> lock(mtx_);
                         solutions_.emplace(key, std::move(solution));
                 }
+                // there are no thread safe
                 auto begin()const{ return solutions_.begin(); }
                 auto end()const{ return solutions_.end(); }
                 auto find(std::string const& key)const{ return solutions_.find(key); }
@@ -515,6 +520,7 @@ namespace ps{
                         ar & solutions_;
                 }
         private:
+                std::mutex mtx_;
                 // in our scope we can represent everyting in a string, ie
                 // we might want to encode the sb:bb:eff:stragery etc here
                 std::map<std::string, holdem_binary_strategy> solutions_;
@@ -1008,7 +1014,43 @@ namespace ps{
                                 bb_(bb),
                                 n_(n),
                                 eff_(eff)
-                        {}
+                        {
+                                switch(n_){
+                                        case 2:
+                                        {
+                                                desc_ = binary_strategy_description::make_hu_description(sb_, bb_, eff_);
+                                                break;
+                                        }
+                                        case 3:
+                                        {
+                                                desc_ = binary_strategy_description::make_three_player_description(sb_, bb_, eff_);
+                                                break;
+                                        }
+                                        default:
+                                        {
+                                                throw std::domain_error("unsupported");
+                                        }
+                                }
+                        }
+                        double sb()const{ return sb_; }
+                        double bb()const{ return bb_; }
+                        double eff()const{ return eff_; }
+                        binary_strategy_description::strategy_impl_t solution()const{
+                                return solution_;
+                        }
+                        binary_strategy_description const* description()const{ return desc_.get(); }
+                        void display()const{
+                                std::cout << "sb_ => " << sb_ << "\n"; // __CandyPrint__(cxx-print-scalar,sb_)
+                                std::cout << "bb_ => " << bb_ << "\n"; // __CandyPrint__(cxx-print-scalar,bb_)
+                                std::cout << "eff_ => " << eff_ << "\n"; // __CandyPrint__(cxx-print-scalar,eff_)
+
+                                for(auto const& s : solution_){
+                                        pretty_print_strat(s, 0);
+                                        std::cout << "\n";
+                                }
+                        }
+                private:
+                        friend struct computation_manager;
                         void load(holdem_binary_solution_set* mgr){
                                 auto iter = mgr->find(key_);
                                 if( iter == mgr->end()){
@@ -1020,28 +1062,11 @@ namespace ps{
                                 }
                         }
                         void compute_single(){
-                                std::shared_ptr<binary_strategy_description> desc;
-                                switch(n_){
-                                        case 2:
-                                        {
-                                                desc = binary_strategy_description::make_hu_description(sb_, bb_, eff_);
-                                                break;
-                                        }
-                                        case 3:
-                                        {
-                                                desc = binary_strategy_description::make_three_player_description(sb_, bb_, eff_);
-                                                break;
-                                        }
-                                        default:
-                                        {
-                                                throw std::domain_error("unsupported");
-                                        }
-                                }
                                 holdem_binary_solver solver;
-                                solver.use_description(desc);
+                                solver.use_description(desc_);
                                 solver.use_strategy(std::make_shared<counter_strategy_aggresive>());
                                 if( Debug ){
-                                        solver.add_observer(std::make_shared<table_observer>(desc.get()));
+                                        solver.add_observer(std::make_shared<table_observer>(desc_.get()));
                                 }
                                 solver.add_observer(std::make_shared<solver_ledger>(ledger_name_));
                                 solver.add_observer(std::make_shared<lp_inf_stoppage_condition>(lp_epsilon_));
@@ -1054,10 +1079,6 @@ namespace ps{
                                         }
                                 }
                                 solution_ = result.state;
-                                for(auto const& s : solution_){
-                                        pretty_print_strat(s, 0);
-                                        std::cout << "\n";
-                                }
                         }
                 private:
                         // inputs
@@ -1073,8 +1094,9 @@ namespace ps{
 
 
                         // data
-                        holdem_binary_strategy_ledger ledger;
-                        
+                        std::shared_ptr<binary_strategy_description> desc_;
+                        //holdem_binary_strategy_ledger ledger;
+
                         binary_strategy_description::strategy_impl_t solution_;
                 };
                 computation_manager(computation_decl const& decl){
@@ -1102,12 +1124,17 @@ namespace ps{
                         mgr_.try_load(".computation_mgr");
                 }
                 void compute(){
+                        std::vector<std::future<void> > v;
                         for(auto const& ptr : items_){
-                                ptr->load(&mgr_);
+                                v.push_back(std::async([this,p=ptr](){ p->load(&mgr_); }));
                         }
                 }
+                using items_vector_type = std::vector<std::shared_ptr<work_item> >;
+                using iterator = boost::indirect_iterator<items_vector_type::const_iterator>;
+                iterator begin()const{ return items_.begin(); }
+                iterator end()const{ return items_.end(); }
         private:
-                std::vector<std::shared_ptr<work_item> > items_;
+                items_vector_type items_;
                 holdem_binary_solution_set mgr_;
         };
 
@@ -1126,12 +1153,31 @@ namespace ps{
                                 cd.N = 3;
                         }
 
-                        cd.EffectiveStacks.push_back(10);
-                        cd.EffectiveStacks.push_back(20);
+                        for(double eff=2.0;eff-1e-5 < 20.0;eff += 0.1 ){
+                                cd.EffectiveStacks.push_back(eff);
+                        }
 
                         computation_manager mgr(cd);
                         mgr.compute();
 
+
+                        using namespace Pretty;
+                        std::vector<LineItem> lines;
+                        lines.push_back(std::vector<std::string>{"Eff", "SB", "BB"});
+                        lines.push_back(LineBreak);
+                        for(auto const& sol : mgr){
+                                auto desc = sol.description();
+                                auto ev = desc->expected_value(sol.solution());
+                                std::vector<std::string> line;
+                                char buf[18];
+                                std::sprintf(buf, "%.1f", desc->eff());
+                                line.push_back(buf);
+                                for(size_t idx=0;idx!=ev.size();++idx){
+                                        line.push_back(boost::lexical_cast<std::string>(ev[idx]));
+                                }
+                                lines.push_back(std::move(line));
+                        }
+                        RenderTablePretty(std::cout, lines);
 
                         #if 0
                         std::shared_ptr<binary_strategy_description> desc;

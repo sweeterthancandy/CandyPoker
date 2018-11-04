@@ -141,8 +141,8 @@ namespace ps{
                                                 binary_strategy_description::strategy_decl const& decl,
                                                 binary_strategy_description::strategy_impl_t const& state)const override
                 {
-                        auto fold_s = decl.make_all_fold(state);
-                        auto push_s = decl.make_all_push(state);
+                        auto fold_s = decl.given_fold(state);
+                        auto push_s = decl.given_push(state);
 
                         Eigen::VectorXd counter(169);
                         counter.fill(0);

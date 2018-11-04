@@ -95,11 +95,13 @@ namespace ps{
                 }
 
                 struct strategy_decl{
-                        strategy_decl(size_t vec_idx, size_t player_idx, std::string const& desc, std::string const& action)
+                        strategy_decl(size_t vec_idx, size_t player_idx, std::string const& desc, std::string const& action,
+                                      std::vector<double> const& given)
                                 :vec_idx_(vec_idx),
                                 player_idx_(player_idx),
                                 desc_(desc),
-                                action_(action)
+                                action_(action),
+                                given_(given)
                         {}
                         size_t vector_index()const{ return vec_idx_; }
                         size_t player_index()const{ return player_idx_; }
@@ -115,12 +117,30 @@ namespace ps{
                                 result[vec_idx_].fill(1);
                                 return result;
                         }
-
+                        strategy_impl_t given_fold(strategy_impl_t const& impl)const{
+                                auto result = impl;
+                                for(size_t idx=0;idx!=given_.size();++idx){
+                                        result[idx].fill(given_[idx]);
+                                }
+                                result[vec_idx_].fill(0);
+                                return result;
+                        }
+                        strategy_impl_t given_push(strategy_impl_t const& impl)const{
+                                auto result = impl;
+                                for(size_t idx=0;idx!=given_.size();++idx){
+                                        result[idx].fill(given_[idx]);
+                                }
+                                result[vec_idx_].fill(1);
+                                return result;
+                        }
                 private:
                         size_t vec_idx_;
                         size_t player_idx_;
                         std::string desc_;
                         std::string action_;
+                        // the way that the strategy vector is layed out, we can make 
+                        // some optimization on the game tree
+                        std::vector<double> given_;
                 };
                 using strategy_vector = std::vector<strategy_decl>;
                 using strategy_iterator = strategy_vector::const_iterator;

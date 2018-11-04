@@ -917,6 +917,89 @@ namespace ps{
         };
 
 
+
+        /*
+                This is to detect cyclic solutions
+         */
+        struct state_seq : holdem_binary_solver_any_observer{
+                enum{ Lookback = 20 };
+                static std::string static_get_name(){ return "state_seq"; }
+                state_seq() : holdem_binary_solver_any_observer{static_get_name()}{}
+
+                virtual void imbue(holdem_binary_solver* solver)override{
+                        n_ = solver->get_description()->num_players();
+                }
+                virtual holdem_binary_solver_ctrl step(holdem_binary_solver const* solver, state_type const& from, state_type const& to)override{
+                        state_seq_.push_back(to);
+                        doit();
+                        return Continue{};
+                }
+                virtual size_t precedence()const override{ return 0; }
+                void doit(){
+                        if( state_seq_.size() < Lookback )
+                                return;
+
+
+
+                        auto is_non_increasing = [](auto const& seq){
+                                double epsilon =1e-5;
+                                bool result = true;
+                                for(size_t idx=0;idx+1<seq.size();++idx){
+                                        bool cond = ( seq[idx] - epsilon < seq[idx+1]);
+                                        if( ! cond )
+                                                return false;
+                                }
+                                return true;
+                        };
+                        auto is_non_decreasing = [](auto const& seq){
+                                double epsilon =1e-5;
+                                bool result = true;
+                                for(size_t idx=0;idx+1<seq.size();++idx){
+                                        bool cond = ( seq[idx] + epsilon > seq[idx+1]);
+                                        if( ! cond )
+                                                return false;
+                                }
+                                return true;
+                        };
+                        auto is_monotonic = [&](auto const& seq){
+                                return is_non_increasing(seq) || is_non_decreasing(seq);
+                        };
+                        
+                        
+                        bool result = true;
+
+                        size_t start_idx = state_seq_.size() - Lookback;
+
+                        std::stringstream dbg;
+                        std::vector<double > seq;
+                        // for each degree of state (2 for hu, 6 for three players )
+                        for(size_t j=0;j!=n_;++j){
+                                // for each class id
+                                for(size_t k=0;k!=169;++k){
+                                        // for each lag
+                                        for(size_t idx=start_idx;idx!=state_seq_.size();++idx){
+                                                // want to consider each sequence
+                                                auto const& S = state_seq_[idx][j];
+                                                seq.push_back(S[k] );
+                                        }
+
+                                        if( ! is_monotonic(seq) ){
+                                                dbg << holdem_class_decl::get(k) << " is non-monotonic\n";
+                                                result = false;
+                                        }
+                                        seq.clear();
+                                }
+                        }
+                        std::cout << dbg.str() << "\n";
+                }
+        private:
+                size_t n_{0};
+                std::vector< state_type > state_seq_;
+        };
+
+
+
+
         struct max_steps_condition : holdem_binary_solver_any_observer{
                 explicit max_steps_condition(size_t n):holdem_binary_solver_any_observer{"max_steps_condition"}, n_{n}{}
                 virtual holdem_binary_solver_ctrl step(holdem_binary_solver const* solver, state_type const& from, state_type const& to)override{
@@ -1073,6 +1156,7 @@ namespace ps{
                                 solver.add_observer(std::make_shared<solver_ledger>(ledger));
                                 solver.add_observer(std::make_shared<lp_inf_stoppage_condition>(lp_epsilon_));
                                 solver.add_observer(std::make_shared<max_steps_condition>(max_steps_));
+                                solver.add_observer(std::make_shared<state_seq>());
 
                                 auto result = solver.compute();
                                 if( result.success()){

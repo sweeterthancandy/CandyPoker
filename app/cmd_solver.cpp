@@ -92,6 +92,50 @@ namespace ps{
                                                 binary_strategy_description::strategy_decl const& decl,
                                                 binary_strategy_description::strategy_impl_t const& state)const=0;
         };
+        struct counter_strategy_elementwise_batch : counter_strategy_concept{
+                enum{ Debug = false };
+                virtual Eigen::VectorXd counter(binary_strategy_description const& strategy_desc,
+                                                binary_strategy_description::strategy_decl const& decl,
+                                                binary_strategy_description::strategy_impl_t const& state)const override
+                {
+                        auto fold_s = decl.make_all_fold(state);
+                        auto push_s = decl.make_all_push(state);
+                                        
+
+                        auto fold_ev = strategy_desc.expected_value_by_class_id(decl.player_index(), fold_s);
+                        auto push_ev = strategy_desc.expected_value_by_class_id(decl.player_index(), push_s);
+                        
+
+                        Eigen::VectorXd counter(169);
+                        counter.fill(0);
+                        for(holdem_class_id cid=0;cid!=169;++cid){
+                                double val = ( fold_ev[cid] <= push_ev[cid] ? 1.0 : 0.0 );
+                                counter[cid] = val;
+                        }
+
+                        if( Debug ){
+                                static std::mutex mtx;
+                                std::lock_guard<std::mutex> lock(mtx);
+                                enum{ Dp = 8 };
+                                std::cout << "-------------- " << strategy_desc.string_representation() << " " << decl.description() << "\n";
+                                std::cout << "fold_s\n";
+                                pretty_print_strat(fold_s[decl.vector_index()], Dp);
+                                std::cout << "push_s\n";
+                                pretty_print_strat(push_s[decl.vector_index()], Dp);
+                                std::cout << "fold_ev\n";
+                                pretty_print_strat(fold_ev, Dp);
+                                std::cout << "push_ev\n";
+                                pretty_print_strat(push_ev, Dp);
+                                auto delta = push_ev - fold_ev;
+                                std::cout << "<delta>\n";
+                                pretty_print_strat(delta, Dp);
+                                std::cout << "counter\n";
+                                pretty_print_strat(counter, Dp);
+                        }
+                        
+                        return counter;
+                }
+        };
         struct counter_strategy_elementwise : counter_strategy_concept{
                 virtual Eigen::VectorXd counter(binary_strategy_description const& strategy_desc,
                                                 binary_strategy_description::strategy_decl const& decl,
@@ -607,19 +651,25 @@ namespace ps{
 
                         auto step = [&](auto const& state)->state_type
                         {
-                                using result_t = std::future<std::tuple<size_t, Eigen::VectorXd> >;
+                                struct Task{
+                                        binary_strategy_description::strategy_decl const* sd;
+                                        Eigen::VectorXd solution;
+                                };
+                                using result_t = std::future<Task>;
                                 std::vector<result_t> tmp;
                                 for(auto si=desc_->begin_strategy(),se=desc_->end_strategy();si!=se;++si){
-                                        auto fut = std::async(std::launch::async, [&,si](){
-                                                return std::make_tuple(si->vector_index(), counter_strategy_->counter(*desc_, *si, state));
+                                        auto fut = std::async(std::launch::async, [&,sd=*si](){
+                                                auto sol = counter_strategy_->counter(*desc_, sd, state);
+                                                return Task{&sd, std::move(sol)};
                                         });
                                         tmp.emplace_back(std::move(fut));
                                 }
                                 auto result = state;
                                 for(auto& _ : tmp){
                                         auto ret = _.get();
-                                        auto idx            = std::get<0>(ret);
-                                        auto const& counter = std::get<1>(ret);
+                                        auto idx            = ret.sd->vector_index();
+                                        auto const& counter = ret.solution;
+                                        std::cout << "vector index is " << idx << "\n";
                                         result[idx] = state[idx] * ( 1.0 - factor_ ) + counter * factor_;
                                 }
                                 return result;
@@ -1225,6 +1275,7 @@ namespace ps{
                                 holdem_binary_solver solver;
                                 solver.use_description(desc_);
                                 solver.use_strategy(std::make_shared<counter_strategy_aggresive>());
+                                //solver.use_strategy(std::make_shared<counter_strategy_elementwise_batch>());
                                 if( Debug ){
                                         solver.add_observer(std::make_shared<table_observer>(desc_.get(), true));
                                         solver.add_observer(std::make_shared<strategy_printer>());
@@ -1374,7 +1425,7 @@ namespace ps{
                                 d = 1.0;
                         }
 
-                        for(double eff=2.0;eff-1e-5 < 20.0;eff += d ){
+                        for(double eff=10.0;eff-1e-5 < 20.0;eff += d ){
                                 cd.EffectiveStacks.push_back(eff);
                         }
 

@@ -172,6 +172,7 @@ namespace ps{
         };
         struct counter_strategy_aggresive : counter_strategy_concept{
                 enum{ Debug = false };
+                // I think this gives a small increase, ~10%
                 enum{ DisableHint = false };
                 enum MaybeBool{
                         MB_False,

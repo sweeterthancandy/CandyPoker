@@ -96,14 +96,23 @@ namespace ps{
                 }
 
                 struct strategy_decl{
-                        strategy_decl(size_t vec_idx, size_t player_idx, std::string const& desc, std::string const& action,
+                        strategy_decl(binary_strategy_description* self, size_t vec_idx, size_t player_idx, std::string const& desc, std::string const& action,
                                       std::vector<double> const& given)
                                 :vec_idx_(vec_idx),
                                 player_idx_(player_idx),
                                 desc_(desc),
                                 action_(action),
                                 given_(given)
-                        {}
+                        {
+                                for(auto ei(self->begin_event()),ee(self->end_event());ei!=ee;++ei){
+                                        if( ei->key().size() < action_.size()){
+                                                continue;
+                                        }
+                                        if( ei->key().substr(0, action_.size()) == action_ ){
+                                                events_.push_back(&*ei);
+                                        }
+                                }
+                        }
                         size_t vector_index()const{ return vec_idx_; }
                         size_t player_index()const{ return player_idx_; }
                         std::string const& description()const{ return desc_; }
@@ -134,6 +143,17 @@ namespace ps{
                                 result[vec_idx_].fill(1);
                                 return result;
                         }
+                        using self_type = strategy_decl;
+                        #if 0
+                        self_type& add_event(event_decl const& event){
+                                events_.push_back(&event);
+                                return *this;
+                        }
+                        #endif
+                        using event_vector = std::vector<event_decl const*>;
+                        using event_iterator = boost::indirect_iterator<event_vector::const_iterator>;
+                        event_iterator begin_event()const{ return events_.begin(); }
+                        event_iterator end_event()const{ return events_.end(); }
                 private:
                         size_t vec_idx_;
                         size_t player_idx_;
@@ -142,6 +162,8 @@ namespace ps{
                         // the way that the strategy vector is layed out, we can make 
                         // some optimization on the game tree
                         std::vector<double> given_;
+
+                        std::vector<event_decl const*> events_;
                 };
                 using strategy_vector = std::vector<strategy_decl>;
                 using strategy_iterator = strategy_vector::const_iterator;

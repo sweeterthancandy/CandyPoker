@@ -1003,7 +1003,7 @@ namespace ps{
         };
         struct computation_manager{
                 struct work_item{
-                        enum{ Debug = false };
+                        enum{ Debug = true };
                         // args
                         work_item(std::string const& key,
                                   std::string const& ledger_name,
@@ -1067,6 +1067,7 @@ namespace ps{
                                 solver.use_strategy(std::make_shared<counter_strategy_aggresive>());
                                 if( Debug ){
                                         solver.add_observer(std::make_shared<table_observer>(desc_.get()));
+                                        solver.add_observer(std::make_shared<strategy_printer>());
                                 }
                                 solver.add_observer(std::make_shared<solver_ledger>(ledger_name_));
                                 solver.add_observer(std::make_shared<lp_inf_stoppage_condition>(lp_epsilon_));
@@ -1129,6 +1130,11 @@ namespace ps{
                                 v.push_back(std::async([this,p=ptr](){ p->load(&mgr_); }));
                         }
                 }
+                void compute_serial(){
+                        for(auto const& ptr : items_){
+                                ptr->load(&mgr_);
+                        }
+                }
                 using items_vector_type = std::vector<std::shared_ptr<work_item> >;
                 using iterator = boost::indirect_iterator<items_vector_type::const_iterator>;
                 iterator begin()const{ return items_.begin(); }
@@ -1140,6 +1146,53 @@ namespace ps{
 
         
         struct SolverCmd : Command{
+                struct PrintStrat{
+                        void operator()(computation_manager const& mgr)const{
+                                using state_type = binary_strategy_description::strategy_impl_t;
+                                state_type state;
+                                for(auto const& sol : mgr){
+                                        auto desc = sol.description();
+                                        auto eff        = desc->eff();
+                                        auto const& vec = sol.solution();
+                                        for(; state.size() < vec.size();){
+                                                state.emplace_back(169);
+                                                state.back().fill(0.0);
+                                        }
+                                        for(size_t i=0;i!=vec.size();++i){
+                                                for(size_t cid=0;cid!=169;++cid){
+                                                        if( state[i][cid] < eff*vec[i][cid] ){
+                                                                state[i][cid] = eff*vec[i][cid];
+                                                        }
+                                                }
+                                        }
+                                }
+                                for(auto const& s : state){
+                                        pretty_print_strat(s, 1);
+                                        std::cout << "\n";
+                                }
+                        }
+                };
+                struct PrintEv{
+                        void operator()(computation_manager const& mgr)const{
+                                using namespace Pretty;
+                                std::vector<LineItem> lines;
+                                lines.push_back(std::vector<std::string>{"Eff", "SB", "BB"});
+                                lines.push_back(LineBreak);
+                                for(auto const& sol : mgr){
+                                        auto desc = sol.description();
+                                        auto ev = desc->expected_value(sol.solution());
+                                        std::vector<std::string> line;
+                                        char buf[18];
+                                        std::sprintf(buf, "%.1f", desc->eff());
+                                        line.push_back(buf);
+                                        for(size_t idx=0;idx!=ev.size();++idx){
+                                                line.push_back(boost::lexical_cast<std::string>(ev[idx]));
+                                        }
+                                        lines.push_back(std::move(line));
+                                }
+                                RenderTablePretty(std::cout, lines);
+                        }
+                };
                 enum{ Debug = 1};
                 explicit
                 SolverCmd(std::vector<std::string> const& args):args_{args}{}
@@ -1158,26 +1211,17 @@ namespace ps{
                         }
 
                         computation_manager mgr(cd);
-                        mgr.compute();
+                        //mgr.compute();
+                        mgr.compute_serial();
 
-
-                        using namespace Pretty;
-                        std::vector<LineItem> lines;
-                        lines.push_back(std::vector<std::string>{"Eff", "SB", "BB"});
-                        lines.push_back(LineBreak);
-                        for(auto const& sol : mgr){
-                                auto desc = sol.description();
-                                auto ev = desc->expected_value(sol.solution());
-                                std::vector<std::string> line;
-                                char buf[18];
-                                std::sprintf(buf, "%.1f", desc->eff());
-                                line.push_back(buf);
-                                for(size_t idx=0;idx!=ev.size();++idx){
-                                        line.push_back(boost::lexical_cast<std::string>(ev[idx]));
-                                }
-                                lines.push_back(std::move(line));
+                        std::vector<std::function<void(computation_manager const&)> > views {
+                                PrintStrat{}, PrintEv{} 
+                        };
+                        for(auto const& view : views){
+                                view(mgr);
                         }
-                        RenderTablePretty(std::cout, lines);
+
+
 
                         #if 0
                         std::shared_ptr<binary_strategy_description> desc;
@@ -1222,92 +1266,6 @@ namespace ps{
         };
         static TrivialCommandDecl<SolverCmd> SolverCmdDecl{"solver"};
         
-        
-        struct hu_table_maker{
-                using state_type = binary_strategy_description::strategy_impl_t;
-                template<class FutureMaker>
-                static state_type make_table(FutureMaker&& solver){
-                        using result_t = std::future<std::tuple<double, holdem_binary_solver_result > >;
-                        std::vector<result_t> tmp;
-                        double d = 0.1;
-                        for(double eff=1;eff - 1e-3<2;eff+=d){
-                                tmp.emplace_back(std::async([&,e=eff](){
-                                        return std::make_tuple(e, solver(e));
-                                }));
-                        }
-                        state_type state;
-                        
-                        for(auto& _ : tmp){
-                                auto aux = _.get();
-                                auto eff        = std::get<0>(aux);
-                                auto const& ret = std::get<1>(aux);
-                                if( ! ret.success() ){
-                                        if( auto ptr = boost::get<Error>(&ret.stop_condition)){
-                                                std::cerr << "Error: " << ptr->msg << "\n";
-                                        }
-                                        continue;
-                                }
-                                auto const& vec = ret.state;
-                                for(; state.size() < vec.size();){
-                                        state.emplace_back(169);
-                                        state.back().fill(0.0);
-                                }
-                                for(size_t i=0;i!=vec.size();++i){
-                                        for(size_t cid=0;cid!=169;++cid){
-                                                if( state[i][cid] < eff*vec[i][cid] ){
-                                                        state[i][cid] = eff*vec[i][cid];
-                                                }
-                                        }
-                                }
-                        }
-                        return state;
-                }
-        };
-        struct HuTable : Command{
-                enum{ Debug = 1};
-                explicit
-                HuTable(std::vector<std::string> const& args):args_{args}{}
-                virtual int Execute()override{
-
-                        enum{ MaxSteps = 500 };
-
-                        auto maker = [](double eff)
-                        {
-                                auto desc = binary_strategy_description::make_hu_description(0.5, 1, eff);
-                                auto desc_sptr = std::shared_ptr<binary_strategy_description>(desc.get(), [](auto _){});
-
-                                holdem_binary_solver solver;
-                                solver.use_description(desc_sptr);
-                                solver.use_strategy(std::make_shared<counter_strategy_aggresive>());
-                                // short circuit
-                                solver.add_observer(std::make_shared<lp_inf_stoppage_condition>());
-                                // currently don't always converge, after N steps though we have a cyclic solution
-                                // which is approximatly the gt optimal solution
-                                solver.add_observer(std::make_shared<max_steps_condition>(MaxSteps));
-
-
-                                auto result = solver.compute();
-                                if( result.success()){
-                                        for(auto& _ : result.state){
-                                                _ = clamp(_);
-                                        }
-                                }
-                                return result;
-                        };
-
-                        auto table = hu_table_maker::make_table(maker);
-                        for(auto const& s : table){
-                                pretty_print_strat(s, 1);
-                                std::cout << "\n";
-                        }
-
-
-                        return EXIT_SUCCESS;
-                }
-        private:
-                std::vector<std::string> const& args_;
-        };
-        static TrivialCommandDecl<HuTable> HuTableDecl{"hu-table"};
 } // end namespace ps
 
 #endif // PS_CMD_BETTER_SOLVER_H

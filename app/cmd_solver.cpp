@@ -535,8 +535,9 @@ namespace ps{
         struct Continue{};
         struct Break{ std::string msg; };
         struct Error{ std::string msg; };
+        struct SmallerFactor{};
 
-        using  holdem_binary_solver_ctrl = boost::variant<Continue, Break, Error>;
+        using  holdem_binary_solver_ctrl = boost::variant<Continue, Break, Error, SmallerFactor>;
 
         struct holdem_binary_solver;
 
@@ -599,7 +600,6 @@ namespace ps{
                         initial_state_ = std::move(state);
                 }
                 holdem_binary_solver_result compute(){
-                        static double const factor = 0.10;
 
                         std::stable_sort(obs_.begin(), obs_.end(), [](auto const& r, auto const& l){
                                 return r->precedence() < l->precedence();
@@ -620,7 +620,7 @@ namespace ps{
                                         auto ret = _.get();
                                         auto idx            = std::get<0>(ret);
                                         auto const& counter = std::get<1>(ret);
-                                        result[idx] = state[idx] * ( 1.0 - factor ) + counter * factor;
+                                        result[idx] = state[idx] * ( 1.0 - factor_ ) + counter * factor_;
                                 }
                                 return result;
                         };
@@ -654,6 +654,11 @@ namespace ps{
                                         if( auto ptr = boost::get<Error>(&result)){
                                                 return { state, n, result };
                                         }
+                                        if( auto ptr = boost::get<SmallerFactor>(&result)){
+                                                std::cerr << "changing factor\n";
+                                                factor_ /= 2.0;
+                                                continue;
+                                        }
                                         PS_UNREACHABLE();
                                 }
 
@@ -673,6 +678,8 @@ namespace ps{
 
                 // all the observers
                 std::vector<std::shared_ptr<holdem_binary_solver_any_observer> > obs_;
+
+                double factor_{0.10};
         };
 
         struct table_observer : holdem_binary_solver_any_observer{
@@ -1035,7 +1042,11 @@ namespace ps{
                                 if( Debug ){
                                         std::cout << sstr.str() << "\n";
                                 }
+                                #if 0
                                 return Break{sstr.str()};
+                                #endif
+                                state_seq_.clear();
+                                return SmallerFactor{};
                         }
                         return Continue{};
                 }

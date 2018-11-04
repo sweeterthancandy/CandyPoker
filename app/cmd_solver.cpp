@@ -639,6 +639,12 @@ namespace ps{
                                 _->start(this, state);
                         }
 
+                        auto finish = [&](auto const& result){
+                                for(auto& _ : obs_ ){
+                                        _->finish(this, result);
+                                }
+                        };
+
                         size_t n = 0;
                         for(;;++n){
                                 auto next = step(state);
@@ -649,9 +655,11 @@ namespace ps{
                                                 continue;
                                         }
                                         if( auto ptr = boost::get<Break>(&result)){
+                                                finish(state);
                                                 return { state, n, result };
                                         }
                                         if( auto ptr = boost::get<Error>(&result)){
+                                                finish(state);
                                                 return { state, n, result };
                                         }
                                         if( auto ptr = boost::get<SmallerFactor>(&result)){
@@ -720,8 +728,6 @@ namespace ps{
                                 norm_vec_s.push_back(boost::lexical_cast<std::string>(val));
                         }
                         norm_vec_s.push_back(boost::lexical_cast<std::string>(norm));
-
-
                         using namespace Pretty;
                         std::vector<std::string> line;
                         line.push_back(boost::lexical_cast<std::string>(n_));
@@ -729,7 +735,6 @@ namespace ps{
                                 line.push_back(boost::lexical_cast<std::string>(norm_vec_s[idx]));
                         }
 
-                        
                         auto ev = desc_->expected_value(to);
                         for(size_t idx=0;idx!=desc_->num_players();++idx){
                                 line.push_back(boost::lexical_cast<std::string>(ev[idx]));
@@ -737,9 +742,13 @@ namespace ps{
                         line.push_back(format(timer.elapsed(), 2, "%w(%t cpu)"));
                         timer.start();
                         lines.push_back(std::move(line));
-                        RenderTablePretty(std::cout, lines);
                         ++n_;
                         last_ = to;
+                        return Continue{};
+                }
+                virtual holdem_binary_solver_ctrl finish(holdem_binary_solver const*, state_type const& state)override{
+
+                        RenderTablePretty(std::cout, lines);
                         return Continue{};
                 }
         private:
@@ -751,7 +760,7 @@ namespace ps{
         };
         
         struct lp_inf_stoppage_condition : holdem_binary_solver_any_observer{
-                explicit lp_inf_stoppage_condition(double epsilon = 0.05)
+                explicit lp_inf_stoppage_condition(double epsilon = 0.005)
                         : holdem_binary_solver_any_observer{"lp_inf_stoppage_condition"}
                         , epsilon_{epsilon}
                 {}
@@ -1203,13 +1212,15 @@ namespace ps{
                                         if( hint_ ){
                                                 ledger->push(*hint_);
                                         }
+                                } else {
+                                        std::cout << "loaded ledger of side " << ledger->size() << " (" << ledger_name_ << ")\n";
                                 }
                                 holdem_binary_solver solver;
                                 solver.use_description(desc_);
                                 solver.use_strategy(std::make_shared<counter_strategy_aggresive>());
                                 if( Debug ){
                                         solver.add_observer(std::make_shared<table_observer>(desc_.get()));
-                                        solver.add_observer(std::make_shared<strategy_printer>());
+                                        //solver.add_observer(std::make_shared<strategy_printer>());
                                 }
                                 solver.add_observer(std::make_shared<solver_ledger>(ledger));
                                 solver.add_observer(std::make_shared<lp_inf_stoppage_condition>(lp_epsilon_));

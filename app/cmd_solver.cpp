@@ -454,13 +454,35 @@ namespace ps{
                         std::ifstream ofs(path);
                         archive_type oa(ofs);
                         oa >> *reinterpret_cast<ImplType*>(this);
+                        path_ = path;
                 }
-                void save(std::string const& path)const {
+                void try_load(std::string const& path){
+                        try{
+                                load(path);
+                        }catch(...){
+                                // clear it
+                                auto typed = reinterpret_cast<ImplType*>(this);
+                                typed->~ImplType();
+                                new(typed)ImplType;
+                                // now write to disk
+                                save_as(path);
+                                // no load it again so any error is apprent now
+                                load(path);
+                        }
+                }
+                void save_as(std::string const& path)const {
                         using archive_type = boost::archive::text_oarchive;
                         std::ofstream ofs(path);
                         archive_type oa(ofs);
                         oa << *reinterpret_cast<ImplType const*>(this);
                 }
+                void save_()const{
+                        if( path_.size() ){
+                                save_as(path_);
+                        }
+                }
+        private:
+                std::string path_;
         };
 
         struct holdem_binary_strategy_ledger : serialization_base<holdem_binary_strategy_ledger>{
@@ -480,11 +502,12 @@ namespace ps{
         };
 
         struct holdem_binary_solution_set : serialization_base<holdem_binary_solution_set>{
-                void add_solution(double eff, holdem_binary_strategy solution){
-                        solutions_.emplace_back(eff, std::move(solution));
+                void add_solution(std::string const& key, holdem_binary_strategy solution){
+                        solutions_.emplace(key, std::move(solution));
                 }
                 auto begin()const{ return solutions_.begin(); }
                 auto end()const{ return solutions_.end(); }
+                auto find(std::string const& key)const{ return solutions_.find(key); }
         private:
                 friend class boost::serialization::access;
                 template<class Archive>
@@ -492,7 +515,9 @@ namespace ps{
                         ar & solutions_;
                 }
         private:
-                std::vector<std::pair<double, holdem_binary_strategy> > solutions_;
+                // in our scope we can represent everyting in a string, ie
+                // we might want to encode the sb:bb:eff:stragery etc here
+                std::map<std::string, holdem_binary_strategy> solutions_;
         };
 
 
@@ -932,15 +957,15 @@ namespace ps{
                 virtual holdem_binary_solver_ctrl start(holdem_binary_solver const*, state_type const& state)override{
                         if( ! skip_start_ ){
                                 ledger_.push(state);
-                                ledger_.save(filename_);
-                                ledger_.save(filename_ + ".other");
+                                ledger_.save_as(filename_);
+                                ledger_.save_as(filename_ + ".other");
                         }
                         return Continue{};
                 }
                 virtual holdem_binary_solver_ctrl step(holdem_binary_solver const*, state_type const& from, state_type const& to)override{
                         ledger_.push(to);
-                        ledger_.save(filename_);
-                        ledger_.save(filename_ + ".other");
+                        ledger_.save_as(filename_);
+                        ledger_.save_as(filename_ + ".other");
                         return Continue{};
                 }
                 virtual void imbue(holdem_binary_solver* solver)override{
@@ -958,6 +983,134 @@ namespace ps{
                 holdem_binary_strategy_ledger ledger_;
         };
 
+        /*
+                Computing the push/fold table for three players is computation intensive,
+                and takes hours to solve for each effective stack, so we need code that
+                can handle the restarting, saving of jobs
+         */
+        struct computation_decl{
+                double SB{0.5};
+                double BB{1.0};
+                size_t N{2};
+                std::string Directory;
+                std::vector<double> EffectiveStacks;
+        };
+        struct computation_manager{
+                struct work_item{
+                        enum{ Debug = false };
+                        // args
+                        work_item(std::string const& key,
+                                  std::string const& ledger_name,
+                                  double sb, double bb, size_t n, double eff)
+                                :key_{key}
+                                ,ledger_name_(ledger_name),
+                                sb_(sb),
+                                bb_(bb),
+                                n_(n),
+                                eff_(eff)
+                        {}
+                        void load(holdem_binary_solution_set* mgr){
+                                auto iter = mgr->find(key_);
+                                if( iter == mgr->end()){
+                                        compute_single();
+                                        mgr->add_solution(key_, solution_);
+                                        mgr->save_();
+                                } else{
+                                        solution_ = iter->second.to_eigen();
+                                }
+                        }
+                        void compute_single(){
+                                std::shared_ptr<binary_strategy_description> desc;
+                                switch(n_){
+                                        case 2:
+                                        {
+                                                desc = binary_strategy_description::make_hu_description(sb_, bb_, eff_);
+                                                break;
+                                        }
+                                        case 3:
+                                        {
+                                                desc = binary_strategy_description::make_three_player_description(sb_, bb_, eff_);
+                                                break;
+                                        }
+                                        default:
+                                        {
+                                                throw std::domain_error("unsupported");
+                                        }
+                                }
+                                holdem_binary_solver solver;
+                                solver.use_description(desc);
+                                solver.use_strategy(std::make_shared<counter_strategy_aggresive>());
+                                if( Debug ){
+                                        solver.add_observer(std::make_shared<table_observer>(desc.get()));
+                                }
+                                solver.add_observer(std::make_shared<solver_ledger>(ledger_name_));
+                                solver.add_observer(std::make_shared<lp_inf_stoppage_condition>(lp_epsilon_));
+                                solver.add_observer(std::make_shared<max_steps_condition>(max_steps_));
+
+                                auto result = solver.compute();
+                                if( result.success()){
+                                        for(auto& _ : result.state){
+                                                _ = clamp(_);
+                                        }
+                                }
+                                solution_ = result.state;
+                                for(auto const& s : solution_){
+                                        pretty_print_strat(s, 0);
+                                        std::cout << "\n";
+                                }
+                        }
+                private:
+                        // inputs
+                        std::string key_;
+                        std::string ledger_name_;
+                        double sb_;
+                        double bb_;
+                        size_t n_;
+                        double eff_;
+
+                        double lp_epsilon_{0.05};
+                        size_t max_steps_{200};
+
+
+                        // data
+                        holdem_binary_strategy_ledger ledger;
+                        
+                        binary_strategy_description::strategy_impl_t solution_;
+                };
+                computation_manager(computation_decl const& decl){
+                        #if 0
+                        if( decl.Directory.size() ){
+                                mkdir(decl.Directory.c_str());
+                        }
+                        #endif
+                        for(auto eff : decl.EffectiveStacks ){
+                                std::stringstream ledger_name;
+                                if( decl.Directory.size() ){
+                                        ledger_name << decl.Directory << "/";
+                                }
+                                ledger_name << decl.N << ":" << decl.SB << ":" << decl.BB << ":" << eff;
+                                std::string name = ledger_name.str();
+                                std::string key = name; // for now
+                                auto item =std::make_shared<work_item>(name,
+                                                                       key,
+                                                                       decl.SB,
+                                                                       decl.BB,
+                                                                       decl.N,
+                                                                       eff);
+                                items_.push_back(item);
+                        }
+                        mgr_.try_load(".computation_mgr");
+                }
+                void compute(){
+                        for(auto const& ptr : items_){
+                                ptr->load(&mgr_);
+                        }
+                }
+        private:
+                std::vector<std::shared_ptr<work_item> > items_;
+                holdem_binary_solution_set mgr_;
+        };
+
         
         struct SolverCmd : Command{
                 enum{ Debug = 1};
@@ -965,7 +1118,22 @@ namespace ps{
                 SolverCmd(std::vector<std::string> const& args):args_{args}{}
                 virtual int Execute()override{
 
+                        computation_decl cd;
+                        std::string dir = ".SolverCache";
+                        cd.Directory = dir;
 
+                        if( args_.size() && args_[0] == "three"){
+                                cd.N = 3;
+                        }
+
+                        cd.EffectiveStacks.push_back(10);
+                        cd.EffectiveStacks.push_back(20);
+
+                        computation_manager mgr(cd);
+                        mgr.compute();
+
+
+                        #if 0
                         std::shared_ptr<binary_strategy_description> desc;
                         std::string ledger_path;
                         if( args_.size() && args_[0] == "three"){
@@ -999,6 +1167,7 @@ namespace ps{
                         } else{
                                 std::cerr << "unknown093\n";
                         }
+                        #endif
 
                         return EXIT_SUCCESS;
                 }

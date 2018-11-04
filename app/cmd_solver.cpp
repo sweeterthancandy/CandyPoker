@@ -920,25 +920,28 @@ namespace ps{
 
         /*
                 This is to detect cyclic solutions
+
+                We have this situation where a partition S = A \union B of the solution set,
+                where every sequence of id's in A is constant, and every id in B is non-monotonic
+
+                This excludes the sitation when we have one id which is monotonic, 
          */
         struct state_seq : holdem_binary_solver_any_observer{
-                enum{ Lookback = 20 };
+                enum{ Lookback = 30 };
+                enum{ Debug = true };
                 static std::string static_get_name(){ return "state_seq"; }
                 state_seq() : holdem_binary_solver_any_observer{static_get_name()}{}
 
                 virtual void imbue(holdem_binary_solver* solver)override{
                         n_ = solver->get_description()->num_players();
                 }
-                virtual holdem_binary_solver_ctrl step(holdem_binary_solver const* solver, state_type const& from, state_type const& to)override{
-                        state_seq_.push_back(to);
-                        doit();
-                        return Continue{};
-                }
                 virtual size_t precedence()const override{ return 0; }
-                void doit(){
-                        if( state_seq_.size() < Lookback )
-                                return;
+                virtual holdem_binary_solver_ctrl step(holdem_binary_solver const* solver, state_type const& from, state_type const& to)override{
 
+                        state_seq_.push_back(to);
+
+                        if( state_seq_.size() < Lookback )
+                                return Continue{};
 
 
                         auto is_non_increasing = [](auto const& seq){
@@ -964,14 +967,30 @@ namespace ps{
                         auto is_monotonic = [&](auto const& seq){
                                 return is_non_increasing(seq) || is_non_decreasing(seq);
                         };
-                        
+                        auto is_constant = [](auto C, auto const& seq){
+                                double epsilon =1e-5;
+                                for(auto s : seq){
+                                        bool cond = ( std::fabs(s - C ) < epsilon );
+                                        if( ! cond )
+                                                return false;
+                                }
+                                return true;
+                        };
                         
                         bool result = true;
 
-                        size_t start_idx = state_seq_.size() - Lookback;
 
-                        std::stringstream dbg;
+                        struct Item{
+                                size_t idx;
+                                size_t cid;
+                        };
+                        std::vector<Item> constant;
+                        std::vector<Item> monotonic;
+                        std::vector<Item> non_monoonic;
+
+                        size_t start_idx = state_seq_.size() - Lookback;
                         std::vector<double > seq;
+
                         // for each degree of state (2 for hu, 6 for three players )
                         for(size_t j=0;j!=n_;++j){
                                 // for each class id
@@ -983,14 +1002,42 @@ namespace ps{
                                                 seq.push_back(S[k] );
                                         }
 
-                                        if( ! is_monotonic(seq) ){
-                                                dbg << holdem_class_decl::get(k) << " is non-monotonic\n";
-                                                result = false;
+                                        if( is_monotonic(seq) ){
+                                                if( is_constant(0.0, seq) || is_constant(1.0, seq)){
+                                                        constant.push_back(Item{j,k});
+                                                } else {
+                                                        monotonic.push_back(Item{j,k});
+                                                }
+                                        } else {
+                                                non_monoonic.push_back(Item{j,k});
                                         }
                                         seq.clear();
                                 }
                         }
-                        std::cout << dbg.str() << "\n";
+
+                        bool cyclic_solution = ( monotonic.empty() && non_monoonic.size() );
+
+
+                        if( cyclic_solution ){
+                                std::stringstream sstr;
+                                sstr << "state_seq: ";
+                                std::vector<holdem_class_vector> aux;
+                                aux.resize(n_);
+                                for(auto const& p : non_monoonic ){
+                                        aux[p.idx].push_back(p.cid);
+                                }
+                                std::string sep;
+                                for(auto const& cv : aux){
+                                        sstr << sep << cv;
+                                        sep = ",";
+                                }
+
+                                if( Debug ){
+                                        std::cout << sstr.str() << "\n";
+                                }
+                                return Break{sstr.str()};
+                        }
+                        return Continue{};
                 }
         private:
                 size_t n_{0};

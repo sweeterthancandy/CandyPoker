@@ -184,6 +184,7 @@ namespace ps{
                 virtual double bb()const{ return bb_; }
                 virtual double eff()const{ return eff_; }
                 virtual size_t num_players()const{ return 2; }
+                virtual size_t strat_vector_size()const{ return 2; }
                 
                 virtual double probability_of_event(std::string const& key, holdem_class_vector const& cv, strategy_impl_t const& impl)const{
                         auto a = impl[0][cv[0]];
@@ -339,6 +340,7 @@ namespace ps{
                 virtual double bb()const{ return bb_; }
                 virtual double eff()const{ return eff_; }
                 virtual size_t num_players()const{ return 3; }
+                virtual size_t strat_vector_size()const{ return 6; }
                 
                 /*
                          The index of the strategy vector, for example

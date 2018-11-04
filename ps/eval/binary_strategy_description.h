@@ -28,6 +28,7 @@ namespace ps{
                 virtual double bb()const=0;
                 virtual double eff()const=0;
                 virtual size_t num_players()const=0;
+                virtual size_t strat_vector_size()const=0;
 
                 virtual std::string string_representation()const{
                         std::stringstream sstr;

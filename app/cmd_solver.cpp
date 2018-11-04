@@ -88,15 +88,25 @@ namespace ps{
 
         struct counter_strategy_concept{
                 virtual ~counter_strategy_concept()=default;
-                virtual Eigen::VectorXd counter(binary_strategy_description const& strategy_desc,
-                                                binary_strategy_description::strategy_decl const& decl,
-                                                binary_strategy_description::strategy_impl_t const& state)const=0;
+                /*
+                        This is represents the abstract function of figurting out that, given everyone
+                        eles's strategy is constant, should we push or fold each class.
+                                Now to allow optmizations, we take as an argument the last result,
+                        where the state should only be slightly permuated. However this is optional,
+                        and a bad hint don't effect performance.
+                        
+                 */
+                virtual Eigen::VectorXd produce_counter(binary_strategy_description const& strategy_desc,
+                                                        binary_strategy_description::strategy_decl const& decl,
+                                                        binary_strategy_description::strategy_impl_t const& state,
+                                                        boost::optional<Eigen::VectorXd> hint)const=0;
         };
         struct counter_strategy_elementwise_batch : counter_strategy_concept{
                 enum{ Debug = false };
-                virtual Eigen::VectorXd counter(binary_strategy_description const& strategy_desc,
+                virtual Eigen::VectorXd produce_counter(binary_strategy_description const& strategy_desc,
                                                 binary_strategy_description::strategy_decl const& decl,
-                                                binary_strategy_description::strategy_impl_t const& state)const override
+                                                binary_strategy_description::strategy_impl_t const& state,
+                                                        boost::optional<Eigen::VectorXd> hint)const override
                 {
                         auto fold_s = decl.make_all_fold(state);
                         auto push_s = decl.make_all_push(state);
@@ -137,12 +147,13 @@ namespace ps{
                 }
         };
         struct counter_strategy_elementwise : counter_strategy_concept{
-                virtual Eigen::VectorXd counter(binary_strategy_description const& strategy_desc,
+                virtual Eigen::VectorXd produce_counter(binary_strategy_description const& strategy_desc,
                                                 binary_strategy_description::strategy_decl const& decl,
-                                                binary_strategy_description::strategy_impl_t const& state)const override
+                                                binary_strategy_description::strategy_impl_t const& state,
+                                                        boost::optional<Eigen::VectorXd> hint)const override
                 {
-                        auto fold_s = decl.given_fold(state);
-                        auto push_s = decl.given_push(state);
+                        auto fold_s = decl.make_all_fold(state);
+                        auto push_s = decl.make_all_push(state);
 
                         Eigen::VectorXd counter(169);
                         counter.fill(0);
@@ -160,17 +171,18 @@ namespace ps{
                 }
         };
         struct counter_strategy_aggresive : counter_strategy_concept{
-                enum{ Debug = false };
+                enum{ Debug = true };
                 enum MaybeBool{
                         MB_False,
                         MB_True,
                         MB_Unknown,
                 };
                 struct Context{
-                        enum{ Debug = false };
+                        enum{ Debug = true };
                         binary_strategy_description const& strategy_desc;
                         binary_strategy_description::strategy_decl const& decl;
                         binary_strategy_description::strategy_impl_t const& state;
+                        boost::optional<Eigen::VectorXd> hint;
                         binary_strategy_description::strategy_impl_t fold_s;
                         binary_strategy_description::strategy_impl_t push_s;
                         size_t derived_counter{0};
@@ -178,24 +190,73 @@ namespace ps{
 
                         Context( binary_strategy_description const& strategy_desc_,
                                  binary_strategy_description::strategy_decl const& decl_,
-                                 binary_strategy_description::strategy_impl_t const& state_)
+                                 binary_strategy_description::strategy_impl_t const& state_,
+                                 boost::optional<Eigen::VectorXd> const& hint_)
                                 : strategy_desc(strategy_desc_)
                                 , decl(decl_)
                                 , state(state_)
+                                , hint(hint_)
                                 , fold_s( decl.make_all_fold(state) )
                                 , push_s( decl.make_all_push(state) )
                         {
                                 result.fill(MB_Unknown);
                         }
+                        static std::string mb_to_string(MaybeBool mb){
+                                return ( mb == MB_True  ? "True"   :
+                                         mb == MB_False ? "False"  :
+                                                          "Unknown" );
+                        }
 
+                        void CheckAll()const{
+                                holdem_class_vector false_push;
+                                holdem_class_vector false_fold;
+                                for(size_t idx=0;idx!=169;++idx){
+                                        auto mb = result[idx];
+                                        if(mb == MB_Unknown )
+                                                continue;
+                                        auto check = UnderlyingComputation(idx);
+                                        if( check == mb )
+                                                continue;
+                                        if( mb == MB_True )
+                                                false_push.push_back(idx);
+                                        else
+                                                false_fold.push_back(idx);
+                                }
+                                if( false_push.size() + false_fold.size()){
+                                        std::stringstream sstr;
+                                        sstr << "fold_push=" << false_push << ", false_fold=" << false_fold;
+                                        throw std::domain_error(sstr.str());
+                                }
+                        }
+                        void Check(std::string const& from, size_t idx, MaybeBool mb)const{
+                                auto check = UnderlyingComputation(idx);
+                                #if 0
+                                for(size_t idx=0;idx!=13;++idx){
+                                        std::cout << "idx => " << idx << "\n"; // __CandyPrint__(cxx-print-scalar,idx)
+                                        std::cout << "holdem_class_decl::get(idx) => " << holdem_class_decl::get(idx) << "\n"; // __CandyPrint__(cxx-print-scalar,holdem_class_decl::get(idx))
+                                }
+                                #endif
+                                if( mb != check ){
+                                        std::stringstream sstr;
+                                        sstr << "bad check [" << from << "]at " <<  holdem_class_decl::get(idx) 
+                                             << " real=" << mb_to_string(check)
+                                             << " vs " << mb_to_string(mb);
+                                        //std::cout << "sstr.str() => " << sstr.str() << "\n"; // __CandyPrint__(cxx-print-scalar,sstr.str())
+                                        throw std::domain_error(sstr.str());
+                                }
+                        }
                         Eigen::VectorXd Counter()const{
                                 Eigen::VectorXd counter{169};
                                 for(size_t idx=0;idx!=169;++idx){
                                         switch(result[idx]){
                                                 case MB_True:
+                                                        if( Debug )
+                                                                Check("Counter()", idx, result[idx]);
                                                         counter[idx] = 1.0;
                                                         break;
                                                 case MB_False:
+                                                        if( Debug )
+                                                                Check("Counter()", idx, result[idx]);
                                                         counter[idx] = 0.0;
                                                         break;
                                                 case MB_Unknown:
@@ -248,12 +309,7 @@ namespace ps{
                                 if( Debug ){
                                         if( result[cid] != MB_Unknown )
                                                 throw std::domain_error("cid already set");
-                                        auto real_val = UnderlyingComputation(cid);
-                                        if( real_val != val ){
-                                                std::stringstream sstr;
-                                                sstr << "bad val " << real_val << " <> " << val;
-                                                throw std::domain_error(sstr.str());
-                                        }
+                                        Check("TakeDerived()", cid, val);
                                 }
                                 SetValue(cid, val);
                                 ++derived_counter;
@@ -284,6 +340,7 @@ namespace ps{
                         }
                         virtual void push_or_fold(Context& ctx)const override{
                                 // we just start at the front untill we find one that is zero
+                                #if 0
                                 auto start = [&](){
                                         size_t idx=0;
                                         for(;idx!=size();++idx){
@@ -293,15 +350,98 @@ namespace ps{
                                         }
                                         return idx;
                                 }();
-                                for(;start!=size();++start){
-                                        auto cid = at(start);
-                                        ctx.TakeDerived(cid, MB_False);
+                                #endif
+                                auto start = find_bounary(ctx);
+                                #if 0
+                                std::cerr << *this << " : " << "start => " << start << "\n"; // __CandyPrint__(cxx-print-scalar,start)
+                                if( start != size() ){
+                                        std::cerr << "start=" << holdem_class_decl::get(start) << "\n";
+                                } else {
+                                        std::cerr << "start=END\n";
                                 }
+                                std::cerr << "doing checks\n";
+                                if( start != 0 ){
+                                        ctx.Check("Row<T>()" + sstr.str(), at(start-1), MB_True);
+                                }
+                                if( start != size() ){
+                                        ctx.Check("Row<F>()" + sstr.str(), at(start), MB_False);
+                                }
+                                std::cerr << "ending checks\n";
+                                #endif
+
+
+                                for(size_t idx=start;idx!=size();++idx){
+                                        auto cid = at(idx);
+                                        if(ctx.GetMaybeValue(cid) == MB_Unknown ){
+                                                ctx.TakeDerived(cid, MB_False);
+                                        }
+                                }
+                                for(size_t idx=0;idx!=start;++idx){
+                                        auto cid = at(idx);
+                                        if(ctx.GetMaybeValue(cid) == MB_Unknown ){
+                                                ctx.TakeDerived(cid, MB_True);
+                                        }
+                                }
+                                #if 0
+                                for(auto cid : *this){
+                                        if(ctx.GetMaybeValue(cid) == MB_Unknown )
+                                                throw std::domain_error("wtf");
+                                }
+                                ctx.CheckAll();
+                                #endif
                         }
                         virtual std::string to_string()const{
                                 std::stringstream sstr;
                                 sstr << "Row{" << *this << "}";
                                 return sstr.str();
+                        }
+                        // returns the index one after the first item in the row
+                        // for which is false, or the end of the sequence otherwise
+                        //
+                        //
+                        // \return \in [1,size()]
+                        //  0 => 0
+                        //  1 => 10
+                        //  2 => 110
+                        //  ...
+                        //  size()-1 =>  11..10
+                        //  size()   => 11...1
+                        size_t find_bounary(Context& ctx)const{
+                                double epsilon = 1e-5;
+                                size_t idx = 0;
+
+                                if( ctx.hint ){
+                                        auto const& hint = *ctx.hint;
+                                        for(; idx+1<size();++idx){
+                                                auto cid = at(idx);
+                                                if( std::fabs(hint[cid]) < epsilon ){
+                                                        // we have found the boundry
+                                                        break;
+                                                }
+                                        }
+                                }
+
+                                if( Compute(ctx, at(idx)) == MB_True ){
+                                        // if we have one that is true, we want to find the first false one
+                                        ++idx;
+                                        for(; idx!= size(); ++idx){
+                                                if( Compute(ctx, at(idx)) == MB_False ){
+                                                        return idx;
+                                                }
+                                        }
+                                        return size();
+                                } else {
+                                        // else we have found a fold, we want to find the first true one
+                                        for(;idx!=0;){
+                                                --idx;
+                                                if( Compute(ctx, at(idx)) == MB_True){
+                                                        return idx+1;
+                                                }
+                                        }
+                                        // if we get here, they are all false
+                                        return 0;
+                                }
+                                PS_UNREACHABLE();
                         }
                 };
                 struct SuitedRow : Row{
@@ -326,41 +466,6 @@ namespace ps{
                                 }
                                 PS_UNREACHABLE();
                         }
-                };
-                struct Any : Op{
-                        enum{ Debug = 1 };
-                        explicit Any(holdem_class_id cid):cid_{cid}, decl_{holdem_class_decl::get(cid_)}{}
-                        virtual void push_or_fold(Context& ctx)const override{
-                                for(auto derived_cid : derived_true_){
-                                        if(ctx.GetMaybeValue(derived_cid) == MB_True){
-                                                ctx.TakeDerived(cid_, MB_True);
-                                                return;
-                                        }
-                                }
-                                for(auto derived_cid : derived_false_){
-                                        if(ctx.GetMaybeValue(derived_cid) == MB_False){
-                                                ctx.TakeDerived(cid_, MB_False);
-                                                return;
-                                        }
-                                }
-                                ctx.SetValue(cid_, ctx.UnderlyingComputation(cid_));
-                        }
-                        virtual std::string to_string()const override{
-                                std::stringstream sstr;
-                                sstr << "Any{" << decl_ << ", true=" << derived_true_ << ", false=" << derived_false_ << "}";
-                                return sstr.str();
-                        }
-                        void take_true(holdem_class_id cid){
-                                derived_true_.push_back(cid);
-                        }
-                        void take_false(holdem_class_id cid){
-                                derived_false_.push_back(cid);
-                        }
-                private:
-                        holdem_class_id cid_;
-                        holdem_class_decl const& decl_;
-                        holdem_class_vector derived_true_;
-                        holdem_class_vector derived_false_;
                 };
                 counter_strategy_aggresive(){
 
@@ -403,6 +508,9 @@ namespace ps{
                                         ( AQ, KJ, QT, J9, T8, 97, 86, 75, 64, 53, 42)
                                         ( AK, KQ, QJ, JT, T9, 98, 87, 76, 65, 54, 43, 32)
 
+                                With this parametrization, we don't have to worry that A5 is better than A6 sometimes, because 
+                                they are in different rows
+
 
 
                          */
@@ -442,16 +550,21 @@ namespace ps{
                                 }
                         }
                 }
-                virtual Eigen::VectorXd counter(binary_strategy_description const& strategy_desc,
+                virtual Eigen::VectorXd produce_counter(binary_strategy_description const& strategy_desc,
                                                 binary_strategy_description::strategy_decl const& decl,
-                                                binary_strategy_description::strategy_impl_t const& state)const override
+                                                binary_strategy_description::strategy_impl_t const& state,
+                                                boost::optional<Eigen::VectorXd> hint)const override
                 {
                         Eigen::VectorXd counter(169);
                         counter.fill(0);
-                        Context ctx(strategy_desc, decl, state);
+                        Context ctx(strategy_desc, decl, state, hint);
                         for(auto const& _ : ops_){
                                 _->push_or_fold(ctx);
                         }
+                        if( Debug ){
+                                std::cout << "ctx.derived_counter => " << ctx.derived_counter << "\n"; // __CandyPrint__(cxx-print-scalar,ctx.derived_counter)
+                        }
+                        std::cerr << "Making\n";
                         return ctx.Counter();
                 }
         private:
@@ -649,6 +762,8 @@ namespace ps{
                                 return r->precedence() < l->precedence();
                         });
 
+                        std::vector<boost::optional<Eigen::VectorXd> > hint_vector(desc_->strat_vector_size());
+
                         auto step = [&](auto const& state)->state_type
                         {
                                 struct Task{
@@ -659,7 +774,11 @@ namespace ps{
                                 std::vector<result_t> tmp;
                                 for(auto si=desc_->begin_strategy(),se=desc_->end_strategy();si!=se;++si){
                                         auto fut = std::async(std::launch::async, [&,sd=*si](){
-                                                auto sol = counter_strategy_->counter(*desc_, sd, state);
+                                                auto sol = counter_strategy_->produce_counter(*desc_,
+                                                                                              sd,
+                                                                                              state,
+                                                                                              hint_vector[sd.vector_index()]);
+                                                hint_vector[sd.vector_index()] = sol;
                                                 return Task{&sd, std::move(sol)};
                                         });
                                         tmp.emplace_back(std::move(fut));
@@ -1418,14 +1537,16 @@ namespace ps{
                         computation_decl cd;
                         std::string dir = ".SolverCache";
                         cd.Directory = dir;
+                        double start_eff = 2.0;
 
                         double d = 0.1;
                         if( args_.size() && args_[0] == "three"){
                                 cd.N = 3;
                                 d = 1.0;
+                                start_eff = 10.0;
                         }
 
-                        for(double eff=10.0;eff-1e-5 < 20.0;eff += d ){
+                        for(double eff=start_eff;eff-1e-5 < 20.0;eff += d ){
                                 cd.EffectiveStacks.push_back(eff);
                         }
 

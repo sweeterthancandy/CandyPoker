@@ -170,7 +170,12 @@ namespace ps{
                         events_.push_back(n_pp);
 
                         strats_.emplace_back(this, 0,0, "SB Pushing", "", std::vector<double>{});
+                        //strats_.back().add_event(*n_f_);
+                        //strats_.back().add_event(*n_pf);
+                        //strats_.back().add_event(*n_pp);
                         strats_.emplace_back(this, 1,1, "BB Calling, given a SB push", "p", std::vector<double>{1.0});
+                        //strats_.back().add_event(*n_pf);
+                        //strats_.back().add_event(*n_pp);
                         
                         finish();
                 }

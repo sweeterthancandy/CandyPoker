@@ -80,7 +80,7 @@ namespace ps{
                         for(auto iter(es.begin()),end(es.end());iter!=end;++iter){
                                 sigma += (*iter)->expected_value_of_event(this, vec, cv, impl);
                         }
-                        vec /= sigma;
+                        //vec /= sigma;
                         return vec;
                 }
                 virtual Eigen::VectorXd expected_value_by_class_id(size_t player_idx, strategy_impl_t const& impl)const=0;
@@ -118,11 +118,11 @@ namespace ps{
                                 action_(action),
                                 given_(given)
                         {
+                                std::cout << "action_ => " << action_ << "\n"; // __CandyPrint__(cxx-print-scalar,action_)
                                 for(auto ei(self_->begin_event()),ee(self_->end_event());ei!=ee;++ei){
-                                        if( ei->key().size() < action_.size()){
-                                                continue;
-                                        }
+                                        std::cout << "ei->key().substr(0, action_.size()) => " << ei->key().substr(0, action_.size()) << "\n"; // __CandyPrint__(cxx-print-scalar,ei->key().substr(0, action_.size()))
                                         if( ei->key().substr(0, action_.size()) == action_ ){
+                                                std::cout << "done\n";
                                                 events_.push_back(&*ei);
                                         }
                                 }
@@ -142,12 +142,10 @@ namespace ps{
                                 return result;
                         }
                         using self_type = strategy_decl;
-                        #if 0
                         self_type& add_event(event_decl const& event){
                                 events_.push_back(&event);
                                 return *this;
                         }
-                        #endif
                         using event_vector = std::vector<event_decl const*>;
                         using event_iterator = boost::indirect_iterator<event_vector::const_iterator>;
                         event_iterator begin_event()const{ return events_.begin(); }
@@ -156,8 +154,8 @@ namespace ps{
 
                         double expected_value_for_class_id(holdem_class_id class_id, strategy_impl_t const& impl)const{
                                 return self_->expected_value_for_class_id_es(events_, player_idx_, class_id, impl);
-
                         }
+
                 private:
                         binary_strategy_description* self_;
                         size_t vec_idx_;

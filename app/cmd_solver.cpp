@@ -457,9 +457,13 @@ namespace ps{
                         oa >> *reinterpret_cast<ImplType*>(this);
                         path_ = path;
                 }
-                void try_load(std::string const& path){
+                // returns true indicte that load from disk
+                // returns false to indicate that an empty object represention
+                //         was created and loaded from disk
+                bool try_load_or_default(std::string const& path){
                         try{
                                 load(path);
+                                return true;
                         }catch(...){
                                 // clear it
                                 auto typed = reinterpret_cast<ImplType*>(this);
@@ -469,6 +473,7 @@ namespace ps{
                                 save_as(path);
                                 // no load it again so any error is apprent now
                                 load(path);
+                                return false;
                         }
                 }
                 void save_as(std::string const& path)const {
@@ -492,7 +497,7 @@ namespace ps{
                 void push(holdem_binary_strategy s){
                         ledger_.emplace_back(std::move(s));
                 }
-                auto size()const{ return ledger_; }
+                size_t size()const{ return ledger_.size(); }
                 auto const& back()const{ return ledger_.back(); }
         private:
                 friend class boost::serialization::access;
@@ -956,37 +961,23 @@ namespace ps{
         };
 
         struct solver_ledger : holdem_binary_solver_any_observer{
-                explicit solver_ledger(std::string const& filename)
+                explicit solver_ledger(std::shared_ptr<holdem_binary_strategy_ledger> ledger)
                         : holdem_binary_solver_any_observer{"solver_ledger"}
-                        , filename_{filename}
+                        , ledger_{ledger}
                 {}
-                virtual holdem_binary_solver_ctrl start(holdem_binary_solver const*, state_type const& state)override{
-                        if( ! skip_start_ ){
-                                ledger_.push(state);
-                                ledger_.save_as(filename_);
-                                ledger_.save_as(filename_ + ".other");
-                        }
-                        return Continue{};
-                }
                 virtual holdem_binary_solver_ctrl step(holdem_binary_solver const*, state_type const& from, state_type const& to)override{
-                        ledger_.push(to);
-                        ledger_.save_as(filename_);
-                        ledger_.save_as(filename_ + ".other");
+                        ledger_->push(to);
+                        ledger_->save_();
                         return Continue{};
                 }
                 virtual void imbue(holdem_binary_solver* solver)override{
-                        try{
-                                ledger_.load(filename_);
-                                auto state0 = ledger_.back().to_eigen();
+                        if( ledger_->size() ){
+                                auto state0 = ledger_->back().to_eigen();
                                 solver->use_inital_state(std::move(state0));
-                        }catch(...){
-                                skip_start_ = false;
                         }
                 }
         private:
-                std::string filename_;
-                bool skip_start_{true};
-                holdem_binary_strategy_ledger ledger_;
+                std::shared_ptr<holdem_binary_strategy_ledger> ledger_;
         };
 
         /*
@@ -1049,6 +1040,10 @@ namespace ps{
                                         std::cout << "\n";
                                 }
                         }
+
+                        void solution_hint(binary_strategy_description::strategy_impl_t const& hint){
+                                hint_ = hint;
+                        }
                 private:
                         friend struct computation_manager;
                         void load(holdem_binary_solution_set* mgr){
@@ -1062,6 +1057,12 @@ namespace ps{
                                 }
                         }
                         void compute_single(){
+                                auto ledger = std::make_shared<holdem_binary_strategy_ledger>();
+                                if( ledger->try_load_or_default(ledger_name_ ) == false ){
+                                        if( hint_ ){
+                                                ledger->push(*hint_);
+                                        }
+                                }
                                 holdem_binary_solver solver;
                                 solver.use_description(desc_);
                                 solver.use_strategy(std::make_shared<counter_strategy_aggresive>());
@@ -1069,7 +1070,7 @@ namespace ps{
                                         solver.add_observer(std::make_shared<table_observer>(desc_.get()));
                                         solver.add_observer(std::make_shared<strategy_printer>());
                                 }
-                                solver.add_observer(std::make_shared<solver_ledger>(ledger_name_));
+                                solver.add_observer(std::make_shared<solver_ledger>(ledger));
                                 solver.add_observer(std::make_shared<lp_inf_stoppage_condition>(lp_epsilon_));
                                 solver.add_observer(std::make_shared<max_steps_condition>(max_steps_));
 
@@ -1099,6 +1100,8 @@ namespace ps{
                         //holdem_binary_strategy_ledger ledger;
 
                         binary_strategy_description::strategy_impl_t solution_;
+
+                        boost::optional<binary_strategy_description::strategy_impl_t> hint_;
                 };
                 computation_manager(computation_decl const& decl){
                         #if 0
@@ -1122,7 +1125,7 @@ namespace ps{
                                                                        eff);
                                 items_.push_back(item);
                         }
-                        mgr_.try_load(".computation_mgr");
+                        mgr_.try_load_or_default(".computation_mgr");
                 }
                 void compute(){
                         std::vector<std::future<void> > v;
@@ -1131,8 +1134,11 @@ namespace ps{
                         }
                 }
                 void compute_serial(){
-                        for(auto const& ptr : items_){
-                                ptr->load(&mgr_);
+                        for(size_t idx=0;idx!=items_.size();++idx){
+                                items_[idx]->load(&mgr_);
+                                if( idx+1 < items_.size()){
+                                        items_[idx+1]->solution_hint( items_[idx]->solution() );
+                                }
                         }
                 }
                 using items_vector_type = std::vector<std::shared_ptr<work_item> >;

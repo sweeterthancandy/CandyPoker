@@ -1537,8 +1537,8 @@ namespace ps{
                         }
 
                         computation_manager mgr(cd);
-                        //mgr.compute();
-                        mgr.compute_serial();
+                        mgr.compute();
+                        //mgr.compute_serial();
 
                         std::vector<std::function<void(computation_manager const&)> > views {
                                 PrintStrat{}, PrintEv{} 

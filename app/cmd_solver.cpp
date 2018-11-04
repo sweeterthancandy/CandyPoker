@@ -171,14 +171,14 @@ namespace ps{
                 }
         };
         struct counter_strategy_aggresive : counter_strategy_concept{
-                enum{ Debug = true };
+                enum{ Debug = false };
+                enum{ DisableHint = false };
                 enum MaybeBool{
                         MB_False,
                         MB_True,
                         MB_Unknown,
                 };
                 struct Context{
-                        enum{ Debug = true };
                         binary_strategy_description const& strategy_desc;
                         binary_strategy_description::strategy_decl const& decl;
                         binary_strategy_description::strategy_impl_t const& state;
@@ -195,11 +195,14 @@ namespace ps{
                                 : strategy_desc(strategy_desc_)
                                 , decl(decl_)
                                 , state(state_)
-                                , hint(hint_)
                                 , fold_s( decl.make_all_fold(state) )
                                 , push_s( decl.make_all_push(state) )
                         {
                                 result.fill(MB_Unknown);
+
+                                if( ! DisableHint ){
+                                        hint = hint_;
+                                }
                         }
                         static std::string mb_to_string(MaybeBool mb){
                                 return ( mb == MB_True  ? "True"   :
@@ -340,34 +343,16 @@ namespace ps{
                         }
                         virtual void push_or_fold(Context& ctx)const override{
                                 // we just start at the front untill we find one that is zero
-                                #if 0
-                                auto start = [&](){
-                                        size_t idx=0;
-                                        for(;idx!=size();++idx){
-                                                auto cid = at(idx);
-                                                if( Compute(ctx, cid) == MB_False )
-                                                        return idx + 1;
-                                        }
-                                        return idx;
-                                }();
-                                #endif
                                 auto start = find_bounary(ctx);
-                                #if 0
-                                std::cerr << *this << " : " << "start => " << start << "\n"; // __CandyPrint__(cxx-print-scalar,start)
-                                if( start != size() ){
-                                        std::cerr << "start=" << holdem_class_decl::get(start) << "\n";
-                                } else {
-                                        std::cerr << "start=END\n";
+
+                                if( Debug ){
+                                        if( start != 0 ){
+                                                ctx.Check("Row<T>()", at(start-1), MB_True);
+                                        }
+                                        if( start != size() ){
+                                                ctx.Check("Row<F>()", at(start), MB_False);
+                                        }
                                 }
-                                std::cerr << "doing checks\n";
-                                if( start != 0 ){
-                                        ctx.Check("Row<T>()" + sstr.str(), at(start-1), MB_True);
-                                }
-                                if( start != size() ){
-                                        ctx.Check("Row<F>()" + sstr.str(), at(start), MB_False);
-                                }
-                                std::cerr << "ending checks\n";
-                                #endif
 
 
                                 for(size_t idx=start;idx!=size();++idx){
@@ -382,13 +367,6 @@ namespace ps{
                                                 ctx.TakeDerived(cid, MB_True);
                                         }
                                 }
-                                #if 0
-                                for(auto cid : *this){
-                                        if(ctx.GetMaybeValue(cid) == MB_Unknown )
-                                                throw std::domain_error("wtf");
-                                }
-                                ctx.CheckAll();
-                                #endif
                         }
                         virtual std::string to_string()const{
                                 std::stringstream sstr;
@@ -564,7 +542,6 @@ namespace ps{
                         if( Debug ){
                                 std::cout << "ctx.derived_counter => " << ctx.derived_counter << "\n"; // __CandyPrint__(cxx-print-scalar,ctx.derived_counter)
                         }
-                        std::cerr << "Making\n";
                         return ctx.Counter();
                 }
         private:
@@ -788,7 +765,6 @@ namespace ps{
                                         auto ret = _.get();
                                         auto idx            = ret.sd->vector_index();
                                         auto const& counter = ret.solution;
-                                        std::cout << "vector index is " << idx << "\n";
                                         result[idx] = state[idx] * ( 1.0 - factor_ ) + counter * factor_;
                                 }
                                 return result;
@@ -1391,11 +1367,14 @@ namespace ps{
                                 } else {
                                         std::cout << "loaded ledger of side " << ledger->size() << " (" << ledger_name_ << ")\n";
                                 }
+                                std::cout << "doing " << desc_->string_representation() << "\n";
                                 holdem_binary_solver solver;
                                 solver.use_description(desc_);
                                 solver.use_strategy(std::make_shared<counter_strategy_aggresive>());
                                 //solver.use_strategy(std::make_shared<counter_strategy_elementwise_batch>());
-                                if( Debug ){
+                                if( n_ == 2 ){
+                                        solver.add_observer(std::make_shared<table_observer>(desc_.get(), false));
+                                } else {
                                         solver.add_observer(std::make_shared<table_observer>(desc_.get(), true));
                                         solver.add_observer(std::make_shared<strategy_printer>());
                                 }

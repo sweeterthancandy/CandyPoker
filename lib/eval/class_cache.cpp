@@ -254,7 +254,9 @@ struct PrintCacheCmd : Command{
                                 std::cout << aux << " -> " << detail::to_string(iter->second) << "\n";
                         }
 
-                }catch(...){}
+                }catch(std::exception const& e){
+                        std::cerr << "Failed to read: " << e.what() << "\n";
+                }
 
                 return EXIT_SUCCESS;
         }

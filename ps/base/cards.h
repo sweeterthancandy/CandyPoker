@@ -468,6 +468,8 @@ namespace ps{
                 }
                 unsigned long long sigma()const{ return sigma_; }
                 bool valid()const{
+                        if( empty() )
+                                return false;
                         for(auto _ : *this){
                                 switch(std::fpclassify(_)) {
                                 case FP_INFINITE:

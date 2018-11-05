@@ -166,53 +166,10 @@ namespace pass_eval_hand_instr_vec_detail{
                         hv   = instr->get_vector();
                         hv_mask = hv.mask();
                         n = hv.size();
-                        for(size_t i=0;i!=hv.size();++i){
-                                auto const& hand{holdem_hand_decl::get(hv[i])};
-
-                                hv_first[i]       = hand.first().id();
-                                hv_first_rank[i]  = hand.first().rank().id();
-                                hv_first_suit[i]  = hand.first().suit().id();
-                                hv_second[i]      = hand.second().id();
-                                hv_second_rank[i] = hand.second().rank().id();
-                                hv_second_suit[i] = hand.second().suit().id();
-                        }
                         mat.resize(n, n);
                         mat.fill(0);
                 }
-                void accept(card_vector const& cv, size_t mask, rank_hasher::rank_hash_t rank_proto, suit_hasher::suit_hash_t suit_proto){
-                        bool cond = (mask & hv_mask ) == 0;
-                        if(!cond){
-                                return;
-                        }
-                        for(size_t i=0;i!=n;++i){
-
-                                auto rank_hash = rank_proto;
-                                auto suit_hash = suit_proto;
-
-                                rank_hash = rank_hasher::append(rank_hash, hv_first_rank[i]);
-                                rank_hash = rank_hasher::append(rank_hash, hv_second_rank[i]);
-
-                                suit_hash = suit_hasher::append(suit_hash, hv_first_suit[i] );
-                                suit_hash = suit_hasher::append(suit_hash, hv_second_suit[i] );
-
-                                ranked[i] = ev_->rank(cv, suit_hash, rank_hash, hv_first[i], hv_second[i]);
-                        }
-                        detail::dispatch_ranked_vector_mat(mat, ranked, n);
-                }
-                void accept_(card_vector const& cv, size_t mask, rank_hasher::rank_hash_t rank_proto, suit_hasher::suit_hash_t suit_proto,
-                             std::unordered_map<holdem_id, ranking_t> const& R)
-                {
-                        bool cond = (mask & hv_mask ) == 0;
-                        if(!cond){
-                                return;
-                        }
-                        for(size_t i=0;i!=n;++i){
-                                ranked[i] = R.find(hv[i])->second;
-                        }
-                        detail::dispatch_ranked_vector_mat(mat, ranked, n);
-                }
-                void accept__(card_vector const& cv, size_t mask, rank_hasher::rank_hash_t rank_proto, suit_hasher::suit_hash_t suit_proto,
-                              std::vector<ranking_t> const& R)
+                void accept(size_t mask, std::vector<ranking_t> const& R)
                 {
                         bool cond = (mask & hv_mask ) == 0;
                         if(!cond){
@@ -240,19 +197,13 @@ namespace pass_eval_hand_instr_vec_detail{
         private:
                 iter_t iter_;
                 card_eval_instruction* instr_;
+                std::array<ranking_t, 9> ranked;
 
                 mask_computer_detail::rank_hash_eval* ev_;
 
                 holdem_hand_vector hv;
                 size_t hv_mask;
                 size_t n;
-                std::array<ranking_t, 9> ranked;
-                std::array<card_id, 9> hv_first;
-                std::array<card_id, 9> hv_second;
-                std::array<rank_id, 9> hv_first_rank;
-                std::array<rank_id, 9> hv_second_rank;
-                std::array<suit_id, 9> hv_first_suit;
-                std::array<suit_id, 9> hv_second_suit;
                 matrix_t mat;
 
                 std::vector<size_t> allocation_;
@@ -354,14 +305,8 @@ struct pass_eval_hand_instr_vec : computation_pass{
                                 R[idx] = r;
                         }
 
-
-                        #if 0
                         for(auto& _ : subs){
-                                _->accept(cv, mask, rank_proto, suit_proto);
-                        }
-                        #endif
-                        for(auto& _ : subs){
-                                _->accept__(cv, mask, rank_proto, suit_proto, R);
+                                _->accept(mask, R);
                         }
                 }
                 for(auto& _ : subs){

@@ -11,6 +11,9 @@
 
 #include "ps/eval/evaluator_6_card_map.h"
 
+#include <unordered_set>
+#include <unordered_map>
+
 namespace ps{
 
 namespace mask_computer_detail{
@@ -199,6 +202,11 @@ namespace pass_eval_hand_instr_vec_detail{
                 void finish(){
                         *iter_ = std::make_shared<matrix_instruction>(instr_->group(), mat * instr_->get_matrix());
                 }
+                void declare(std::unordered_set<holdem_id>& S){
+                        for(auto _ : hv){
+                                S.insert(_);
+                        }
+                }
         private:
                 iter_t iter_;
                 card_eval_instruction* instr_;
@@ -235,6 +243,12 @@ struct pass_eval_hand_instr_vec : computation_pass{
                 if( subs.empty())
                         return;
 
+                std::unordered_set<holdem_id> S;
+                for(auto& _ : subs){
+                        _->declare(S);
+                }
+
+                std::unordered_map<holdem_id, ranking_t> R;
                 for(auto const& b : w ){
 
                         auto mask = b.mask();

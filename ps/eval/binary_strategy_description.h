@@ -80,6 +80,7 @@ namespace ps{
                         for(auto iter(es.begin()),end(es.end());iter!=end;++iter){
                                 sigma += (*iter)->expected_value_of_event(this, vec, cv, impl);
                         }
+                        // TODO not sure why but this changed the convergence?
                         //vec /= sigma;
                         return vec;
                 }
@@ -109,14 +110,12 @@ namespace ps{
                 }
 
                 struct strategy_decl{
-                        strategy_decl(binary_strategy_description* self, size_t vec_idx, size_t player_idx, std::string const& desc, std::string const& action,
-                                      std::vector<double> const& given)
+                        strategy_decl(binary_strategy_description* self, size_t vec_idx, size_t player_idx, std::string const& desc, std::string const& action)
                                 :self_{self},
                                 vec_idx_(vec_idx),
                                 player_idx_(player_idx),
                                 desc_(desc),
-                                action_(action),
-                                given_(given)
+                                action_(action)
                         {
                                 std::cout << "action_ => " << action_ << "\n"; // __CandyPrint__(cxx-print-scalar,action_)
                                 for(auto ei(self_->begin_event()),ee(self_->end_event());ei!=ee;++ei){
@@ -156,17 +155,34 @@ namespace ps{
                                 return self_->expected_value_for_class_id_es(events_, player_idx_, class_id, impl);
                         }
 
+                        // someting I'm playing with, the idea is that the first action
+                        // is alot more sensitive to pertubation in the following stratergies, so
+                        //
+                        // For hu, the first strategy is only dependant on the second, so there is 
+                        // canonical equal weighting. However for 3 players, the first action then
+                        // effects the pp,pf,fp, which in turn effects ppp,pfp,fpp,
+                        //
+                        //
+                        //           *    1
+                        //           p,f  2
+                        //           pp,pf,fp,ff 3
+                        //           ppp,ppf,pfp,pff,fpp,fpf,ff
+                        //                          
+                        // And thus a small change in * will have a small change in BOTH p and f,
+                        // whih will in turn have a small change in pp,pf,fp. This implies that
+                        // we should scale changes differently:
+                        //
+                        double weight()const{ return weight_; }
+                        void set_weight(double weight){ weight_ = weight; }
+
                 private:
                         binary_strategy_description* self_;
                         size_t vec_idx_;
                         size_t player_idx_;
                         std::string desc_;
                         std::string action_;
-                        // the way that the strategy vector is layed out, we can make 
-                        // some optimization on the game tree
-                        std::vector<double> given_;
-
                         event_set events_;
+                        double weight_;
                 };
                 using strategy_vector = std::vector<strategy_decl>;
                 using strategy_iterator = strategy_vector::const_iterator;

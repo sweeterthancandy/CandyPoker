@@ -169,13 +169,8 @@ namespace ps{
                         auto n_pp = std::make_shared<eval_event>("pp", std::vector<size_t>{0,1}, dead_money, active);
                         events_.push_back(n_pp);
 
-                        strats_.emplace_back(this, 0,0, "SB Pushing", "", std::vector<double>{});
-                        //strats_.back().add_event(*n_f_);
-                        //strats_.back().add_event(*n_pf);
-                        //strats_.back().add_event(*n_pp);
-                        strats_.emplace_back(this, 1,1, "BB Calling, given a SB push", "p", std::vector<double>{1.0});
-                        //strats_.back().add_event(*n_pf);
-                        //strats_.back().add_event(*n_pp);
+                        strats_.emplace_back(this, 0,0, "SB Pushing", "");
+                        strats_.emplace_back(this, 1,1, "BB Calling, given a SB push", "p");
                         
                         finish();
                 }
@@ -321,15 +316,12 @@ namespace ps{
                                 
                         }
 
-                        double ___ = 1.0; // this value will be times by 0 so can be ignored
-                        strats_.emplace_back(this, 0,0, "BTN Pushing"                        , ""  , std::vector<double>{});
-                        strats_.emplace_back(this, 1,1, "SB Calling, given BTN Push"         , "p" , std::vector<double>{1.0});
-                        strats_.emplace_back(this, 2,1, "SB Pushing, given BTN Fold"         , "f" , std::vector<double>{0.0}); 
-                        strats_.emplace_back(this, 3,2, "BB Calling, given BTN Push, SB Call", "pp", std::vector<double>{1.0, 1.0, ___});
-                        strats_.emplace_back(this, 4,2, "BB Calling, given BTN Push, SB Fold", "pf", std::vector<double>{1.0, 0.0, ___});
-                        strats_.emplace_back(this, 5,2, "BB Calling, given BTN Fold, SB Push", "fp", std::vector<double>{0.0, ___, 1.0});
-                        //                                                                                          ^    ^    ^
-                        //                                                                                          P   P|P  P|F
+                        strats_.emplace_back(this, 0,0, "BTN Pushing"                        , ""  );
+                        strats_.emplace_back(this, 1,1, "SB Calling, given BTN Push"         , "p" );
+                        strats_.emplace_back(this, 2,1, "SB Pushing, given BTN Fold"         , "f" ); 
+                        strats_.emplace_back(this, 3,2, "BB Calling, given BTN Push, SB Call", "pp");
+                        strats_.emplace_back(this, 4,2, "BB Calling, given BTN Push, SB Fold", "pf");
+                        strats_.emplace_back(this, 5,2, "BB Calling, given BTN Fold, SB Push", "fp");
         
                         finish();
                 }

@@ -45,12 +45,12 @@ void class_cache::create(size_t n, class_cache* cache, std::string const& file_n
         mgr.add_pass<pass_permutate>();
         mgr.add_pass<pass_sort_type>();
         mgr.add_pass<pass_collect>();
-        //mgr.add_pass<pass_eval_hand_instr>();
         mgr.add_pass<pass_eval_hand_instr_vec>();
+        mgr.add_pass<pass_write>();
 
         size_t count = 0;
         enum{ MaxCount = 50 };
-        enum{ BatchSize = 50 };
+        enum{ BatchSize = 169 };
 
         auto save_impl = [&](){
                 std::cout << "Saving...\n";
@@ -105,6 +105,14 @@ void class_cache::create(size_t n, class_cache* cache, std::string const& file_n
         };
                 
         computation_context comp_ctx{n};
+                                
+        #if 0
+        instruction_list instr_list;
+        instr_list.push_back(std::make_shared<class_vec_instruction>("A", cv));
+        auto result = mgr.execute_old(&comp_ctx, &instr_list);
+        BOOST_ASSERT( result );
+        batch_ret.push_back(result);
+        #endif
 
         auto driver = [&](){
                 for(;;){
@@ -112,14 +120,21 @@ void class_cache::create(size_t n, class_cache* cache, std::string const& file_n
                         std::vector<boost::optional<matrix_t> > batch_ret;
                         if( batch.empty() )
                                 return;
+                        size_t token = 0;
+                        std::vector<std::string> tags;
+                        computation_result result{comp_ctx};
+                        instruction_list instr_list;
                         for(auto const& cv : batch ){
-                                instruction_list instr_list;
-                                instr_list.push_back(std::make_shared<class_vec_instruction>("A", cv));
-                                auto result = mgr.execute_old(&comp_ctx, &instr_list);
-                                BOOST_ASSERT( result );
-                                batch_ret.push_back(result);
-                        }
 
+                                auto tag = boost::lexical_cast<std::string>(token++);
+                                tags.push_back(tag);
+                                instr_list.push_back(std::make_shared<class_vec_instruction>(tag, cv));
+                        }
+                        mgr.execute_(&comp_ctx, &instr_list, &result);
+                        BOOST_ASSERT( result );
+                        for(auto const& _ : tags ){
+                                batch_ret.push_back(result[_]);
+                        }
 
                         push(batch, batch_ret);
                 }

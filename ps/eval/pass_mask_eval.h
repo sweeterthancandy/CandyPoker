@@ -211,12 +211,30 @@ namespace pass_eval_hand_instr_vec_detail{
                         }
                         detail::dispatch_ranked_vector_mat(mat, ranked, n);
                 }
+                void accept__(card_vector const& cv, size_t mask, rank_hasher::rank_hash_t rank_proto, suit_hasher::suit_hash_t suit_proto,
+                              std::vector<ranking_t> const& R)
+                {
+                        bool cond = (mask & hv_mask ) == 0;
+                        if(!cond){
+                                return;
+                        }
+                        for(size_t i=0;i!=n;++i){
+                                ranked[i] = R[allocation_[i]];
+                        }
+                        detail::dispatch_ranked_vector_mat(mat, ranked, n);
+                }
                 void finish(){
                         *iter_ = std::make_shared<matrix_instruction>(instr_->group(), mat * instr_->get_matrix());
                 }
                 void declare(std::unordered_set<holdem_id>& S){
                         for(auto _ : hv){
                                 S.insert(_);
+                        }
+                }
+                template<class Alloc>
+                void allocate(Alloc const& alloc){
+                        for(auto _ : hv){
+                                allocation_.push_back(alloc(_));
                         }
                 }
         private:
@@ -236,6 +254,8 @@ namespace pass_eval_hand_instr_vec_detail{
                 std::array<suit_id, 9> hv_first_suit;
                 std::array<suit_id, 9> hv_second_suit;
                 matrix_t mat;
+
+                std::vector<size_t> allocation_;
         };
 }  // end namespace pass_eval_hand_instr_vec_detail
 
@@ -296,8 +316,16 @@ struct pass_eval_hand_instr_vec : computation_pass{
                         _->declare(S);
                 }
                 rank_opt_device rod = rank_opt_device::create(S);
+                std::unordered_map<holdem_id, size_t> allocation_table;
+                for(size_t idx=0;idx!=rod.size();++idx){
+                        allocation_table[rod[idx].hid] = idx;
+                }
+                for(auto& _ : subs){
+                        _->allocate( [&](auto hid){ return allocation_table.find(hid)->second; });
+                }
 
-                std::unordered_map<holdem_id, ranking_t> R;
+                std::vector<ranking_t> R;
+                R.resize(rod.size());
                 for(auto const& b : w ){
 
 
@@ -309,8 +337,8 @@ struct pass_eval_hand_instr_vec : computation_pass{
                         card_vector const& cv = b.board();
 
 
-                        R.clear();
-                        for(auto const& _ : rod ){
+                        for(size_t idx=0;idx!=rod.size();++idx){
+                                auto const& _ = rod[idx];
                                 if( _.mask & mask )
                                         continue;
                                 auto rank_hash = rank_proto;
@@ -323,7 +351,7 @@ struct pass_eval_hand_instr_vec : computation_pass{
                                 suit_hash = suit_hasher::append(suit_hash, _.s1 );
 
                                 ranking_t r = ev.rank(cv, suit_hash, rank_hash, _.c0, _.c1);
-                                R[_.hid] = r;
+                                R[idx] = r;
                         }
 
 
@@ -333,7 +361,7 @@ struct pass_eval_hand_instr_vec : computation_pass{
                         }
                         #endif
                         for(auto& _ : subs){
-                                _->accept_(cv, mask, rank_proto, suit_proto, R);
+                                _->accept__(cv, mask, rank_proto, suit_proto, R);
                         }
                 }
                 for(auto& _ : subs){

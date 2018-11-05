@@ -1,6 +1,7 @@
 #ifndef PS_BASE_COMPUTER_H
 #define PS_BASE_COMPUTER_H
 
+#include <unordered_map>
 #include "ps/eval/instruction.h"
 
 namespace ps{
@@ -12,15 +13,16 @@ namespace ps{
  */
 
 struct computation_context;
+struct computation_result;
 
 struct computation_pass{
         virtual ~computation_pass()=default;
-        virtual void transform(computation_context* ctx, instruction_list* instr_list)=0;
+        virtual void transform(computation_context* ctx, instruction_list* instr_list, computation_result* result = nullptr)=0;
 };
 
 struct instruction_map_pass : computation_pass{
         virtual boost::optional<instruction_list> try_map_instruction(computation_context* ctx, instruction* instr)=0;
-        virtual void transform(computation_context* ctx, instruction_list* instr_list)override{
+        virtual void transform(computation_context* ctx, instruction_list* instr_list, computation_result* result)override{
                 for(auto iter(instr_list->begin()),end(instr_list->end());iter!=end;){
                         auto ret = try_map_instruction(ctx, &**iter);
 
@@ -61,13 +63,44 @@ private:
         size_t num_players_;
 };
 
+struct computation_result
+        : std::unordered_map<std::string, matrix_t>
+{
+        explicit computation_result(computation_context const& ctx)
+        {
+                proto_.resize(ctx.NumPlayers(), ctx.NumPlayers());
+                proto_.fill(0.0);
+        }
+        matrix_t& allocate(std::string const& key){
+                auto iter = find(key);
+                if( iter == end()){
+                        emplace(key, proto_);
+                        return allocate(key);
+                }
+                return iter->second;
+        }
+
+        // error handling
+        operator bool()const{ return error_.empty(); }
+        void set_error(std::string const& msg){
+                // take first
+                if( error_.empty()){
+                        error_ = msg;
+                }
+        }
+private:
+        matrix_t proto_;
+        std::string error_;
+};
+
+
 struct computation_pass_manager : std::vector<std::shared_ptr<computation_pass> >{
         template<class PassType>
         void add_pass(){
                 this->push_back(std::make_shared<PassType>());
         }
 
-        boost::optional<matrix_t> execute(computation_context* ctx, instruction_list* instr_list){
+        boost::optional<matrix_t> execute_old(computation_context* ctx, instruction_list* instr_list){
                 for(size_t idx=0;idx!=size();++idx){
                         at(idx)->transform(ctx, instr_list);
                 }
@@ -83,11 +116,16 @@ struct computation_pass_manager : std::vector<std::shared_ptr<computation_pass> 
                 }
                 return mat;
         }
+        
+        void execute_(computation_context* ctx, instruction_list* instr_list, computation_result* result){
+                for(size_t idx=0;idx!=size();++idx){ at(idx)->transform(ctx, instr_list, result);
+                }
+        }
 };
 
 
 struct pass_permutate : computation_pass{
-        virtual void transform(computation_context* ctx, instruction_list* instr_list)override{
+        virtual void transform(computation_context* ctx, instruction_list* instr_list, computation_result* result)override{
                 for(auto instr : *instr_list){
                         if( instr->get_type() != instruction::T_CardEval )
                                 continue;
@@ -112,7 +150,7 @@ struct pass_permutate : computation_pass{
         }
 };
 struct pass_sort_type : computation_pass{
-        virtual void transform(computation_context* ctx, instruction_list* instr_list)override{
+        virtual void transform(computation_context* ctx, instruction_list* instr_list, computation_result* result)override{
                 instr_list->sort( [](auto l, auto r){
                         if( l->get_type() != r->get_type())
                                 return l->get_type() != r->get_type();
@@ -130,7 +168,7 @@ struct pass_sort_type : computation_pass{
         }
 };
 struct pass_collect : computation_pass{
-        virtual void transform(computation_context* ctx, instruction_list* instr_list)override{
+        virtual void transform(computation_context* ctx, instruction_list* instr_list, computation_result* result)override{
                 using iter_type = decltype(instr_list->begin());
 
                 std::vector<iter_type> subset;
@@ -157,7 +195,7 @@ struct pass_collect : computation_pass{
         }
 };
 struct pass_print : computation_pass{
-        virtual void transform(computation_context* ctx, instruction_list* instr_list)override{
+        virtual void transform(computation_context* ctx, instruction_list* instr_list, computation_result* result)override{
                 std::cout << "--------BEGIN----------\n";
                 for(auto instr : *instr_list ){
                         std::cout << instr->to_string() << "\n";
@@ -194,9 +232,24 @@ struct pass_class2cards : instruction_map_pass{
                 }
                 instruction_list result;
                 for(auto const& _ : meta){
-                        result.push_back(std::make_shared<card_eval_instruction>(_.first, _.second));
+                        result.push_back(std::make_shared<card_eval_instruction>(instrr->group(), _.first, _.second));
                 }
                 return result;
+        }
+};
+
+struct pass_write : computation_pass{
+        virtual void transform(computation_context* ctx, instruction_list* instr_list, computation_result* result)override{
+                for(auto instr : *instr_list ){
+                        if( instr->get_type() != instruction::T_Matrix ){
+                                result->set_error("not matrix");
+                                return;
+                        }
+                }
+                for(auto instr_ : *instr_list ){
+                        auto instr = reinterpret_cast<matrix_instruction*>(instr_.get());
+                        result->allocate(instr->group()) += instr->get_matrix();
+                }
         }
 };
 

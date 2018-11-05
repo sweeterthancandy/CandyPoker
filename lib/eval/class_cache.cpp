@@ -114,8 +114,8 @@ void class_cache::create(size_t n, class_cache* cache, std::string const& file_n
                                 return;
                         for(auto const& cv : batch ){
                                 instruction_list instr_list;
-                                instr_list.push_back(std::make_shared<class_vec_instruction>(cv));
-                                auto result = mgr.execute(&comp_ctx, &instr_list);
+                                instr_list.push_back(std::make_shared<class_vec_instruction>("A", cv));
+                                auto result = mgr.execute_old(&comp_ctx, &instr_list);
                                 BOOST_ASSERT( result );
                                 batch_ret.push_back(result);
                         }

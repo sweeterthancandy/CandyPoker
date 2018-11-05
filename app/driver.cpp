@@ -227,14 +227,26 @@ struct MaskEval : Command{
                 mgr.add_pass<pass_eval_hand_instr_vec>();
                 if( debug )
                         mgr.add_pass<pass_print>();
+                mgr.add_pass<pass_write>();
 
                 boost::timer::auto_cpu_timer at;
 
+                #if 0
                 instruction_list instr_list = frontend_to_instruction_list(players);
-                auto result = mgr.execute(&comp_ctx, &instr_list);
+                auto result = mgr.execute_old(&comp_ctx, &instr_list);
 
                 if( result ){
                         pretty_print_equity_breakdown_mat(std::cout, *result, args_);
+                }
+                #endif
+                computation_result result{comp_ctx};
+                std::string tag = "B";
+                auto const& m = result.allocate(tag);
+                instruction_list instr_list = frontend_to_instruction_list(tag, players);
+                mgr.execute_(&comp_ctx, &instr_list, &result);
+
+                if( result ){
+                        pretty_print_equity_breakdown_mat(std::cout, m, args_);
                 }
 
                 return EXIT_SUCCESS;

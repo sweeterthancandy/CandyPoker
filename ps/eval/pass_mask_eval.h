@@ -144,7 +144,7 @@ struct pass_eval_hand_instr : instruction_map_pass{
                         detail::dispatch_ranked_vector_mat(mat, ranked, n);
                 }
                 instruction_list tmp;
-                tmp.emplace_back(std::make_shared<matrix_instruction>(mat * instr.get_matrix()));
+                tmp.emplace_back(std::make_shared<matrix_instruction>(instrr->group(), mat * instr.get_matrix()));
                 return tmp;
         }
 private:
@@ -197,7 +197,7 @@ namespace pass_eval_hand_instr_vec_detail{
                         detail::dispatch_ranked_vector_mat(mat, ranked, n);
                 }
                 void finish(){
-                        *iter_ = std::make_shared<matrix_instruction>(mat * instr_->get_matrix());
+                        *iter_ = std::make_shared<matrix_instruction>(instr_->group(), mat * instr_->get_matrix());
                 }
         private:
                 iter_t iter_;
@@ -220,7 +220,7 @@ namespace pass_eval_hand_instr_vec_detail{
 }  // end namespace pass_eval_hand_instr_vec_detail
 
 struct pass_eval_hand_instr_vec : computation_pass{
-        virtual void transform(computation_context* ctx, instruction_list* instr_list){
+        virtual void transform(computation_context* ctx, instruction_list* instr_list, computation_result* result){
                 using pass_eval_hand_instr_vec_detail::sub_eval;
                 std::vector<std::shared_ptr<sub_eval> > subs;
 

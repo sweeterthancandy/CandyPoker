@@ -157,30 +157,128 @@ private:
 
 
 namespace pass_eval_hand_instr_vec_detail{
+
         struct sub_eval{
                 using iter_t = instruction_list::iterator;
-                sub_eval(iter_t iter, card_eval_instruction* instr,
-                         mask_computer_detail::rank_hash_eval* ev)
-                        :iter_{iter}, instr_{instr}, ev_{ev}
+                sub_eval(iter_t iter, card_eval_instruction* instr)
+                        :iter_{iter}, instr_{instr}
                 {
                         hv   = instr->get_vector();
                         hv_mask = hv.mask();
                         n = hv.size();
                         mat.resize(n, n);
                         mat.fill(0);
+
+                        wins_.fill(0);
+                        draw2_.fill(0);
+                        draw3_.fill(0);
+
+                        R0 = R1 = R2 = 0;
                 }
-                void accept(size_t mask, std::vector<ranking_t> const& R)
+                void accept(size_t mask, std::vector<ranking_t> const& R)noexcept
                 {
                         bool cond = (mask & hv_mask ) == 0;
                         if(!cond){
                                 return;
                         }
-                        for(size_t i=0;i!=n;++i){
-                                ranked[i] = R[allocation_[i]];
+                        goto do_old_way;
+
+                        switch(n){
+                                case 2:
+                                {
+                                        auto r0 = R[allocation_[0]];
+                                        auto r1 = R[allocation_[1]];
+                                        #if 0
+                                        if( r0 < r1 ){
+                                                ++wins_[0];
+                                        } else if ( r1 < r0 ){
+                                                ++wins_[1];
+                                        } else {
+                                                ++mat(1,0);
+                                                ++mat(1,1);
+                                        }
+                                        #endif
+
+                                        R0 += ( r0  < r1 );
+                                        R1 += ( r0 == r1 );
+                                        ++R2;
+
+                                        break;
+                                }
+                                case 3:
+                                {
+                                        auto r0 = R[allocation_[0]];
+                                        auto r1 = R[allocation_[1]];
+                                        auto r2 = R[allocation_[2]];
+
+                                        if( r0 < r1 ){
+                                                if( r0 < r2 ){
+                                                        ++wins_[0];
+                                                } else if( r2 < r0 ){
+                                                        ++wins_[2];
+                                                } else {
+                                                        ++draw2_[0];
+                                                        ++draw2_[2];
+                                                }
+                                        } else if( r1 < r0 ){
+                                                if( r1 < r2 ){
+                                                        ++wins_[1];
+                                                } else if( r2 < r1 ){
+                                                        ++wins_[2];
+                                                } else {
+                                                        ++draw2_[1];
+                                                        ++draw2_[2];
+                                                }
+                                        } else {
+                                                // ok one of three casese
+                                                //    1) r0,r1 draw with each other
+                                                //    2) r2 wins
+                                                //    3) r0,r1,r2 draw with each other
+                                                if( r0 < r2 ){
+                                                        ++draw2_[0];
+                                                        ++draw2_[1];
+                                                } else if( r2 < r0 ){
+                                                        ++wins_[2];
+                                                } else {
+                                                        ++draw3_[0];
+                                                        ++draw3_[1];
+                                                        ++draw3_[2];
+                                                }
+                                        }
+
+                                        break;
+                                }
+                                default:
+                                {
+do_old_way:
+                                        for(size_t i=0;i!=n;++i){
+                                                ranked[i] = R[allocation_[i]];
+                                        }
+                                        detail::dispatch_ranked_vector_mat(mat, ranked, n);
+                                }
                         }
-                        detail::dispatch_ranked_vector_mat(mat, ranked, n);
                 }
                 void finish(){
+                        switch(n)
+                        {
+                                case 2:
+                                {
+                                        mat(0,0) += R0;
+                                        mat(0,1) += R2 - R1 - R0;
+                                        mat(1,0) += R1;
+                                        mat(1,1) += R1;
+                                        break;
+                                }
+                                case 3:
+                                {
+                                        for(size_t idx=0;idx!=n;++idx){
+                                                mat(0, idx) += wins_[idx];
+                                                mat(1, idx) += draw2_[idx];
+                                                mat(2, idx) += draw3_[idx];
+                                        }
+                                        break;
+                                }
+                        }
                         *iter_ = std::make_shared<matrix_instruction>(instr_->group(), mat * instr_->get_matrix());
                 }
                 void declare(std::unordered_set<holdem_id>& S){
@@ -190,8 +288,8 @@ namespace pass_eval_hand_instr_vec_detail{
                 }
                 template<class Alloc>
                 void allocate(Alloc const& alloc){
-                        for(auto _ : hv){
-                                allocation_.push_back(alloc(_));
+                        for(size_t idx=0;idx!=n;++idx){
+                                allocation_[idx] = alloc(hv[idx]);
                         }
                 }
         private:
@@ -199,14 +297,24 @@ namespace pass_eval_hand_instr_vec_detail{
                 card_eval_instruction* instr_;
                 std::array<ranking_t, 9> ranked;
 
-                mask_computer_detail::rank_hash_eval* ev_;
-
                 holdem_hand_vector hv;
                 size_t hv_mask;
-                size_t n;
                 matrix_t mat;
+                size_t n;
 
-                std::vector<size_t> allocation_;
+                std::array<size_t, 9> allocation_;
+                std::array<size_t, 9> wins_;
+                std::array<size_t, 9> draw2_;
+                std::array<size_t, 9> draw3_;
+                
+                size_t R0{0}, R1{0}, R2{0};
+        };
+
+        struct default_factory{
+                using sub_ptr_type = std::shared_ptr<sub_eval>;
+                sub_ptr_type operator()(instruction_list::iterator iter, card_eval_instruction* instr)const{
+                        return std::make_shared<sub_eval>(iter, instr);
+                }
         };
 }  // end namespace pass_eval_hand_instr_vec_detail
 
@@ -243,24 +351,27 @@ struct rank_opt_device : std::vector<rank_opt_item>{
                 }
                 return result;
         }
+
 };
 
 
 struct pass_eval_hand_instr_vec : computation_pass{
-        virtual void transform(computation_context* ctx, instruction_list* instr_list, computation_result* result){
-                using pass_eval_hand_instr_vec_detail::sub_eval;
-                std::vector<std::shared_ptr<sub_eval> > subs;
 
-                for(auto iter(instr_list->begin()),end(instr_list->end());iter!=end;++iter){
-                        if( (*iter)->get_type() == instruction::T_CardEval ){
-                                auto instr = reinterpret_cast<card_eval_instruction*>((*iter).get());
-                                subs.push_back(std::make_shared<sub_eval>(iter, instr, &ev));
-                        }
+
+        template<class Factory>
+        void transfrom_impl(computation_context* ctx, instruction_list* instr_list, computation_result* result,
+                                   std::vector<typename instruction_list::iterator> const& target_list,
+                                   Factory const& factory)
+        {
+                using sub_ptr_type = typename std::decay_t<Factory>::sub_ptr_type;
+                std::vector<sub_ptr_type> subs;
+
+                for(auto& target : target_list){
+                        auto instr = reinterpret_cast<card_eval_instruction*>((*target).get());
+                        subs.push_back( factory(target, instr) );
                 }
+
                 
-                // short circuit
-                if( subs.empty())
-                        return;
 
                 std::unordered_set<holdem_id> S;
                 for(auto& _ : subs){
@@ -312,6 +423,41 @@ struct pass_eval_hand_instr_vec : computation_pass{
                 for(auto& _ : subs){
                         _->finish();
                 }
+        }
+        virtual void transform(computation_context* ctx, instruction_list* instr_list, computation_result* result){
+                using namespace pass_eval_hand_instr_vec_detail;
+                std::vector<instruction_list::iterator> to_map;
+
+                for(auto iter(instr_list->begin()),end(instr_list->end());iter!=end;++iter){
+                        if( (*iter)->get_type() == instruction::T_CardEval ){
+                                to_map.push_back(iter);
+                        }
+                }
+                // short circuit
+                if( to_map.empty())
+                        return;
+                // as an optimization we want to figure out if we have one size
+                std::unordered_set<size_t> n_dist;
+
+                for(auto iter : to_map){
+                        auto instr = reinterpret_cast<card_eval_instruction*>((*iter).get());
+                        n_dist.insert(instr->get_vector().size());
+                }
+
+
+                transfrom_impl( ctx, instr_list, result, to_map, default_factory{});
+                #if 0
+                if( n_dist.size() == 1 && *n_dist.begin() == 2 ){
+                        transfrom_impl( ctx, instr_list, result, to_map, [](auto iter, auto instr){
+                                return std::make_shared<sub_
+                        });
+                } else if( n_dist.size() == 1 && *n_dist.begin() == 3 ){
+                } else
+
+                        subs.push_back(std::make_shared<sub_eval_type >(iter, instr));
+                }
+                #endif
+
         }
 private:
         mask_computer_detail::rank_hash_eval ev;

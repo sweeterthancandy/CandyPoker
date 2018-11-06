@@ -168,12 +168,6 @@ namespace pass_eval_hand_instr_vec_detail{
                         n = hv.size();
                         mat.resize(n, n);
                         mat.fill(0);
-
-                        wins_.fill(0);
-                        draw2_.fill(0);
-                        draw3_.fill(0);
-
-                        R0 = R1 = R2 = 0;
                 }
                 void accept(size_t mask, std::vector<ranking_t> const& R)noexcept
                 {
@@ -181,104 +175,12 @@ namespace pass_eval_hand_instr_vec_detail{
                         if(!cond){
                                 return;
                         }
-                        goto do_old_way;
-
-                        switch(n){
-                                case 2:
-                                {
-                                        auto r0 = R[allocation_[0]];
-                                        auto r1 = R[allocation_[1]];
-                                        #if 0
-                                        if( r0 < r1 ){
-                                                ++wins_[0];
-                                        } else if ( r1 < r0 ){
-                                                ++wins_[1];
-                                        } else {
-                                                ++mat(1,0);
-                                                ++mat(1,1);
-                                        }
-                                        #endif
-
-                                        R0 += ( r0  < r1 );
-                                        R1 += ( r0 == r1 );
-                                        ++R2;
-
-                                        break;
-                                }
-                                case 3:
-                                {
-                                        auto r0 = R[allocation_[0]];
-                                        auto r1 = R[allocation_[1]];
-                                        auto r2 = R[allocation_[2]];
-
-                                        if( r0 < r1 ){
-                                                if( r0 < r2 ){
-                                                        ++wins_[0];
-                                                } else if( r2 < r0 ){
-                                                        ++wins_[2];
-                                                } else {
-                                                        ++draw2_[0];
-                                                        ++draw2_[2];
-                                                }
-                                        } else if( r1 < r0 ){
-                                                if( r1 < r2 ){
-                                                        ++wins_[1];
-                                                } else if( r2 < r1 ){
-                                                        ++wins_[2];
-                                                } else {
-                                                        ++draw2_[1];
-                                                        ++draw2_[2];
-                                                }
-                                        } else {
-                                                // ok one of three casese
-                                                //    1) r0,r1 draw with each other
-                                                //    2) r2 wins
-                                                //    3) r0,r1,r2 draw with each other
-                                                if( r0 < r2 ){
-                                                        ++draw2_[0];
-                                                        ++draw2_[1];
-                                                } else if( r2 < r0 ){
-                                                        ++wins_[2];
-                                                } else {
-                                                        ++draw3_[0];
-                                                        ++draw3_[1];
-                                                        ++draw3_[2];
-                                                }
-                                        }
-
-                                        break;
-                                }
-                                default:
-                                {
-do_old_way:
-                                        for(size_t i=0;i!=n;++i){
-                                                ranked[i] = R[allocation_[i]];
-                                        }
-                                        detail::dispatch_ranked_vector_mat(mat, ranked, n);
-                                }
+                        for(size_t i=0;i!=n;++i){
+                                ranked[i] = R[allocation_[i]];
                         }
+                        detail::dispatch_ranked_vector_mat(mat, ranked, n);
                 }
                 void finish(){
-                        switch(n)
-                        {
-                                case 2:
-                                {
-                                        mat(0,0) += R0;
-                                        mat(0,1) += R2 - R1 - R0;
-                                        mat(1,0) += R1;
-                                        mat(1,1) += R1;
-                                        break;
-                                }
-                                case 3:
-                                {
-                                        for(size_t idx=0;idx!=n;++idx){
-                                                mat(0, idx) += wins_[idx];
-                                                mat(1, idx) += draw2_[idx];
-                                                mat(2, idx) += draw3_[idx];
-                                        }
-                                        break;
-                                }
-                        }
                         *iter_ = std::make_shared<matrix_instruction>(instr_->group(), mat * instr_->get_matrix());
                 }
                 void declare(std::unordered_set<holdem_id>& S){
@@ -296,24 +198,175 @@ do_old_way:
                 iter_t iter_;
                 card_eval_instruction* instr_;
                 std::array<ranking_t, 9> ranked;
-
                 holdem_hand_vector hv;
                 size_t hv_mask;
                 matrix_t mat;
                 size_t n;
+                std::array<size_t, 9> allocation_;
+        };
+
+        
+        struct sub_eval_two{
+                using iter_t = instruction_list::iterator;
+                sub_eval_two(iter_t iter, card_eval_instruction* instr)
+                        :iter_{iter}, instr_{instr}
+                {
+                        hv   = instr->get_vector();
+                        hv_mask = hv.mask();
+                        mat.resize(n, n);
+                        mat.fill(0);
+
+                        wins_.fill(0);
+                        draw2_.fill(0);
+                }
+                void accept(size_t mask, std::vector<ranking_t> const& R)noexcept
+                {
+                        bool cond = (mask & hv_mask ) == 0;
+                        if(!cond){
+                                return;
+                        }
+                        auto r0 = R[allocation_[0]];
+                        auto r1 = R[allocation_[1]];
+
+                        if( r0 < r1 ){
+                                ++wins_[0];
+                        } else if( r1 < r0 ){
+                                ++wins_[1];
+                        } else{
+                                ++draw2_[0];
+                                ++draw2_[1];
+                        }
+                }
+                void finish(){
+                        for(size_t idx=0;idx!=n;++idx){
+                                mat(0, idx) += wins_[idx];
+                                mat(1, idx) += draw2_[idx];
+                        }
+                        *iter_ = std::make_shared<matrix_instruction>(instr_->group(), mat * instr_->get_matrix());
+                }
+                void declare(std::unordered_set<holdem_id>& S){
+                        for(auto _ : hv){
+                                S.insert(_);
+                        }
+                }
+                template<class Alloc>
+                void allocate(Alloc const& alloc){
+                        for(size_t idx=0;idx!=n;++idx){
+                                allocation_[idx] = alloc(hv[idx]);
+                        }
+                }
+        private:
+                iter_t iter_;
+                card_eval_instruction* instr_;
+
+                holdem_hand_vector hv;
+                size_t hv_mask;
+                matrix_t mat;
+                size_t n{2};
+
+                std::array<size_t, 9> allocation_;
+                std::array<size_t, 9> wins_;
+                std::array<size_t, 9> draw2_;
+        };
+        
+        struct sub_eval_three{
+                using iter_t = instruction_list::iterator;
+                sub_eval_three(iter_t iter, card_eval_instruction* instr)
+                        :iter_{iter}, instr_{instr}
+                {
+                        hv   = instr->get_vector();
+                        hv_mask = hv.mask();
+                        mat.resize(n, n);
+                        mat.fill(0);
+
+                        wins_.fill(0);
+                        draw2_.fill(0);
+                        draw3_.fill(0);
+                }
+                void accept(size_t mask, std::vector<ranking_t> const& R)noexcept
+                {
+                        bool cond = (mask & hv_mask ) == 0;
+                        if(!cond){
+                                return;
+                        }
+                        auto r0 = R[allocation_[0]];
+                        auto r1 = R[allocation_[1]];
+                        auto r2 = R[allocation_[2]];
+
+                        if( r0 < r1 ){
+                                if( r0 < r2 ){
+                                        ++wins_[0];
+                                } else if( r2 < r0 ){
+                                        ++wins_[2];
+                                } else {
+                                        ++draw2_[0];
+                                        ++draw2_[2];
+                                }
+                        } else if( r1 < r0 ){
+                                if( r1 < r2 ){
+                                        ++wins_[1];
+                                } else if( r2 < r1 ){
+                                        ++wins_[2];
+                                } else {
+                                        ++draw2_[1];
+                                        ++draw2_[2];
+                                }
+                        } else {
+                                // ok one of three casese
+                                //    1) r0,r1 draw with each other
+                                //    2) r2 wins
+                                //    3) r0,r1,r2 draw with each other
+                                if( r0 < r2 ){
+                                        ++draw2_[0];
+                                        ++draw2_[1];
+                                } else if( r2 < r0 ){
+                                        ++wins_[2];
+                                } else {
+                                        ++draw3_[0];
+                                        ++draw3_[1];
+                                        ++draw3_[2];
+                                }
+                        }
+                }
+                void finish(){
+                        for(size_t idx=0;idx!=n;++idx){
+                                mat(0, idx) += wins_[idx];
+                                mat(1, idx) += draw2_[idx];
+                                mat(2, idx) += draw3_[idx];
+                        }
+                        *iter_ = std::make_shared<matrix_instruction>(instr_->group(), mat * instr_->get_matrix());
+                }
+                void declare(std::unordered_set<holdem_id>& S){
+                        for(auto _ : hv){
+                                S.insert(_);
+                        }
+                }
+                template<class Alloc>
+                void allocate(Alloc const& alloc){
+                        for(size_t idx=0;idx!=n;++idx){
+                                allocation_[idx] = alloc(hv[idx]);
+                        }
+                }
+        private:
+                iter_t iter_;
+                card_eval_instruction* instr_;
+
+                holdem_hand_vector hv;
+                size_t hv_mask;
+                matrix_t mat;
+                size_t n{3};
 
                 std::array<size_t, 9> allocation_;
                 std::array<size_t, 9> wins_;
                 std::array<size_t, 9> draw2_;
                 std::array<size_t, 9> draw3_;
-                
-                size_t R0{0}, R1{0}, R2{0};
         };
-
-        struct default_factory{
-                using sub_ptr_type = std::shared_ptr<sub_eval>;
+        
+        template<class T>
+        struct basic_sub_eval_factory{
+                using sub_ptr_type = std::shared_ptr<T>;
                 sub_ptr_type operator()(instruction_list::iterator iter, card_eval_instruction* instr)const{
-                        return std::make_shared<sub_eval>(iter, instr);
+                        return std::make_shared<T>(iter, instr);
                 }
         };
 }  // end namespace pass_eval_hand_instr_vec_detail
@@ -445,19 +498,16 @@ struct pass_eval_hand_instr_vec : computation_pass{
                 }
 
 
-                transfrom_impl( ctx, instr_list, result, to_map, default_factory{});
-                #if 0
-                if( n_dist.size() == 1 && *n_dist.begin() == 2 ){
-                        transfrom_impl( ctx, instr_list, result, to_map, [](auto iter, auto instr){
-                                return std::make_shared<sub_
-                        });
-                } else if( n_dist.size() == 1 && *n_dist.begin() == 3 ){
-                } else
-
-                        subs.push_back(std::make_shared<sub_eval_type >(iter, instr));
+                if(0){}
+                else if( n_dist.size() == 1 && *n_dist.begin() == 2 ){
+                        transfrom_impl( ctx, instr_list, result, to_map, basic_sub_eval_factory<sub_eval_two>{});
                 }
-                #endif
-
+                else if( n_dist.size() == 1 && *n_dist.begin() == 3 ){
+                        transfrom_impl( ctx, instr_list, result, to_map, basic_sub_eval_factory<sub_eval_three>{});
+                } 
+                else {
+                        transfrom_impl( ctx, instr_list, result, to_map, basic_sub_eval_factory<sub_eval>{});
+                }
         }
 private:
         mask_computer_detail::rank_hash_eval ev;

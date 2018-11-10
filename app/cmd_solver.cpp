@@ -1385,7 +1385,7 @@ namespace ps{
                                         solver.add_observer(std::make_shared<table_observer>(desc_.get(), true));
                                         solver.add_observer(std::make_shared<strategy_printer>());
                                 }
-                                solver.add_observer(std::make_shared<solver_ledger>(ledger));
+                                //solver.add_observer(std::make_shared<solver_ledger>(ledger));
                                 solver.add_observer(std::make_shared<lp_inf_stoppage_condition>(lp_epsilon_));
                                 solver.add_observer(std::make_shared<max_steps_condition>(max_steps_));
                                 solver.add_observer(std::make_shared<state_seq>());
@@ -1441,7 +1441,7 @@ namespace ps{
                                                                        eff);
                                 items_.push_back(item);
                         }
-                        mgr_.try_load_or_default(".computation_mgr");
+                        mgr_.try_load_or_default(".computation_mgr_other");
                 }
                 void compute(){
                         std::vector<std::future<void> > v;
@@ -1521,7 +1521,7 @@ namespace ps{
                 virtual int Execute()override{
 
                         computation_decl cd;
-                        std::string dir = ".SolverCache";
+                        std::string dir = ".SolverCacheOther";
                         cd.Directory = dir;
                         double start_eff = 2.0;
 

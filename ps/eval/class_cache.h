@@ -2,6 +2,8 @@
 #define PS_EVAL_CLASS_CACHE_H
 
 #include <vector>
+#include <boost/functional/hash.hpp>
+#include <unordered_map>
 #include <map>
 
 #include "ps/base/cards.h"
@@ -103,10 +105,8 @@ private:
 extern support::persistent_memory_decl<class_cache> Memory_ClassCache;
 
 // TODO, look at this again
-#if NOT_DEFINED
+//
 
-#include <boost/functional/hash.hpp>
-#include <unordered_map>
 // I saw only a 3% increate with this
 struct hash_class_cache{
         hash_class_cache(){
@@ -140,7 +140,6 @@ private:
 };
 
 
-#endif // NOT_DEFINED
 
 } // end namespace ps
 

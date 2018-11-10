@@ -40,6 +40,19 @@ namespace ps{
 
 
                 virtual strategy_impl_t make_inital_state()const=0;
+
+                /*
+                 * For push/fold evaluation we only care about one player,
+                 * so when that player folds we don't really care about anything
+                 * but that player in question, which means more expensive all-in
+                 * equity calculations can be skipped
+                 */
+                struct TODO_computation_context{
+                        enum Kind{
+                                K_PlayerEv,
+                                K_SinglePlayerEv,
+                        };
+                };
                 /*
                  *  We are constraied to only events which can be represented by a key,
                  *  for push/fold solving this is appropraite.
@@ -172,8 +185,10 @@ namespace ps{
                         // whih will in turn have a small change in pp,pf,fp. This implies that
                         // we should scale changes differently:
                         //
-                        double weight()const{ return weight_; }
-                        void set_weight(double weight){ weight_ = weight; }
+                        double TODO_weight()const{ return weight_; }
+                        void TODO_set_weight(double weight){ weight_ = weight; }
+
+
 
                 private:
                         binary_strategy_description* self_;

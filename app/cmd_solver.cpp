@@ -57,12 +57,41 @@
 
 namespace ps{
         struct cc_eval_view : binary_strategy_description::eval_view{
+                cc_eval_view(){
+                        std::string cache_name{".cc.bin"};
+                        class_cache C;
+                        C.load(cache_name);
+                        cvmem_.reserve(C.size());
+                        for(auto const& p : C){
+                                //S.emplace(p.first, p.second);
+                                cvmem_.push_back(p.first);
+                                support::array_view<holdem_class_id> view(cvmem_.back());
+                                M[view] = p.second;
+                        }
+                }
+                virtual std::vector<double> const* eval_no_perm(support::array_view<holdem_class_id> const& view)const noexcept override{
+                        auto iter = M.find(view);
+                        if( iter == M.end())
+                                return nullptr;
+                        return &iter->second;
+                }
+        private:
+                std::vector<holdem_class_vector> cvmem_;
+                std::unordered_map<
+                        support::array_view<holdem_class_id>, 
+                        std::vector<double>,
+                        boost::hash<support::array_view<holdem_class_id> >
+                > M;
+        };
+        #if 0
+        struct cc_eval_view : binary_strategy_description::eval_view{
                 virtual std::vector<double> const* eval_no_perm(holdem_class_vector const& vec)const noexcept override{
                         return impl_.fast_lookup_no_perm(vec);
                 }
         private:
                 hash_class_cache impl_;
         };
+        #endif
 
         #if 0
         struct dev_class_cache_item{

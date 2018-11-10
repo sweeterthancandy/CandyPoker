@@ -2,10 +2,12 @@
 #define PS_EVAL_BINARY_STRATEGY_DESCRIPTION_H
 
 #include "ps/base/cards.h"
+#include "ps/support/array_view.h"
 #include <memory>
 #include <vector>
 #include <string>
 #include <boost/iterator/indirect_iterator.hpp>
+
 
 namespace ps{
 
@@ -58,7 +60,7 @@ namespace ps{
                  * Will this be too slow??
                  */
                 struct eval_view{
-                        virtual std::vector<double> const* eval_no_perm(holdem_class_vector const& vec)const noexcept=0;
+                        virtual std::vector<double> const* eval_no_perm(support::array_view<holdem_class_id> const& view)const noexcept=0;
                 };
                 /*
                  *  We are constraied to only events which can be represented by a key,

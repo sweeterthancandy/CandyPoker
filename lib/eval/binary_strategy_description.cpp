@@ -65,6 +65,11 @@ namespace ps{
         };
         struct eval_event : binary_strategy_description::event_decl{
                 enum{ Debug = 0 };
+                /*
+                        perm is the vector of players who are in the hand, ie for hu eval
+                        it will always be {0,1}, whilst for three players it colud be
+                        {0,1}, {0,2}, {1,2}, or {1,2,3}.
+                 */
                 explicit
                 eval_event( binary_strategy_description::eval_view* eval, 
                             std::string const& key,
@@ -98,6 +103,24 @@ namespace ps{
                         if( std::fabs(p) < 0.001 )
                                 return;
 
+                        #if 0
+                        struct stride_view{
+                                enum{ MaxSize = 9 };
+                                void construct(std::vector<size_t> mask_, holdem_id* first, holdem_id* last){
+                                        first_ = first;
+                                        last_ = last;
+                                }
+                        private:
+                                std::array<size_t, 9> view_;
+                        };
+                        #endif
+
+                        /*
+                                We have a perm of the players involed in the hold, perhaps P = (1,2).
+                                What we need to do it then map this perm, so that
+                                        CV[S[P[0]]] < CV[S[P[0]]],
+                         */
+
                         std::array<size_t, 9> re_perm;
                         std::copy(perm_.begin(), perm_.end(), re_perm.begin());
                         auto re_perm_end = re_perm.begin() + perm_.size();
@@ -106,12 +129,13 @@ namespace ps{
                         });
 
 
-                        holdem_class_vector tmp;
+                        std::array<holdem_class_id, 9> tmp;
                         for(size_t idx=0;idx!=perm_.size();++idx){
-                                tmp.push_back(cv[re_perm[idx]]);
+                                tmp[idx] = cv[re_perm[idx]];
                         }
                         
-                        auto ev_ptr = eval_->eval_no_perm(tmp);
+                        support::array_view<holdem_class_id> tmp_view(&tmp[0], perm_.size());
+                        auto ev_ptr = eval_->eval_no_perm(tmp_view);
                         auto const& ev = *ev_ptr;
                         
                         out += delta_proto_ * p;

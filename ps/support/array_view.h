@@ -30,6 +30,16 @@ namespace support{
                 auto const& operator[](size_t idx)const{ return ptr_[idx]; }
                 auto begin()const{ return ptr_; }
                 auto end()const{ return ptr_ + sz_; }
+
+                // noexcept should be conditional here
+                template<class L, class R>
+                friend bool operator==(array_view<L> const& l, array_view<R> const& r)noexcept{
+                        return l.size() == r.size() && std::equal(l.begin(), l.end(), r.begin());
+                }
+                template<class L, class R>
+                friend bool operator!=(array_view<L> const& l, array_view<R> const& r)noexcept{
+                        return !(l == r );
+                }
         private:
                 value_type const* ptr_;
                 size_t sz_;
@@ -58,4 +68,13 @@ namespace support{
 } // supprt
 } // ps
 
+
+namespace boost
+{
+        template <class T>
+        std::size_t hash_value(ps::support::array_view<T> const& v)
+        {
+                return boost::hash_range(v.begin(), v.end());
+        }
+} // end namespace boost
 #endif // PS_ARRAY_VIEW_H 

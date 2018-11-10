@@ -111,13 +111,6 @@ namespace ps{
                                 tmp.push_back(cv[re_perm[idx]]);
                         }
                         
-                        #if 0
-                        auto cc = Memory_ClassCache.get();
-                        #endif
-                        #if 0
-                        static hash_class_cache cc_;
-                        static auto* cc = &cc_;
-                        #endif
                         auto ev_ptr = eval_->eval_no_perm(tmp);
                         auto const& ev = *ev_ptr;
                         

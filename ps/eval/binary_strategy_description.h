@@ -58,7 +58,7 @@ namespace ps{
                  * Will this be too slow??
                  */
                 struct eval_view{
-                        virtual std::vector<double> const* eval_no_perm(holdem_class_vector const& vec)const=0;
+                        virtual std::vector<double> const* eval_no_perm(holdem_class_vector const& vec)const noexcept=0;
                 };
                 /*
                  *  We are constraied to only events which can be represented by a key,

@@ -57,7 +57,7 @@
 
 namespace ps{
         struct cc_eval_view : binary_strategy_description::eval_view{
-                virtual std::vector<double> const* eval_no_perm(holdem_class_vector const& vec)const override{
+                virtual std::vector<double> const* eval_no_perm(holdem_class_vector const& vec)const noexcept override{
                         return impl_.fast_lookup_no_perm(vec);
                 }
         private:

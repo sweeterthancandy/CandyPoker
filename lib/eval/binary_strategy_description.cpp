@@ -66,11 +66,12 @@ namespace ps{
         struct eval_event : binary_strategy_description::event_decl{
                 enum{ Debug = 0 };
                 explicit
-                eval_event( std::string const& key,
+                eval_event( binary_strategy_description::eval_view* eval, 
+                            std::string const& key,
                            std::vector<size_t> perm,
                            Eigen::VectorXd const& dead_money,
                            Eigen::VectorXd const& active)
-                        :key_(key), perm_{perm}, dead_money_{dead_money}, active_{active}
+                        :eval_{eval}, key_(key), perm_{perm}, dead_money_{dead_money}, active_{active}
                         ,pot_amt_{active_.sum() + dead_money_.sum()}
                 {
 
@@ -112,11 +113,12 @@ namespace ps{
                         
                         #if 0
                         auto cc = Memory_ClassCache.get();
-                        #else
+                        #endif
+                        #if 0
                         static hash_class_cache cc_;
                         static auto* cc = &cc_;
                         #endif
-                        auto ev_ptr = cc->fast_lookup_no_perm(tmp);
+                        auto ev_ptr = eval_->eval_no_perm(tmp);
                         auto const& ev = *ev_ptr;
                         
                         out += delta_proto_ * p;
@@ -139,6 +141,7 @@ namespace ps{
                         return sstr.str();
                 }
         private:
+                binary_strategy_description::eval_view* eval_;
                 std::string key_;
                 std::vector<size_t> perm_;
                 Eigen::VectorXd dead_money_; // not used
@@ -149,9 +152,10 @@ namespace ps{
 
 
         struct heads_up_description : binary_strategy_description{
-                heads_up_description(double sb, double bb, double eff)
+                heads_up_description(eval_view* eval, double sb, double bb, double eff)
                         : sb_{sb}, bb_{bb}, eff_{eff}
                 {
+                        eval_ = eval;
 
 
 
@@ -171,7 +175,7 @@ namespace ps{
                         Eigen::VectorXd active{2};
                         active[0] = eff_;
                         active[1] = eff_;
-                        auto n_pp = std::make_shared<eval_event>("pp", std::vector<size_t>{0,1}, dead_money, active);
+                        auto n_pp = std::make_shared<eval_event>(eval_, "pp", std::vector<size_t>{0,1}, dead_money, active);
                         events_.push_back(n_pp);
 
                         strats_.emplace_back(this, 0,0, "SB Pushing", "");
@@ -254,9 +258,10 @@ namespace ps{
         
         
         struct three_player_description : binary_strategy_description{
-                three_player_description(double sb, double bb, double eff)
+                three_player_description(eval_view* eval, double sb, double bb, double eff)
                         : sb_{sb}, bb_{bb}, eff_{eff}
                 {
+                        eval_ = eval;
 
 
                         size_t num_players = 3;
@@ -315,7 +320,7 @@ namespace ps{
                                 } else { 
                                         // push call
 
-                                        auto allin = std::make_shared<eval_event>(key, perm, dead_money, active);
+                                        auto allin = std::make_shared<eval_event>(eval_, key, perm, dead_money, active);
                                         events_.push_back(allin);
                                 }
                                 
@@ -458,11 +463,11 @@ namespace ps{
                 double eff_;
         };
                 
-        std::shared_ptr<binary_strategy_description> binary_strategy_description::make_hu_description(double sb, double bb, double eff){
-                return std::make_shared<heads_up_description>(sb, bb, eff);
+        std::shared_ptr<binary_strategy_description> binary_strategy_description::make_hu_description(eval_view* eval, double sb, double bb, double eff){
+                return std::make_shared<heads_up_description>(eval, sb, bb, eff);
         }
-        std::shared_ptr<binary_strategy_description> binary_strategy_description::make_three_player_description(double sb, double bb, double eff){
-                return std::make_shared<three_player_description>(sb, bb, eff);
+        std::shared_ptr<binary_strategy_description> binary_strategy_description::make_three_player_description(eval_view* eval, double sb, double bb, double eff){
+                return std::make_shared<three_player_description>(eval, sb, bb, eff);
         }
 
 } // end namespace ps

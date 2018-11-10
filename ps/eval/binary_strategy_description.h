@@ -53,6 +53,13 @@ namespace ps{
                                 K_SinglePlayerEv,
                         };
                 };
+
+                /*
+                 * Will this be too slow??
+                 */
+                struct eval_view{
+                        virtual std::vector<double> const* eval_no_perm(holdem_class_vector const& vec)const=0;
+                };
                 /*
                  *  We are constraied to only events which can be represented by a key,
                  *  for push/fold solving this is appropraite.
@@ -205,8 +212,8 @@ namespace ps{
                 strategy_iterator end_strategy()const{ return strats_.end(); }
 
 
-                static std::shared_ptr<binary_strategy_description> make_hu_description(double sb, double bb, double eff);
-                static std::shared_ptr<binary_strategy_description> make_three_player_description(double sb, double bb, double eff);
+                static std::shared_ptr<binary_strategy_description> make_hu_description(eval_view* eval, double sb, double bb, double eff);
+                static std::shared_ptr<binary_strategy_description> make_three_player_description(eval_view* eval, double sb, double bb, double eff);
 
         protected:
                 void finish(){
@@ -214,6 +221,9 @@ namespace ps{
                                 aux_event_set_.push_back(ev.get());
                         }
                 }
+                eval_view* get_eval(){ return eval_; }
+
+                eval_view* eval_;
                 event_vector events_;
                 strategy_vector strats_;
                 event_set aux_event_set_;

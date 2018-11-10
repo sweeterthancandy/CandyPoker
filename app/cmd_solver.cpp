@@ -56,6 +56,13 @@
 
 
 namespace ps{
+        struct cc_eval_view : binary_strategy_description::eval_view{
+                virtual std::vector<double> const* eval_no_perm(holdem_class_vector const& vec)const override{
+                        return impl_.fast_lookup_no_perm(vec);
+                }
+        private:
+                hash_class_cache impl_;
+        };
 
         #if 0
         struct dev_class_cache_item{
@@ -1305,7 +1312,8 @@ namespace ps{
                 struct work_item{
                         enum{ Debug = true };
                         // args
-                        work_item(std::string const& key,
+                        work_item(binary_strategy_description::eval_view* eval,
+                                  std::string const& key,
                                   std::string const& ledger_name,
                                   double sb, double bb, size_t n, double eff)
                                 :key_{key}
@@ -1318,12 +1326,12 @@ namespace ps{
                                 switch(n_){
                                         case 2:
                                         {
-                                                desc_ = binary_strategy_description::make_hu_description(sb_, bb_, eff_);
+                                                desc_ = binary_strategy_description::make_hu_description(eval, sb_, bb_, eff_);
                                                 break;
                                         }
                                         case 3:
                                         {
-                                                desc_ = binary_strategy_description::make_three_player_description(sb_, bb_, eff_);
+                                                desc_ = binary_strategy_description::make_three_player_description(eval, sb_, bb_, eff_);
                                                 break;
                                         }
                                         default:
@@ -1433,7 +1441,8 @@ namespace ps{
                                 ledger_name << decl.N << ":" << decl.SB << ":" << decl.BB << ":" << eff;
                                 std::string name = ledger_name.str();
                                 std::string key = name; // for now
-                                auto item =std::make_shared<work_item>(name,
+                                auto item =std::make_shared<work_item>(&eval_,
+                                                                       name,
                                                                        key,
                                                                        decl.SB,
                                                                        decl.BB,
@@ -1464,6 +1473,7 @@ namespace ps{
         private:
                 items_vector_type items_;
                 holdem_binary_solution_set mgr_;
+                cc_eval_view eval_;
         };
 
         

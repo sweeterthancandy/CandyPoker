@@ -3,14 +3,15 @@
 
 
 #include <functional>
+#include <list>
 #include <vector>
-#include <boost/intrusive/list.hpp>
 #include "ps/detail/reinterpret_pointer_cast.h"
+#include <boost/iterator/indirect_iterator.hpp>
 
 namespace ps{
 namespace support{
 
-struct persistent_memory_base : boost::intrusive::list_base_hook<>{
+struct persistent_memory_base{
 
         ///////////////////////////////////////////////////////////////////////////////////////////
         // impl base 
@@ -67,17 +68,17 @@ struct persistent_memory_base : boost::intrusive::list_base_hook<>{
         
         ///////////////////////////////////////////////////////////////////////////////////////////
         // memory list
-        using memory_list = boost::intrusive::list<persistent_memory_base>;
+        using memory_list = std::list<persistent_memory_base*>;
         static memory_list* get_memory_list(){
                 static auto ptr = new memory_list;
                 return ptr;
         }
-        using decl_iterator = memory_list::iterator;
+        using decl_iterator = boost::indirect_iterator<memory_list::iterator>;
         static decl_iterator begin_decl(){ return get_memory_list()->begin(); }
         static decl_iterator end_decl(){ return get_memory_list()->end(); }
         persistent_memory_base()
         {
-                get_memory_list()->push_back(*this);
+                get_memory_list()->push_back(this);
         }
 
         virtual std::string name()const=0;

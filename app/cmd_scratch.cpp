@@ -96,7 +96,7 @@ namespace ps{
                         return ostr;
                 }
                 void Add(GEdge* e){ E.push_back(e); }
-                Index IndexFor(GEdge* e)const{
+                size_t IndexFor(GEdge const* e)const{
                         auto begin = E.begin();
                         auto end = E.end();
                         auto iter = std::find(begin, end, e);
@@ -108,6 +108,8 @@ namespace ps{
                 size_t GetIndex()const{ return ID_; }
                 size_t GetPlayer()const{ return player_idx_; }
 
+                auto begin()const{ return E.begin(); }
+                auto end()const{ return E.end(); }
         private:
                 size_t ID_;
                 size_t player_idx_;
@@ -122,10 +124,25 @@ namespace ps{
                 decision_iterator end()const{ return v_.end(); }
                 void Add(std::shared_ptr<Decision> ptr){
                         v_.push_back(ptr);
+                        for(auto eptr : *ptr){
+                                auto idx = ptr->IndexFor(eptr);
+                                edge_index_[eptr] = idx;
+                        }
                 }
                 size_t num_decisions()const{ return v_.size(); }
+                std::vector<Index> MapPath(std::vector<GEdge const*> const& path){
+                        std::vector<Index> result;
+                        for(auto const& _ : path){
+                                auto iter = edge_index_.find(_);
+                                if( iter == edge_index_.end())
+                                        BOOST_THROW_EXCEPTION(std::domain_error("edge not in index"));
+                                result.push_back(iter->second);
+                        }
+                        return result;
+                }
         private:
                 std::vector<std::shared_ptr<Decision> > v_;
+                std::unordered_map<GEdge const*, Index> edge_index_;
         };
 
         #if 0
@@ -326,6 +343,11 @@ namespace ps{
                 class_cache C;
                 C.load(cache_name);
 
+                
+
+                auto tp_pp = pp->EdgePath();
+                auto tp_pf = pf->EdgePath();
+                auto tp_f  = e_0_f->EdgePath();
 
                 auto comp = std::make_shared<AggregateComputer>();
                 for(auto const& group : *Memory_TwoPlayerClassVector){

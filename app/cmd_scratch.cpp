@@ -345,8 +345,9 @@ namespace ps{
                 std::vector<std::vector<Eigen::VectorXd> > S0(2,sx);
 
                 auto S = S0;
-                //for(size_t n=0;n!=2;++n){
-                for(;;){
+                Eigen::VectorXd last_R(2);
+                last_R.fill(0);
+                for(size_t n=0;;++n){
                         auto counter = S;
                         Eigen::VectorXd p(2);
                         Eigen::VectorXd f(2);
@@ -372,12 +373,6 @@ namespace ps{
                                 }
                         }
 
-                        double norm = 0.0;
-                        norm += (counter[0][0] - S[0][0]).lpNorm<2>();
-
-                        Eigen::VectorXd R(2);
-                        R.fill(0);
-                        comp->Evaluate(R, counter);
 
                         double factor = 0.05;
                         for(size_t i=0;i!=2;++i){
@@ -385,9 +380,21 @@ namespace ps{
                                         S[i][j] = S[i][j] * ( 1.0 - factor ) + factor * counter[i][j];
                                 }
                         }
+                        
+
+                        Eigen::VectorXd R(2);
+                        R.fill(0);
+                        comp->Evaluate(R, counter);
+                        double norm = ( R - last_R ).lpNorm<2>();
+                        
+                        if( norm < 0.0001 )
+                                break;
+                        
+
+                        last_R = R;
+                        
                         std::cout << "vector_to_string(R) => " << vector_to_string(R) << "\n"; // __CandyPrint__(cxx-print-scalar,vector_to_string(ev))
                         std::cout << "norm => " << norm << "\n"; // __CandyPrint__(cxx-print-scalar,norm)
-                        
                         pretty_print_strat(S[0][0], 1);
                         pretty_print_strat(S[1][0], 1);
 

@@ -1,6 +1,7 @@
 #ifndef PS_APP_PRETTY_PRINTER_H
 #define PS_APP_PRETTY_PRINTER_H
 
+#include <numeric>
 #include <unordered_map>
 #include <vector>
 #include <string>
@@ -18,6 +19,7 @@
 #include <boost/variant.hpp>
 #include <boost/range/algorithm.hpp>
 #include <boost/lexical_cast.hpp>
+#include <boost/format.hpp>
 
 #include <Eigen/Dense>
 

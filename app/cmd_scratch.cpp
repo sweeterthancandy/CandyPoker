@@ -172,6 +172,16 @@ namespace ps{
                         std::vector<Index> index;
                         Eigen::VectorXd value;
                 };
+                template<class Observer>
+                void Observe(StateType const& S, Observer& obs)const noexcept {
+                        for(auto const& _ : atoms_){
+                                double c = _.constant;
+                                for(auto const& idx : _.index){
+                                        c *= S[idx.s][idx.choice][idx.id];
+                                }
+                                obs(_.cv, c, _.value);
+                        }
+                }
                 template<class Filter>
                 void EvaluateFiltered(Eigen::VectorXd& R, StateType const& S, Filter&& filter)const noexcept {
                         for(auto const& _ : atoms_){
@@ -292,11 +302,9 @@ namespace ps{
                 d_1->Add(e_1_p);
                 d_1->Add(e_1_f);
 
-                #if 0
-                auto S = std::make_shared<StrategyDecl>();
-                S->Add(d_0);
-                S->Add(d_1);
-                #endif
+                auto strat = std::make_shared<StrategyDecl>();
+                strat->Add(d_0);
+                strat->Add(d_1);
                 
                 double sb = 0.5;
                 double bb = 1.0;
@@ -345,31 +353,43 @@ namespace ps{
                 std::vector<std::vector<Eigen::VectorXd> > S0(2,sx);
 
                 auto S = S0;
-                Eigen::VectorXd last_R(2);
-                last_R.fill(0);
                 for(size_t n=0;;++n){
                         auto counter = S;
-                        Eigen::VectorXd p(2);
-                        Eigen::VectorXd f(2);
+
+                        for(auto const& decision : *strat){
+
+                                auto sidx = decision.GetIndex();
+                                auto pidx = decision.GetPlayer();
+
+                                // assume binary
+                                auto Sp = S;
+                                Sp[sidx][0].fill(1);
+                                Sp[sidx][1].fill(0);
+
+                                auto Sf = S;
+                                Sf[sidx][0].fill(0);
+                                Sf[sidx][1].fill(1);
+
+                                struct observer : boost::noncopyable{
+                                        observer(size_t j):J{j}{
+                                                A.fill(0.0);
+                                        }
+                                        void operator()(holdem_class_vector const& cv, double c, Eigen::VectorXd const& value){
+                                                A[cv[J]] += c * value[J];
+                                        }
+                                        size_t J;
+                                        std::array<double, 169> A;
+                                };
+                                observer po{sidx};
+                                observer fo{sidx};
 
 
-                        for(size_t j=0;j!=2;++j){
+                                comp->Observe(Sp, po);
+                                comp->Observe(Sf, fo);
                                 for(size_t idx=0;idx!=169;++idx){
-                                        auto Sp = S;
-                                        Sp[j][0].fill(1);
-                                        Sp[j][1].fill(0);
-
-                                        auto Sf = S;
-                                        Sf[j][0].fill(0);
-                                        Sf[j][1].fill(1);
-
-                                        p.fill(0);
-                                        f.fill(0);
-                                        comp->EvaluateFiltered(p, Sp, [&](auto&& cv){ return cv[j] == idx; });
-                                        comp->EvaluateFiltered(f, Sf, [&](auto&& cv){ return cv[j] == idx; });
-                                        double x = ( p[j] >= f[j] ? 1.0 : 0.0 );
-                                        counter[j][0][idx] = x;
-                                        counter[j][1][idx] = 1.0 - x;
+                                        double x = ( po.A[idx] >= fo.A[idx] ? 1.0 : 0.0 );
+                                        counter[sidx][0][idx] = x;
+                                        counter[sidx][1][idx] = 1.0 - x;
                                 }
                         }
 
@@ -382,21 +402,25 @@ namespace ps{
                         }
                         
 
-                        Eigen::VectorXd R(2);
-                        R.fill(0);
-                        comp->Evaluate(R, counter);
-                        double norm = ( R - last_R ).lpNorm<2>();
-                        
-                        if( norm < 0.0001 )
-                                break;
-                        
+                        if( n % 10 ){
+                                Eigen::VectorXd R_counter(2);
+                                R_counter.fill(0);
+                                comp->Evaluate(R_counter, counter);
+                                
+                                Eigen::VectorXd R(2);
+                                R.fill(0);
+                                comp->Evaluate(R, S);
 
-                        last_R = R;
-                        
-                        std::cout << "vector_to_string(R) => " << vector_to_string(R) << "\n"; // __CandyPrint__(cxx-print-scalar,vector_to_string(ev))
-                        std::cout << "norm => " << norm << "\n"; // __CandyPrint__(cxx-print-scalar,norm)
-                        pretty_print_strat(S[0][0], 1);
-                        pretty_print_strat(S[1][0], 1);
+                                double norm = ( R - R_counter ).lpNorm<2>();
+                                
+                                if( norm < 0.0001 )
+                                        break;
+                                
+                                std::cout << "vector_to_string(R) => " << vector_to_string(R) << "\n"; // __CandyPrint__(cxx-print-scalar,vector_to_string(ev))
+                                std::cout << "norm => " << norm << "\n"; // __CandyPrint__(cxx-print-scalar,norm)
+                                pretty_print_strat(S[0][0], 1);
+                                pretty_print_strat(S[1][0], 1);
+                        }
 
                 }
 

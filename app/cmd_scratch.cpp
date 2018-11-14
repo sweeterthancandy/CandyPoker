@@ -123,6 +123,7 @@ namespace ps{
                 void Add(std::shared_ptr<Decision> ptr){
                         v_.push_back(ptr);
                 }
+                size_t num_decisions()const{ return v_.size(); }
         private:
                 std::vector<std::shared_ptr<Decision> > v_;
         };
@@ -371,17 +372,19 @@ namespace ps{
                                 Sf[sidx][1].fill(1);
 
                                 struct observer : boost::noncopyable{
-                                        observer(size_t j):J{j}{
+                                        observer(size_t pidx)
+                                                :pidx_(pidx)
+                                        {
                                                 A.fill(0.0);
                                         }
                                         void operator()(holdem_class_vector const& cv, double c, Eigen::VectorXd const& value){
-                                                A[cv[J]] += c * value[J];
+                                                A[cv[pidx_]] += c * value[pidx_];
                                         }
-                                        size_t J;
+                                        size_t pidx_;
                                         std::array<double, 169> A;
                                 };
-                                observer po{sidx};
-                                observer fo{sidx};
+                                observer po{pidx};
+                                observer fo{pidx};
 
 
                                 comp->Observe(Sp, po);
@@ -395,7 +398,7 @@ namespace ps{
 
 
                         double factor = 0.05;
-                        for(size_t i=0;i!=2;++i){
+                        for(size_t i=0;i!=strat->num_decisions();++i){
                                 for(size_t j=0;j!=2;++j){
                                         S[i][j] = S[i][j] * ( 1.0 - factor ) + factor * counter[i][j];
                                 }

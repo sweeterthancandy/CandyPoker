@@ -163,27 +163,29 @@ namespace ps{
         };
         #endif
 
-        struct Computer{
+        struct AggregateComputer{
                 using StateType = std::vector<std::vector<Eigen::VectorXd> >;
-                virtual ~Computer()=default;
-                virtual void Evaluate(Eigen::VectorXd& R, StateType const& S)const noexcept=0;
-        };
 
-        struct AggregateComputer : Computer{
                 struct Atom{
                         holdem_class_vector cv;
                         double constant{1.0};
                         std::vector<Index> index;
                         Eigen::VectorXd value;
                 };
-                virtual void Evaluate(Eigen::VectorXd& R, StateType const& S)const noexcept override{
+                template<class Filter>
+                void EvaluateFiltered(Eigen::VectorXd& R, StateType const& S, Filter&& filter)const noexcept {
                         for(auto const& _ : atoms_){
+                                if( ! filter(_.cv) )
+                                        continue;
                                 double c = _.constant;
                                 for(auto const& idx : _.index){
                                         c *= S[idx.s][idx.choice][idx.id];
                                 }
                                 R += c * _.value;
                         }
+                }
+                void Evaluate(Eigen::VectorXd& R, StateType const& S)const noexcept {
+                        EvaluateFiltered(R, S, [](auto&&){return true; });
                 }
                 void Emplace(holdem_class_vector const& cv, double constant, std::vector<Index> index, Eigen::VectorXd value){
                         atoms_.emplace_back(Atom{cv, constant, index, value});
@@ -192,31 +194,6 @@ namespace ps{
                 std::vector<Atom> atoms_;
         };
 
-        #if 0
-        struct MakerConcept{
-                virtual ~MakerConcept()=default;
-                virtual void Emit(AggregateComputer* computer, class_cache* cache, double prob, holdem_class_vector const& cv)=0;
-        };
-        struct AtomMaker : MakerConcept{
-                AtomMaker(StrategyDecl const& S, std::vector<Index> const& index_proto, Eigen::VectorXd pot, std::vector<size_t> const& active)
-                        :S_{S}, index_proto_(index_proto),
-                        pot_(pot),
-                        active_(active)
-                {}
-                virtual void Emit(AggregateComputer* computer, class_cache* cache, double prob, holdem_class_vector const& cv){
-                        auto index = index_proto_;
-                        for(auto& _ : index){
-                                _.id = cv[_.player];
-                        }
-                        computer->Emplace( prob, index, value_);
-                }
-        private:
-                StrategyDecl const& S_;
-                std::vector<Index> index_proto_;
-                Eigen::VectorXd pot_;
-                std::vector<size_t> active_;
-        };
-        #endif
 
         void Build(){
 
@@ -341,11 +318,6 @@ namespace ps{
                 C.load(cache_name);
 
 
-                std::array<std::shared_ptr<AggregateComputer>, 169 > hero;
-                for(size_t idx=0;idx!=169;++idx){
-                        hero[idx] = std::make_shared<AggregateComputer>();
-                }
-
                 auto comp = std::make_shared<AggregateComputer>();
                 for(auto const& group : *Memory_TwoPlayerClassVector){
                         for(auto const& _ : group.vec){
@@ -363,11 +335,6 @@ namespace ps{
                                 comp->Emplace(cv, _.prob, p_pp, v_pp);
                                 comp->Emplace(cv, _.prob, p_pf, v_pf);
                                 comp->Emplace(cv, _.prob, p_f , v_f );
-                                
-                                hero[cv[0]]->Emplace(cv, _.prob, p_pp, v_pp);
-                                hero[cv[0]]->Emplace(cv, _.prob, p_pf, v_pf);
-                                hero[cv[0]]->Emplace(cv, _.prob, p_f , v_f );
-
 
                         }
                 }
@@ -378,27 +345,31 @@ namespace ps{
                 std::vector<std::vector<Eigen::VectorXd> > S0(2,sx);
 
                 auto S = S0;
-                for(size_t n=0;n!=2;++n){
+                //for(size_t n=0;n!=2;++n){
+                for(;;){
                         auto counter = S;
                         Eigen::VectorXd p(2);
                         Eigen::VectorXd f(2);
 
-                        auto Sp = S;
-                        Sp[0][0].fill(1);
-                        Sp[0][1].fill(0);
 
-                        auto Sf = S;
-                        Sf[0][0].fill(0);
-                        Sf[0][1].fill(1);
+                        for(size_t j=0;j!=2;++j){
+                                for(size_t idx=0;idx!=169;++idx){
+                                        auto Sp = S;
+                                        Sp[j][0].fill(1);
+                                        Sp[j][1].fill(0);
 
-                        for(size_t idx=0;idx!=169;++idx){
-                                p.fill(0);
-                                f.fill(0);
-                                hero[idx]->Evaluate(p, Sp);
-                                hero[idx]->Evaluate(f, Sf);
-                                double x = ( p[0] >= f[0] ? 1.0 : 0.0 );
-                                counter[0][0][idx] = x;
-                                counter[0][1][idx] = 1.0 - x;
+                                        auto Sf = S;
+                                        Sf[j][0].fill(0);
+                                        Sf[j][1].fill(1);
+
+                                        p.fill(0);
+                                        f.fill(0);
+                                        comp->EvaluateFiltered(p, Sp, [&](auto&& cv){ return cv[j] == idx; });
+                                        comp->EvaluateFiltered(f, Sf, [&](auto&& cv){ return cv[j] == idx; });
+                                        double x = ( p[j] >= f[j] ? 1.0 : 0.0 );
+                                        counter[j][0][idx] = x;
+                                        counter[j][1][idx] = 1.0 - x;
+                                }
                         }
 
                         double norm = 0.0;
@@ -407,11 +378,18 @@ namespace ps{
                         Eigen::VectorXd R(2);
                         R.fill(0);
                         comp->Evaluate(R, counter);
-                        S = counter;
+
+                        double factor = 0.05;
+                        for(size_t i=0;i!=2;++i){
+                                for(size_t j=0;j!=2;++j){
+                                        S[i][j] = S[i][j] * ( 1.0 - factor ) + factor * counter[i][j];
+                                }
+                        }
                         std::cout << "vector_to_string(R) => " << vector_to_string(R) << "\n"; // __CandyPrint__(cxx-print-scalar,vector_to_string(ev))
                         std::cout << "norm => " << norm << "\n"; // __CandyPrint__(cxx-print-scalar,norm)
                         
                         pretty_print_strat(S[0][0], 1);
+                        pretty_print_strat(S[1][0], 1);
 
                 }
 

@@ -54,6 +54,846 @@
 
 #include "ps/support/persistent_impl.h"
 
+namespace VARR{
+namespace ExpressionTreeV1{
+        using namespace ps;
+
+
+
+        struct Pair{
+                friend std::ostream& operator<<(std::ostream& ostr, Pair const& self){
+                        ostr << "a = " << self.a;
+                        ostr << ", b = " << self.b;
+                        return ostr;
+                }
+                size_t a;
+                size_t b;
+        };
+        struct VectorComputation{
+                struct Item{
+                        holdem_class_vector cv;
+                        double constant;
+                        std::vector<Pair> index;
+                        Eigen::VectorXd value;
+                };
+                void Add(holdem_class_vector cv, double constant, std::vector<Pair> index, Eigen::VectorXd value){
+                        v_.emplace_back();
+                        v_.back().cv = std::move(cv);
+                        v_.back().constant = constant;
+                        v_.back().index = std::move(index);
+                        v_.back().value = std::move(value);
+                }
+                template<class Filter>
+                Eigen::VectorXd EvalConditional(std::vector<Eigen::VectorXd> const& F, Filter const& filter)const noexcept{
+                        Eigen::VectorXd R(2);
+                        R.fill(0);
+                        double sigma = 0.0;
+                        for(auto const& _ : v_){
+                                if( ! filter(_.index) )
+                                        continue;
+                                double c = _.constant;
+                                for(auto const& p : _.index ){
+                                        c *= F[p.a][p.b];
+                                }
+                                R += c * _.value; 
+                                sigma += c;
+                        }
+                        R /= sigma;
+                        return R;
+                }
+                Eigen::VectorXd Eval(std::vector<Eigen::VectorXd> const& F)const noexcept{
+                        return EvalConditional(F, [](auto&& _)noexcept{ return true; });
+                }
+                void Display()const{
+                        using namespace Pretty;
+                        std::vector<Pretty::LineItem> lines;
+                        std::cout << "v_.size() => " << v_.size() << "\n"; // __CandyPrint__(cxx-print-scalar,v_.size())
+                        double sigma = 0.0;
+                        Eigen::VectorXd v_sigma = v_.back().value;
+                        v_sigma.fill(0);
+                        for(auto const& _ : v_){
+                                std::vector<std::string> line;
+                                line.push_back( _.cv.to_string() );
+                                line.push_back( boost::lexical_cast<std::string>(_.constant));
+                                line.push_back( detail::to_string(_.index) );
+                                line.push_back( vector_to_string(_.value) );
+                                lines.push_back(std::move(line));
+
+                                sigma += _.constant;
+                                v_sigma += _.value;
+                        }
+                        RenderTablePretty(std::cout, lines);
+                        std::cout << "sigma => " << sigma << "\n"; // __CandyPrint__(cxx-print-scalar,sigma)
+                        std::cout << "vector_to_string(v_sigma) => " << vector_to_string(v_sigma) << "\n"; // __CandyPrint__(cxx-print-scalar,vector_to_string(v_sigma))
+                }
+        private:
+                std::vector<Item> v_;
+        };
+
+
+        struct HeadsUpComputation{
+                HeadsUpComputation(double sb, double bb, double eff){
+                        std::string cache_name{".cc.bin"};
+                        class_cache C;
+                        C.load(cache_name);
+
+                        size_t Index_P  = 0*169;
+                        size_t Index_F  = 1*169;
+                        size_t Index_PP = 2*169;
+                        size_t Index_PF = 3*169;
+
+                        Eigen::VectorXd v_pf(2);
+                        v_pf[0] = +bb;
+                        v_pf[1] = -bb;
+                        
+                        Eigen::VectorXd v_f(2);
+                        v_f[0] = -sb;
+                        v_f[1] = +sb;
+                                        
+                        Eigen::VectorXd eff_v(2);
+                        eff_v.fill(eff);
+
+                        auto vc = std::make_shared<VectorComputation>();
+
+                        for(auto const& group : *Memory_TwoPlayerClassVector){
+                                for(auto const& _ : group.vec){
+                                        auto const& cv = _.cv;
+                        
+
+                                        Eigen::VectorXd ev = C.LookupVector(cv);
+                                        
+
+                                        
+                                        vc->Add(cv, _.prob, std::vector<Pair>{ Pair{0, cv[0] } , Pair{2, cv[1] } }, 2 * eff * ev - eff_v); // pp
+                                        vc->Add(cv, _.prob, std::vector<Pair>{ Pair{0, cv[0] } , Pair{3, cv[1] } }, v_pf); // pf
+                                        vc->Add(cv, _.prob, std::vector<Pair>{ Pair{1, cv[0] }                   }, v_f); // pf
+
+
+                                }
+                        }
+                        vc_ = vc;
+                        vc_->Display();
+                }
+                Eigen::VectorXd Eval(std::vector<Eigen::VectorXd> const& S){
+
+                        #if 0
+                        Eigen::VectorXd F(169 * 4);
+                        F.fill(0);
+                        for(size_t i=0;i!=2;++i){
+                                for(size_t j=0;j!=169;++j){
+                                        F[i  * 169*2 + j       ] = S[i][j];
+                                        F[i  * 169*2 + j + 169 ] = 1.0 - S[i][j];
+                                }
+                        }
+                        #endif
+                        
+                        Eigen::VectorXd R(2);
+                        R.fill(0);
+
+
+                        R = vc_->Eval(S);
+
+                        return R;
+                }
+                void Display(){
+                        vc_->Display();
+                }
+        private:
+                std::shared_ptr<VectorComputation> vc_;
+        };
+
+
+} // end namespace ExpressionTreeV1
+
+
+
+
+
+struct event_tree{
+
+
+        struct visitor{
+                virtual ~visitor()=default;
+                virtual void path_decl(size_t n, double eff){}
+                virtual void player_fold(event_tree const*, size_t player_idx){}
+                virtual void player_raise(event_tree const*, size_t player_idx, double amt, bool allin){}
+                virtual void post_sb(size_t player_idx, double amt, bool allin){}
+                virtual void post_bb(size_t player_idx, double amt, bool allin){}
+        };
+        struct to_string_visitor : visitor{
+                virtual void path_decl(size_t n, double eff)override{
+                        sstr_ << "path_decl(" << n << "," << eff << ");";
+                }
+                virtual void player_fold(event_tree const* EV, size_t player_idx)override{
+                        sstr_ << "player_fold(" << map_(EV) << "," << player_idx << ");";
+                }
+                virtual void player_raise(event_tree const* EV, size_t player_idx, double amt, bool allin)override{
+                        sstr_ << "player_raise(" << map_(EV)  << ","<< player_idx << "," << amt << "," << allin << ");";
+                }
+                virtual void post_sb(size_t player_idx, double amt, bool allin)override{
+                        sstr_ << "post_sb(" << player_idx << "," << amt << "," << allin << ");";
+                }
+                virtual void post_bb(size_t player_idx, double amt, bool allin)override{
+                        sstr_ << "post_bb(" << player_idx << "," << amt << "," << allin << ");";
+                }
+                std::string to_string()const{ return sstr_.str(); }
+                void clear(){ sstr_.str(""); }
+        private:
+                std::string map_(event_tree const* ev)const{
+                        if( m_.count(ev) == 0 ){
+                                m_[ev] = std::string(1,'A' + m_.size());
+                        }
+                        return m_[ev];
+                }
+                std::stringstream sstr_;
+                mutable std::map<event_tree const*, std::string> m_;
+        };
+
+        using strategy_impl_t = std::vector<Eigen::VectorXd>;
+        using terminals_vector_type = std::vector<std::shared_ptr<event_tree > >;
+
+        virtual std::string to_string()const noexcept{ return "<>"; }
+
+        void display(){
+                std::vector<std::vector<event_tree const*> > stack;
+                stack.emplace_back();
+                stack.back().push_back(this);
+                
+                for(;stack.size();){
+                        if( stack.back().empty()){
+                                // A'
+                                stack.pop_back();
+                                continue;
+                        }
+                        auto head = stack.back().back();
+                        stack.back().pop_back();
+                        
+                        std::cout << std::string(stack.size()*2, ' ') << head->to_string() << "\n";
+                        if( ! head->is_terminal()){
+                                stack.emplace_back();
+                                for(size_t i=head->next_.size();i!=0;){
+                                        --i;
+                                        stack.back().push_back(head->next_[i].get());
+                                }
+                        }
+                }
+                using namespace ps;
+                using namespace ps::Pretty;
+                std::vector<Pretty::LineItem> lines;
+                lines.push_back(LineBreak);
+                lines.push_back(std::vector<std::string>{"non-terminals"});
+                lines.push_back(LineBreak);
+                for(auto const& _ : non_terminals_){
+                        std::vector<std::string> line{ _->pretty() };
+                        lines.push_back(std::move(line));
+                }
+                lines.push_back(LineBreak);
+                lines.push_back(std::vector<std::string>{"terminals"});
+                lines.push_back(LineBreak);
+                for(auto const& _ : terminals_){
+                        std::vector<std::string> line{ _->pretty() };
+                        lines.push_back(std::move(line));
+                }
+                lines.push_back(LineBreak);
+                RenderTablePretty(std::cout, lines);
+        }
+
+        
+        virtual std::string event()const noexcept{ return ""; }
+        
+        static std::shared_ptr<event_tree> build(size_t n, double sb, double bb, double eff);
+        static std::shared_ptr<event_tree> build_raise_fold(size_t n, double sb, double bb, double eff);
+        bool is_terminal()const{
+                return next_.empty();
+        }
+        using terminal_iterator = boost::indirect_iterator<terminals_vector_type::const_iterator>;
+        terminal_iterator terminal_begin()const{ return terminals_.begin(); }
+        terminal_iterator terminal_end()const{ return terminals_.end(); }
+
+        terminal_iterator non_terminal_begin()const{ return non_terminals_.begin(); }
+        terminal_iterator non_terminal_end()const{ return non_terminals_.end(); }
+        
+        terminal_iterator children_begin()const{ return next_.begin(); }
+        terminal_iterator children_end()const{ return next_.end(); }
+        
+        terminal_iterator decendent_begin()const{ return decendents_.begin(); }
+        terminal_iterator decendent_end()const{ return decendents_.end(); }
+
+
+        virtual void apply(visitor& v)const{
+                auto p = path();
+                for(auto ptr : p){
+                        ptr->apply_impl(v);
+                }
+        }
+
+        virtual void apply_impl(visitor& v)const{}
+
+        size_t player_idx()const { return player_idx_; }
+        size_t prev_player_idx()const { return parent_->player_idx_; }
+
+        explicit event_tree(size_t player_idx = 0)
+                : player_idx_{player_idx}
+        {}
+
+        std::string pretty()const{
+                to_string_visitor v;
+                apply(v);
+                return v.to_string();
+        }
+        std::vector<event_tree const*> path()const noexcept{
+                std::vector<event_tree const*> path{this};
+                for(;;){
+                        if( path.back()->parent_ == nullptr)
+                                break;
+                        path.push_back(path.back()->parent_);
+                }
+                return std::vector<event_tree const*>{ path.rbegin(), path.rend() };
+        }
+private:
+
+        void add_child(std::shared_ptr<event_tree > child){
+                next_.push_back(child);
+                child->parent_ = this;
+        }
+        void finish(){
+                //std::vector<std::shared_ptr<event_tree>> stack{std::shared_ptr<event_tree>(this, [](auto&&_){})};
+                std::vector<std::shared_ptr<event_tree>> stack = next_;
+                for(;stack.size();){
+                        auto head = stack.back();
+                        stack.pop_back();
+                        decendents_.push_back(head);
+                        if( head->is_terminal() ){
+                                terminals_.push_back(head);
+                        } else {
+                                non_terminals_.push_back(head);
+                                std::copy( head->next_.begin(), head->next_.end(), std::back_inserter(stack));
+                        }
+                }
+        }
+        void make_parent(){
+                finish();
+                for(auto ptr : non_terminals_ ){
+                        if( ptr.get() != this ){
+                                ptr->finish();
+                        }
+                }
+        }
+
+protected:
+        event_tree* parent_{nullptr};
+        std::vector< std::shared_ptr<event_tree> > next_;
+
+        terminals_vector_type terminals_;
+        terminals_vector_type non_terminals_;
+        terminals_vector_type decendents_;
+
+        size_t player_idx_{static_cast<size_t>(-1)};
+
+};
+
+struct event_tree_hu_sb_bb : event_tree{
+        event_tree_hu_sb_bb(size_t n, double sb, double bb, double eff)
+                : event_tree{0}, n_{n}, sb_{sb}, bb_{bb}, eff_{eff}
+        {}
+private:
+        virtual void apply_impl(visitor& v)const override{
+                // sb acts first, so...
+                v.path_decl(n_, eff_);
+                v.post_bb(1, bb_, false);
+                v.post_sb(0, sb_, false);
+        }
+        size_t n_;
+        double sb_;
+        double bb_;
+        double eff_;
+};
+struct event_tree_sb_bb : event_tree{
+        event_tree_sb_bb(size_t n, double sb, double bb, double eff)
+                : event_tree{0},  n_{n}, sb_{sb}, bb_{bb}, eff_{eff}
+        {}
+private:
+        virtual void apply_impl(visitor& v)const override{
+                // this will work for three players
+                v.path_decl(n_, eff_);
+                v.post_sb(1, sb_, false);
+                v.post_bb(2, bb_, false);
+        }
+        size_t n_;
+        double sb_;
+        double bb_;
+        double eff_;
+};
+
+struct event_tree_push : event_tree{
+        explicit event_tree_push(size_t player_idx, double amt):event_tree{player_idx}, amt_{amt}{}
+        virtual std::string event()const noexcept override{ return "p"; }
+        virtual std::string to_string()const noexcept override{ return "push"; }
+private:
+        virtual void apply_impl(visitor& v)const override{
+                v.player_raise(this, player_idx(), amt_, true);
+        }
+        double amt_;
+};
+struct event_tree_raise : event_tree{
+        explicit event_tree_raise(size_t player_idx, double amt):event_tree{player_idx}, amt_{amt} {}
+        virtual std::string event()const noexcept override{ return "r"; }
+        virtual std::string to_string()const noexcept override{ return "raise"; }
+private:
+        virtual void apply_impl(visitor& v)const override{
+                v.player_raise(this, player_idx(), amt_, false);
+        }
+        double amt_;
+};
+struct event_tree_fold : event_tree{
+        explicit event_tree_fold(size_t player_idx):event_tree{player_idx}{}
+        virtual std::string event()const noexcept override{ return "f"; }
+        virtual std::string to_string()const noexcept override{ return "fold"; }
+private:
+        virtual void apply_impl(visitor& v)const override{
+                v.player_fold(this, player_idx());
+        }
+};
+
+
+std::shared_ptr<event_tree> event_tree::build_raise_fold(size_t n, double sb, double bb, double eff){
+        std::shared_ptr<event_tree> root;
+
+        root = std::make_shared<event_tree_hu_sb_bb>(2, sb, bb, eff);
+        auto p = std::make_shared<event_tree_push>(1, eff - sb);
+        auto r = std::make_shared<event_tree_raise>(1, 2);
+        auto f = std::make_shared<event_tree_fold>(1);
+        root->add_child(p);
+        root->add_child(r);
+        root->add_child(f);
+
+
+        auto pp = std::make_shared<event_tree_push>(0, eff - bb);
+        auto pf = std::make_shared<event_tree_fold>(0);
+        p->add_child(pp);
+        p->add_child(pf);
+
+        auto rp = std::make_shared<event_tree_push>(0, eff - bb);
+        auto rf = std::make_shared<event_tree_fold>(0);
+        
+        r->add_child(rp);
+        r->add_child(rf);
+        
+        auto rpp = std::make_shared<event_tree_push>(1, eff - sb - 2.0);
+        auto rpf = std::make_shared<event_tree_fold>(1);
+        rp->add_child(rpp);
+        rp->add_child(rpf);
+
+        root->make_parent();
+        return root;
+}
+std::shared_ptr<event_tree> event_tree::build(size_t n, double sb, double bb, double eff){
+        std::shared_ptr<event_tree> root;
+
+        switch(n){
+                case 2:
+                {
+
+                        root = std::make_shared<event_tree_hu_sb_bb>(2, sb, bb, eff);
+                        auto p = std::make_shared<event_tree_push>(0, eff - sb);
+                        auto f = std::make_shared<event_tree_fold>(0);
+                        root->add_child(p);
+                        root->add_child(f);
+
+
+
+                        auto pp = std::make_shared<event_tree_push>(1, eff - bb);
+                        auto pf = std::make_shared<event_tree_fold>(1);
+                        p->add_child(pp);
+                        p->add_child(pf);
+                        
+
+
+                        break;
+
+                }
+                #if 0
+                case 3:
+                {
+                        /*
+                                             <0>
+                                           /     \
+                                         P         F
+                                         |         |
+                                        <1>       <2>
+                                       /   \      /  \
+                                      P    F     P    F
+                                      |    |     |
+                                     <3>  <4>   <5>
+                                     / \  / \   / \
+                                     P F  P F   P F  
+
+                         */
+                        root = std::make_shared<event_tree_sb_bb>(3, sb, bb, eff);
+
+                        auto p = std::make_shared<event_tree_push>(2, 0, eff);
+                        auto f = std::make_shared<event_tree_fold>(2, 0);
+                        root->add_child(p);
+                        root->add_child(f);
+
+                        auto pp = std::make_shared<event_tree_push>(0, 1, eff);
+                        auto pf = std::make_shared<event_tree_fold>(0, 1);
+                        p->add_child(pp);
+                        p->add_child(pf);
+
+                        auto fp = std::make_shared<event_tree_push>(0, 2, eff);
+                        auto ff = std::make_shared<event_tree_fold>(0, 2);
+                        f->add_child(fp);
+                        f->add_child(ff);
+                        
+                        auto ppp = std::make_shared<event_tree_push>(1, 3, eff);
+                        auto ppf = std::make_shared<event_tree_fold>(1, 3);
+                        pp->add_child(ppp);
+                        pp->add_child(ppf);
+                        
+                        auto pfp = std::make_shared<event_tree_push>(1, 4, eff);
+                        auto pff = std::make_shared<event_tree_fold>(1, 4);
+                        pf->add_child(pfp);
+                        pf->add_child(pff);
+
+                        auto fpp = std::make_shared<event_tree_push>(1, 5, eff);
+                        auto fpf = std::make_shared<event_tree_fold>(1, 5);
+                        fp->add_child(fpp);
+                        fp->add_child(fpf);
+
+                        break;
+
+                }
+                #endif
+
+        }
+        root->make_parent();
+        return root;
+
+}
+
+#ifdef NOT_DEFINED
+struct strategy_decl{
+        
+
+        struct strategy_choice_decl{
+                strategy_choice_decl(event_tree const* ev, size_t idx, size_t player_idx, std::vector<size_t> const& alloc)
+                        :ev_{ev}
+                        ,idx_(idx)
+                        ,player_idx_(player_idx),
+                        alloc_(alloc)
+                {}
+                size_t index()const{ return idx_; }
+                size_t num_choices()const{ return alloc_.size(); }
+                size_t player_index()const{ return player_idx_; }
+                size_t at(size_t idx)const{ return alloc_[idx]; }
+                auto const& alloc()const{ return alloc_; }
+                friend std::ostream& operator<<(std::ostream& ostr, strategy_choice_decl const& self){
+                        ostr << "idx_ = " << self.idx_ << ",";
+                        ostr << "pretty_ = " << self.ev_->pretty() << ",";
+                        ostr << "player_idx_ = " << self.player_idx_ << ",";
+                        typedef std::vector<size_t>::const_iterator CI0;
+                        const char* comma = "";
+                        ostr << "alloc_" << " = {";
+                        for(CI0 iter= self.alloc_.begin(), end=self.alloc_.end();iter!=end;++iter){
+                                ostr << comma << *iter;
+                                comma = ", ";
+                        }
+                        ostr << "}\n";
+                        return ostr;
+                }
+        private:
+                event_tree const* ev_;
+                size_t idx_;
+                size_t player_idx_;
+                std::vector<size_t> alloc_;
+        };
+        
+        size_t dimensions()const{ return s_alloc_.size(); }
+        auto begin()const{ return choies_.begin(); }
+        auto end()const{ return choies_.end(); }
+        size_t s_alloc(event_tree const* ev, size_t cid)const{
+                auto offset = s_alloc_.find(ev)->second;
+                return offset * 169 + cid;
+        }
+
+        auto* root()const{ return root_; }
+
+        friend std::ostream& operator<<(std::ostream& ostr, strategy_decl const& self){
+                ostr << "dims_ = " << self.dims_;
+                typedef std::vector<strategy_choice_decl>::const_iterator CI0;
+                const char* comma = "";
+                ostr << "choies_" << " = {";
+                for(CI0 iter= self.choies_.begin(), end=self.choies_.end();iter!=end;++iter){
+                        ostr << comma << *iter;
+                        comma = ", ";
+                }
+                ostr << "}\n";
+                return ostr;
+        }
+        void Display()const{
+                using namespace Pretty;
+                std::vector<Pretty::LineItem> lines;
+                lines.push_back(std::vector<std::string>{"index", "num_choies", "player_index", "alloc"});
+                lines.push_back(LineBreak);
+                for(auto const& _ : choies_){
+                        std::vector<std::string> line;
+                        line.push_back( boost::lexical_cast<std::string>(_.index()));
+                        line.push_back( boost::lexical_cast<std::string>(_.num_choices()));
+                        line.push_back( boost::lexical_cast<std::string>(_.player_index()));
+                        line.push_back( detail::to_string(_.alloc()) );
+                        lines.push_back(std::move(line));
+                }
+                RenderTablePretty(std::cout, lines);
+                lines.clear();
+                lines.push_back(std::vector<std::string>{"idx", "pretty"});
+                lines.push_back(LineBreak);
+                for(auto const& _ : s_alloc_ ){
+                        lines.push_back(std::vector<std::string>{boost::lexical_cast<std::string>(_.second),
+                                                                 _.first->pretty() } );
+                }
+                RenderTablePretty(std::cout, lines);
+        }
+private:
+        size_t dims_;
+        event_tree const* root_;
+        std::vector<strategy_choice_decl> choies_;
+        std::map< event_tree const*, size_t> s_alloc_;
+
+public:
+
+        static strategy_decl generate(event_tree const* root){
+
+                strategy_decl result;
+
+                std::vector< event_tree const*> stack;
+                stack.push_back(root);
+                std::map<event_tree const*, std::vector<event_tree const*> > G;
+                for(;stack.size();){
+                        auto head = stack.back();
+                        stack.pop_back();
+                        if( head->is_terminal()){
+                                continue;
+                        }
+                        for(auto iter=head->children_begin(), end=head->children_end();iter!=end;++iter){
+                                G[head].push_back(&*iter);
+                                stack.push_back(&*iter);
+                        }
+                }
+
+                // I probably want some pretty ordering for strategy
+                std::vector<event_tree const*> alloc_aux;
+                for(auto iter=root->non_terminal_begin(), end=root->non_terminal_end();iter!=end;++iter){
+                        alloc_aux.push_back(&*iter);
+                }
+                #if 0
+                for(auto const& p : G){
+                        for(auto ptr : p.second ){
+                                alloc_aux.push_back(ptr);
+                        }
+                }
+                #endif
+                std::sort(alloc_aux.begin(), alloc_aux.end(), [](auto&& l, auto&& r){ return l->path().size() < r->path().size(); });
+                for(auto ptr : alloc_aux){
+                        result.s_alloc_[ptr] = result.s_alloc_.size();
+                }
+
+
+                typedef std::map<event_tree const*, std::vector<event_tree const*> >::const_iterator VI;
+                for(VI iter(G.begin()), end(G.end());iter!=end;++iter){
+
+                        std::stringstream sstr;
+                        sstr << iter->first << "->" << "{";
+                        for(size_t j=0;j!=iter->second.size();++j){
+                                if( j != 0 )
+                                        sstr << ", ";
+                                sstr << iter->second[j];
+                        }
+                        sstr << "}";
+                        std::cout << sstr.str() << "\n";
+                }
+                
+                size_t choice_idx = 0;
+                for(VI iter(G.begin()), end(G.end());iter!=end;++iter){
+                        std::vector<size_t> alloc;
+                        for(auto ptr : iter->second){
+                                alloc.push_back( result.s_alloc_[ptr] );
+                        }
+                        result.choies_.emplace_back(iter->first, choice_idx, iter->first->player_idx(), std::move(alloc));
+                        ++choice_idx;
+                }
+                result.root_ = root;
+                return result;
+        }
+};
+#endif
+
+
+using namespace ExpressionTreeV1;
+
+namespace computation_builder_detail{
+        struct computation_builder_alloc_concept{
+                virtual ~computation_builder_alloc_concept()=default;
+                //virtual size_t alloc(event_tree const* ptr, holdem_class_id cid)const=0;
+                virtual std::vector<Pair> make_index(std::vector<event_tree const*> const& path, holdem_class_vector const& cv)const=0;
+        };
+
+        struct computation_builder_sub{
+                virtual ~computation_builder_sub()=default;
+                virtual void emit(VectorComputation* vc, class_cache const* cache, holdem_class_vector const& cv, double P_cb)const noexcept=0;
+        };
+        struct computation_builder_static : computation_builder_sub{
+                computation_builder_static(std::shared_ptr<computation_builder_alloc_concept> S, event_tree const* term, Eigen::VectorXd V)
+                        : S_{S}, path_{term->path()}, V_{std::move(V)}
+                {}
+                virtual void emit(VectorComputation* vc, class_cache const* cache, holdem_class_vector const& cv, double P_cb)const noexcept override
+                {
+                        #if 0
+                        std::vector<size_t> index;
+                        for(size_t j=0;j +1 < path_.size();++j){
+                                auto ptr = path_[j];
+                                //std::cout << "ptr->pretty() => " << ptr->pretty() << "\n"; // __CandyPrint__(cxx-print-scalar,ptr->pretty())
+                                index.push_back( S_->alloc(ptr, cv.at(ptr->player_idx()) ) );
+                        }
+                        #endif
+                        auto index = S_->make_index(path_, cv);
+                        vc->Add(cv, P_cb, std::move(index), V_ );
+                }
+        private:
+                std::shared_ptr<computation_builder_alloc_concept> S_;
+                std::vector<event_tree const*> path_;
+                Eigen::VectorXd V_;
+        };
+        struct computation_builder_eval : computation_builder_sub{
+                computation_builder_eval(std::shared_ptr<computation_builder_alloc_concept> S, event_tree const* term, Eigen::VectorXd A, std::vector<size_t> perm)
+                        : S_{S}, path_{term->path()}, A_{std::move(A)}, perm_{std::move(perm)}
+                {
+                        pot_ = -A_.sum();
+                }
+                virtual void emit(VectorComputation* vc, class_cache const* cache, holdem_class_vector const& cv, double P_cb)const noexcept override
+                {
+                        #if 0
+                        std::vector<size_t> index;
+                        for(size_t j=1;j < path_.size();++j){
+                                auto ptr = path_[j];
+                                index.push_back( S_->alloc(ptr, cv[ptr->player_idx()] ) );
+                        }
+                        std::cout << "detail::to_string(path_) => " << detail::to_string(path_) << "\n"; // __CandyPrint__(cxx-print-scalar,detail::to_string(path_))
+                        std::cout << "detail::to_string(index) => " << detail::to_string(index) << "\n"; // __CandyPrint__(cxx-print-scalar,detail::to_string(index))
+                        #endif
+                        auto index = S_->make_index(path_, cv);
+
+                        holdem_class_vector aux;
+                        for(auto _ : perm_ ){
+                                aux.push_back(cv[_]);
+                        }
+                        auto ev = cache->LookupVector(aux);
+                        ev *= pot_;
+                        Eigen::VectorXd ev_v(cv.size());
+                        ev_v.fill(0);
+                        size_t out_iter = 0;
+                        for(auto _ : perm_ ){
+                                ev_v[_] = ev[out_iter];
+                                ++out_iter;
+                        }
+
+                        ev_v += A_;
+
+                        vc->Add(cv, P_cb, std::move(index), std::move(ev_v) );
+                }
+        private:
+                std::shared_ptr<computation_builder_alloc_concept> S_;
+                std::vector<event_tree const*> path_;
+                Eigen::VectorXd A_;
+                std::vector<size_t> perm_;
+                double pot_;
+        };
+        struct visitor_impl : event_tree::visitor{
+                virtual void path_decl(size_t n, double eff)override{
+                        for(size_t idx=0;idx!=n;++idx){
+                                Active.insert(idx);
+                        }
+                        Eff = eff;
+                        Delta.resize(n);
+                        Delta.fill(0);
+                }
+                virtual void player_fold(event_tree const*, size_t player_idx)override{
+                        Active.erase(player_idx);
+                }
+                virtual void player_raise(event_tree const*, size_t player_idx, double amt, bool allin)override{
+                        Delta[player_idx] -= amt;
+                }
+                virtual void post_sb(size_t player_idx, double amt, bool allin)override{
+                        Delta[player_idx] -= amt;
+                }
+                virtual void post_bb(size_t player_idx, double amt, bool allin)override{
+                        Delta[player_idx] -= amt;
+                }
+                friend std::ostream& operator<<(std::ostream& ostr, visitor_impl const& self){
+                        ostr << "Delta = " << vector_to_string(self.Delta);
+                        ostr << ", Active = " << detail::to_string(self.Active);
+                        return ostr;
+                }
+                double Eff;
+                Eigen::VectorXd Delta;
+                std::set<size_t> Active;
+        };
+} // end namespace computation_builder_detail
+
+std::shared_ptr<VectorComputation> build_vc(event_tree const* root){
+        using namespace computation_builder_detail;
+        std::vector<std::shared_ptr<computation_builder_detail::computation_builder_sub> > builders_;
+        struct alloc_type : computation_builder_detail::computation_builder_alloc_concept{
+                explicit alloc_type(event_tree const* root){
+                        for(auto iter = root->decendent_begin(), end = root->decendent_end();iter!=end;++iter){
+                                size_t next = M.size();
+                                M[&*iter] = next;
+                        }
+                }
+                virtual std::vector<Pair> make_index(std::vector<event_tree const*> const& path, holdem_class_vector const& cv)const override{
+                        std::vector<Pair> index;
+                        for(size_t j=1;j < path.size(); ++j){
+                                auto* ptr = path[j];
+                                index.push_back( Pair{ M.find(ptr)->second, cv[ptr->prev_player_idx()] });
+                        }
+                        return index;
+                }
+        private:
+                std::unordered_map<void const*, size_t> M;
+        };
+        auto alloc = std::make_shared<alloc_type>(root);
+        for(auto iter = root->terminal_begin(), end = root->terminal_end();iter!=end;++iter){
+                visitor_impl V;
+                iter->apply(V);
+                std::cout << "V => " << V << "\n"; // __CandyPrint__(cxx-print-scalar,V)
+                if( V.Active.size() == 1 ){
+                        auto vec = V.Delta;
+                        auto sum = vec.sum();
+                        auto winner_idx = *V.Active.begin();
+                        vec[winner_idx] -= sum;
+                        std::cout << "vector_to_string(vec) => " << vector_to_string(vec) << "\n"; // __CandyPrint__(cxx-print-scalar,vector_to_string(vec))
+                        builders_.push_back( std::make_shared<computation_builder_static>( alloc, &*iter, std::move(vec)) );
+                } else {
+                        std::vector<size_t> perm( V.Active.begin(), V.Active.end() );
+                        builders_.push_back( std::make_shared<computation_builder_eval>(alloc, &*iter, V.Delta, std::move(perm)) );
+                }
+        }
+        auto vc = std::make_shared<VectorComputation>();
+        std::string cache_name{".cc.bin"};
+        class_cache C;
+        C.load(cache_name);
+        for(auto const& group : *Memory_TwoPlayerClassVector){
+                for(auto const& _ : group.vec){
+                        auto const& cv = _.cv;
+                        for( auto b : builders_ ){
+                                b->emit( vc.get(), &C, cv, _.prob );
+                        }
+                }
+        }
+        return vc;
+}
+
+} // end namespace VARR
 
 namespace ps{
         struct cc_eval_view : binary_strategy_description::eval_view{
@@ -1549,7 +2389,40 @@ namespace ps{
                                         for(size_t idx=0;idx!=ev.size();++idx){
                                                 line.push_back(boost::lexical_cast<std::string>(ev[idx]));
                                         }
+
+                                        using namespace VARR;
+
+                                        do{
+                                                auto et = event_tree::build(2, 0.5, 1.0, desc->eff());
+                                                auto ev = build_vc(et.get());
+                                                static bool first = true;
+                                                if( first ){
+                                                        first = false;
+                                                        et->display();
+                                                        ev->Display();
+                                                }
+
+                                                std::vector<Eigen::VectorXd> S(4);
+                                                auto const& s = sol.solution();
+                                                for(size_t idx=0;idx!=4;++idx){
+                                                        S[idx].resize(169);
+                                                }
+                                                for(size_t idx=0;idx!=169;++idx){
+                                                        S[0][idx] = s[0][idx];
+                                                        S[1][idx] = 1.0 - s[0][idx];
+                                                        S[2][idx] = 1.0 - s[1][idx];
+                                                        S[3][idx] = s[1][idx];
+                                                }
+
+                                                auto ret = ev->Eval(S);
+                                                
+                                                for(size_t idx=0;idx!=ret.size();++idx){
+                                                        line.push_back(boost::lexical_cast<std::string>(ret[idx]));
+                                                }
+                                        }while(0);
                                         lines.push_back(std::move(line));
+                                        RenderTablePretty(std::cout, lines);
+
                                 }
                                 RenderTablePretty(std::cout, lines);
                         }

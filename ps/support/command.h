@@ -1,6 +1,12 @@
 #ifndef PS_SUPPORT_COMMAND_H
 #define PS_SUPPORT_COMMAND_H
 
+#include <string>
+#include <vector>
+#include <memory>
+#include <iostream>
+
+#include <boost/exception/all.hpp>
 
 namespace ps{
 

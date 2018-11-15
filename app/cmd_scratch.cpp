@@ -298,13 +298,6 @@ namespace ps{
                         GraphColouring<size_t> P;
                         GraphColouring<size_t> I;
                 };
-                auto make_index = [&](auto const& tpl, auto const& cv){
-                        std::vector<Index> index;
-                        for(auto e : tpl){
-                                index.push_back( Index{ D[e], I[e], cv[P[e]] } );
-                        }
-                        return index;
-                };
 
                 struct MakerConcept{
                         virtual ~MakerConcept()=default;
@@ -318,17 +311,36 @@ namespace ps{
                                 pot_(pot)
                         {}
                         virtual void Emit(AggregateComputer* vc, IndexMakerConcept* im, class_cache const* cache, double p, holdem_class_vector const& cv)const override{
+                                
+                                auto index = im->MakeIndex(path_, cv); 
+                                
                                 Eigen::VectorXd v(pot_.size());
                                 v.fill(0);
                                 v -= pot_;
-                                
-                                auto index = im->MakeIndex(path_, cv); 
 
                                 if( active_.size() == 1 ){
                                         v[active_[0]] += pot_.sum();
 
                                         //vc->Emplace(cv, p, im
+                                } else {
+                                        holdem_class_vector auxcv;
+                                        for(auto idx : active_ ){
+                                                auxcv.push_back(cv[idx]);
+                                        }
+                                        auto ev = cache->LookupVector(auxcv);
+                                        Eigen::VectorXd evaux(cv.size());
+                                        evaux.fill(0);
+                                        size_t ev_idx = 0;
+                                        for(auto idx : active_ ){
+                                                evaux[idx] = ev[ev_idx];
+                                                ++ev_idx;
+                                        }
+                                        evaux *= pot_.sum();
+
+                                        v += evaux;
                                 }
+
+                                vc->Emplace(cv, p, index, v);
                         }
                         virtual std::string to_string()const override{
                                 std::stringstream sstr;
@@ -353,6 +365,14 @@ namespace ps{
                         Eigen::VectorXd pot_;
                 };
 
+                Eigen::VectorXd v_blinds(2);
+                v_blinds[0] += sb;
+                v_blinds[1] += bb;
+
+
+                std::vector<std::shared_ptr<MakerConcept> > maker_dev;
+                maker_dev.push_back(std::make_shared<StaticEmit>(tpl_f, std::vector<size_t>{1}, v_blinds));
+
                 IndexMaker im(*strat);
 
                 auto comp = std::make_shared<AggregateComputer>();
@@ -365,28 +385,20 @@ namespace ps{
                                 
                                 auto v_pp = 2 * eff * ev - eff_v;
                 
-                                #if 0
-                                auto p_pp = make_index( tpl_pp, cv);
-                                auto p_pf = make_index( tpl_pf, cv);
-                                auto p_f  = make_index( tpl_f , cv);
-                                #endif
                                 auto p_pp = im.MakeIndex( tpl_pp, cv);
                                 auto p_pf = im.MakeIndex( tpl_pf, cv);
                                 auto p_f  = im.MakeIndex( tpl_f , cv);
 
                                 comp->Emplace(cv, _.prob, p_pp, v_pp);
                                 comp->Emplace(cv, _.prob, p_pf, v_pf);
-                                comp->Emplace(cv, _.prob, p_f , v_f );
+                                //comp->Emplace(cv, _.prob, p_f , v_f );
+                                for(auto const& m : maker_dev ){
+                                        m->Emit(comp.get(), &im, &C, _.prob, _.cv );
+                                }
 
                         }
                 }
 
-                #if 0
-                Eigen::VectorXd proto(169);
-                proto.fill(0.5);
-                std::vector<Eigen::VectorXd> sx(2, proto);
-                std::vector<std::vector<Eigen::VectorXd> > S0(2,sx);
-                #endif
                 auto S0 = strat->MakeDefaultState();
 
 

@@ -372,6 +372,7 @@ namespace ps{
 
                 std::vector<std::shared_ptr<MakerConcept> > maker_dev;
                 maker_dev.push_back(std::make_shared<StaticEmit>(tpl_f, std::vector<size_t>{1}, v_blinds));
+                maker_dev.push_back(std::make_shared<StaticEmit>(tpl_pf, std::vector<size_t>{0}, v_blinds));
 
                 IndexMaker im(*strat);
 
@@ -390,7 +391,7 @@ namespace ps{
                                 auto p_f  = im.MakeIndex( tpl_f , cv);
 
                                 comp->Emplace(cv, _.prob, p_pp, v_pp);
-                                comp->Emplace(cv, _.prob, p_pf, v_pf);
+                                //comp->Emplace(cv, _.prob, p_pf, v_pf);
                                 //comp->Emplace(cv, _.prob, p_f , v_f );
                                 for(auto const& m : maker_dev ){
                                         m->Emit(comp.get(), &im, &C, _.prob, _.cv );

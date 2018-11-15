@@ -30,8 +30,8 @@ namespace ps{
                 {}
 
 
-                std::vector<GEdge*> EdgePath()const{
-                        std::vector<GEdge*> rpath;
+                std::vector<GEdge const*> EdgePath()const{
+                        std::vector<GEdge const*> rpath;
                         GNode const* head = this;
                         for(;; ){
                                 // assume tree
@@ -42,7 +42,7 @@ namespace ps{
                                 rpath.push_back(head->in_.back());
                                 head = rpath.back()->From();
                         }
-                        return std::vector<GEdge*>(rpath.rbegin(), rpath.rend());
+                        return std::vector<GEdge const*>(rpath.rbegin(), rpath.rend());
                 }
 
                 std::string const& Name()const{ return name_; }
@@ -81,6 +81,12 @@ namespace ps{
 
         template<class T>
         struct GraphColouring : std::unordered_map<void const*, T>{
+                T const& Color(void const* e)const{
+                        auto iter = this->find(e);
+                        if( iter == this->end())
+                                BOOST_THROW_EXCEPTION(std::domain_error("no colour"));
+                        return iter->second;
+                }
         };
         
         struct Index{
@@ -158,41 +164,6 @@ namespace ps{
                 std::vector<std::shared_ptr<Decision> > v_;
         };
 
-        #if 0
-        struct EvalDecl{
-
-                EvalDecl(std::shared_ptr<StrategyDecl> S)
-                        :S_(S)
-                {}
-                void Add(GNode* node, std::shared_ptr<Eval> eval){
-                        auto path = node->EdgePath();
-                        
-                        std::vector<Index> iv;
-                        for(auto _ : path){
-                                auto index = S_->FindDecisionOrThrow(_)->IndexFor(_);
-                                iv.push_back(index);
-                        }
-                        evals_.emplace_back({std::move(iv), eval});
-                }
-
-        private:
-                std::shared_ptr<StrategyDecl> S_;
-                std::vector<EvalItem> items_;
-        };
-        #endif
-
-        #if 0
-        struct ComputationalProblem{
-                struct ComputationalAtom{
-                        double constant{1.0};
-                        std::vector<Index> index;
-                        Eigen::VectorXd value;
-                };
-                Eigen::VectorXd Compute(std::vector<std::vector<Eigen::VectorXd> >
-        private:
-                std::vector<ComputationalAtom> v_;
-        };
-        #endif
 
 
         struct AggregateComputer{
@@ -239,76 +210,6 @@ namespace ps{
         boost::optional<StateType> Solve(double sb, double bb, double eff){
 
                 auto G = std::make_shared<Graph>();
-
-
-                #if 0
-                // <0>
-                auto root = G->Node("*");
-                        // <1>
-                        auto r = G->Node("r");
-                                // <3>
-                                auto rp = G->Node("rp");
-                                        auto rpp = G->Node("rpp");
-                                        auto rpf = G->Node("rpf");
-                                auto rf = G->Node("rf");
-                        // <2>
-                        auto p = G->Node("p");
-                                auto pp = G->Node("pp");
-                                auto pf = G->Node("pf");
-                        auto f = G->Node("f");
-                
-
-                // decision <0>
-                auto e_0_r = G->Edge(root, r);
-                auto e_0_p = G->Edge(root, p);
-                auto e_0_f = G->Edge(root, f);
-
-                // decision <1>
-                auto e_1_p = G->Edge(r, rp);
-                auto e_1_f = G->Edge(r, rf);
-
-                // decision <2>
-                auto e_2_p = G->Edge(p, pp);
-                auto e_2_f = G->Edge(p, pf);
-
-                // decision <3>
-                auto e_3_p = G->Edge(rp, rpp);
-                auto e_3_f = G->Edge(rp, rpf);
-
-
-                //  The probability each of these is S[i][j][cv[p]],
-                //
-                //  where \sigma_{j\in J} S[i][j][cv[p]] = 1.0
-                //
-                //                                    i  p
-                auto d_0 = std::make_shared<Decision>(0, 0);
-                d_0->Add(e_0_r);
-                d_0->Add(e_0_p);
-                d_0->Add(e_0_f);
-                auto d_1 = std::make_shared<Decision>(1, 1);
-                d_1->Add(e_1_p);
-                d_1->Add(e_1_f);
-                auto d_2 = std::make_shared<Decision>(2, 1);
-                d_2->Add(e_2_p);
-                d_2->Add(e_2_f);
-                auto d_3 = std::make_shared<Decision>(3, 0);
-                d_3->Add(e_3_p);
-                d_3->Add(e_3_f);
-                #endif
-
-
-                #if 0
-                std::unordered_map<void*, std::shared_ptr<Decision> > D;
-                D[root] = d_0;
-                D[r]    = d_1;
-                D[p]    = d_2;
-                D[rp]   = d_3;
-
-                std::unordered_map<void*, Index> I;
-                I[e_0_r] = d_0->IndexFor(e_0_r);
-                I[e_1_r] = d_0->For(e_1_r);
-                I[e_2_r] = d_0->For(e_2_r);
-                #endif
                 
                 // <0>
                 auto root = G->Node("*");
@@ -370,6 +271,33 @@ namespace ps{
                 auto tpl_pf = pf->EdgePath();
                 auto tpl_f  = f ->EdgePath();
 
+                struct IndexMakerConcept{
+                        virtual ~IndexMakerConcept()=default;
+                        virtual std::vector<Index> MakeIndex(std::vector<GEdge const*> const& path, holdem_class_vector const& cv)const=0;
+                };
+                struct IndexMaker : IndexMakerConcept{
+                        explicit IndexMaker(StrategyDecl const& S){
+                                for(auto d : S){
+                                        for(auto e : d){
+                                                D[e] = d.GetIndex();
+                                                P[e] = d.GetPlayer();
+                                                I[e] = d.OffsetFor(e);
+                                        }
+                                }
+                
+                        }
+                        virtual std::vector<Index> MakeIndex(std::vector<GEdge const*> const& path, holdem_class_vector const& cv)const override{
+                                std::vector<Index> index;
+                                for(auto e : path){
+                                        index.push_back( Index{ D.Color(e), I.Color(e), cv[P.Color(e)] } );
+                                }
+                                return index;
+                        }
+                private:
+                        GraphColouring<size_t> D;
+                        GraphColouring<size_t> P;
+                        GraphColouring<size_t> I;
+                };
                 auto make_index = [&](auto const& tpl, auto const& cv){
                         std::vector<Index> index;
                         for(auto e : tpl){
@@ -377,6 +305,55 @@ namespace ps{
                         }
                         return index;
                 };
+
+                struct MakerConcept{
+                        virtual ~MakerConcept()=default;
+                        virtual void Emit(AggregateComputer* vc, IndexMakerConcept* im, class_cache const* cache, double p, holdem_class_vector const& cv)const=0;
+                        virtual std::string to_string()const=0;
+                };
+                struct StaticEmit : MakerConcept{
+                        StaticEmit(std::vector<GEdge const*> path, std::vector<size_t> const& active, Eigen::VectorXd pot)
+                                :path_(path),
+                                active_(active),
+                                pot_(pot)
+                        {}
+                        virtual void Emit(AggregateComputer* vc, IndexMakerConcept* im, class_cache const* cache, double p, holdem_class_vector const& cv)const override{
+                                Eigen::VectorXd v(pot_.size());
+                                v.fill(0);
+                                v -= pot_;
+                                
+                                auto index = im->MakeIndex(path_, cv); 
+
+                                if( active_.size() == 1 ){
+                                        v[active_[0]] += pot_.sum();
+
+                                        //vc->Emplace(cv, p, im
+                                }
+                        }
+                        virtual std::string to_string()const override{
+                                std::stringstream sstr;
+                                std::stringstream pathsstr;
+                                pathsstr << path_.front()->From()->Name();
+                                for(auto p : path_){
+                                        pathsstr << "," << p->To()->Name();
+                                }
+                                if( active_.size() == 1 ){
+                                        sstr << "Static{";
+                                        sstr << "path=" << pathsstr.str();
+                                } else {
+                                        sstr << "Eval  {";
+                                        sstr << "path=" << pathsstr.str();
+                                }
+                                return sstr.str();
+                        }
+
+                private:
+                        std::vector<GEdge const*> path_;
+                        std::vector<size_t> active_;
+                        Eigen::VectorXd pot_;
+                };
+
+                IndexMaker im(*strat);
 
                 auto comp = std::make_shared<AggregateComputer>();
                 for(auto const& group : *Memory_TwoPlayerClassVector){
@@ -388,9 +365,14 @@ namespace ps{
                                 
                                 auto v_pp = 2 * eff * ev - eff_v;
                 
+                                #if 0
                                 auto p_pp = make_index( tpl_pp, cv);
                                 auto p_pf = make_index( tpl_pf, cv);
                                 auto p_f  = make_index( tpl_f , cv);
+                                #endif
+                                auto p_pp = im.MakeIndex( tpl_pp, cv);
+                                auto p_pf = im.MakeIndex( tpl_pf, cv);
+                                auto p_f  = im.MakeIndex( tpl_f , cv);
 
                                 comp->Emplace(cv, _.prob, p_pp, v_pp);
                                 comp->Emplace(cv, _.prob, p_pf, v_pf);
@@ -406,6 +388,7 @@ namespace ps{
                 std::vector<std::vector<Eigen::VectorXd> > S0(2,sx);
                 #endif
                 auto S0 = strat->MakeDefaultState();
+
 
                 auto S = S0;
                 for(size_t n=0;n!=200;++n){

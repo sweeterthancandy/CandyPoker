@@ -78,8 +78,18 @@ namespace ps{
                 std::vector<std::shared_ptr<GNode> > N;
                 std::vector<std::shared_ptr<GEdge> > E;
         };
+
+        template<class T>
+        struct GraphColouring : std::unordered_map<void const*, T>{
+        };
         
         struct Index{
+                friend std::ostream& operator<<(std::ostream& ostr, Index const& self){
+                        ostr << "{s = " << self.s;
+                        ostr << ", choice = " << self.choice;
+                        ostr << ", id = " << (int)self.id << "}";
+                        return ostr;
+                }
                 size_t s;
                 size_t choice;
                 holdem_class_id id{static_cast<holdem_class_id>(-1)};
@@ -96,13 +106,16 @@ namespace ps{
                         return ostr;
                 }
                 void Add(GEdge* e){ E.push_back(e); }
-                size_t IndexFor(GEdge const* e)const{
+                size_t OffsetFor(GEdge const* e)const{
                         auto begin = E.begin();
                         auto end = E.end();
                         auto iter = std::find(begin, end, e);
                         if( iter == end)
                                 BOOST_THROW_EXCEPTION(std::domain_error("not an edge"));
-                        return { ID_, static_cast<size_t>(std::distance(begin, iter)) };
+                        return static_cast<size_t>(std::distance(begin, iter));
+                }
+                Index IndexFor(GEdge const* e, holdem_class_id cid)const{
+                        return { ID_, OffsetFor(e), cid};
                 }
 
                 size_t GetIndex()const{ return ID_; }
@@ -110,11 +123,15 @@ namespace ps{
 
                 auto begin()const{ return E.begin(); }
                 auto end()const{ return E.end(); }
+
+                size_t size()const{ return E.size(); }
         private:
                 size_t ID_;
                 size_t player_idx_;
                 std::vector<GEdge*> E;
         };
+
+        using StateType = std::vector<std::vector<Eigen::VectorXd> >;
 
                 
         struct StrategyDecl{
@@ -124,25 +141,21 @@ namespace ps{
                 decision_iterator end()const{ return v_.end(); }
                 void Add(std::shared_ptr<Decision> ptr){
                         v_.push_back(ptr);
-                        for(auto eptr : *ptr){
-                                auto idx = ptr->IndexFor(eptr);
-                                edge_index_[eptr] = idx;
-                        }
                 }
-                size_t num_decisions()const{ return v_.size(); }
-                std::vector<Index> MapPath(std::vector<GEdge const*> const& path){
-                        std::vector<Index> result;
-                        for(auto const& _ : path){
-                                auto iter = edge_index_.find(_);
-                                if( iter == edge_index_.end())
-                                        BOOST_THROW_EXCEPTION(std::domain_error("edge not in index"));
-                                result.push_back(iter->second);
+                size_t NumDecisions()const{ return v_.size(); }
+                size_t Depth(size_t j)const{ return v_[j]->size(); }
+
+                StateType MakeDefaultState()const{
+                        std::vector<std::vector<Eigen::VectorXd> > S;
+                        for(auto const& d : *this){
+                                Eigen::VectorXd proto(169);
+                                proto.fill(1.0 / d.size());
+                                S.emplace_back(d.size(), proto);
                         }
-                        return result;
+                        return S;
                 }
         private:
                 std::vector<std::shared_ptr<Decision> > v_;
-                std::unordered_map<GEdge const*, Index> edge_index_;
         };
 
         #if 0
@@ -181,8 +194,8 @@ namespace ps{
         };
         #endif
 
+
         struct AggregateComputer{
-                using StateType = std::vector<std::vector<Eigen::VectorXd> >;
 
                 struct Atom{
                         holdem_class_vector cv;
@@ -223,7 +236,7 @@ namespace ps{
         };
 
 
-        void Build(){
+        boost::optional<StateType> Solve(double sb, double bb, double eff){
 
                 auto G = std::make_shared<Graph>();
 
@@ -324,9 +337,6 @@ namespace ps{
                 strat->Add(d_0);
                 strat->Add(d_1);
                 
-                double sb = 0.5;
-                double bb = 1.0;
-                double eff = 10.0;
 
                 Eigen::VectorXd v_pf(2);
                 v_pf[0] = +bb;
@@ -343,11 +353,30 @@ namespace ps{
                 class_cache C;
                 C.load(cache_name);
 
+                GraphColouring<size_t> D;
+                GraphColouring<size_t> P;
+                GraphColouring<size_t> I;
+
+                for(auto d : *strat){
+                        for(auto e : d){
+                                D[e] = d.GetIndex();
+                                P[e] = d.GetPlayer();
+                                I[e] = d.OffsetFor(e);
+                        }
+                }
                 
 
-                auto tp_pp = pp->EdgePath();
-                auto tp_pf = pf->EdgePath();
-                auto tp_f  = e_0_f->EdgePath();
+                auto tpl_pp = pp->EdgePath();
+                auto tpl_pf = pf->EdgePath();
+                auto tpl_f  = f ->EdgePath();
+
+                auto make_index = [&](auto const& tpl, auto const& cv){
+                        std::vector<Index> index;
+                        for(auto e : tpl){
+                                index.push_back( Index{ D[e], I[e], cv[P[e]] } );
+                        }
+                        return index;
+                };
 
                 auto comp = std::make_shared<AggregateComputer>();
                 for(auto const& group : *Memory_TwoPlayerClassVector){
@@ -359,9 +388,9 @@ namespace ps{
                                 
                                 auto v_pp = 2 * eff * ev - eff_v;
                 
-                                std::vector<Index> p_pp{ {0,0, cv[0]}, {1,0, cv[1]} };
-                                std::vector<Index> p_pf{ {0,0, cv[0]}, {1,1, cv[1]} };
-                                std::vector<Index> p_f{  {0,1, cv[0]} };
+                                auto p_pp = make_index( tpl_pp, cv);
+                                auto p_pf = make_index( tpl_pf, cv);
+                                auto p_f  = make_index( tpl_f , cv);
 
                                 comp->Emplace(cv, _.prob, p_pp, v_pp);
                                 comp->Emplace(cv, _.prob, p_pf, v_pf);
@@ -370,13 +399,16 @@ namespace ps{
                         }
                 }
 
+                #if 0
                 Eigen::VectorXd proto(169);
                 proto.fill(0.5);
                 std::vector<Eigen::VectorXd> sx(2, proto);
                 std::vector<std::vector<Eigen::VectorXd> > S0(2,sx);
+                #endif
+                auto S0 = strat->MakeDefaultState();
 
                 auto S = S0;
-                for(size_t n=0;;++n){
+                for(size_t n=0;n!=200;++n){
                         auto counter = S;
 
                         for(auto const& decision : *strat){
@@ -420,8 +452,8 @@ namespace ps{
 
 
                         double factor = 0.05;
-                        for(size_t i=0;i!=strat->num_decisions();++i){
-                                for(size_t j=0;j!=2;++j){
+                        for(size_t i=0;i!=strat->NumDecisions();++i){
+                                for(size_t j=0;j!=strat->Depth(i);++j){
                                         S[i][j] = S[i][j] * ( 1.0 - factor ) + factor * counter[i][j];
                                 }
                         }
@@ -438,8 +470,9 @@ namespace ps{
 
                                 double norm = ( R - R_counter ).lpNorm<2>();
                                 
-                                if( norm < 0.0001 )
-                                        break;
+                                if( norm < 0.0001 ){
+                                        return counter;
+                                }
                                 
                                 std::cout << "vector_to_string(R) => " << vector_to_string(R) << "\n"; // __CandyPrint__(cxx-print-scalar,vector_to_string(ev))
                                 std::cout << "norm => " << norm << "\n"; // __CandyPrint__(cxx-print-scalar,norm)
@@ -448,6 +481,7 @@ namespace ps{
                         }
 
                 }
+                return boost::none;
 
 
         }
@@ -457,7 +491,22 @@ namespace ps{
                 explicit
                 ScratchCmd(std::vector<std::string> const& args):args_{args}{}
                 virtual int Execute()override{
-                        Build();
+                        double sb = 0.5;
+                        double bb = 1.0;
+                        #if 0
+                        struct Pair{
+                                double eff;
+                                StateType S;
+                        };
+                        std::vector<Pair> meta;
+                        for(double eff = 10.0;eff != 20.0; eff += 1.0 ){
+                                auto opt = Solve(sb, bb, eff);
+                                if( opt ){
+                                        meta.push_back(Pair{eff, std::move(*opt)});
+                                }
+                        }
+                        #endif
+                        auto opt = Solve(sb, bb, 10.0);
                         return EXIT_SUCCESS;
                 }
         private:

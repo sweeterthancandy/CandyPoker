@@ -72,6 +72,8 @@ namespace ps{
                         return ostr;
                 }
 
+                auto const& OutEdges(){ return out_; }
+
         private:
                 friend struct Graph;
                 std::string name_;
@@ -384,6 +386,8 @@ namespace ps{
                                 auto pf = G->Node("pf");
                         auto f = G->Node("f");
 
+
+
                 // decision <0>
                 auto e_0_p = G->Edge(root, p);
                 auto e_0_f = G->Edge(root, f);
@@ -391,6 +395,26 @@ namespace ps{
                 // decision <1>
                 auto e_1_p = G->Edge(p, pp);
                 auto e_1_f = G->Edge(p, pf);
+                
+                GraphColouring<size_t> P;
+                P[root] = 0;
+                P[p] = 1;
+
+                std::vector<GNode*> stack{root};
+                auto other_strat = std::make_shared<StrategyDecl>();
+                size_t dix = 0;
+                for(;stack.size();){
+                        auto head = stack.back();
+                        stack.pop_back();
+                        if( head->IsTerminal() )
+                                continue;
+                        auto d = std::make_shared<Decision>(dix++, P[head]);
+                        other_strat->Add(d);
+                        for( auto e : head->OutEdges() ){
+                                d->Add(e);
+                        }
+                }
+
 
                 auto d_0 = std::make_shared<Decision>(0, 0);
                 d_0->Add(e_0_p);
@@ -408,22 +432,6 @@ namespace ps{
                 std::string cache_name{".cc.bin"};
                 class_cache C;
                 C.load(cache_name);
-
-                auto tpl_pp = pp->EdgePath();
-                auto tpl_pf = pf->EdgePath();
-                auto tpl_f  = f ->EdgePath();
-
-
-                Eigen::VectorXd v_blinds(2);
-                v_blinds[0] += sb;
-                v_blinds[1] += bb;
-
-                auto vv_f = v_blinds;
-                auto vv_p = v_blinds;
-                vv_p[0] = eff;
-                auto vv_pf = vv_p;
-                auto vv_pp = vv_p;
-                vv_pp[1] = eff;
 
                 PushFoldState state0;
                 state0.Active.insert(0);
@@ -574,7 +582,7 @@ namespace ps{
                 virtual int Execute()override{
                         double sb = 0.5;
                         double bb = 1.0;
-                        #if 1
+                        #if 0
                         std::vector<Eigen::VectorXd> S(2);
                         S[0].resize(169);
                         S[0].fill(0);

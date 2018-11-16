@@ -574,24 +574,36 @@ namespace ps{
                 virtual int Execute()override{
                         double sb = 0.5;
                         double bb = 1.0;
-                        #if 0
+                        #if 1
                         struct Pair{
                                 double eff;
                                 StateType S;
                         };
                         std::vector<Pair> meta;
+                        std::vector<Eigen::VectorXd> S(2);
+                        S[0].fill(0);
+                        S[1].fill(0);
                         for(double eff = 10.0;eff != 20.0; eff += 1.0 ){
                                 auto opt = Solve(sb, bb, eff);
                                 if( opt ){
-                                        meta.push_back(Pair{eff, std::move(*opt)});
+                                        for(size_t j=0;j!=2;++j){
+                                                for(size_t idx=0;idx!=169;++idx){
+                                                        if( std::fabs(opt.get()[j][0][idx] - 1.0 ) < 1e-2 ){
+                                                                S[j][idx] = eff;
+                                                        }
+                                                }
+                                        }
                                 }
                         }
-                        #endif
+                        pretty_print_strat(S[0], 1);
+                        pretty_print_strat(S[1], 1);
+                        #else
                         auto opt = Solve(sb, bb, 10.0);
                         if( opt ){
                                 pretty_print_strat(opt.get()[0][0], 0);
                                 pretty_print_strat(opt.get()[1][0], 0);
                         }
+                        #endif
                         return EXIT_SUCCESS;
                 }
         private:

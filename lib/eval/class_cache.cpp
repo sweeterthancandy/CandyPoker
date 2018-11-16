@@ -50,7 +50,7 @@ void class_cache::create(size_t n, class_cache* cache, std::string const& file_n
 
         size_t count = 0;
         enum{ MaxCount = 50 };
-        enum{ BatchSize = 169 };
+        enum{ BatchSize = 169  };
 
         auto save_impl = [&](){
                 std::cout << "Saving...\n";
@@ -117,9 +117,9 @@ void class_cache::create(size_t n, class_cache* cache, std::string const& file_n
         auto driver = [&](){
                 for(;;){
                         auto batch = pull();
-                        std::vector<boost::optional<matrix_t> > batch_ret;
                         if( batch.empty() )
                                 return;
+                        std::vector<boost::optional<matrix_t> > batch_ret;
                         size_t token = 0;
                         std::vector<std::string> tags;
                         computation_result result{comp_ctx};

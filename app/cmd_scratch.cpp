@@ -165,8 +165,7 @@ namespace ps{
         };
 
 
-
-        struct AggregateComputer{
+        struct Computer{
 
                 struct Atom{
                         holdem_class_vector cv;
@@ -206,6 +205,117 @@ namespace ps{
                 std::vector<Atom> atoms_;
         };
 
+        struct AggregateComputer : std::vector<std::shared_ptr<Computer> >{
+                template<class Observer>
+                void Observe(StateType const& S, Observer& obs)const noexcept {
+                        for(auto const& ptr : *this){
+                                ptr->Observe(S, obs);
+                        }
+                }
+                template<class Filter>
+                void EvaluateFiltered(Eigen::VectorXd& R, StateType const& S, Filter&& filter)const noexcept {
+                        for(auto const& ptr : *this){
+                                ptr->EvaluateFiltered(R, S, filter);
+                        }
+                }
+                void Evaluate(Eigen::VectorXd& R, StateType const& S)const noexcept {
+                        EvaluateFiltered(R, S, [](auto&&){return true; });
+                }
+        };
+
+        struct IndexMakerConcept{
+                virtual ~IndexMakerConcept()=default;
+                virtual std::vector<Index> MakeIndex(std::vector<GEdge const*> const& path, holdem_class_vector const& cv)const=0;
+        };
+        struct IndexMaker : IndexMakerConcept{
+                explicit IndexMaker(StrategyDecl const& S){
+                        for(auto d : S){
+                                for(auto e : d){
+                                        D[e] = d.GetIndex();
+                                        P[e] = d.GetPlayer();
+                                        I[e] = d.OffsetFor(e);
+                                }
+                        }
+        
+                }
+                virtual std::vector<Index> MakeIndex(std::vector<GEdge const*> const& path, holdem_class_vector const& cv)const override{
+                        std::vector<Index> index;
+                        for(auto e : path){
+                                index.push_back( Index{ D.Color(e), I.Color(e), cv[P.Color(e)] } );
+                        }
+                        return index;
+                }
+        private:
+                GraphColouring<size_t> D;
+                GraphColouring<size_t> P;
+                GraphColouring<size_t> I;
+        };
+
+        struct MakerConcept{
+                virtual ~MakerConcept()=default;
+                virtual void Emit(Computer* vc, IndexMakerConcept* im, class_cache const* cache, double p, holdem_class_vector const& cv)const=0;
+                virtual std::string to_string()const=0;
+        };
+        struct StaticEmit : MakerConcept{
+                StaticEmit(std::vector<GEdge const*> path, std::vector<size_t> const& active, Eigen::VectorXd pot)
+                        :path_(path),
+                        active_(active),
+                        pot_(pot)
+                {}
+                virtual void Emit(Computer* vc, IndexMakerConcept* im, class_cache const* cache, double p, holdem_class_vector const& cv)const override{
+                        
+                        auto index = im->MakeIndex(path_, cv); 
+                        
+                        Eigen::VectorXd v(pot_.size());
+                        v.fill(0);
+                        v -= pot_;
+
+                        if( active_.size() == 1 ){
+                                v[active_[0]] += pot_.sum();
+
+                                //vc->Emplace(cv, p, im
+                        } else {
+                                holdem_class_vector auxcv;
+                                for(auto idx : active_ ){
+                                        auxcv.push_back(cv[idx]);
+                                }
+                                auto ev = cache->LookupVector(auxcv);
+                                Eigen::VectorXd evaux(cv.size());
+                                evaux.fill(0);
+                                size_t ev_idx = 0;
+                                for(auto idx : active_ ){
+                                        evaux[idx] = ev[ev_idx];
+                                        ++ev_idx;
+                                }
+                                evaux *= pot_.sum();
+
+                                v += evaux;
+                        }
+
+                        vc->Emplace(cv, p, index, v);
+                }
+                virtual std::string to_string()const override{
+                        std::stringstream sstr;
+                        std::stringstream pathsstr;
+                        pathsstr << path_.front()->From()->Name();
+                        for(auto p : path_){
+                                pathsstr << "," << p->To()->Name();
+                        }
+                        if( active_.size() == 1 ){
+                                sstr << "Static{";
+                                sstr << "path=" << pathsstr.str();
+                        } else {
+                                sstr << "Eval  {";
+                                sstr << "path=" << pathsstr.str();
+                        }
+                        return sstr.str();
+                }
+
+        private:
+                std::vector<GEdge const*> path_;
+                std::vector<size_t> active_;
+                Eigen::VectorXd pot_;
+        };
 
         boost::optional<StateType> Solve(double sb, double bb, double eff){
 
@@ -239,164 +349,42 @@ namespace ps{
                 strat->Add(d_1);
                 
 
-                Eigen::VectorXd v_pf(2);
-                v_pf[0] = +bb;
-                v_pf[1] = -bb;
-
-                Eigen::VectorXd v_f(2);
-                v_f[0] = -sb;
-                v_f[1] = +sb;
-                        
-                Eigen::VectorXd eff_v(2);
-                eff_v.fill(eff);
 
                 std::string cache_name{".cc.bin"};
                 class_cache C;
                 C.load(cache_name);
 
-                GraphColouring<size_t> D;
-                GraphColouring<size_t> P;
-                GraphColouring<size_t> I;
-
-                for(auto d : *strat){
-                        for(auto e : d){
-                                D[e] = d.GetIndex();
-                                P[e] = d.GetPlayer();
-                                I[e] = d.OffsetFor(e);
-                        }
-                }
-                
-
                 auto tpl_pp = pp->EdgePath();
                 auto tpl_pf = pf->EdgePath();
                 auto tpl_f  = f ->EdgePath();
 
-                struct IndexMakerConcept{
-                        virtual ~IndexMakerConcept()=default;
-                        virtual std::vector<Index> MakeIndex(std::vector<GEdge const*> const& path, holdem_class_vector const& cv)const=0;
-                };
-                struct IndexMaker : IndexMakerConcept{
-                        explicit IndexMaker(StrategyDecl const& S){
-                                for(auto d : S){
-                                        for(auto e : d){
-                                                D[e] = d.GetIndex();
-                                                P[e] = d.GetPlayer();
-                                                I[e] = d.OffsetFor(e);
-                                        }
-                                }
-                
-                        }
-                        virtual std::vector<Index> MakeIndex(std::vector<GEdge const*> const& path, holdem_class_vector const& cv)const override{
-                                std::vector<Index> index;
-                                for(auto e : path){
-                                        index.push_back( Index{ D.Color(e), I.Color(e), cv[P.Color(e)] } );
-                                }
-                                return index;
-                        }
-                private:
-                        GraphColouring<size_t> D;
-                        GraphColouring<size_t> P;
-                        GraphColouring<size_t> I;
-                };
-
-                struct MakerConcept{
-                        virtual ~MakerConcept()=default;
-                        virtual void Emit(AggregateComputer* vc, IndexMakerConcept* im, class_cache const* cache, double p, holdem_class_vector const& cv)const=0;
-                        virtual std::string to_string()const=0;
-                };
-                struct StaticEmit : MakerConcept{
-                        StaticEmit(std::vector<GEdge const*> path, std::vector<size_t> const& active, Eigen::VectorXd pot)
-                                :path_(path),
-                                active_(active),
-                                pot_(pot)
-                        {}
-                        virtual void Emit(AggregateComputer* vc, IndexMakerConcept* im, class_cache const* cache, double p, holdem_class_vector const& cv)const override{
-                                
-                                auto index = im->MakeIndex(path_, cv); 
-                                
-                                Eigen::VectorXd v(pot_.size());
-                                v.fill(0);
-                                v -= pot_;
-
-                                if( active_.size() == 1 ){
-                                        v[active_[0]] += pot_.sum();
-
-                                        //vc->Emplace(cv, p, im
-                                } else {
-                                        holdem_class_vector auxcv;
-                                        for(auto idx : active_ ){
-                                                auxcv.push_back(cv[idx]);
-                                        }
-                                        auto ev = cache->LookupVector(auxcv);
-                                        Eigen::VectorXd evaux(cv.size());
-                                        evaux.fill(0);
-                                        size_t ev_idx = 0;
-                                        for(auto idx : active_ ){
-                                                evaux[idx] = ev[ev_idx];
-                                                ++ev_idx;
-                                        }
-                                        evaux *= pot_.sum();
-
-                                        v += evaux;
-                                }
-
-                                vc->Emplace(cv, p, index, v);
-                        }
-                        virtual std::string to_string()const override{
-                                std::stringstream sstr;
-                                std::stringstream pathsstr;
-                                pathsstr << path_.front()->From()->Name();
-                                for(auto p : path_){
-                                        pathsstr << "," << p->To()->Name();
-                                }
-                                if( active_.size() == 1 ){
-                                        sstr << "Static{";
-                                        sstr << "path=" << pathsstr.str();
-                                } else {
-                                        sstr << "Eval  {";
-                                        sstr << "path=" << pathsstr.str();
-                                }
-                                return sstr.str();
-                        }
-
-                private:
-                        std::vector<GEdge const*> path_;
-                        std::vector<size_t> active_;
-                        Eigen::VectorXd pot_;
-                };
 
                 Eigen::VectorXd v_blinds(2);
                 v_blinds[0] += sb;
                 v_blinds[1] += bb;
 
+                auto vv_f = v_blinds;
+                auto vv_p = v_blinds;
+                vv_p[0] = eff;
+                auto vv_pf = vv_p;
+                auto vv_pp = vv_p;
+                vv_pp[1] = eff;
+
+
 
                 std::vector<std::shared_ptr<MakerConcept> > maker_dev;
-                maker_dev.push_back(std::make_shared<StaticEmit>(tpl_f, std::vector<size_t>{1}, v_blinds));
-                maker_dev.push_back(std::make_shared<StaticEmit>(tpl_pf, std::vector<size_t>{0}, v_blinds));
+                maker_dev.push_back(std::make_shared<StaticEmit>(tpl_f , std::vector<size_t>{1}   , vv_f));
+                maker_dev.push_back(std::make_shared<StaticEmit>(tpl_pf, std::vector<size_t>{0}   , vv_pf));
+                maker_dev.push_back(std::make_shared<StaticEmit>(tpl_pp, std::vector<size_t>{0, 1}, vv_pp));
 
                 IndexMaker im(*strat);
 
-                auto comp = std::make_shared<AggregateComputer>();
+                auto comp = std::make_shared<Computer>();
                 for(auto const& group : *Memory_TwoPlayerClassVector){
                         for(auto const& _ : group.vec){
-                                auto const& cv = _.cv;
-                
-
-                                Eigen::VectorXd ev = C.LookupVector(cv);
-                                
-                                auto v_pp = 2 * eff * ev - eff_v;
-                
-                                auto p_pp = im.MakeIndex( tpl_pp, cv);
-                                auto p_pf = im.MakeIndex( tpl_pf, cv);
-                                auto p_f  = im.MakeIndex( tpl_f , cv);
-
-                                comp->Emplace(cv, _.prob, p_pp, v_pp);
-                                //comp->Emplace(cv, _.prob, p_pf, v_pf);
-                                //comp->Emplace(cv, _.prob, p_f , v_f );
                                 for(auto const& m : maker_dev ){
                                         m->Emit(comp.get(), &im, &C, _.prob, _.cv );
                                 }
-
                         }
                 }
 

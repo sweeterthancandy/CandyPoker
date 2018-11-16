@@ -575,13 +575,10 @@ namespace ps{
                         double sb = 0.5;
                         double bb = 1.0;
                         #if 1
-                        struct Pair{
-                                double eff;
-                                StateType S;
-                        };
-                        std::vector<Pair> meta;
                         std::vector<Eigen::VectorXd> S(2);
+                        S[0].resize(169);
                         S[0].fill(0);
+                        S[1].resize(169);
                         S[1].fill(0);
                         for(double eff = 10.0;eff != 20.0; eff += 1.0 ){
                                 auto opt = Solve(sb, bb, eff);

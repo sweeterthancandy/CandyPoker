@@ -196,6 +196,14 @@ namespace ps{
         };
 
 
+        /*
+         * This capture the bulk of the computation. Evaluating the EV of a poker strategy
+         * can be represented as 
+         *      EV[S] = \sigma cv \in CV P(cv) * EV[S|cv]
+         *            =          ...           * ( \sigma e \in E EV[S|e,cv],
+         *    which means that the expected value of S, EV[S] -> R^n, is equial to the weighted
+         * sum of the expected vlaue of each deal and terminal event. For hu
+         */
         struct Computer{
 
                 struct Atom{
@@ -254,6 +262,21 @@ namespace ps{
                 }
         };
 
+        /*
+         * For solving poker push-fold, we need some representation of a numerical solution.
+         * For push fold, I'm representing the hu solution as
+         *                  {0,1} x {push,fold} x {0,1}^169,
+         * corresponding to sb push/fold choice for 0, and bb call/fold decision given sb
+         * push for 1. either [0][0][JJ] is the probailty that sb push's JJ, whilst
+         * [1][1][QQ] is the probabily that bb calls with QQ.
+         *    I capture that inside the the std::vector<Index>, which corresponds how to
+         * assign a probability to a path. We want to evaluate the probability of 
+         * event (terminal) happening for a certain deal, ei
+         *          P(e=PP|cv={AKs,33}) = S[0][0][AKs]*S[1][0][33].
+         *    Now we will always have
+         *          P(cv={AKs,33}) = P(e=PP,cv={AKs,33}) + P(e=PF,cv={AKs,33}) + P(e=F,cv={AKs,33}) = 1,
+         *    Ie that it forms a probability distribution.
+         */
         struct IndexMakerConcept{
                 virtual ~IndexMakerConcept()=default;
                 virtual std::vector<Index> MakeIndex(std::vector<GEdge const*> const& path, holdem_class_vector const& cv)const=0;
@@ -284,16 +307,17 @@ namespace ps{
 
         struct MakerConcept{
                 virtual ~MakerConcept()=default;
-                virtual void Emit(Computer* vc, IndexMakerConcept* im, class_cache const* cache, double p, holdem_class_vector const& cv)const=0;
+                virtual void Emit(IndexMakerConcept* im, class_cache const* cache, double p, holdem_class_vector const& cv)const=0;
                 virtual std::string to_string()const=0;
         };
         struct StaticEmit : MakerConcept{
-                StaticEmit(std::vector<GEdge const*> path, std::vector<size_t> const& active, Eigen::VectorXd pot)
-                        :path_(path),
+                StaticEmit(std::shared_ptr<Computer> comp, std::vector<GEdge const*> path, std::vector<size_t> const& active, Eigen::VectorXd pot)
+                        :comp_{comp},
+                        path_(path),
                         active_(active),
                         pot_(pot)
                 {}
-                virtual void Emit(Computer* vc, IndexMakerConcept* im, class_cache const* cache, double p, holdem_class_vector const& cv)const override{
+                virtual void Emit(IndexMakerConcept* im, class_cache const* cache, double p, holdem_class_vector const& cv)const override{
                         
                         auto index = im->MakeIndex(path_, cv); 
                         
@@ -303,8 +327,6 @@ namespace ps{
 
                         if( active_.size() == 1 ){
                                 v[active_[0]] += pot_.sum();
-
-                                //vc->Emplace(cv, p, im
                         } else {
                                 holdem_class_vector auxcv;
                                 for(auto idx : active_ ){
@@ -323,7 +345,7 @@ namespace ps{
                                 v += evaux;
                         }
 
-                        vc->Emplace(cv, p, index, v);
+                        comp_->Emplace(cv, p, index, v);
                 }
                 virtual std::string to_string()const override{
                         std::stringstream sstr;
@@ -343,6 +365,7 @@ namespace ps{
                 }
 
         private:
+                std::shared_ptr<Computer> comp_;
                 std::vector<GEdge const*> path_;
                 std::vector<size_t> active_;
                 Eigen::VectorXd pot_;
@@ -396,12 +419,31 @@ namespace ps{
                 auto e_1_p = G->Edge(p, pp);
                 auto e_1_f = G->Edge(p, pf);
                 
+                /*
+                 * We need to color each non-terminal node which which player's
+                 * turn it is
+                 */
                 GraphColouring<size_t> P;
                 P[root] = 0;
-                P[p] = 1;
+                P[p]    = 1;
+                
+                /*
+                 * We color each node with an operator, this is how we figure 
+                 * out what state we will be in for the terminal
+                 */
+                GraphColouring<PushFoldOperator> ops;
+                ops[e_0_p] = Push{0};
+                ops[e_0_f] = Fold{0};
+                ops[e_1_p] = Push{1};
+                ops[e_1_f] = Fold{1};
 
+                /*
+                 * We not iterate over the graph, and for each non-terminal node
+                 * we allocate a decision to that node. This Decison then
+                 * takes the player index, and strategy index.
+                 */
                 std::vector<GNode*> stack{root};
-                auto other_strat = std::make_shared<StrategyDecl>();
+                auto strat = std::make_shared<StrategyDecl>();
                 size_t dix = 0;
                 for(;stack.size();){
                         auto head = stack.back();
@@ -409,14 +451,13 @@ namespace ps{
                         if( head->IsTerminal() )
                                 continue;
                         auto d = std::make_shared<Decision>(dix++, P[head]);
-                        other_strat->Add(d);
+                        strat->Add(d);
                         for( auto e : head->OutEdges() ){
                                 d->Add(e);
                                 stack.push_back(e->To());
                         }
                 }
 
-                auto strat = other_strat;
 
                 #if 0
                 auto d_0 = std::make_shared<Decision>(0, 0);
@@ -430,13 +471,11 @@ namespace ps{
                 strat->Add(d_0);
                 strat->Add(d_1);
                 #endif
-                
 
-
-                std::string cache_name{".cc.bin"};
-                class_cache C;
-                C.load(cache_name);
-
+                /*
+                 * We create the inital state of the game, this is used 
+                 * for evaulting terminal nodes
+                 */
                 PushFoldState state0;
                 state0.Active.insert(0);
                 state0.Active.insert(1);
@@ -447,47 +486,59 @@ namespace ps{
                 state0.Stacks[0] = eff - sb;
                 state0.Stacks[1] = eff - bb;
 
-                GraphColouring<PushFoldOperator> ops;
-                ops[e_0_p] = Push{0};
-                ops[e_0_f] = Fold{0};
-                ops[e_1_p] = Push{1};
-                ops[e_1_f] = Fold{1};
                 
+                /*
+                 * To simplify the construction, we first create a object which represents
+                 * the teriminal state of the game, for hu we have 3 terminal states
+                 *                        {f,pf,pp},
+                 * with the first two being independent of the dealt hand, whilst the 
+                 * last state pp required all in equity evaluation. We create a vector
+                 * of each of these terminal states, then which create Computer objects
+                 * for fast computation. This is mainly to simplify the code.
+                 */
                 std::vector<std::shared_ptr<MakerConcept> > maker_dev;
 
-                auto T = root->TerminalNodes();
-                GraphColouring<std::shared_ptr<Computer> > TC;
+                /*
+                 * Now we go over all the terminal nodes, which is basically a path to
+                 * something that can be evaluated. 
+                 */
                 GraphColouring<AggregateComputer> AG;
                 std::vector<Computer*> tc_aux;
-                for(auto t : T ){
-                        auto state = state0;
-                        auto path = t->EdgePath();
-                        for( auto e : path ){
-                                ops[e](state);
-                        }
-                        state.Display();
-                        std::vector<size_t> perm(state.Active.begin(), state.Active.end());
-                        maker_dev.push_back(std::make_shared<StaticEmit>(path, perm, state.Pot) );
-                        
-                        auto ptr = std::make_shared<Computer>();
-                        TC[t] = ptr;
-                        tc_aux.push_back(ptr.get());
+                for(auto t : root->TerminalNodes() ){
 
+                        auto path = t->EdgePath();
+                        auto ptr = std::make_shared<Computer>();
+                        AG[t].push_back(ptr);
                         for(auto e : path ){
                                 AG[e->From()].push_back(ptr); 
                         }
+
+                        /*
+                         * Work out the terminal state, independent of the deal, and
+                         * make an factory object
+                         */
+                        auto state = state0;
+                        for( auto e : path ){
+                                ops[e](state);
+                        }
+                        std::vector<size_t> perm(state.Active.begin(), state.Active.end());
+                        maker_dev.push_back(std::make_shared<StaticEmit>(ptr, path, perm, state.Pot) );
+
                 }
 
 
 
 
-                IndexMaker im(*strat);
                 
+                std::string cache_name{".cc.bin"};
+                class_cache C;
+                C.load(cache_name);
 
+                IndexMaker im(*strat);
                 for(auto const& group : *Memory_TwoPlayerClassVector){
                         for(auto const& _ : group.vec){
-                                for(size_t idx=0;idx!=maker_dev.size();++idx){
-                                        maker_dev[idx]->Emit(tc_aux[idx], &im, &C, _.prob, _.cv );
+                                for(auto& m : maker_dev ){
+                                        m->Emit(&im, &C, _.prob, _.cv );
                                 }
                         }
                 }

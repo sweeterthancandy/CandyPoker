@@ -346,6 +346,32 @@ namespace ps{
                 Eigen::VectorXd pot_;
         };
 
+        struct PushFoldState{
+                std::set<size_t> Active;
+                Eigen::VectorXd Pot;
+                Eigen::VectorXd Stacks;
+                void Display()const{
+                        std::cout << "detail::to_string(Active) => " << detail::to_string(Active) << "\n"; // __CandyPrint__(cxx-print-scalar,detail::to_string(Active))
+                        std::cout << "vector_to_string(Pot) => " << vector_to_string(Pot) << "\n"; // __CandyPrint__(cxx-print-scalar,vector_to_string(Pot))
+                        std::cout << "vector_to_string(Stacks) => " << vector_to_string(Stacks) << "\n"; // __CandyPrint__(cxx-print-scalar,vector_to_string(Stacks))
+                }
+        };
+        struct Fold{
+                size_t player_idx;
+                void operator()(PushFoldState& S)const{
+                        S.Active.erase(player_idx);
+                }
+        };
+        struct Push{
+                size_t player_idx;
+                void operator()(PushFoldState& S)const{
+                        auto x = S.Stacks[player_idx];
+                        S.Stacks[player_idx] = 0.0;
+                        S.Pot[player_idx] += x;
+                }
+        };
+        using PushFoldOperator = std::function<void(PushFoldState&)>;
+
         boost::optional<StateType> Solve(double sb, double bb, double eff){
 
                 auto G = std::make_shared<Graph>();
@@ -399,21 +425,48 @@ namespace ps{
                 auto vv_pp = vv_p;
                 vv_pp[1] = eff;
 
+                PushFoldState state0;
+                state0.Active.insert(0);
+                state0.Active.insert(1);
+                state0.Pot.resize(2);
+                state0.Pot[0] = sb;
+                state0.Pot[1] = bb;
+                state0.Stacks.resize(2);
+                state0.Stacks[0] = eff - sb;
+                state0.Stacks[1] = eff - bb;
 
-
+                GraphColouring<PushFoldOperator> ops;
+                ops[e_0_p] = Push{0};
+                ops[e_0_f] = Fold{0};
+                ops[e_1_p] = Push{1};
+                ops[e_1_f] = Fold{1};
+                
                 std::vector<std::shared_ptr<MakerConcept> > maker_dev;
-                maker_dev.push_back(std::make_shared<StaticEmit>(tpl_f , std::vector<size_t>{1}   , vv_f ));
-                maker_dev.push_back(std::make_shared<StaticEmit>(tpl_pf, std::vector<size_t>{0}   , vv_pf));
-                maker_dev.push_back(std::make_shared<StaticEmit>(tpl_pp, std::vector<size_t>{0, 1}, vv_pp));
 
-                std::vector<GNode*> terminals { f, pf, pp};
+                auto T = root->TerminalNodes();
                 GraphColouring<std::shared_ptr<Computer> > TC;
-                std::vector<Computer*> tc_aux(terminals.size());
-                for(size_t idx=0;idx!=terminals.size();++idx){
+                GraphColouring<AggregateComputer> AG;
+                std::vector<Computer*> tc_aux;
+                for(auto t : T ){
+                        auto state = state0;
+                        auto path = t->EdgePath();
+                        for( auto e : path ){
+                                ops[e](state);
+                        }
+                        state.Display();
+                        std::vector<size_t> perm(state.Active.begin(), state.Active.end());
+                        maker_dev.push_back(std::make_shared<StaticEmit>(path, perm, state.Pot) );
+                        
                         auto ptr = std::make_shared<Computer>();
-                        TC[terminals[idx]] = ptr;
-                        tc_aux[idx] = ptr.get();
+                        TC[t] = ptr;
+                        tc_aux.push_back(ptr.get());
+
+                        for(auto e : path ){
+                                AG[e->From()].push_back(ptr); 
+                        }
                 }
+
+
 
 
                 IndexMaker im(*strat);
@@ -427,27 +480,10 @@ namespace ps{
                         }
                 }
 
-                AggregateComputer ac;
-                for(auto _ : TC){
-                        ac.push_back(_.second);
-                }
-                
 
-                GraphColouring<AggregateComputer> AG;
-                for(auto t : terminals ){
-                        for(auto e : t->EdgePath() ){
-                                AG[e->From()].push_back(TC[t]); 
-                        }
-                }
-                std::cout << "AG[root].size() => " << AG[root].size() << "\n"; // __CandyPrint__(cxx-print-scalar,AG[root].size())
-                std::cout << "AG[p].size() => " << AG[p].size() << "\n"; // __CandyPrint__(cxx-print-scalar,AG[p].size())
-                std::cout << "AG[f].size() => " << AG[f].size() << "\n"; // __CandyPrint__(cxx-print-scalar,AG[f].size())
-                std::cout << "AG[pp].size() => " << AG[pp].size() << "\n"; // __CandyPrint__(cxx-print-scalar,AG[pp].size())
-                std::cout << "AG[pf].size() => " << AG[pf].size() << "\n"; // __CandyPrint__(cxx-print-scalar,AG[pf].size())
 
 
                 auto S0 = strat->MakeDefaultState();
-
 
                 auto S = S0;
                 for(size_t n=0;n!=200;++n){
@@ -507,11 +543,11 @@ namespace ps{
                         if( n % 10 ){
                                 Eigen::VectorXd R_counter(2);
                                 R_counter.fill(0);
-                                ac.Evaluate(R_counter, counter);
+                                AG[root].Evaluate(R_counter, counter);
                                 
                                 Eigen::VectorXd R(2);
                                 R.fill(0);
-                                ac.Evaluate(R, S);
+                                AG[root].Evaluate(R, S);
 
                                 double norm = ( R - R_counter ).lpNorm<2>();
                                 

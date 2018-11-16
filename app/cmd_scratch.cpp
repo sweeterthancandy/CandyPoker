@@ -415,7 +415,9 @@ namespace ps{
                         }
                 }
 
+                auto strat = other_strat;
 
+                #if 0
                 auto d_0 = std::make_shared<Decision>(0, 0);
                 d_0->Add(e_0_p);
                 d_0->Add(e_0_f);
@@ -426,6 +428,7 @@ namespace ps{
                 auto strat = std::make_shared<StrategyDecl>();
                 strat->Add(d_0);
                 strat->Add(d_1);
+                #endif
                 
 
 

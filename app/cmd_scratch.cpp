@@ -412,6 +412,7 @@ namespace ps{
                         other_strat->Add(d);
                         for( auto e : head->OutEdges() ){
                                 d->Add(e);
+                                stack.push_back(e->To());
                         }
                 }
 

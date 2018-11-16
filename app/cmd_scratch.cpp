@@ -399,6 +399,7 @@ namespace ps{
 
         boost::optional<StateType> Solve(double sb, double bb, double eff){
 
+
                 auto G = std::make_shared<Graph>();
                 
                 // <0>
@@ -437,6 +438,30 @@ namespace ps{
                 ops[e_1_p] = Push{1};
                 ops[e_1_f] = Fold{1};
 
+
+                size_t N = 2;
+
+                /*
+                 * We create the inital state of the game, this is used 
+                 * for evaulting terminal nodes
+                 */
+                PushFoldState state0;
+                state0.Active.insert(0);
+                state0.Active.insert(1);
+                state0.Pot.resize(2);
+                state0.Pot[0] = sb;
+                state0.Pot[1] = bb;
+                state0.Stacks.resize(2);
+                state0.Stacks[0] = eff - sb;
+                state0.Stacks[1] = eff - bb;
+
+
+
+
+
+
+
+
                 /*
                  * We not iterate over the graph, and for each non-terminal node
                  * we allocate a decision to that node. This Decison then
@@ -459,32 +484,6 @@ namespace ps{
                 }
 
 
-                #if 0
-                auto d_0 = std::make_shared<Decision>(0, 0);
-                d_0->Add(e_0_p);
-                d_0->Add(e_0_f);
-                auto d_1 = std::make_shared<Decision>(1, 1);
-                d_1->Add(e_1_p);
-                d_1->Add(e_1_f);
-
-                auto strat = std::make_shared<StrategyDecl>();
-                strat->Add(d_0);
-                strat->Add(d_1);
-                #endif
-
-                /*
-                 * We create the inital state of the game, this is used 
-                 * for evaulting terminal nodes
-                 */
-                PushFoldState state0;
-                state0.Active.insert(0);
-                state0.Active.insert(1);
-                state0.Pot.resize(2);
-                state0.Pot[0] = sb;
-                state0.Pot[1] = bb;
-                state0.Stacks.resize(2);
-                state0.Stacks[0] = eff - sb;
-                state0.Stacks[1] = eff - bb;
 
                 
                 /*
@@ -604,11 +603,11 @@ namespace ps{
                         
 
                         if( n % 10 ){
-                                Eigen::VectorXd R_counter(2);
+                                Eigen::VectorXd R_counter(N);
                                 R_counter.fill(0);
                                 AG[root].Evaluate(R_counter, counter);
                                 
-                                Eigen::VectorXd R(2);
+                                Eigen::VectorXd R(N);
                                 R.fill(0);
                                 AG[root].Evaluate(R, S);
 
@@ -620,8 +619,9 @@ namespace ps{
                                 
                                 std::cout << "vector_to_string(R) => " << vector_to_string(R) << "\n"; // __CandyPrint__(cxx-print-scalar,vector_to_string(ev))
                                 std::cout << "norm => " << norm << "\n"; // __CandyPrint__(cxx-print-scalar,norm)
-                                pretty_print_strat(S[0][0], 1);
-                                pretty_print_strat(S[1][0], 1);
+                                for(size_t idx=0;idx!=S.size();++idx){
+                                        pretty_print_strat(S[idx][0], 1);
+                                }
                         }
 
                 }

@@ -5,6 +5,8 @@
 #include "ps/eval/holdem_class_vector_cache.h"
 #include "app/pretty_printer.h"
 
+#include <boost/timer/timer.hpp>
+
 namespace ps{
 
         struct GNode;
@@ -129,9 +131,10 @@ namespace ps{
                         :ID_(ID),
                         player_idx_(player_idx)
                 {}
-                friend std::ostream& operator<<(std::ostream& ostr,         Decision const& self){
+                friend std::ostream& operator<<(std::ostream& ostr, Decision const& self){
                         ostr << "ID_ = " << self.ID_;
                         ostr << ", player_idx_ = " << self.player_idx_;
+                        ostr << ", CommonRoot() -> " << self.CommonRoot()->Name();
                         return ostr;
                 }
                 void Add(GEdge* e){ E.push_back(e); }
@@ -190,6 +193,11 @@ namespace ps{
                                 S.emplace_back(d.size(), proto);
                         }
                         return S;
+                }
+                void Display()const{
+                        for(auto d : v_){
+                                std::cout << *d << "\n";
+                        }
                 }
         private:
                 std::vector<std::shared_ptr<Decision> > v_;
@@ -400,6 +408,7 @@ namespace ps{
         boost::optional<StateType> Solve(double sb, double bb, double eff){
 
 
+                #if NOT_DEFINED
                 auto G = std::make_shared<Graph>();
                 
                 // <0>
@@ -454,10 +463,112 @@ namespace ps{
                 state0.Stacks.resize(2);
                 state0.Stacks[0] = eff - sb;
                 state0.Stacks[1] = eff - bb;
+                #endif
 
 
 
 
+                auto G = std::make_shared<Graph>();
+                
+                // <0>
+                auto root = G->Node("*");
+                        // <1>
+                        auto p = G->Node("p");
+                                // <3>
+                                auto pp = G->Node("pp");
+                                        auto ppp = G->Node("ppp");
+                                        auto ppf = G->Node("ppf");
+                                // <4>
+                                auto pf = G->Node("pf");
+                                        auto pfp = G->Node("pfp");
+                                        auto pff = G->Node("pff");
+                        // <2>
+                        auto f = G->Node("f");
+                                // <5>
+                                auto fp = G->Node("fp");
+                                        auto fpp = G->Node("fpp");
+                                        auto fpf = G->Node("fpf");
+                                auto ff = G->Node("ff");
+
+
+
+                // decision <0>
+                auto e_0_p = G->Edge(root, p);
+                auto e_0_f = G->Edge(root, f);
+
+                // decision <1>
+                auto e_1_p = G->Edge(p, pp);
+                auto e_1_f = G->Edge(p, pf);
+                
+                // decision <2>
+                auto e_2_p = G->Edge(f, fp);
+                auto e_2_f = G->Edge(f, ff);
+
+                // decision <3>
+                auto e_3_p = G->Edge(pp, ppp);
+                auto e_3_f = G->Edge(pp, ppf);
+
+                // decision <4>
+                auto e_4_p = G->Edge(pf, pfp);
+                auto e_4_f = G->Edge(pf, pff);
+                
+                // decision <5>
+                auto e_5_p = G->Edge(fp, fpp);
+                auto e_5_f = G->Edge(fp, fpf);
+
+                
+                /*
+                 * We need to color each non-terminal node which which player's
+                 * turn it is
+                 */
+                GraphColouring<size_t> P;
+                P[root] = 0;
+                P[p]    = 1;
+                P[f]    = 1;
+                P[pp]   = 2;
+                P[pf]   = 2;
+                P[fp]   = 2;
+                P[ff]   = 2;
+                
+                /*
+                 * We color each node with an operator, this is how we figure 
+                 * out what state we will be in for the terminal
+                 */
+                GraphColouring<PushFoldOperator> ops;
+                ops[e_0_p] = Push{0};
+                ops[e_0_f] = Fold{0};
+
+                ops[e_1_p] = Push{1};
+                ops[e_1_f] = Fold{1};
+                ops[e_2_p] = Push{1};
+                ops[e_2_f] = Fold{1};
+
+                ops[e_3_p] = Push{2};
+                ops[e_3_f] = Fold{2};
+                ops[e_4_p] = Push{2};
+                ops[e_4_f] = Fold{2};
+                ops[e_5_p] = Push{2};
+                ops[e_5_f] = Fold{2};
+
+
+                size_t N = 3;
+
+                /*
+                 * We create the inital state of the game, this is used 
+                 * for evaulting terminal nodes
+                 */
+                PushFoldState state0;
+                state0.Active.insert(0);
+                state0.Active.insert(1);
+                state0.Active.insert(2);
+                state0.Pot.resize(3);
+                state0.Pot[0] = 0.0;
+                state0.Pot[1] = sb;
+                state0.Pot[2] = bb;
+                state0.Stacks.resize(3);
+                state0.Stacks[0] = eff;
+                state0.Stacks[1] = eff - sb;
+                state0.Stacks[2] = eff - bb;
 
 
 
@@ -484,6 +595,10 @@ namespace ps{
                 }
 
 
+                for( auto t : root->TerminalNodes()){
+                        std::cout << "t->Name() => " << t->Name() << "\n"; // __CandyPrint__(cxx-print-scalar,t->Name())
+                }
+                strat->Display();
 
                 
                 /*
@@ -534,7 +649,8 @@ namespace ps{
                 C.load(cache_name);
 
                 IndexMaker im(*strat);
-                for(auto const& group : *Memory_TwoPlayerClassVector){
+                //for(auto const& group : *Memory_TwoPlayerClassVector){
+                for(auto const& group : *Memory_ThreePlayerClassVector){
                         for(auto const& _ : group.vec){
                                 for(auto& m : maker_dev ){
                                         m->Emit(&im, &C, _.prob, _.cv );
@@ -549,6 +665,7 @@ namespace ps{
 
                 auto S = S0;
                 for(size_t n=0;n!=200;++n){
+                        boost::timer::auto_cpu_timer at;
                         auto counter = S;
 
                         for(auto const& decision : *strat){
@@ -602,7 +719,7 @@ namespace ps{
                         }
                         
 
-                        if( n % 10 ){
+                        if( n % 3 ){
                                 Eigen::VectorXd R_counter(N);
                                 R_counter.fill(0);
                                 AG[root].Evaluate(R_counter, counter);

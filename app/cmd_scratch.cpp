@@ -18,6 +18,7 @@ namespace ps{
                 GNode* To()const{ return to_; }
 
                 friend std::ostream& operator<<(std::ostream& ostr, GEdge const& e);
+
         private:
                 friend struct Graph;
                 GNode* from_;
@@ -46,11 +47,31 @@ namespace ps{
                 }
 
                 std::string const& Name()const{ return name_; }
+                
+                std::vector<GNode*> TerminalNodes(){
+                        std::vector<GNode*> terminals;
+                        std::vector<GNode*> stack{this};
+                        for(;stack.size();){
+                                auto head = stack.back();
+                                stack.pop_back();
+                                if( head->IsTerminal() ){
+                                        terminals.push_back(head);
+                                } else{
+                                        for(auto e : head->out_){
+                                                stack.push_back(e->To());
+                                        }
+                                }
+                        }
+                        return terminals;
+                }
+                bool IsTerminal()const{ return out_.empty(); }
+        
 
                 friend std::ostream& operator<<(std::ostream& ostr, GNode const& self){
                         ostr << "{name=" << self.name_ << "}";
                         return ostr;
                 }
+
         private:
                 friend struct Graph;
                 std::string name_;
@@ -131,6 +152,14 @@ namespace ps{
                 auto end()const{ return E.end(); }
 
                 size_t size()const{ return E.size(); }
+
+                auto const& Edges()const{ return E; }
+
+                GNode* CommonRoot()const{
+                        // should all be the same 
+                        return E.back()->From();
+                }
+                
         private:
                 size_t ID_;
                 size_t player_idx_;
@@ -373,20 +402,49 @@ namespace ps{
 
 
                 std::vector<std::shared_ptr<MakerConcept> > maker_dev;
-                maker_dev.push_back(std::make_shared<StaticEmit>(tpl_f , std::vector<size_t>{1}   , vv_f));
+                maker_dev.push_back(std::make_shared<StaticEmit>(tpl_f , std::vector<size_t>{1}   , vv_f ));
                 maker_dev.push_back(std::make_shared<StaticEmit>(tpl_pf, std::vector<size_t>{0}   , vv_pf));
                 maker_dev.push_back(std::make_shared<StaticEmit>(tpl_pp, std::vector<size_t>{0, 1}, vv_pp));
 
-                IndexMaker im(*strat);
+                std::vector<GNode*> terminals { f, pf, pp};
+                GraphColouring<std::shared_ptr<Computer> > TC;
+                std::vector<Computer*> tc_aux(terminals.size());
+                for(size_t idx=0;idx!=terminals.size();++idx){
+                        auto ptr = std::make_shared<Computer>();
+                        TC[terminals[idx]] = ptr;
+                        tc_aux[idx] = ptr.get();
+                }
 
-                auto comp = std::make_shared<Computer>();
+
+                IndexMaker im(*strat);
+                
+
                 for(auto const& group : *Memory_TwoPlayerClassVector){
                         for(auto const& _ : group.vec){
-                                for(auto const& m : maker_dev ){
-                                        m->Emit(comp.get(), &im, &C, _.prob, _.cv );
+                                for(size_t idx=0;idx!=maker_dev.size();++idx){
+                                        maker_dev[idx]->Emit(tc_aux[idx], &im, &C, _.prob, _.cv );
                                 }
                         }
                 }
+
+                AggregateComputer ac;
+                for(auto _ : TC){
+                        ac.push_back(_.second);
+                }
+                
+
+                GraphColouring<AggregateComputer> AG;
+                for(auto t : terminals ){
+                        for(auto e : t->EdgePath() ){
+                                AG[e->From()].push_back(TC[t]); 
+                        }
+                }
+                std::cout << "AG[root].size() => " << AG[root].size() << "\n"; // __CandyPrint__(cxx-print-scalar,AG[root].size())
+                std::cout << "AG[p].size() => " << AG[p].size() << "\n"; // __CandyPrint__(cxx-print-scalar,AG[p].size())
+                std::cout << "AG[f].size() => " << AG[f].size() << "\n"; // __CandyPrint__(cxx-print-scalar,AG[f].size())
+                std::cout << "AG[pp].size() => " << AG[pp].size() << "\n"; // __CandyPrint__(cxx-print-scalar,AG[pp].size())
+                std::cout << "AG[pf].size() => " << AG[pf].size() << "\n"; // __CandyPrint__(cxx-print-scalar,AG[pf].size())
+
 
                 auto S0 = strat->MakeDefaultState();
 
@@ -396,6 +454,9 @@ namespace ps{
                         auto counter = S;
 
                         for(auto const& decision : *strat){
+
+                                auto head = decision.CommonRoot();
+                                auto const& eval = AG[head];
 
                                 auto sidx = decision.GetIndex();
                                 auto pidx = decision.GetPlayer();
@@ -425,8 +486,8 @@ namespace ps{
                                 observer fo{pidx};
 
 
-                                comp->Observe(Sp, po);
-                                comp->Observe(Sf, fo);
+                                eval.Observe(Sp, po);
+                                eval.Observe(Sf, fo);
                                 for(size_t idx=0;idx!=169;++idx){
                                         double x = ( po.A[idx] >= fo.A[idx] ? 1.0 : 0.0 );
                                         counter[sidx][0][idx] = x;
@@ -446,11 +507,11 @@ namespace ps{
                         if( n % 10 ){
                                 Eigen::VectorXd R_counter(2);
                                 R_counter.fill(0);
-                                comp->Evaluate(R_counter, counter);
+                                ac.Evaluate(R_counter, counter);
                                 
                                 Eigen::VectorXd R(2);
                                 R.fill(0);
-                                comp->Evaluate(R, S);
+                                ac.Evaluate(R, S);
 
                                 double norm = ( R - R_counter ).lpNorm<2>();
                                 
@@ -491,6 +552,10 @@ namespace ps{
                         }
                         #endif
                         auto opt = Solve(sb, bb, 10.0);
+                        if( opt ){
+                                pretty_print_strat(opt.get()[0][0], 0);
+                                pretty_print_strat(opt.get()[1][0], 0);
+                        }
                         return EXIT_SUCCESS;
                 }
         private:

@@ -373,34 +373,16 @@ namespace ps{
                 virtual PushFoldState InitialState()const=0;
                 virtual GNode* Root()=0;
                 virtual size_t NumPlayers()const=0;
-        };
 
-
-        struct StrategyDecl{
-
-                explicit StrategyDecl(std::shared_ptr<GameTree> gt){
-                        /*
-                         * We not iterate over the graph, and for each non-terminal node
-                         * we allocate a decision to that node. This Decision then
-                         * takes the player index, and strategy index.
-                         */
-                        GraphColouring<size_t> P;
-                        gt->ColorPlayers(P);
-                        std::vector<GNode*> stack{gt->Root()};
-                        size_t dix = 0;
-                        for(;stack.size();){
-                                auto head = stack.back();
-                                stack.pop_back();
-                                if( head->IsTerminal() )
-                                        continue;
-                                auto d = std::make_shared<Decision>(dix++, P[head]);
-                                this->Add(d);
-                                for( auto e : head->OutEdges() ){
-                                        d->Add(e);
-                                        stack.push_back(e->To());
-                                }
-                        }
-                }
+                /*
+                 * We have this because we need to visit every permutation of the form
+                 *                  ( (P(cv_0),cv_0), (P(cv_1),cv_1), ... )
+                 * which that 
+                 *                  \sigma_n P(cv_n) = 1.
+                 * As an implementation detail, we cache this in memory, so we have this
+                 * function
+                 */
+                virtual void VisitProbabilityDist(std::function<void(double, holdem_class_vector const& cv)> const& V)const noexcept=0;
 
 
                 using decision_vector = std::vector<std::shared_ptr<Decision> >;
@@ -427,11 +409,38 @@ namespace ps{
                                 std::cout << *d << "\n";
                         }
                 }
+        
+        protected:
+                void BuildStrategy(){
+                        /*
+                         * We not iterate over the graph, and for each non-terminal node
+                         * we allocate a decision to that node. This Decision then
+                         * takes the player index, and strategy index.
+                         */
+                        GraphColouring<size_t> P;
+                        ColorPlayers(P);
+                        std::vector<GNode*> stack{Root()};
+                        size_t dix = 0;
+                        for(;stack.size();){
+                                auto head = stack.back();
+                                stack.pop_back();
+                                if( head->IsTerminal() )
+                                        continue;
+                                auto d = std::make_shared<Decision>(dix++, P[head]);
+                                this->Add(d);
+                                for( auto e : head->OutEdges() ){
+                                        d->Add(e);
+                                        stack.push_back(e->To());
+                                }
+                        }
+                }
         private:
                 std::vector<std::shared_ptr<Decision> > v_;
         };
+
+
         struct IndexMaker : IndexMakerConcept{
-                explicit IndexMaker(StrategyDecl const& S){
+                explicit IndexMaker(GameTree const& S){
                         for(auto d : S){
                                 for(auto e : d){
                                         D[e] = d.GetIndex();
@@ -481,6 +490,9 @@ namespace ps{
                         state0.Stacks.resize(2);
                         state0.Stacks[0] = eff - sb;
                         state0.Stacks[1] = eff - bb;
+                        
+                        BuildStrategy();
+
                 }
                 virtual void ColorPlayers(GraphColouring<size_t>& P)const override{
                         P[root] = 0;
@@ -497,6 +509,14 @@ namespace ps{
                 }
                 virtual GNode* Root()override{ return root; }
                 virtual size_t NumPlayers()const override{ return 2; }
+                
+                virtual void VisitProbabilityDist(std::function<void(double, holdem_class_vector const& cv)> const& V)const noexcept override{
+                        for(auto const& group : *Memory_TwoPlayerClassVector){
+                                for(auto const& _ : group.vec){
+                                        V(_.prob, _.cv);
+                                }
+                        }
+                }
         private:
                 Graph G;
                 GNode* root;
@@ -569,6 +589,8 @@ namespace ps{
                         state0.Stacks[0] = eff;
                         state0.Stacks[1] = eff - sb;
                         state0.Stacks[2] = eff - bb;
+                        
+                        BuildStrategy();
                 }
                 virtual void ColorPlayers(GraphColouring<size_t>& P)const override{
                         P[root] = 0;
@@ -600,6 +622,14 @@ namespace ps{
                 }
                 virtual GNode* Root()override{ return root; }
                 virtual size_t NumPlayers()const override{ return 3; }
+                
+                virtual void VisitProbabilityDist(std::function<void(double, holdem_class_vector const& cv)> const& V)const noexcept override{
+                        for(auto const& group : *Memory_ThreePlayerClassVector){
+                                for(auto const& _ : group.vec){
+                                        V(_.prob, _.cv);
+                                }
+                        }
+                }
         private:
                 Graph G;
                 PushFoldState state0;
@@ -631,7 +661,8 @@ namespace ps{
         };
 
 
-        boost::optional<StateType> Solve(holdem_binary_strategy_ledger_s& ledger, size_t n, double sb, double bb, double eff){
+        boost::optional<StateType> Solve(holdem_binary_strategy_ledger_s& ledger, std::shared_ptr<GameTree> gt)
+        {
                 std::cout << "Solve\n"; // __CandyPrint__(cxx-print-scalar,Solve)
 
 
@@ -725,16 +756,9 @@ namespace ps{
 /*}}}*/
                 #endif
 
-                std::shared_ptr<GameTree> gt;
-                if( n == 2 ){
-                        gt = std::make_shared<GameTreeTwoPlayer>(sb, bb, eff);
-                } else {
-                        gt = std::make_shared<GameTreeThreePlayer>(sb, bb, eff);
-                }
-                auto strat = std::make_shared<StrategyDecl>(gt);
 
-                auto root = gt->Root();
-                auto N = gt->NumPlayers();
+                auto root   = gt->Root();
+                auto N      = gt->NumPlayers();
                 auto state0 = gt->InitialState();
 
 
@@ -764,6 +788,7 @@ namespace ps{
                 GraphColouring<AggregateComputer> AG;
                 GraphColouring<PushFoldOperator> ops;
                 gt->ColorOperators(ops);
+
                 for(auto t : root->TerminalNodes() ){
 
                         auto path = t->EdgePath();
@@ -785,33 +810,26 @@ namespace ps{
                         maker_dev.push_back(std::make_shared<StaticEmit>(ptr, path, perm, state.Pot) );
 
                 }
-
-
-
-
                 
                 std::string cache_name{".cc.bin"};
                 class_cache C;
                 C.load(cache_name);
+                IndexMaker im(*gt);
 
-                IndexMaker im(*strat);
-                //for(auto const& group : *Memory_TwoPlayerClassVector){
-                for(auto const& group : *Memory_TwoPlayerClassVector){
-                        for(auto const& _ : group.vec){
-                                for(auto& m : maker_dev ){
-                                        m->Emit(&im, &C, _.prob, _.cv );
-                                }
+                auto nv = [&](double prob, holdem_class_vector const& cv){
+                        for(auto& m : maker_dev ){
+                                m->Emit(&im, &C, prob, cv );
                         }
-                }
+                };
+                gt->VisitProbabilityDist(nv);
 
 
 
-
-                decltype(strat->MakeDefaultState()) S0;
+                decltype(gt->MakeDefaultState()) S0;
                 if( ledger.size()){
                         S0 = ledger.back().to_eigen_vv();
                 } else {
-                        S0 = strat->MakeDefaultState();
+                        S0 = gt->MakeDefaultState();
                 }
 
                 auto S = S0;
@@ -852,7 +870,7 @@ namespace ps{
 
                         enum{ InnerLoop = 3 };
                         for(size_t inner=0;inner!=InnerLoop;++inner){
-                                for(auto const& decision : *strat){
+                                for(auto const& decision : *gt){
 
                                         auto head = decision.CommonRoot();
                                         auto const& eval = AG[head];
@@ -896,8 +914,8 @@ namespace ps{
 
 
                                 double factor = 0.05;
-                                for(size_t i=0;i!=strat->NumDecisions();++i){
-                                        for(size_t j=0;j!=strat->Depth(i);++j){
+                                for(size_t i=0;i!=gt->NumDecisions();++i){
+                                        for(size_t j=0;j!=gt->Depth(i);++j){
                                                 S[i][j] = S[i][j] * ( 1.0 - factor ) + factor * S_counter[i][j];
                                         }
                                 }
@@ -964,7 +982,15 @@ namespace ps{
                                 return ledger.back().to_eigen_vv();
                         }
                         #endif
-                        auto sol = Solve(ledger, n, sb, bb, eff);
+                        std::shared_ptr<GameTree> gt;
+                        if( n == 2 ){
+                                gt = std::make_shared<GameTreeTwoPlayer>(sb, bb, eff);
+                        } else {
+                                gt = std::make_shared<GameTreeThreePlayer>(sb, bb, eff);
+                        }
+
+
+                        auto sol = Solve(ledger, gt);
 
                         if( sol ){
                                 ss_.add_solution(key, *sol);
@@ -1000,6 +1026,7 @@ namespace ps{
                 explicit
                 ScratchCmd(std::vector<std::string> const& args):args_{args}{}
                 virtual int Execute()override{
+                        size_t n = 2;
                         double sb = 0.5;
                         double bb = 1.0;
                         #if 0
@@ -1011,18 +1038,20 @@ namespace ps{
                         #if 1
                         Driver dvr;
                         dvr.Display();
-                        std::vector<Eigen::VectorXd> S(2);
-                        S[0].resize(169);
-                        S[0].fill(0);
-                        S[1].resize(169);
-                        S[1].fill(0);
+                        std::vector<Eigen::VectorXd> S;
+
 
 
                         for(double eff = 10.0;eff - 1e-4 < 10.0; eff += 0.05 ){
                                 std::cout << "eff => " << eff << "\n"; // __CandyPrint__(cxx-print-scalar,eff)
-                                auto opt = dvr.FindOrBuildSolution(2, sb, bb, eff );
+                                auto opt = dvr.FindOrBuildSolution(n, sb, bb, eff );
                                 if( opt ){
-                                        for(size_t j=0;j!=2;++j){
+                                        for(; S.size() < opt->size();){
+                                                S.emplace_back();
+                                                S.back().resize(169);
+                                                S.back().fill(0.0);
+                                        }
+                                        for(size_t j=0;j!=opt->size();++j){
                                                 for(size_t idx=0;idx!=169;++idx){
                                                         if( std::fabs(opt.get()[j][0][idx] - 1.0 ) < 1e-2 ){
                                                                 S[j][idx] = eff;

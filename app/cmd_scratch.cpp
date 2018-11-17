@@ -175,34 +175,6 @@ namespace ps{
         using StateType = std::vector<std::vector<Eigen::VectorXd> >;
 
                 
-        struct StrategyDecl{
-                using decision_vector = std::vector<std::shared_ptr<Decision> >;
-                using decision_iterator = boost::indirect_iterator<decision_vector::const_iterator>;
-                decision_iterator begin()const{ return v_.begin(); }
-                decision_iterator end()const{ return v_.end(); }
-                void Add(std::shared_ptr<Decision> ptr){
-                        v_.push_back(ptr);
-                }
-                size_t NumDecisions()const{ return v_.size(); }
-                size_t Depth(size_t j)const{ return v_[j]->size(); }
-
-                StateType MakeDefaultState()const{
-                        std::vector<std::vector<Eigen::VectorXd> > S;
-                        for(auto const& d : *this){
-                                Eigen::VectorXd proto(169);
-                                proto.fill(1.0 / d.size());
-                                S.emplace_back(d.size(), proto);
-                        }
-                        return S;
-                }
-                void Display()const{
-                        for(auto d : v_){
-                                std::cout << *d << "\n";
-                        }
-                }
-        private:
-                std::vector<std::shared_ptr<Decision> > v_;
-        };
 
 
         /*
@@ -289,29 +261,6 @@ namespace ps{
         struct IndexMakerConcept{
                 virtual ~IndexMakerConcept()=default;
                 virtual std::vector<Index> MakeIndex(std::vector<GEdge const*> const& path, holdem_class_vector const& cv)const=0;
-        };
-        struct IndexMaker : IndexMakerConcept{
-                explicit IndexMaker(StrategyDecl const& S){
-                        for(auto d : S){
-                                for(auto e : d){
-                                        D[e] = d.GetIndex();
-                                        P[e] = d.GetPlayer();
-                                        I[e] = d.OffsetFor(e);
-                                }
-                        }
-        
-                }
-                virtual std::vector<Index> MakeIndex(std::vector<GEdge const*> const& path, holdem_class_vector const& cv)const override{
-                        std::vector<Index> index;
-                        for(auto e : path){
-                                index.push_back( Index{ D.Color(e), I.Color(e), cv[P.Color(e)] } );
-                        }
-                        return index;
-                }
-        private:
-                GraphColouring<size_t> D;
-                GraphColouring<size_t> P;
-                GraphColouring<size_t> I;
         };
 
         struct MakerConcept{
@@ -425,6 +374,87 @@ namespace ps{
                 virtual GNode* Root()=0;
                 virtual size_t NumPlayers()const=0;
         };
+
+
+        struct StrategyDecl{
+
+                explicit StrategyDecl(std::shared_ptr<GameTree> gt){
+                        /*
+                         * We not iterate over the graph, and for each non-terminal node
+                         * we allocate a decision to that node. This Decision then
+                         * takes the player index, and strategy index.
+                         */
+                        GraphColouring<size_t> P;
+                        gt->ColorPlayers(P);
+                        std::vector<GNode*> stack{gt->Root()};
+                        size_t dix = 0;
+                        for(;stack.size();){
+                                auto head = stack.back();
+                                stack.pop_back();
+                                if( head->IsTerminal() )
+                                        continue;
+                                auto d = std::make_shared<Decision>(dix++, P[head]);
+                                this->Add(d);
+                                for( auto e : head->OutEdges() ){
+                                        d->Add(e);
+                                        stack.push_back(e->To());
+                                }
+                        }
+                }
+
+
+                using decision_vector = std::vector<std::shared_ptr<Decision> >;
+                using decision_iterator = boost::indirect_iterator<decision_vector::const_iterator>;
+                decision_iterator begin()const{ return v_.begin(); }
+                decision_iterator end()const{ return v_.end(); }
+                void Add(std::shared_ptr<Decision> ptr){
+                        v_.push_back(ptr);
+                }
+                size_t NumDecisions()const{ return v_.size(); }
+                size_t Depth(size_t j)const{ return v_[j]->size(); }
+
+                StateType MakeDefaultState()const{
+                        std::vector<std::vector<Eigen::VectorXd> > S;
+                        for(auto const& d : *this){
+                                Eigen::VectorXd proto(169);
+                                proto.fill(1.0 / d.size());
+                                S.emplace_back(d.size(), proto);
+                        }
+                        return S;
+                }
+                void Display()const{
+                        for(auto d : v_){
+                                std::cout << *d << "\n";
+                        }
+                }
+        private:
+                std::vector<std::shared_ptr<Decision> > v_;
+        };
+        struct IndexMaker : IndexMakerConcept{
+                explicit IndexMaker(StrategyDecl const& S){
+                        for(auto d : S){
+                                for(auto e : d){
+                                        D[e] = d.GetIndex();
+                                        P[e] = d.GetPlayer();
+                                        I[e] = d.OffsetFor(e);
+                                }
+                        }
+        
+                }
+                virtual std::vector<Index> MakeIndex(std::vector<GEdge const*> const& path, holdem_class_vector const& cv)const override{
+                        std::vector<Index> index;
+                        for(auto e : path){
+                                index.push_back( Index{ D.Color(e), I.Color(e), cv[P.Color(e)] } );
+                        }
+                        return index;
+                }
+        private:
+                GraphColouring<size_t> D;
+                GraphColouring<size_t> P;
+                GraphColouring<size_t> I;
+        };
+
+
         struct GameTreeTwoPlayer : GameTree{
                 GameTreeTwoPlayer(double sb, double bb, double eff){
                         // <0>
@@ -480,35 +510,136 @@ namespace ps{
                 GEdge* e_1_f;
                 PushFoldState state0;
         };
+        
+        
+        struct GameTreeThreePlayer : GameTree{
+                GameTreeThreePlayer(double sb, double bb, double eff){
+                        // <0>
+                        root = G.Node("*");
+                                // <1>
+                                p = G.Node("p");
+                                        // <3>
+                                        pp = G.Node("pp");
+                                                ppp = G.Node("ppp");
+                                                ppf = G.Node("ppf");
+                                        // <4>
+                                        pf = G.Node("pf");
+                                                pfp = G.Node("pfp");
+                                                pff = G.Node("pff");
+                                // <2>
+                                f = G.Node("f");
+                                        // <5>
+                                        fp = G.Node("fp");
+                                                fpp = G.Node("fpp");
+                                                fpf = G.Node("fpf");
+                                        ff = G.Node("ff");
+
+                        // decision <0>
+                        e_0_p = G.Edge(root, p);
+                        e_0_f = G.Edge(root, f);
+
+                        // decision <1>
+                        e_1_p = G.Edge(p, pp);
+                        e_1_f = G.Edge(p, pf);
+                        
+                        // decision <2>
+                        e_2_p = G.Edge(f, fp);
+                        e_2_f = G.Edge(f, ff);
+
+                        // decision <3>
+                        e_3_p = G.Edge(pp, ppp);
+                        e_3_f = G.Edge(pp, ppf);
+
+                        // decision <4>
+                        e_4_p = G.Edge(pf, pfp);
+                        e_4_f = G.Edge(pf, pff);
+                        
+                        // decision <5>
+                        e_5_p = G.Edge(fp, fpp);
+                        e_5_f = G.Edge(fp, fpf);
+
+                        state0.Active.insert(0);
+                        state0.Active.insert(1);
+                        state0.Active.insert(2);
+                        state0.Pot.resize(3);
+                        state0.Pot[0] = 0.0;
+                        state0.Pot[1] = sb;
+                        state0.Pot[2] = bb;
+                        state0.Stacks.resize(3);
+                        state0.Stacks[0] = eff;
+                        state0.Stacks[1] = eff - sb;
+                        state0.Stacks[2] = eff - bb;
+                }
+                virtual void ColorPlayers(GraphColouring<size_t>& P)const override{
+                        P[root] = 0;
+                        P[p]    = 1;
+                        P[f]    = 1;
+                        P[pp]   = 2;
+                        P[pf]   = 2;
+                        P[fp]   = 2;
+                        P[ff]   = 2;
+                }
+                virtual void ColorOperators(GraphColouring<PushFoldOperator>& ops)const override{
+                        ops[e_0_p] = Push{0};
+                        ops[e_0_f] = Fold{0};
+
+                        ops[e_1_p] = Push{1};
+                        ops[e_1_f] = Fold{1};
+                        ops[e_2_p] = Push{1};
+                        ops[e_2_f] = Fold{1};
+
+                        ops[e_3_p] = Push{2};
+                        ops[e_3_f] = Fold{2};
+                        ops[e_4_p] = Push{2};
+                        ops[e_4_f] = Fold{2};
+                        ops[e_5_p] = Push{2};
+                        ops[e_5_f] = Fold{2};
+                }
+                virtual PushFoldState InitialState()const override{
+                        return state0;
+                }
+                virtual GNode* Root()override{ return root; }
+                virtual size_t NumPlayers()const override{ return 3; }
+        private:
+                Graph G;
+                PushFoldState state0;
+                GNode* root;
+                GNode* p;
+                GNode* pp;
+                GNode* ppp;
+                GNode* ppf;
+                GNode* pf;
+                GNode* pfp;
+                GNode* pff;
+                GNode* f;
+                GNode* fp;
+                GNode* fpp;
+                GNode* fpf;
+                GNode* ff;
+                GEdge* e_0_p;
+                GEdge* e_0_f;
+                GEdge* e_1_p;
+                GEdge* e_1_f;
+                GEdge* e_2_p;
+                GEdge* e_2_f;
+                GEdge* e_3_p;
+                GEdge* e_3_f;
+                GEdge* e_4_p;
+                GEdge* e_4_f;
+                GEdge* e_5_p;
+                GEdge* e_5_f;
+        };
+
 
         boost::optional<StateType> Solve(holdem_binary_strategy_ledger_s& ledger, size_t n, double sb, double bb, double eff){
                 std::cout << "Solve\n"; // __CandyPrint__(cxx-print-scalar,Solve)
 
 
                 #if 0
-
+/*{{{*/
 
                 auto G = std::make_shared<Graph>();
                 
-                // <0>
-                auto root = G->Node("*");
-                        // <1>
-                        auto p = G->Node("p");
-                                // <3>
-                                auto pp = G->Node("pp");
-                                        auto ppp = G->Node("ppp");
-                                        auto ppf = G->Node("ppf");
-                                // <4>
-                                auto pf = G->Node("pf");
-                                        auto pfp = G->Node("pfp");
-                                        auto pff = G->Node("pff");
-                        // <2>
-                        auto f = G->Node("f");
-                                // <5>
-                                auto fp = G->Node("fp");
-                                        auto fpp = G->Node("fpp");
-                                        auto fpf = G->Node("fpf");
-                                auto ff = G->Node("ff");
 
 
 
@@ -591,44 +722,28 @@ namespace ps{
                 state0.Stacks[1] = eff - sb;
                 state0.Stacks[2] = eff - bb;
 
-
+/*}}}*/
                 #endif
 
-                auto gt = std::make_shared<GameTreeTwoPlayer>(sb, bb, eff);
+                std::shared_ptr<GameTree> gt;
+                if( n == 2 ){
+                        gt = std::make_shared<GameTreeTwoPlayer>(sb, bb, eff);
+                } else {
+                        gt = std::make_shared<GameTreeThreePlayer>(sb, bb, eff);
+                }
+                auto strat = std::make_shared<StrategyDecl>(gt);
+
                 auto root = gt->Root();
                 auto N = gt->NumPlayers();
-                GraphColouring<size_t> P;
-                gt->ColorPlayers(P);
-                GraphColouring<PushFoldOperator> ops;
-                gt->ColorOperators(ops);
                 auto state0 = gt->InitialState();
 
-                /*
-                 * We not iterate over the graph, and for each non-terminal node
-                 * we allocate a decision to that node. This Decison then
-                 * takes the player index, and strategy index.
-                 */
-                std::vector<GNode*> stack{root};
-                auto strat = std::make_shared<StrategyDecl>();
-                size_t dix = 0;
-                for(;stack.size();){
-                        auto head = stack.back();
-                        stack.pop_back();
-                        if( head->IsTerminal() )
-                                continue;
-                        auto d = std::make_shared<Decision>(dix++, P[head]);
-                        strat->Add(d);
-                        for( auto e : head->OutEdges() ){
-                                d->Add(e);
-                                stack.push_back(e->To());
-                        }
-                }
 
-
+                #if 0
                 for( auto t : root->TerminalNodes()){
                         std::cout << "t->Name() => " << t->Name() << "\n"; // __CandyPrint__(cxx-print-scalar,t->Name())
                 }
                 strat->Display();
+                #endif
 
                 
                 /*
@@ -647,7 +762,8 @@ namespace ps{
                  * something that can be evaluated. 
                  */
                 GraphColouring<AggregateComputer> AG;
-                std::vector<Computer*> tc_aux;
+                GraphColouring<PushFoldOperator> ops;
+                gt->ColorOperators(ops);
                 for(auto t : root->TerminalNodes() ){
 
                         auto path = t->EdgePath();

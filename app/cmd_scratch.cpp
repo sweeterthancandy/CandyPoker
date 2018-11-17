@@ -270,7 +270,17 @@ namespace ps{
         struct MakerConcept{
                 virtual ~MakerConcept()=default;
                 virtual void Emit(IndexMakerConcept* im, class_cache const* cache, double p, holdem_class_vector const& cv)const=0;
-                virtual std::string to_string()const=0;
+                virtual std::vector<std::string> to_string_line()const=0;
+
+                static void Display( std::vector<std::shared_ptr<MakerConcept> > const& v){
+                        std::vector<Pretty::LineItem> lines;
+                        lines.push_back(std::vector<std::string>{"Path", "Impl", "Active", "Pot"});
+                        lines.push_back(Pretty::LineBreak);
+                        for(auto const& ptr : v){
+                                lines.push_back( ptr->to_string_line());
+                        }
+                        Pretty::RenderTablePretty(std::cout, lines);
+                }
         };
         struct StaticEmit : MakerConcept{
                 StaticEmit(std::shared_ptr<Computer> comp, std::vector<GEdge const*> path, std::vector<size_t> const& active, Eigen::VectorXd pot)
@@ -309,21 +319,22 @@ namespace ps{
 
                         comp_->Emplace(cv, p, index, v);
                 }
-                virtual std::string to_string()const override{
-                        std::stringstream sstr;
+                virtual std::vector<std::string> to_string_line()const override{
+                        std::vector<std::string> line;
                         std::stringstream pathsstr;
                         pathsstr << path_.front()->From()->Name();
                         for(auto p : path_){
                                 pathsstr << "," << p->To()->Name();
                         }
+                        line.push_back(pathsstr.str());
                         if( active_.size() == 1 ){
-                                sstr << "Static{";
-                                sstr << "path=" << pathsstr.str();
+                                line.push_back("Static");
                         } else {
-                                sstr << "Eval  {";
-                                sstr << "path=" << pathsstr.str();
+                                line.push_back("Eval");
                         }
-                        return sstr.str();
+                        line.push_back(detail::to_string(active_));
+                        line.push_back(vector_to_string(pot_));
+                        return line;
                 }
 
         private:
@@ -355,6 +366,14 @@ namespace ps{
                         auto x = S.Stacks[player_idx];
                         S.Stacks[player_idx] = 0.0;
                         S.Pot[player_idx] += x;
+                }
+        };
+        struct Raise{
+                size_t player_idx;
+                double amt;
+                void operator()(PushFoldState& S)const{
+                        S.Stacks[player_idx] -= amt;
+                        S.Pot[player_idx] += amt;
                 }
         };
         using PushFoldOperator = std::function<void(PushFoldState&)>;
@@ -550,6 +569,112 @@ namespace ps{
                 PushFoldState state0;
                 std::string sdesc_;
         };
+
+
+
+
+
+
+        struct GameTreeTwoPlayerRaiseFold : GameTree{
+                GameTreeTwoPlayerRaiseFold(double sb, double bb, double eff, double raise)
+                        : raise_{raise}
+                {
+                        // <0>
+                        root = G.Node("*");
+                                // <1>
+                                r = G.Node("r");
+                                        rp = G.Node("rp");
+                                                // <2>
+                                                rpp = G.Node("rpp");
+                                                rpf = G.Node("rpf");
+                                        rf = G.Node("rf");
+                                f = G.Node("f");
+
+                        // decision <0>
+                        e_0_r = G.Edge(root, r);
+                        e_0_f = G.Edge(root, f);
+
+                        // decision <1>
+                        e_1_p = G.Edge(r, rp);
+                        e_1_f = G.Edge(r, rf);
+
+                        // decision <2>
+                        e_2_p = G.Edge(rp, rpp);
+                        e_2_f = G.Edge(rp, rpf);
+                
+                        state0.Active.insert(0);
+                        state0.Active.insert(1);
+                        state0.Pot.resize(2);
+                        state0.Pot[0] = sb;
+                        state0.Pot[1] = bb;
+                        state0.Stacks.resize(2);
+                        state0.Stacks[0] = eff - sb;
+                        state0.Stacks[1] = eff - bb;
+
+                        std::stringstream sstr;
+                        sstr << "GameTreeTwoPlayerRaiseFold:" << sb << ":" << bb << ":" << eff;
+                        sdesc_ = sstr.str();
+                        
+                        BuildStrategy();
+
+                }
+                virtual std::string StringDescription()const override{ return sdesc_; }
+                virtual void ColorPlayers(GraphColouring<size_t>& P)const override{
+                        P[root] = 0;
+                        P[r]    = 1;
+                        P[rp]   = 0;
+                }
+                virtual void ColorOperators(GraphColouring<PushFoldOperator>& ops)const override{
+                        ops[e_0_r] = Raise{0, raise_};
+                        ops[e_0_f] = Fold{0};
+
+                        ops[e_1_p] = Push{1};
+                        ops[e_1_f] = Fold{1};
+
+                        ops[e_2_p] = Push{0};
+                        ops[e_2_f] = Fold{0};
+                }
+                virtual void ColorPrettyActions(GraphColouring<std::string>& A)const override{
+                        A[root] = "sb raise/fold";
+                        A[r]    = "bb call/fold, given bb raise";
+                        A[rp]   = "sb call/fold, given sb raise, bb push";
+                }
+                virtual PushFoldState InitialState()const override{
+                        return state0;
+                }
+                virtual GNode* Root()override{ return root; }
+                virtual size_t NumPlayers()const override{ return 2; }
+                
+                virtual void VisitProbabilityDist(std::function<void(double, holdem_class_vector const& cv)> const& V)const noexcept override{
+                        for(auto const& group : *Memory_TwoPlayerClassVector){
+                                for(auto const& _ : group.vec){
+                                        V(_.prob, _.cv);
+                                }
+                        }
+                }
+        private:
+                double raise_;
+                Graph G;
+                GNode* root;
+                GNode* r;
+                GNode* rp;
+                GNode* rf;
+                GNode* rpp;
+                GNode* rpf;
+                GNode* f;
+                GEdge* e_0_r;
+                GEdge* e_0_f;
+                GEdge* e_1_p;
+                GEdge* e_1_f;
+                GEdge* e_2_p;
+                GEdge* e_2_f;
+                PushFoldState state0;
+                std::string sdesc_;
+        };
+
+
+
+
         
         
         struct GameTreeThreePlayer : GameTree{
@@ -849,6 +974,9 @@ namespace ps{
                 class_cache C;
                 C.load(cache_name);
                 IndexMaker im(*gt);
+                        
+                MakerConcept::Display(maker_dev);
+                std::exit(0);
 
                 auto nv = [&](double prob, holdem_class_vector const& cv){
                         for(auto& m : maker_dev ){
@@ -988,10 +1116,15 @@ namespace ps{
         }
 
         struct Driver{
+                // enable this for debugging
+                enum{ NoSave = true }';
                 Driver(){
-                        ss_.try_load_or_default(".ss.bin");
+                        if( ! NoSave ){
+                                ss_.try_load_or_default(".ss.bin");
+                        }
                 }
                 ~Driver(){
+                        // will do nothing when no save
                         ss_.save_();
                 }
                 boost::optional<std::vector<std::vector<Eigen::VectorXd> >> FindOrBuildSolution(std::shared_ptr<GameTree> gt){
@@ -1006,7 +1139,7 @@ namespace ps{
 
                         auto ledger_key = ".ledger/" + key;
                         holdem_binary_strategy_ledger_s ledger;
-                        //ledger.try_load_or_default(ledger_key);
+                        ledger.try_load_or_default(ledger_key);
                         #if 0
                         if( ledger.size() ){
                                 ss_.add_solution(key, ledger.back());
@@ -1054,7 +1187,7 @@ namespace ps{
                 ScratchCmd(std::vector<std::string> const& args):args_{args}{}
                 virtual int Execute()override{
                         enum { Dp = 2 };
-                        size_t n = 3;
+                        size_t n = 2;
                         double sb = 0.5;
                         double bb = 1.0;
                         #if 0
@@ -1076,11 +1209,15 @@ namespace ps{
                                 std::cout << "eff => " << eff << "\n"; // __CandyPrint__(cxx-print-scalar,eff)
 
                                 std::shared_ptr<GameTree> gt;
+                                #if 0
                                 if( n == 2 ){
                                         gt = std::make_shared<GameTreeTwoPlayer>(sb, bb, eff);
                                 } else {
                                         gt = std::make_shared<GameTreeThreePlayer>(sb, bb, eff);
                                 }
+                                #else
+                                gt = std::make_shared<GameTreeTwoPlayerRaiseFold>(sb, bb, eff, 2.0);
+                                #endif
                                 any_gt = gt;
                                 auto opt = dvr.FindOrBuildSolution(gt);
                                 if( opt ){

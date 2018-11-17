@@ -4,6 +4,7 @@
 #include "ps/eval/class_cache.h"
 #include "ps/eval/holdem_class_vector_cache.h"
 #include "app/pretty_printer.h"
+#include "app/serialization_util.h"
 
 #include <boost/timer/timer.hpp>
 
@@ -405,10 +406,10 @@ namespace ps{
         };
         using PushFoldOperator = std::function<void(PushFoldState&)>;
 
-        boost::optional<StateType> Solve(double sb, double bb, double eff){
+        boost::optional<StateType> Solve(holdem_binary_strategy_ledger& ledger, size_t n, double sb, double bb, double eff){
 
 
-                #if NOT_DEFINED
+                #if 1
                 auto G = std::make_shared<Graph>();
                 
                 // <0>
@@ -463,9 +464,9 @@ namespace ps{
                 state0.Stacks.resize(2);
                 state0.Stacks[0] = eff - sb;
                 state0.Stacks[1] = eff - bb;
-                #endif
 
 
+                #else
 
 
                 auto G = std::make_shared<Graph>();
@@ -553,6 +554,7 @@ namespace ps{
 
                 size_t N = 3;
 
+
                 /*
                  * We create the inital state of the game, this is used 
                  * for evaulting terminal nodes
@@ -571,6 +573,7 @@ namespace ps{
                 state0.Stacks[2] = eff - bb;
 
 
+                #endif
 
 
                 /*
@@ -650,7 +653,7 @@ namespace ps{
 
                 IndexMaker im(*strat);
                 //for(auto const& group : *Memory_TwoPlayerClassVector){
-                for(auto const& group : *Memory_ThreePlayerClassVector){
+                for(auto const& group : *Memory_TwoPlayerClassVector){
                         for(auto const& _ : group.vec){
                                 for(auto& m : maker_dev ){
                                         m->Emit(&im, &C, _.prob, _.cv );
@@ -661,7 +664,12 @@ namespace ps{
 
 
 
-                auto S0 = strat->MakeDefaultState();
+                decltype(strat->MakeDefaultState()) S0;
+                if( ledger.size()){
+                        S0 = ledger.back().to_eigen();
+                } else {
+                        S0 = strat->MakeDefaultState();
+                }
 
                 auto S = S0;
                 for(size_t n=0;n!=200;++n){
@@ -746,6 +754,51 @@ namespace ps{
 
 
         }
+
+        struct Driver{
+                Driver(){
+                        ss_.try_load_or_default(".ss.bin");
+                }
+                ~Driver(){
+                        ss_.save_();
+                }
+                std::vector<std::vector<Eigen::VectorXd> > FindOrBuildSolution(size_t n, double sb, double bb, double eff){
+                        std::stringstream sstr;
+                        sstr << n << ":" << sb << ":" << bb << ":" << eff;
+                        auto key = sstr.str();
+                        auto iter = ss_.find(key);
+                        if( iter != ss_.end()){
+                                return iter->second.to_eigen();
+                        }
+
+                        auto ledger_key = ".ledger/" + key;
+                        holdem_binary_strategy_ledger ledger;
+                        ledger.try_load_or_default(ledger_key);
+                        auto sol = Solve(ledger, n, sb, bb, eff);
+                        ledger.save_();
+
+                        if( sol ){
+                                holdem_binary_strategy aux(*sol);
+                                aux.to_eigen();
+                                ss_.add_solution(key, *sol);
+                                pretty_print_strat(sol.get()[0][0], 1);
+                                pretty_print_strat(sol.get()[1][0], 1);
+                                auto copy = ss_.find(key)->second.to_eigen();
+                                pretty_print_strat(copy[0][0], 1);
+                                pretty_print_strat(copy[1][0], 1);
+                                ss_.save_();
+                                holdem_binary_solution_set ss_copy;
+                                ss_copy.load(".ss.bin");
+                                copy = ss_copy.find(key)->second.to_eigen();
+                                pretty_print_strat(copy[0][0], 1);
+                                pretty_print_strat(copy[1][0], 1);
+                                return *sol;
+                        }
+                        return {};
+                }
+        private:
+                holdem_binary_solution_set ss_;
+        };
         
         struct ScratchCmd : Command{
                 enum{ Debug = 1};
@@ -754,12 +807,19 @@ namespace ps{
                 virtual int Execute()override{
                         double sb = 0.5;
                         double bb = 1.0;
+                        Driver dvr;
+                        auto S = dvr.FindOrBuildSolution(2, sb, bb, 10.0 );
+                        pretty_print_strat(S[0][0], 1);
+                        pretty_print_strat(S[1][0], 1);
                         #if 0
                         std::vector<Eigen::VectorXd> S(2);
                         S[0].resize(169);
                         S[0].fill(0);
                         S[1].resize(169);
                         S[1].fill(0);
+
+                        holdem_
+
                         for(double eff = 10.0;eff != 20.0; eff += 1.0 ){
                                 auto opt = Solve(sb, bb, eff);
                                 if( opt ){
@@ -774,7 +834,8 @@ namespace ps{
                         }
                         pretty_print_strat(S[0], 1);
                         pretty_print_strat(S[1], 1);
-                        #else
+                        #endif
+                        #if 0
                         auto opt = Solve(sb, bb, 10.0);
                         if( opt ){
                                 pretty_print_strat(opt.get()[0][0], 0);

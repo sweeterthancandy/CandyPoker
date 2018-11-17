@@ -897,108 +897,12 @@ namespace ps{
                 std::cout << "Solve\n"; // __CandyPrint__(cxx-print-scalar,Solve)
 
 
-                #if 0
-/*{{{*/
-
-                auto G = std::make_shared<Graph>();
-                
-
-
-
-                // decision <0>
-                auto e_0_p = G->Edge(root, p);
-                auto e_0_f = G->Edge(root, f);
-
-                // decision <1>
-                auto e_1_p = G->Edge(p, pp);
-                auto e_1_f = G->Edge(p, pf);
-                
-                // decision <2>
-                auto e_2_p = G->Edge(f, fp);
-                auto e_2_f = G->Edge(f, ff);
-
-                // decision <3>
-                auto e_3_p = G->Edge(pp, ppp);
-                auto e_3_f = G->Edge(pp, ppf);
-
-                // decision <4>
-                auto e_4_p = G->Edge(pf, pfp);
-                auto e_4_f = G->Edge(pf, pff);
-                
-                // decision <5>
-                auto e_5_p = G->Edge(fp, fpp);
-                auto e_5_f = G->Edge(fp, fpf);
-
-                
-                /*
-                 * We need to color each non-terminal node which which player's
-                 * turn it is
-                 */
-                GraphColouring<size_t> P;
-                P[root] = 0;
-                P[p]    = 1;
-                P[f]    = 1;
-                P[pp]   = 2;
-                P[pf]   = 2;
-                P[fp]   = 2;
-                P[ff]   = 2;
-                
-                /*
-                 * We color each node with an operator, this is how we figure 
-                 * out what state we will be in for the terminal
-                 */
-                GraphColouring<PushFoldOperator> ops;
-                ops[e_0_p] = Push{0};
-                ops[e_0_f] = Fold{0};
-
-                ops[e_1_p] = Push{1};
-                ops[e_1_f] = Fold{1};
-                ops[e_2_p] = Push{1};
-                ops[e_2_f] = Fold{1};
-
-                ops[e_3_p] = Push{2};
-                ops[e_3_f] = Fold{2};
-                ops[e_4_p] = Push{2};
-                ops[e_4_f] = Fold{2};
-                ops[e_5_p] = Push{2};
-                ops[e_5_f] = Fold{2};
-
-
-                size_t N = 3;
-
-
-                /*
-                 * We create the inital state of the game, this is used 
-                 * for evaulting terminal nodes
-                 */
-                PushFoldState state0;
-                state0.Active.insert(0);
-                state0.Active.insert(1);
-                state0.Active.insert(2);
-                state0.Pot.resize(3);
-                state0.Pot[0] = 0.0;
-                state0.Pot[1] = sb;
-                state0.Pot[2] = bb;
-                state0.Stacks.resize(3);
-                state0.Stacks[0] = eff;
-                state0.Stacks[1] = eff - sb;
-                state0.Stacks[2] = eff - bb;
-
-/*}}}*/
-                #endif
-
 
                 auto root   = gt->Root();
                 auto N      = gt->NumPlayers();
                 auto state0 = gt->InitialState();
 
 
-                #if 0
-                for( auto t : root->TerminalNodes()){
-                        std::cout << "t->Name() => " << t->Name() << "\n"; // __CandyPrint__(cxx-print-scalar,t->Name())
-                }
-                strat->Display();
-                #endif
 
                 
                 /*
@@ -1071,6 +975,7 @@ namespace ps{
                 struct Printer{
                         Printer(size_t n):n_{n}{
                                 std::vector<std::string> title;
+                                title.push_back("n");
                                 for(size_t idx=0;idx!=n_;++idx){
                                         std::stringstream sstr;
                                         sstr << "EV[" << idx << "]";
@@ -1082,26 +987,36 @@ namespace ps{
                         }
                         void operator()(std::vector<std::vector<Eigen::VectorXd> > const&, Eigen::VectorXd const& ev, double norm){
                                 std::vector<std::string> l;
+                                l.push_back(boost::lexical_cast<std::string>(count_++));
                                 for(size_t idx=0;idx!=n_;++idx){
                                         l.push_back(boost::lexical_cast<std::string>(ev[idx]));
                                 }
                                 l.push_back(boost::lexical_cast<std::string>(norm));
                                 lines_.emplace_back(std::move(l));
-                                Pretty::RenderTablePretty(std::cout, lines_);
+
+                                Pretty::RenderOptions opts;
+                                opts.SetAdjustment(1, Pretty::RenderAdjustment_Left);
+                                opts.SetAdjustment(2, Pretty::RenderAdjustment_Left);
+                                opts.SetAdjustment(3, Pretty::RenderAdjustment_Left);
+
+                                Pretty::RenderTablePretty(std::cout, lines_, opts);
                         }
                 private:
                         size_t n_;
+                        size_t count_{0};
                         std::vector<Pretty::LineItem> lines_;
                 };
                 Printer printer{N};
                 obs = printer;
 
-                for(size_t n=0;n!=200;++n){
+                enum{ MaxIter = 100000 };
+                for(size_t n=0;n!=MaxIter;++n){
                         boost::timer::auto_cpu_timer at;
                         auto S_counter = S;
                         auto S_Before = S;
 
-                        enum{ InnerLoop = 3 };
+                        double factor = 0.001;
+                        enum{ InnerLoop = 1 };
                         for(size_t inner=0;inner!=InnerLoop;++inner){
                                 for(auto const& decision : *gt){
 
@@ -1174,14 +1089,13 @@ namespace ps{
                                         fo.Display(boost::lexical_cast<std::string>(decision.GetIndex()) + "fold");
 
                                         for(size_t idx=0;idx!=169;++idx){
-                                                double x = ( po.A[idx] >= fo.A[idx] ? 1.0 : 0.0 );
+                                                double x = ( po.A[idx] - 1e-3 > fo.A[idx] ? 1.0 : 0.0 );
                                                 S_counter[sidx][0][idx] = x;
                                                 S_counter[sidx][1][idx] = 1.0 - x;
                                         }
                                 }
 
 
-                                double factor = 0.05;
                                 for(size_t i=0;i!=gt->NumDecisions();++i){
                                         for(size_t j=0;j!=gt->Depth(i);++j){
                                                 S[i][j] = S[i][j] * ( 1.0 - factor ) + factor * S_counter[i][j];
@@ -1200,12 +1114,13 @@ namespace ps{
                         AG[root].Evaluate(R_Before, S_Before);
 
                         double norm = ( R_Before - R_counter ).lpNorm<2>();
+                        factor = norm;
 
                         if( obs ){
                                 obs(S, R_Before, norm);
                         }
 
-                        if( norm < 0.0001 ){
+                        if( norm < 0.000001 ){
                                 #if 0
                                 std::ofstream of("eval.csv");
                                 std::ofstream sof("S.csv");
@@ -1299,11 +1214,12 @@ namespace ps{
                         std::shared_ptr<GameTree> any_gt;
 
 
-                        for(double eff = 2.0;eff - 1e-4 < 20.0; eff += 1.0 ){
+                        //for(double eff = 2.0;eff - 1e-4 < 11.0; eff += 1.0 ){
+                        for(double eff = 11.0;eff - 1e-4 < 11.0; eff += 1.0 ){
                                 std::cout << "eff => " << eff << "\n"; // __CandyPrint__(cxx-print-scalar,eff)
 
                                 std::shared_ptr<GameTree> gt;
-                                #if 1
+                                #if 0
                                 if( n == 2 ){
                                         gt = std::make_shared<GameTreeTwoPlayer>(sb, bb, eff);
                                 } else {

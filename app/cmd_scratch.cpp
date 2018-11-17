@@ -1026,7 +1026,7 @@ namespace ps{
                 explicit
                 ScratchCmd(std::vector<std::string> const& args):args_{args}{}
                 virtual int Execute()override{
-                        size_t n = 2;
+                        size_t n = 3;
                         double sb = 0.5;
                         double bb = 1.0;
                         #if 0

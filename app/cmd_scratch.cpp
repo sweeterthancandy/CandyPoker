@@ -128,8 +128,9 @@ namespace ps{
         };
 
         struct Decision{
-                Decision(size_t ID, size_t player_idx)
+                Decision(size_t ID, std::string const& action, size_t player_idx)
                         :ID_(ID),
+                        action_{action},
                         player_idx_(player_idx)
                 {}
                 friend std::ostream& operator<<(std::ostream& ostr, Decision const& self){
@@ -165,9 +166,12 @@ namespace ps{
                         // should all be the same 
                         return E.back()->From();
                 }
+
+                std::string const& PrettyAction()const{ return action_; }
                 
         private:
                 size_t ID_;
+                std::string action_;
                 size_t player_idx_;
                 std::vector<GEdge*> E;
         };
@@ -366,6 +370,8 @@ namespace ps{
                  * out what state we will be in for the terminal
                  */
                 virtual void ColorOperators(GraphColouring<PushFoldOperator>& ops)const=0;
+                
+                virtual void ColorPrettyActions(GraphColouring<std::string>& A)const=0;
                 /*
                  * We create the inital state of the game, this is used 
                  * for evaulting terminal nodes
@@ -420,7 +426,9 @@ namespace ps{
                          * takes the player index, and strategy index.
                          */
                         GraphColouring<size_t> P;
+                        GraphColouring<std::string> A;
                         ColorPlayers(P);
+                        ColorPrettyActions(A);
                         std::vector<GNode*> stack{Root()};
                         size_t dix = 0;
                         for(;stack.size();){
@@ -428,7 +436,7 @@ namespace ps{
                                 stack.pop_back();
                                 if( head->IsTerminal() )
                                         continue;
-                                auto d = std::make_shared<Decision>(dix++, P[head]);
+                                auto d = std::make_shared<Decision>(dix++, A[head], P[head]);
                                 this->Add(d);
                                 for( auto e : head->OutEdges() ){
                                         d->Add(e);
@@ -510,6 +518,10 @@ namespace ps{
                         ops[e_0_f] = Fold{0};
                         ops[e_1_p] = Push{1};
                         ops[e_1_f] = Fold{1};
+                }
+                virtual void ColorPrettyActions(GraphColouring<std::string>& A)const override{
+                        A[root] = "sb push/fold";
+                        A[p]    = "bb call/fold, given bb push";
                 }
                 virtual PushFoldState InitialState()const override{
                         return state0;
@@ -612,7 +624,7 @@ namespace ps{
                         P[pp]   = 2;
                         P[pf]   = 2;
                         P[fp]   = 2;
-                        P[ff]   = 2;
+                        //P[ff]   = 2;
                 }
                 virtual void ColorOperators(GraphColouring<PushFoldOperator>& ops)const override{
                         ops[e_0_p] = Push{0};
@@ -629,6 +641,14 @@ namespace ps{
                         ops[e_4_f] = Fold{2};
                         ops[e_5_p] = Push{2};
                         ops[e_5_f] = Fold{2};
+                }
+                virtual void ColorPrettyActions(GraphColouring<std::string>& A)const override{
+                        A[root] = "btn push/fold";
+                        A[p]    = "sb call/fold, given btn push";
+                        A[f]    = "sb push/fold, given btn fold";
+                        A[pp]   = "bb call/fold, given btn push, sb call";
+                        A[pf]   = "bb call/fold, given btn push, sb fold";
+                        A[fp]   = "bb call/fold, given btn fold, sb push";
                 }
                 virtual PushFoldState InitialState()const override{
                         return state0;
@@ -974,10 +994,9 @@ namespace ps{
                 ~Driver(){
                         ss_.save_();
                 }
-                boost::optional<std::vector<std::vector<Eigen::VectorXd> >> FindOrBuildSolution(size_t n, double sb, double bb, double eff){
-                        std::stringstream sstr;
-                        sstr << n << ":" << sb << ":" << bb << ":" << eff;
-                        auto key = sstr.str();
+                boost::optional<std::vector<std::vector<Eigen::VectorXd> >> FindOrBuildSolution(std::shared_ptr<GameTree> gt){
+                        auto key = gt->StringDescription();
+
                         #if 0
                         auto iter = ss_.find(key);
                         if( iter != ss_.end()){
@@ -996,12 +1015,6 @@ namespace ps{
                                 return ledger.back().to_eigen_vv();
                         }
                         #endif
-                        std::shared_ptr<GameTree> gt;
-                        if( n == 2 ){
-                                gt = std::make_shared<GameTreeTwoPlayer>(sb, bb, eff);
-                        } else {
-                                gt = std::make_shared<GameTreeThreePlayer>(sb, bb, eff);
-                        }
 
 
                         auto sol = Solve(ledger, gt);
@@ -1040,6 +1053,7 @@ namespace ps{
                 explicit
                 ScratchCmd(std::vector<std::string> const& args):args_{args}{}
                 virtual int Execute()override{
+                        enum { Dp = 2 };
                         size_t n = 3;
                         double sb = 0.5;
                         double bb = 1.0;
@@ -1055,10 +1069,20 @@ namespace ps{
                         std::vector<Eigen::VectorXd> S;
 
 
+                        std::shared_ptr<GameTree> any_gt;
+
 
                         for(double eff = 10.0;eff - 1e-4 < 10.0; eff += 0.05 ){
                                 std::cout << "eff => " << eff << "\n"; // __CandyPrint__(cxx-print-scalar,eff)
-                                auto opt = dvr.FindOrBuildSolution(n, sb, bb, eff );
+
+                                std::shared_ptr<GameTree> gt;
+                                if( n == 2 ){
+                                        gt = std::make_shared<GameTreeTwoPlayer>(sb, bb, eff);
+                                } else {
+                                        gt = std::make_shared<GameTreeThreePlayer>(sb, bb, eff);
+                                }
+                                any_gt = gt;
+                                auto opt = dvr.FindOrBuildSolution(gt);
                                 if( opt ){
                                         for(; S.size() < opt->size();){
                                                 S.emplace_back();
@@ -1074,8 +1098,12 @@ namespace ps{
                                         }
                                 }
                         }
-                        pretty_print_strat(S[0], 2);
-                        pretty_print_strat(S[1], 2);
+                        for( auto const& _ : *any_gt){
+                                std::cout << "\n            " << _.PrettyAction() << "\n\n";
+                                pretty_print_strat(S[_.GetIndex()], Dp);
+
+                        }
+
                         #endif
                         #if 0
                         auto opt = Solve(sb, bb, 10.0);

@@ -892,6 +892,87 @@ namespace ps{
                 std::string section_;
         };
 
+        StateType CounterStrategy(std::shared_ptr<GameTree> gt, GraphColouring<AggregateComputer> const& AG, StateType const& S){
+                auto S_counter = S;
+                for(auto const& decision : *gt){
+
+                        auto const& eval = AG.Color(decision.CommonRoot());
+                        //auto const& eval = AG[root];
+
+                        auto sidx = decision.GetIndex();
+                        auto pidx = decision.GetPlayer();
+
+                        // assume binary
+                        auto Sp = S;
+                        Sp[sidx][0].fill(1);
+                        Sp[sidx][1].fill(0);
+
+                        auto Sf = S;
+                        Sf[sidx][0].fill(0);
+                        Sf[sidx][1].fill(1);
+
+                        struct observer : boost::noncopyable{
+                                enum {Debug = false };
+                                observer(size_t pidx)
+                                        :pidx_(pidx)
+                                {
+                                        A.resize(169);
+                                        A.fill(0.0);
+                                        dbg0.resize(169);
+                                        dbg0.fill(0.0);
+                                        dbg1.resize(169);
+                                        dbg1.fill(0.0);
+                                        dbg2.resize(169);
+                                        dbg2.fill(0.0);
+                                }
+                                void operator()(holdem_class_vector const& cv, double p, double c, Eigen::VectorXd const& value){
+                                        A[cv[pidx_]] += p * c * value[pidx_];
+                                        if( Debug ){
+                                                dbg0[cv[pidx_]] += p;
+                                                dbg1[cv[pidx_]] += c;
+                                                dbg2[cv[pidx_]] += p * c;
+                                        }
+                                }
+                                void decl_section(std::string const& section){}
+                                void Display(std::string const& title)const{
+
+                                        if( Debug ){
+                                                std::cout << "\n\n-------------------- " << title << " -----------------------\n\n";
+                                                pretty_print_strat(A, 3);
+                                                std::cout << "A.sum() => " << A.sum() << "\n"; // __CandyPrint__(cxx-print-scalar,A.sum())
+                                                pretty_print_strat(dbg0, 3);
+                                                std::cout << "dbg0.sum() => " << dbg0.sum() << "\n"; // __CandyPrint__(cxx-print-scalar,dbg0.sum())
+                                                pretty_print_strat(dbg1, 3);
+                                                std::cout << "dbg1.sum() => " << dbg1.sum() << "\n"; // __CandyPrint__(cxx-print-scalar,dbg0.sum())
+                                                pretty_print_strat(dbg2, 3);
+                                                std::cout << "dbg2.sum() => " << dbg2.sum() << "\n"; // __CandyPrint__(cxx-print-scalar,dbg0.sum())
+                                        }
+                                }
+                                size_t pidx_;
+                                Eigen::VectorXd A;
+                                Eigen::VectorXd dbg0;
+                                Eigen::VectorXd dbg1;
+                                Eigen::VectorXd dbg2;
+                        };
+                        observer po{pidx};
+                        observer fo{pidx};
+
+
+                        eval.Observe(Sp, po);
+                        eval.Observe(Sf, fo);
+
+                        po.Display(boost::lexical_cast<std::string>(decision.GetIndex()) + "push");
+                        fo.Display(boost::lexical_cast<std::string>(decision.GetIndex()) + "fold");
+
+                        for(size_t idx=0;idx!=169;++idx){
+                                double x = ( po.A[idx] - 1e-3 > fo.A[idx] ? 1.0 : 0.0 );
+                                S_counter[sidx][0][idx] = x;
+                                S_counter[sidx][1][idx] = 1.0 - x;
+                        }
+                }
+                return S_counter;
+        }
+
         boost::optional<StateType> Solve(holdem_binary_strategy_ledger_s& ledger, std::shared_ptr<GameTree> gt)
         {
                 std::cout << "Solve\n"; // __CandyPrint__(cxx-print-scalar,Solve)
@@ -971,7 +1052,7 @@ namespace ps{
 
                 auto S = S0;
 
-                std::function<void(std::vector<std::vector<Eigen::VectorXd> > const&, Eigen::VectorXd const&, double norm)> obs;
+                std::function<void(std::vector<std::vector<Eigen::VectorXd> > const&, Eigen::VectorXd const&, Eigen::VectorXd const&, double norm)> obs;
                 struct Printer{
                         Printer(size_t n):n_{n}{
                                 std::vector<std::string> title;
@@ -981,18 +1062,45 @@ namespace ps{
                                         sstr << "EV[" << idx << "]";
                                         title.push_back(sstr.str());
                                 }
+                                for(size_t idx=0;idx!=n_;++idx){
+                                        std::stringstream sstr;
+                                        sstr << "CEV[" << idx << "]";
+                                        title.push_back(sstr.str());
+                                }
                                 title.push_back("|.|");
                                 lines_.emplace_back(std::move(title));
                                 lines_.emplace_back(Pretty::LineBreak);
                         }
-                        void operator()(std::vector<std::vector<Eigen::VectorXd> > const&, Eigen::VectorXd const& ev, double norm){
+                        void operator()(std::vector<std::vector<Eigen::VectorXd> > const& S,
+                                        Eigen::VectorXd const& ev,
+                                        Eigen::VectorXd const& ev_counter,
+                                        double norm){
                                 std::vector<std::string> l;
                                 l.push_back(boost::lexical_cast<std::string>(count_++));
                                 for(size_t idx=0;idx!=n_;++idx){
                                         l.push_back(boost::lexical_cast<std::string>(ev[idx]));
                                 }
+                                for(size_t idx=0;idx!=n_;++idx){
+                                        l.push_back(boost::lexical_cast<std::string>(ev_counter[idx]));
+                                }
                                 l.push_back(boost::lexical_cast<std::string>(norm));
+                                size_t zero_or_one = 0;
+                                size_t total = 0;
+                                for(size_t idx=0;idx!=169;++idx){
+                                        double epsilon = 1e-5;
+                                        for(size_t j=0;j!=S.size();++j, ++total){
+                                                if( S[j][0][idx] < epsilon || 1 - S[j][0][idx] < epsilon ){
+                                                        ++zero_or_one;
+                                                }
+                                        }
+                                }
+                                l.push_back(boost::lexical_cast<std::string>(zero_or_one));
+                                l.push_back(boost::lexical_cast<std::string>(total));
+                                l.push_back(boost::lexical_cast<std::string>(S[0][0].lpNorm<Eigen::Infinity>()));
+
                                 lines_.emplace_back(std::move(l));
+                        }
+                        void Display()const{
 
                                 Pretty::RenderOptions opts;
                                 opts.SetAdjustment(1, Pretty::RenderAdjustment_Left);
@@ -1007,118 +1115,49 @@ namespace ps{
                         std::vector<Pretty::LineItem> lines_;
                 };
                 Printer printer{N};
-                obs = printer;
 
-                enum{ MaxIter = 50 };
-                for(size_t n=0;n!=MaxIter;++n){
+                enum{ MaxIter = 1000 };
+
+
+                for(size_t n=1;n!=MaxIter;++n){
                         boost::timer::auto_cpu_timer at;
-                        auto S_counter = S;
-                        auto S_Before = S;
 
+
+                        Eigen::VectorXd ev(N);
+                        ev.fill(0);
+                        AG[root].Evaluate(ev, S);
+
+                        auto S_counter = CounterStrategy(gt, AG, S);
+
+                        Eigen::VectorXd ev_counter(N);
+                        ev_counter.fill(0);
+                        AG[root].Evaluate(ev_counter, S_counter);
+
+                        #if 1
                         double factor = 0.05;
-                        enum{ InnerLoop = 10 };
-                        for(size_t inner=0;inner!=InnerLoop;++inner){
-                                for(auto const& decision : *gt){
-
-                                        auto const& eval = AG[decision.CommonRoot()];
-                                        //auto const& eval = AG[root];
-
-                                        auto sidx = decision.GetIndex();
-                                        auto pidx = decision.GetPlayer();
-
-                                        // assume binary
-                                        auto Sp = S;
-                                        Sp[sidx][0].fill(1);
-                                        Sp[sidx][1].fill(0);
-
-                                        auto Sf = S;
-                                        Sf[sidx][0].fill(0);
-                                        Sf[sidx][1].fill(1);
-
-                                        struct observer : boost::noncopyable{
-                                                enum {Debug = false };
-                                                observer(size_t pidx)
-                                                        :pidx_(pidx)
-                                                {
-                                                        A.resize(169);
-                                                        A.fill(0.0);
-                                                        dbg0.resize(169);
-                                                        dbg0.fill(0.0);
-                                                        dbg1.resize(169);
-                                                        dbg1.fill(0.0);
-                                                        dbg2.resize(169);
-                                                        dbg2.fill(0.0);
-                                                }
-                                                void operator()(holdem_class_vector const& cv, double p, double c, Eigen::VectorXd const& value){
-                                                        A[cv[pidx_]] += p * c * value[pidx_];
-                                                        if( Debug ){
-                                                                dbg0[cv[pidx_]] += p;
-                                                                dbg1[cv[pidx_]] += c;
-                                                                dbg2[cv[pidx_]] += p * c;
-                                                        }
-                                                }
-                                                void decl_section(std::string const& section){}
-                                                void Display(std::string const& title)const{
-
-                                                        if( Debug ){
-                                                                std::cout << "\n\n-------------------- " << title << " -----------------------\n\n";
-                                                                pretty_print_strat(A, 3);
-                                                                std::cout << "A.sum() => " << A.sum() << "\n"; // __CandyPrint__(cxx-print-scalar,A.sum())
-                                                                pretty_print_strat(dbg0, 3);
-                                                                std::cout << "dbg0.sum() => " << dbg0.sum() << "\n"; // __CandyPrint__(cxx-print-scalar,dbg0.sum())
-                                                                pretty_print_strat(dbg1, 3);
-                                                                std::cout << "dbg1.sum() => " << dbg1.sum() << "\n"; // __CandyPrint__(cxx-print-scalar,dbg0.sum())
-                                                                pretty_print_strat(dbg2, 3);
-                                                                std::cout << "dbg2.sum() => " << dbg2.sum() << "\n"; // __CandyPrint__(cxx-print-scalar,dbg0.sum())
-                                                        }
-                                                }
-                                                size_t pidx_;
-                                                Eigen::VectorXd A;
-                                                Eigen::VectorXd dbg0;
-                                                Eigen::VectorXd dbg1;
-                                                Eigen::VectorXd dbg2;
-                                        };
-                                        observer po{pidx};
-                                        observer fo{pidx};
-
-
-                                        eval.Observe(Sp, po);
-                                        eval.Observe(Sf, fo);
-
-                                        po.Display(boost::lexical_cast<std::string>(decision.GetIndex()) + "push");
-                                        fo.Display(boost::lexical_cast<std::string>(decision.GetIndex()) + "fold");
-
-                                        for(size_t idx=0;idx!=169;++idx){
-                                                double x = ( po.A[idx] - 1e-3 > fo.A[idx] ? 1.0 : 0.0 );
-                                                S_counter[sidx][0][idx] = x;
-                                                S_counter[sidx][1][idx] = 1.0 - x;
-                                        }
-                                }
-
-
-                                for(size_t i=0;i!=gt->NumDecisions();++i){
-                                        for(size_t j=0;j!=gt->Depth(i);++j){
-                                                S[i][j] = S[i][j] * ( 1.0 - factor ) + factor * S_counter[i][j];
-                                        }
+                        for(size_t i=0;i!=gt->NumDecisions();++i){
+                                for(size_t j=0;j!=gt->Depth(i);++j){
+                                        S[i][j] = S[i][j] * ( 1.0 - factor ) + factor * S_counter[i][j];
                                 }
                         }
+                        #endif
+                        double norm = ( ev - ev_counter ).lpNorm<Eigen::Infinity>();
+
+                        #if 0
+                        for(size_t i=0;i!=gt->NumDecisions();++i){
+                                for(size_t j=0;j!=gt->Depth(i);++j){
+                                        S[i][j] = S[i][j] * ( 1.0 - 1.0/n ) + 1.0 / n * S_counter[i][j];
+                                }
+                        }
+                        #endif
+
                         ledger.push(S);
-                        
+                        if( n != 2 )
+                                ledger.save_();
 
-                        Eigen::VectorXd R_counter(N);
-                        R_counter.fill(0);
-                        AG[root].Evaluate(R_counter, S_counter);
-
-                        Eigen::VectorXd R_Before(N);
-                        R_Before.fill(0);
-                        AG[root].Evaluate(R_Before, S_Before);
-
-                        double norm = ( R_Before - R_counter ).lpNorm<2>();
                         //factor = norm;
-
-                        if( obs ){
-                                obs(S, R_Before, norm);
-                        }
+                        //
+                        printer(S, ev, ev - ev_counter, norm);
 
                         if( norm < 0.000001 ){
                                 #if 0
@@ -1129,24 +1168,26 @@ namespace ps{
                                 strategy_saver ss(sof);
                                 ss(S);
                                 #endif
+                                printer.Display();
                                 return S;
                         }
 
+                        #if 0
                         std::cout << "vector_to_string(R_Before) => " << vector_to_string(R_Before) << "\n"; // __CandyPrint__(cxx-print-scalar,vector_to_string(ev))
                         std::cout << "norm => " << norm << "\n"; // __CandyPrint__(cxx-print-scalar,norm)
                         for(size_t idx=0;idx!=S.size();++idx){
                                 pretty_print_strat(S[idx][0], 1);
                         }
+                        #endif
 
                 }
+                printer.Display();
                 return boost::none;
-
-
         }
 
         struct Driver{
                 // enable this for debugging
-                enum{ NoPersistent = false };
+                enum{ NoPersistent = true };
                 Driver(){
                         if( ! NoPersistent ){
                                 ss_.try_load_or_default(".ss.bin");
@@ -1172,7 +1213,6 @@ namespace ps{
                                 ledger.try_load_or_default(ledger_key);
                         }
 
-
                         auto sol = Solve(ledger, gt);
 
                         if( sol ){
@@ -1196,7 +1236,7 @@ namespace ps{
                 ScratchCmd(std::vector<std::string> const& args):args_{args}{}
                 virtual int Execute()override{
                         enum { Dp = 2 };
-                        size_t n = 3;
+                        size_t n = 2;
                         double sb = 0.5;
                         double bb = 1.0;
                         #if 0

@@ -191,6 +191,8 @@ namespace ps{
          */
         struct Computer{
 
+                explicit Computer(std::string const& name):name_{name}{}
+
                 struct Atom{
                         holdem_class_vector cv;
                         double constant{1.0};
@@ -200,6 +202,7 @@ namespace ps{
                 // obs( deal, P(deal), P(e|S,deal), Value)
                 template<class Observer>
                 void Observe(StateType const& S, Observer& obs)const noexcept {
+                        obs.decl_section(Name());
                         for(auto const& _ : atoms_){
                                 //double c = _.constant;
                                 double c = 1.0;
@@ -227,7 +230,10 @@ namespace ps{
                 void Emplace(holdem_class_vector const& cv, double constant, std::vector<Index> index, Eigen::VectorXd value){
                         atoms_.emplace_back(Atom{cv, constant, index, value});
                 }
+
+                std::string const& Name()const{ return name_; }
         private:
+                std::string name_;
                 std::vector<Atom> atoms_;
         };
 
@@ -284,6 +290,15 @@ namespace ps{
                         Pretty::RenderTablePretty(std::cout, lines);
                 }
         };
+        inline std::string path_to_string(std::vector<GEdge const*> const& path){
+                std::stringstream pathsstr;
+                pathsstr << path.front()->From()->Name();
+                for(auto p : path){
+                        pathsstr << "," << p->To()->Name();
+                }
+                return pathsstr.str();
+        }
+
         struct StaticEmit : MakerConcept{
                 StaticEmit(std::shared_ptr<Computer> comp, std::vector<GEdge const*> path, std::vector<size_t> const& active, Eigen::VectorXd pot)
                         :comp_{comp},
@@ -323,12 +338,7 @@ namespace ps{
                 }
                 virtual std::vector<std::string> to_string_line()const override{
                         std::vector<std::string> line;
-                        std::stringstream pathsstr;
-                        pathsstr << path_.front()->From()->Name();
-                        for(auto p : path_){
-                                pathsstr << "," << p->To()->Name();
-                        }
-                        line.push_back(pathsstr.str());
+                        line.push_back(path_to_string(path_));
                         if( active_.size() == 1 ){
                                 line.push_back("Static");
                         } else {
@@ -820,6 +830,67 @@ namespace ps{
                 std::string sdesc_;
         };
 
+        struct evaluate_saver{
+                evaluate_saver(std::ostream& ostr):ostr_{&ostr}{
+                        std::stringstream sstr;
+                        sstr <<        quote("section")
+                             << "," << quote("cv")
+                             << "," << quote("p")
+                             << "," << quote("c")
+                             << "," << quote("value");
+                        (*ostr_) << sstr.str() << "\n";
+                }
+                void decl_section(std::string const& section){
+                        section_ = section;
+
+                }
+                void operator()(holdem_class_vector const& cv, double p, double c, Eigen::VectorXd const& value){
+                        std::stringstream sstr;
+                        sstr <<        quote(section_)
+                             << "," << quote(cv)
+                             << "," << quote(p)
+                             << "," << quote(c)
+                             << "," << quote(vector_to_string(value));
+                        (*ostr_) << sstr.str() << "\n";
+                }
+
+        private:
+                template<class T>
+                static std::string quote(T const& _)noexcept{
+                        return "\"" + boost::lexical_cast<std::string>(_)  + "\"";
+                }
+                std::ostream* ostr_;
+                std::string section_;
+        };
+        
+        struct strategy_saver{
+                strategy_saver(std::ostream& ostr):ostr_{&ostr}{
+                        std::stringstream sstr;
+                        sstr <<        quote("path")
+                             << "," << quote("class")
+                             << "," << quote("P");
+                        (*ostr_) << sstr.str() << "\n";
+                }
+                void operator()(std::vector<std::vector<Eigen::VectorXd> > const& S){
+                        for(size_t d=0;d!=S.size();++d){
+                                for(size_t idx=0;idx!=169;++idx){
+                                        std::stringstream sstr;
+                                        sstr <<        quote(d)
+                                             << "," << quote(holdem_class_decl::get(idx))
+                                             << "," << quote(S[d][0][idx]);
+                                        (*ostr_) << sstr.str() << "\n";
+                                }
+                        }
+                }
+
+        private:
+                template<class T>
+                static std::string quote(T const& _)noexcept{
+                        return "\"" + boost::lexical_cast<std::string>(_)  + "\"";
+                }
+                std::ostream* ostr_;
+                std::string section_;
+        };
 
         boost::optional<StateType> Solve(holdem_binary_strategy_ledger_s& ledger, std::shared_ptr<GameTree> gt)
         {
@@ -952,7 +1023,7 @@ namespace ps{
                 for(auto t : root->TerminalNodes() ){
 
                         auto path = t->EdgePath();
-                        auto ptr = std::make_shared<Computer>();
+                        auto ptr = std::make_shared<Computer>(path_to_string(path));
                         AG[t].push_back(ptr);
                         for(auto e : path ){
                                 AG[e->From()].push_back(ptr); 
@@ -1034,9 +1105,8 @@ namespace ps{
                         for(size_t inner=0;inner!=InnerLoop;++inner){
                                 for(auto const& decision : *gt){
 
-                                        auto head = decision.CommonRoot();
-                                        //auto const& eval = AG[head];
-                                        auto const& eval = AG[root];
+                                        auto const& eval = AG[decision.CommonRoot()];
+                                        //auto const& eval = AG[root];
 
                                         auto sidx = decision.GetIndex();
                                         auto pidx = decision.GetPlayer();
@@ -1051,12 +1121,12 @@ namespace ps{
                                         Sf[sidx][1].fill(1);
 
                                         struct observer : boost::noncopyable{
+                                                enum {Debug = false };
                                                 observer(size_t pidx)
                                                         :pidx_(pidx)
                                                 {
                                                         A.resize(169);
                                                         A.fill(0.0);
-                                                        
                                                         dbg0.resize(169);
                                                         dbg0.fill(0.0);
                                                         dbg1.resize(169);
@@ -1066,15 +1136,26 @@ namespace ps{
                                                 }
                                                 void operator()(holdem_class_vector const& cv, double p, double c, Eigen::VectorXd const& value){
                                                         A[cv[pidx_]] += p * c * value[pidx_];
-                                                        dbg0[cv[pidx_]] += p;
-                                                        dbg1[cv[pidx_]] += c;
+                                                        if( Debug ){
+                                                                dbg0[cv[pidx_]] += p;
+                                                                dbg1[cv[pidx_]] += c;
+                                                                dbg2[cv[pidx_]] += p * c;
+                                                        }
                                                 }
+                                                void decl_section(std::string const& section){}
                                                 void Display(std::string const& title)const{
-                                                        std::cout << "------ " << title << " -----------\n";
-                                                        pretty_print_strat(A, 3);
-                                                        pretty_print_strat(dbg0, 3);
-                                                        pretty_print_strat(dbg1, 3);
-                                                        pretty_print_strat(dbg2, 3);
+
+                                                        if( Debug ){
+                                                                std::cout << "\n\n-------------------- " << title << " -----------------------\n\n";
+                                                                pretty_print_strat(A, 3);
+                                                                std::cout << "A.sum() => " << A.sum() << "\n"; // __CandyPrint__(cxx-print-scalar,A.sum())
+                                                                pretty_print_strat(dbg0, 3);
+                                                                std::cout << "dbg0.sum() => " << dbg0.sum() << "\n"; // __CandyPrint__(cxx-print-scalar,dbg0.sum())
+                                                                pretty_print_strat(dbg1, 3);
+                                                                std::cout << "dbg1.sum() => " << dbg1.sum() << "\n"; // __CandyPrint__(cxx-print-scalar,dbg0.sum())
+                                                                pretty_print_strat(dbg2, 3);
+                                                                std::cout << "dbg2.sum() => " << dbg2.sum() << "\n"; // __CandyPrint__(cxx-print-scalar,dbg0.sum())
+                                                        }
                                                 }
                                                 size_t pidx_;
                                                 Eigen::VectorXd A;
@@ -1089,10 +1170,8 @@ namespace ps{
                                         eval.Observe(Sp, po);
                                         eval.Observe(Sf, fo);
 
-                                        if( decision.GetIndex() == 2 ){
-                                                po.Display("rpp");
-                                                fo.Display("rpf");
-                                        }
+                                        po.Display(boost::lexical_cast<std::string>(decision.GetIndex()) + "push");
+                                        fo.Display(boost::lexical_cast<std::string>(decision.GetIndex()) + "fold");
 
                                         for(size_t idx=0;idx!=169;++idx){
                                                 double x = ( po.A[idx] >= fo.A[idx] ? 1.0 : 0.0 );
@@ -1127,7 +1206,15 @@ namespace ps{
                         }
 
                         if( norm < 0.0001 ){
-                                return S_counter;
+                                #if 0
+                                std::ofstream of("eval.csv");
+                                std::ofstream sof("S.csv");
+                                evaluate_saver es(of);
+                                AG[root].Observe(S, es);
+                                strategy_saver ss(sof);
+                                ss(S);
+                                #endif
+                                return S;
                         }
 
                         std::cout << "vector_to_string(R_Before) => " << vector_to_string(R_Before) << "\n"; // __CandyPrint__(cxx-print-scalar,vector_to_string(ev))
@@ -1144,9 +1231,9 @@ namespace ps{
 
         struct Driver{
                 // enable this for debugging
-                enum{ NoSave = true };
+                enum{ NoPersistent = false };
                 Driver(){
-                        if( ! NoSave ){
+                        if( ! NoPersistent ){
                                 ss_.try_load_or_default(".ss.bin");
                         }
                 }
@@ -1157,46 +1244,26 @@ namespace ps{
                 boost::optional<std::vector<std::vector<Eigen::VectorXd> >> FindOrBuildSolution(std::shared_ptr<GameTree> gt){
                         auto key = gt->StringDescription();
 
-                        #if 0
-                        auto iter = ss_.find(key);
-                        if( iter != ss_.end()){
-                                return iter->second.to_eigen_vv();
+                        if( ! NoPersistent ){
+                                auto iter = ss_.find(key);
+                                if( iter != ss_.end()){
+                                        return iter->second.to_eigen_vv();
+                                }
                         }
-                        #endif
 
                         auto ledger_key = ".ledger/" + key;
                         holdem_binary_strategy_ledger_s ledger;
-                        ledger.try_load_or_default(ledger_key);
-                        #if 0
-                        if( ledger.size() ){
-                                ss_.add_solution(key, ledger.back());
-                                ss_.save_();
-                                ledger.save_();
-                                return ledger.back().to_eigen_vv();
+                        if( ! NoPersistent ){
+                                ledger.try_load_or_default(ledger_key);
                         }
-                        #endif
 
 
                         auto sol = Solve(ledger, gt);
 
                         if( sol ){
                                 ss_.add_solution(key, *sol);
-                                #if 0
-                                holdem_binary_strategy_s aux(*sol);
-                                aux.to_eigen_vv();
-                                pretty_print_strat(sol.get()[0][0], 1);
-                                pretty_print_strat(sol.get()[1][0], 1);
-                                auto copy = ss_.find(key)->second.to_eigen_vv();
-                                pretty_print_strat(copy[0][0], 1);
-                                pretty_print_strat(copy[1][0], 1);
-                                ss_.save_();
-                                holdem_binary_solution_set_s ss_copy;
-                                ss_copy.load(".ss.bin");
-                                copy = ss_copy.find(key)->second.to_eigen_vv();
-                                pretty_print_strat(copy[0][0], 1);
-                                pretty_print_strat(copy[1][0], 1);
-                                #endif
                         }
+
                         return sol; // might be nothing
                 }
                 void Display()const{
@@ -1214,7 +1281,7 @@ namespace ps{
                 ScratchCmd(std::vector<std::string> const& args):args_{args}{}
                 virtual int Execute()override{
                         enum { Dp = 2 };
-                        size_t n = 2;
+                        size_t n = 3;
                         double sb = 0.5;
                         double bb = 1.0;
                         #if 0
@@ -1232,11 +1299,11 @@ namespace ps{
                         std::shared_ptr<GameTree> any_gt;
 
 
-                        for(double eff = 10.0;eff - 1e-4 < 10.0; eff += 0.05 ){
+                        for(double eff = 2.0;eff - 1e-4 < 20.0; eff += 1.0 ){
                                 std::cout << "eff => " << eff << "\n"; // __CandyPrint__(cxx-print-scalar,eff)
 
                                 std::shared_ptr<GameTree> gt;
-                                #if 0
+                                #if 1
                                 if( n == 2 ){
                                         gt = std::make_shared<GameTreeTwoPlayer>(sb, bb, eff);
                                 } else {

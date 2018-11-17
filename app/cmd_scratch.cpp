@@ -1009,14 +1009,14 @@ namespace ps{
                 Printer printer{N};
                 obs = printer;
 
-                enum{ MaxIter = 100000 };
+                enum{ MaxIter = 50 };
                 for(size_t n=0;n!=MaxIter;++n){
                         boost::timer::auto_cpu_timer at;
                         auto S_counter = S;
                         auto S_Before = S;
 
-                        double factor = 0.001;
-                        enum{ InnerLoop = 1 };
+                        double factor = 0.05;
+                        enum{ InnerLoop = 10 };
                         for(size_t inner=0;inner!=InnerLoop;++inner){
                                 for(auto const& decision : *gt){
 
@@ -1114,7 +1114,7 @@ namespace ps{
                         AG[root].Evaluate(R_Before, S_Before);
 
                         double norm = ( R_Before - R_counter ).lpNorm<2>();
-                        factor = norm;
+                        //factor = norm;
 
                         if( obs ){
                                 obs(S, R_Before, norm);
@@ -1214,12 +1214,12 @@ namespace ps{
                         std::shared_ptr<GameTree> any_gt;
 
 
-                        //for(double eff = 2.0;eff - 1e-4 < 11.0; eff += 1.0 ){
-                        for(double eff = 11.0;eff - 1e-4 < 11.0; eff += 1.0 ){
+                        for(double eff = 2.0;eff - 1e-4 < 20.0; eff += 1.0 ){
+                        //for(double eff = 11.0;eff - 1e-4 < 11.0; eff += 1.0 ){
                                 std::cout << "eff => " << eff << "\n"; // __CandyPrint__(cxx-print-scalar,eff)
 
                                 std::shared_ptr<GameTree> gt;
-                                #if 0
+                                #if 1
                                 if( n == 2 ){
                                         gt = std::make_shared<GameTreeTwoPlayer>(sb, bb, eff);
                                 } else {

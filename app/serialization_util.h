@@ -19,74 +19,43 @@ namespace ps{
                 holdem_binary_strategy()=default;
                 /* implicit */ holdem_binary_strategy(std::vector<std::vector<Eigen::VectorXd> > const& state)
                 {
+                        std::vector<Eigen::VectorXd const*> flat_view;
                         for(auto const& d : state){
-                                std::vector<std::vector<double> > y;
+                                dims_.push_back(d.size());
                                 for(auto const& c : d){
-                                        std::vector<double> z(c.size());
-                                        for(size_t idx=0;idx!=c.size();++idx){
-                                                z[idx] = c[idx];
+                                        std::vector<double> v;
+                                        for(size_t k=0;k!=169;++k){
+                                                v[k] = c[k];
                                         }
-                                        y.push_back(z);
+                                        state_.push_back( v );
                                 }
-                                state_.push_back(y);
                         }
-
-                        std::cerr << "state_[0].size() => " << state_[0].size() << "\n"; // __CandyPrint__(cxx-print-scalar,state_[0].size())
-                        std::cerr << "state_[0][0].size() => " << state_[0][0].size() << "\n"; // __CandyPrint__(cxx-print-scalar,state_[0][0].size())
-                        std::cerr << "state_[0][1].size() => " << state_[0][1].size() << "\n"; // __CandyPrint__(cxx-print-scalar,state_[0][1].size())
-                        std::cerr << "state_[1].size() => " << state_[1].size() << "\n"; // __CandyPrint__(cxx-print-scalar,state_[1].size())
-                        std::cerr << "state_[1][0].size() => " << state_[1][0].size() << "\n"; // __CandyPrint__(cxx-print-scalar,state_[1][0].size())
-                        std::cerr << "state_[1][1].size() => " << state_[1][1].size() << "\n"; // __CandyPrint__(cxx-print-scalar,state_[1][1].size())
                 }
                 std::vector<std::vector<Eigen::VectorXd> > to_eigen()const{
-                        std::cerr << "state_[0].size() => " << state_[0].size() << "\n"; // __CandyPrint__(cxx-print-scalar,state_[0].size())
-                        std::cerr << "state_[0][0].size() => " << state_[0][0].size() << "\n"; // __CandyPrint__(cxx-print-scalar,state_[0][0].size())
-                        std::cerr << "state_[0][1].size() => " << state_[0][1].size() << "\n"; // __CandyPrint__(cxx-print-scalar,state_[0][1].size())
-                        std::cerr << "state_[1].size() => " << state_[1].size() << "\n"; // __CandyPrint__(cxx-print-scalar,state_[1].size())
-                        std::cerr << "state_[1][0].size() => " << state_[1][0].size() << "\n"; // __CandyPrint__(cxx-print-scalar,state_[1][0].size())
-                        std::cerr << "state_[1][1].size() => " << state_[1][1].size() << "\n"; // __CandyPrint__(cxx-print-scalar,state_[1][1].size())
-                        std::vector<std::vector<Eigen::VectorXd> > x;
-                        fprintf(stderr, "A\n"); // __CandyTag__ 
-                        for(auto const& d : state_){
-                                fprintf(stderr, "B\n"); // __CandyTag__ 
-                                std::vector<Eigen::VectorXd> y;
-                                fprintf(stderr, "C\n"); // __CandyTag__ 
-                                for(auto const& c : d){
-                                        fprintf(stderr, "D\n"); // __CandyTag__ 
-                                        //Eigen::VectorXd z(c.size());
-                                        //fprintf(stderr, "E\n"); // __CandyTag__ 
-                                        y.emplace_back();
-                                        fprintf(stderr, "F\n"); // __CandyTag__ 
-                                        y.back().resize(c.size());
-                                        fprintf(stderr, "G\n"); // __CandyTag__ 
-                                        for(size_t idx=0;idx!=c.size();++idx){
-                                                fprintf(stderr, "H\n"); // __CandyTag__ 
-                                                y.back()[idx] = c[idx];
-                                                fprintf(stderr, "I\n"); // __CandyTag__ 
+                        std::vector<std::vector<Eigen::VectorXd> > tmp(dims_.size());
+                        size_t state_index = 0;
+                        for(size_t idx=0;idx!=dims_.size();++idx){
+                                tmp[idx].resize(dims_[idx]);
+                                for(size_t j =0;j != dims_[idx];++j ){
+                                        tmp[idx][j].resize(169);
+                                        for(size_t k=0;k!=169;++k){
+                                                tmp[idx][j][k] = state_[state_index][k];
                                         }
-                                        fprintf(stderr, "J\n"); // __CandyTag__ 
+                                        ++state_index;
                                 }
-                                fprintf(stderr, "K\n"); // __CandyTag__ 
-                                x.push_back(y);
-                                fprintf(stderr, "L\n"); // __CandyTag__ 
                         }
-                        fprintf(stderr, "M\n"); // __CandyTag__ 
-                        std::cerr << "x[0].size() => " << x[0].size() << "\n"; // __CandyPrint__(cxx-print-scalar,x[0].size())
-                        std::cerr << "x[0][0].size() => " << x[0][0].size() << "\n"; // __CandyPrint__(cxx-print-scalar,x[0][0].size())
-                        std::cerr << "x[0][1].size() => " << x[0][1].size() << "\n"; // __CandyPrint__(cxx-print-scalar,x[0][1].size())
-                        std::cerr << "x[1].size() => " << x[1].size() << "\n"; // __CandyPrint__(cxx-print-scalar,x[1].size())
-                        std::cerr << "x[1][0].size() => " << x[1][0].size() << "\n"; // __CandyPrint__(cxx-print-scalar,x[1][0].size())
-                        std::cerr << "x[1][1].size() => " << x[1][1].size() << "\n"; // __CandyPrint__(cxx-print-scalar,x[1][1].size())
-                        return x;
+                        return tmp;
                 }
         private:
                 friend class boost::serialization::access;
                 template<class Archive>
                 void serialize(Archive & ar, const unsigned int version){
+                        ar & dims_;
                         ar & state_;
                 }
         private:
-                std::vector< std::vector< std::vector<double> > > state_;
+                std::vector<size_t> dims_;
+                std::vector< std::vector<double> > state_;
         };
 
         template<class ImplType>

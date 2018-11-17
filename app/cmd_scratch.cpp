@@ -197,14 +197,16 @@ namespace ps{
                         std::vector<Index> index;
                         Eigen::VectorXd value;
                 };
+                // obs( deal, P(deal), P(e|S,deal), Value)
                 template<class Observer>
                 void Observe(StateType const& S, Observer& obs)const noexcept {
                         for(auto const& _ : atoms_){
-                                double c = _.constant;
+                                //double c = _.constant;
+                                double c = 1.0;
                                 for(auto const& idx : _.index){
                                         c *= S[idx.s][idx.choice][idx.id];
                                 }
-                                obs(_.cv, c, _.value);
+                                obs(_.cv, _.constant, c, _.value);
                         }
                 }
                 template<class Filter>
@@ -749,7 +751,6 @@ namespace ps{
                         P[pp]   = 2;
                         P[pf]   = 2;
                         P[fp]   = 2;
-                        //P[ff]   = 2;
                 }
                 virtual void ColorOperators(GraphColouring<PushFoldOperator>& ops)const override{
                         ops[e_0_p] = Push{0};
@@ -976,7 +977,6 @@ namespace ps{
                 IndexMaker im(*gt);
                         
                 MakerConcept::Display(maker_dev);
-                std::exit(0);
 
                 auto nv = [&](double prob, holdem_class_vector const& cv){
                         for(auto& m : maker_dev ){
@@ -1035,7 +1035,8 @@ namespace ps{
                                 for(auto const& decision : *gt){
 
                                         auto head = decision.CommonRoot();
-                                        auto const& eval = AG[head];
+                                        //auto const& eval = AG[head];
+                                        auto const& eval = AG[root];
 
                                         auto sidx = decision.GetIndex();
                                         auto pidx = decision.GetPlayer();
@@ -1053,13 +1054,33 @@ namespace ps{
                                                 observer(size_t pidx)
                                                         :pidx_(pidx)
                                                 {
+                                                        A.resize(169);
                                                         A.fill(0.0);
+                                                        
+                                                        dbg0.resize(169);
+                                                        dbg0.fill(0.0);
+                                                        dbg1.resize(169);
+                                                        dbg1.fill(0.0);
+                                                        dbg2.resize(169);
+                                                        dbg2.fill(0.0);
                                                 }
-                                                void operator()(holdem_class_vector const& cv, double c, Eigen::VectorXd const& value){
-                                                        A[cv[pidx_]] += c * value[pidx_];
+                                                void operator()(holdem_class_vector const& cv, double p, double c, Eigen::VectorXd const& value){
+                                                        A[cv[pidx_]] += p * c * value[pidx_];
+                                                        dbg0[cv[pidx_]] += p;
+                                                        dbg1[cv[pidx_]] += c;
+                                                }
+                                                void Display(std::string const& title)const{
+                                                        std::cout << "------ " << title << " -----------\n";
+                                                        pretty_print_strat(A, 3);
+                                                        pretty_print_strat(dbg0, 3);
+                                                        pretty_print_strat(dbg1, 3);
+                                                        pretty_print_strat(dbg2, 3);
                                                 }
                                                 size_t pidx_;
-                                                std::array<double, 169> A;
+                                                Eigen::VectorXd A;
+                                                Eigen::VectorXd dbg0;
+                                                Eigen::VectorXd dbg1;
+                                                Eigen::VectorXd dbg2;
                                         };
                                         observer po{pidx};
                                         observer fo{pidx};
@@ -1067,6 +1088,12 @@ namespace ps{
 
                                         eval.Observe(Sp, po);
                                         eval.Observe(Sf, fo);
+
+                                        if( decision.GetIndex() == 2 ){
+                                                po.Display("rpp");
+                                                fo.Display("rpf");
+                                        }
+
                                         for(size_t idx=0;idx!=169;++idx){
                                                 double x = ( po.A[idx] >= fo.A[idx] ? 1.0 : 0.0 );
                                                 S_counter[sidx][0][idx] = x;
@@ -1117,7 +1144,7 @@ namespace ps{
 
         struct Driver{
                 // enable this for debugging
-                enum{ NoSave = true }';
+                enum{ NoSave = true };
                 Driver(){
                         if( ! NoSave ){
                                 ss_.try_load_or_default(".ss.bin");

@@ -407,82 +407,85 @@ namespace ps{
         using PushFoldOperator = std::function<void(PushFoldState&)>;
 
         struct GameTree{
+                /*
+                 * We need to color each non-terminal node which which player's
+                 * turn it is
+                 */
                 virtual void ColorPlayers(GraphColouring<size_t>& P)const=0;
+                /*
+                 * We color each node with an operator, this is how we figure 
+                 * out what state we will be in for the terminal
+                 */
                 virtual void ColorOperators(GraphColouring<PushFoldOperator>& ops)const=0;
+                /*
+                 * We create the inital state of the game, this is used 
+                 * for evaulting terminal nodes
+                 */
+                virtual PushFoldState InitialState()const=0;
+                virtual GNode* Root()=0;
+                virtual size_t NumPlayers()const=0;
         };
-        struct GameTreeTwoPlayer{
-                GameTreeTwoPlayer(){
+        struct GameTreeTwoPlayer : GameTree{
+                GameTreeTwoPlayer(double sb, double bb, double eff){
+                        // <0>
+                        root = G.Node("*");
+                                // <1>
+                                p = G.Node("p");
+                                        pp = G.Node("pp");
+                                        pf = G.Node("pf");
+                                f = G.Node("f");
+
+                        // decision <0>
+                        e_0_p = G.Edge(root, p);
+                        e_0_f = G.Edge(root, f);
+
+                        // decision <1>
+                        e_1_p = G.Edge(p, pp);
+                        e_1_f = G.Edge(p, pf);
+                
+                        state0.Active.insert(0);
+                        state0.Active.insert(1);
+                        state0.Pot.resize(2);
+                        state0.Pot[0] = sb;
+                        state0.Pot[1] = bb;
+                        state0.Stacks.resize(2);
+                        state0.Stacks[0] = eff - sb;
+                        state0.Stacks[1] = eff - bb;
                 }
                 virtual void ColorPlayers(GraphColouring<size_t>& P)const override{
+                        P[root] = 0;
+                        P[p]    = 1;
                 }
                 virtual void ColorOperators(GraphColouring<PushFoldOperator>& ops)const override{
+                        ops[e_0_p] = Push{0};
+                        ops[e_0_f] = Fold{0};
+                        ops[e_1_p] = Push{1};
+                        ops[e_1_f] = Fold{1};
                 }
+                virtual PushFoldState InitialState()const override{
+                        return state0;
+                }
+                virtual GNode* Root()override{ return root; }
+                virtual size_t NumPlayers()const override{ return 2; }
         private:
                 Graph G;
+                GNode* root;
+                GNode* p;
+                GNode* pp;
+                GNode* pf;
+                GNode* f;
+                GEdge* e_0_p;
+                GEdge* e_0_f;
+                GEdge* e_1_p;
+                GEdge* e_1_f;
+                PushFoldState state0;
         };
 
         boost::optional<StateType> Solve(holdem_binary_strategy_ledger_s& ledger, size_t n, double sb, double bb, double eff){
                 std::cout << "Solve\n"; // __CandyPrint__(cxx-print-scalar,Solve)
 
 
-                #if 1
-                auto G = std::make_shared<Graph>();
-                
-                // <0>
-                auto root = G->Node("*");
-                        // <1>
-                        auto p = G->Node("p");
-                                auto pp = G->Node("pp");
-                                auto pf = G->Node("pf");
-                        auto f = G->Node("f");
-
-
-
-                // decision <0>
-                auto e_0_p = G->Edge(root, p);
-                auto e_0_f = G->Edge(root, f);
-
-                // decision <1>
-                auto e_1_p = G->Edge(p, pp);
-                auto e_1_f = G->Edge(p, pf);
-                
-                /*
-                 * We need to color each non-terminal node which which player's
-                 * turn it is
-                 */
-                GraphColouring<size_t> P;
-                P[root] = 0;
-                P[p]    = 1;
-                
-                /*
-                 * We color each node with an operator, this is how we figure 
-                 * out what state we will be in for the terminal
-                 */
-                GraphColouring<PushFoldOperator> ops;
-                ops[e_0_p] = Push{0};
-                ops[e_0_f] = Fold{0};
-                ops[e_1_p] = Push{1};
-                ops[e_1_f] = Fold{1};
-
-
-                size_t N = 2;
-
-                /*
-                 * We create the inital state of the game, this is used 
-                 * for evaulting terminal nodes
-                 */
-                PushFoldState state0;
-                state0.Active.insert(0);
-                state0.Active.insert(1);
-                state0.Pot.resize(2);
-                state0.Pot[0] = sb;
-                state0.Pot[1] = bb;
-                state0.Stacks.resize(2);
-                state0.Stacks[0] = eff - sb;
-                state0.Stacks[1] = eff - bb;
-
-
-                #else
+                #if 0
 
 
                 auto G = std::make_shared<Graph>();
@@ -591,6 +594,14 @@ namespace ps{
 
                 #endif
 
+                auto gt = std::make_shared<GameTreeTwoPlayer>(sb, bb, eff);
+                auto root = gt->Root();
+                auto N = gt->NumPlayers();
+                GraphColouring<size_t> P;
+                gt->ColorPlayers(P);
+                GraphColouring<PushFoldOperator> ops;
+                gt->ColorOperators(ops);
+                auto state0 = gt->InitialState();
 
                 /*
                  * We not iterate over the graph, and for each non-terminal node

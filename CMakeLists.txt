@@ -66,7 +66,7 @@ set(
         app/driver.cpp
         #app/cmd_heads_up_solver.cpp
         app/cmd_flopzilla.cpp
-        app/cmd_solver.cpp
+        #app/cmd_solver.cpp
         app/cmd_scratch.cpp
 )
 

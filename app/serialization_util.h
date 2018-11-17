@@ -15,34 +15,45 @@
 
 namespace ps{
         // basically a wrapper class
-        struct holdem_binary_strategy{
-                holdem_binary_strategy()=default;
-                /* implicit */ holdem_binary_strategy(std::vector<std::vector<Eigen::VectorXd> > const& state)
-                {
-                        std::vector<Eigen::VectorXd const*> flat_view;
-                        for(auto const& d : state){
-                                dims_.push_back(d.size());
-                                for(auto const& c : d){
-                                        std::vector<double> v;
-                                        for(size_t k=0;k!=169;++k){
-                                                v[k] = c[k];
-                                        }
-                                        state_.push_back( v );
+        struct holdem_binary_strategy_s{
+                holdem_binary_strategy_s()=default;
+                /* implicit */ holdem_binary_strategy_s(std::vector<Eigen::VectorXd> const& state){
+                        for(auto const& vec : state){
+                                state_.emplace_back();
+                                state_.back().resize(vec.size());
+                                for(size_t idx=0;idx!=vec.size();++idx){
+                                        state_.back()[idx] = vec[idx];
                                 }
                         }
                 }
-                std::vector<std::vector<Eigen::VectorXd> > to_eigen()const{
-                        std::vector<std::vector<Eigen::VectorXd> > tmp(dims_.size());
-                        size_t state_index = 0;
-                        for(size_t idx=0;idx!=dims_.size();++idx){
-                                tmp[idx].resize(dims_[idx]);
-                                for(size_t j =0;j != dims_[idx];++j ){
-                                        tmp[idx][j].resize(169);
-                                        for(size_t k=0;k!=169;++k){
-                                                tmp[idx][j][k] = state_[state_index][k];
-                                        }
-                                        ++state_index;
+                /* implicit */ holdem_binary_strategy_s(std::vector<std::vector<Eigen::VectorXd> > const& state){
+                        for(auto const& q : state){
+                                auto const& vec = q[0];
+                                state_.emplace_back();
+                                state_.back().resize(vec.size());
+                                for(size_t idx=0;idx!=vec.size();++idx){
+                                        state_.back()[idx] = vec[idx];
                                 }
+                        }
+                }
+                std::vector<Eigen::VectorXd> to_eigen()const{
+                        std::vector<Eigen::VectorXd> tmp;
+                        for(auto const& v : state_){
+                                Eigen::VectorXd ev(v.size());
+                                for(size_t idx=0;idx!=v.size();++idx){
+                                        ev[idx] = v[idx];
+                                }
+                                tmp.push_back(std::move(ev));
+                        }
+                        return tmp;
+                }
+                std::vector<std::vector<Eigen::VectorXd> > to_eigen_vv()const{
+                        auto v = to_eigen();
+                        std::vector<std::vector<Eigen::VectorXd> > tmp;
+                        for(auto const& _ : v){
+                                tmp.emplace_back(2);
+                                tmp.back()[0] = _;
+                                tmp.back()[1] = Eigen::VectorXd::Ones(169) - _;
                         }
                         return tmp;
                 }
@@ -50,16 +61,14 @@ namespace ps{
                 friend class boost::serialization::access;
                 template<class Archive>
                 void serialize(Archive & ar, const unsigned int version){
-                        ar & dims_;
                         ar & state_;
                 }
         private:
-                std::vector<size_t> dims_;
                 std::vector< std::vector<double> > state_;
         };
 
         template<class ImplType>
-        struct serialization_base{
+        struct serialization_base_s{
                 void load(std::string const& path){
                         std::lock_guard<std::mutex> lock(mtx_);
                         using archive_type = boost::archive::text_iarchive;
@@ -104,8 +113,8 @@ namespace ps{
                 std::string path_;
         };
 
-        struct holdem_binary_strategy_ledger : serialization_base<holdem_binary_strategy_ledger>{
-                void push(holdem_binary_strategy s){
+        struct holdem_binary_strategy_ledger_s : serialization_base_s<holdem_binary_strategy_ledger_s>{
+                void push(holdem_binary_strategy_s s){
                         ledger_.emplace_back(std::move(s));
                 }
                 size_t size()const{ return ledger_.size(); }
@@ -117,11 +126,11 @@ namespace ps{
                         ar & ledger_;
                 }
         private:
-                std::vector<holdem_binary_strategy> ledger_;
+                std::vector<holdem_binary_strategy_s> ledger_;
         };
 
-        struct holdem_binary_solution_set : serialization_base<holdem_binary_solution_set>{
-                void add_solution(std::string const& key, holdem_binary_strategy solution){
+        struct holdem_binary_solution_set_s : serialization_base_s<holdem_binary_solution_set_s>{
+                void add_solution(std::string const& key, holdem_binary_strategy_s solution){
                         std::lock_guard<std::mutex> lock(mtx_);
                         solutions_.emplace(key, std::move(solution));
                 }
@@ -139,7 +148,7 @@ namespace ps{
                 std::mutex mtx_;
                 // in our scope we can represent everyting in a string, ie
                 // we might want to encode the sb:bb:eff:stragery etc here
-                std::map<std::string, holdem_binary_strategy> solutions_;
+                std::map<std::string, holdem_binary_strategy_s> solutions_;
         };
 
 } // end namespace ps

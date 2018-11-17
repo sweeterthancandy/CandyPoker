@@ -406,7 +406,8 @@ namespace ps{
         };
         using PushFoldOperator = std::function<void(PushFoldState&)>;
 
-        boost::optional<StateType> Solve(holdem_binary_strategy_ledger& ledger, size_t n, double sb, double bb, double eff){
+        boost::optional<StateType> Solve(holdem_binary_strategy_ledger_s& ledger, size_t n, double sb, double bb, double eff){
+                std::cout << "Solve\n"; // __CandyPrint__(cxx-print-scalar,Solve)
 
 
                 #if 1
@@ -666,7 +667,7 @@ namespace ps{
 
                 decltype(strat->MakeDefaultState()) S0;
                 if( ledger.size()){
-                        S0 = ledger.back().to_eigen();
+                        S0 = ledger.back().to_eigen_vv();
                 } else {
                         S0 = strat->MakeDefaultState();
                 }
@@ -676,77 +677,79 @@ namespace ps{
                         boost::timer::auto_cpu_timer at;
                         auto counter = S;
 
-                        for(auto const& decision : *strat){
+                        enum{ InnerLoop = 3 };
+                        for(size_t inner=0;inner!=InnerLoop;++inner){
+                                for(auto const& decision : *strat){
 
-                                auto head = decision.CommonRoot();
-                                auto const& eval = AG[head];
+                                        auto head = decision.CommonRoot();
+                                        auto const& eval = AG[head];
 
-                                auto sidx = decision.GetIndex();
-                                auto pidx = decision.GetPlayer();
+                                        auto sidx = decision.GetIndex();
+                                        auto pidx = decision.GetPlayer();
 
-                                // assume binary
-                                auto Sp = S;
-                                Sp[sidx][0].fill(1);
-                                Sp[sidx][1].fill(0);
+                                        // assume binary
+                                        auto Sp = S;
+                                        Sp[sidx][0].fill(1);
+                                        Sp[sidx][1].fill(0);
 
-                                auto Sf = S;
-                                Sf[sidx][0].fill(0);
-                                Sf[sidx][1].fill(1);
+                                        auto Sf = S;
+                                        Sf[sidx][0].fill(0);
+                                        Sf[sidx][1].fill(1);
 
-                                struct observer : boost::noncopyable{
-                                        observer(size_t pidx)
-                                                :pidx_(pidx)
-                                        {
-                                                A.fill(0.0);
+                                        struct observer : boost::noncopyable{
+                                                observer(size_t pidx)
+                                                        :pidx_(pidx)
+                                                {
+                                                        A.fill(0.0);
+                                                }
+                                                void operator()(holdem_class_vector const& cv, double c, Eigen::VectorXd const& value){
+                                                        A[cv[pidx_]] += c * value[pidx_];
+                                                }
+                                                size_t pidx_;
+                                                std::array<double, 169> A;
+                                        };
+                                        observer po{pidx};
+                                        observer fo{pidx};
+
+
+                                        eval.Observe(Sp, po);
+                                        eval.Observe(Sf, fo);
+                                        for(size_t idx=0;idx!=169;++idx){
+                                                double x = ( po.A[idx] >= fo.A[idx] ? 1.0 : 0.0 );
+                                                counter[sidx][0][idx] = x;
+                                                counter[sidx][1][idx] = 1.0 - x;
                                         }
-                                        void operator()(holdem_class_vector const& cv, double c, Eigen::VectorXd const& value){
-                                                A[cv[pidx_]] += c * value[pidx_];
+                                }
+
+
+                                double factor = 0.05;
+                                for(size_t i=0;i!=strat->NumDecisions();++i){
+                                        for(size_t j=0;j!=strat->Depth(i);++j){
+                                                S[i][j] = S[i][j] * ( 1.0 - factor ) + factor * counter[i][j];
                                         }
-                                        size_t pidx_;
-                                        std::array<double, 169> A;
-                                };
-                                observer po{pidx};
-                                observer fo{pidx};
-
-
-                                eval.Observe(Sp, po);
-                                eval.Observe(Sf, fo);
-                                for(size_t idx=0;idx!=169;++idx){
-                                        double x = ( po.A[idx] >= fo.A[idx] ? 1.0 : 0.0 );
-                                        counter[sidx][0][idx] = x;
-                                        counter[sidx][1][idx] = 1.0 - x;
                                 }
                         }
-
-
-                        double factor = 0.05;
-                        for(size_t i=0;i!=strat->NumDecisions();++i){
-                                for(size_t j=0;j!=strat->Depth(i);++j){
-                                        S[i][j] = S[i][j] * ( 1.0 - factor ) + factor * counter[i][j];
-                                }
-                        }
+                        ledger.push(S);
                         
 
-                        if( n % 3 ){
-                                Eigen::VectorXd R_counter(N);
-                                R_counter.fill(0);
-                                AG[root].Evaluate(R_counter, counter);
-                                
-                                Eigen::VectorXd R(N);
-                                R.fill(0);
-                                AG[root].Evaluate(R, S);
+                        Eigen::VectorXd R_counter(N);
+                        R_counter.fill(0);
+                        AG[root].Evaluate(R_counter, counter);
 
-                                double norm = ( R - R_counter ).lpNorm<2>();
-                                
-                                if( norm < 0.0001 ){
-                                        return counter;
-                                }
-                                
-                                std::cout << "vector_to_string(R) => " << vector_to_string(R) << "\n"; // __CandyPrint__(cxx-print-scalar,vector_to_string(ev))
-                                std::cout << "norm => " << norm << "\n"; // __CandyPrint__(cxx-print-scalar,norm)
-                                for(size_t idx=0;idx!=S.size();++idx){
-                                        pretty_print_strat(S[idx][0], 1);
-                                }
+                        Eigen::VectorXd R(N);
+                        R.fill(0);
+                        AG[root].Evaluate(R, S);
+
+                        double norm = ( R - R_counter ).lpNorm<2>();
+
+                        if( norm < 0.0001 ){
+                                return counter;
+                        }
+
+                        std::cout << "vector_to_string(R) => " << vector_to_string(R) << "\n"; // __CandyPrint__(cxx-print-scalar,vector_to_string(ev))
+                        std::cout << "norm => " << norm << "\n"; // __CandyPrint__(cxx-print-scalar,norm)
+                        for(size_t idx=0;idx!=S.size();++idx){
+                                pretty_print_strat(S[idx][0], 1);
                         }
 
                 }
@@ -762,42 +765,57 @@ namespace ps{
                 ~Driver(){
                         ss_.save_();
                 }
-                std::vector<std::vector<Eigen::VectorXd> > FindOrBuildSolution(size_t n, double sb, double bb, double eff){
+                boost::optional<std::vector<std::vector<Eigen::VectorXd> >> FindOrBuildSolution(size_t n, double sb, double bb, double eff){
                         std::stringstream sstr;
                         sstr << n << ":" << sb << ":" << bb << ":" << eff;
                         auto key = sstr.str();
+                        #if 1
                         auto iter = ss_.find(key);
                         if( iter != ss_.end()){
-                                return iter->second.to_eigen();
+                                return iter->second.to_eigen_vv();
                         }
+                        #endif
 
                         auto ledger_key = ".ledger/" + key;
-                        holdem_binary_strategy_ledger ledger;
+                        holdem_binary_strategy_ledger_s ledger;
                         ledger.try_load_or_default(ledger_key);
+                        #if 0
+                        if( ledger.size() ){
+                                ss_.add_solution(key, ledger.back());
+                                ss_.save_();
+                                ledger.save_();
+                                return ledger.back().to_eigen_vv();
+                        }
+                        #endif
                         auto sol = Solve(ledger, n, sb, bb, eff);
-                        ledger.save_();
 
                         if( sol ){
-                                holdem_binary_strategy aux(*sol);
-                                aux.to_eigen();
                                 ss_.add_solution(key, *sol);
+                                #if 0
+                                holdem_binary_strategy_s aux(*sol);
+                                aux.to_eigen_vv();
                                 pretty_print_strat(sol.get()[0][0], 1);
                                 pretty_print_strat(sol.get()[1][0], 1);
-                                auto copy = ss_.find(key)->second.to_eigen();
+                                auto copy = ss_.find(key)->second.to_eigen_vv();
                                 pretty_print_strat(copy[0][0], 1);
                                 pretty_print_strat(copy[1][0], 1);
                                 ss_.save_();
-                                holdem_binary_solution_set ss_copy;
+                                holdem_binary_solution_set_s ss_copy;
                                 ss_copy.load(".ss.bin");
-                                copy = ss_copy.find(key)->second.to_eigen();
+                                copy = ss_copy.find(key)->second.to_eigen_vv();
                                 pretty_print_strat(copy[0][0], 1);
                                 pretty_print_strat(copy[1][0], 1);
-                                return *sol;
+                                #endif
                         }
-                        return {};
+                        return sol; // might be nothing
+                }
+                void Display()const{
+                        for(auto const& _ : ss_){
+                                std::cout << "_.first => " << _.first << "\n"; // __CandyPrint__(cxx-print-scalar,_.first)
+                        }
                 }
         private:
-                holdem_binary_solution_set ss_;
+                holdem_binary_solution_set_s ss_;
         };
         
         struct ScratchCmd : Command{
@@ -807,21 +825,25 @@ namespace ps{
                 virtual int Execute()override{
                         double sb = 0.5;
                         double bb = 1.0;
+                        #if 0
                         Driver dvr;
                         auto S = dvr.FindOrBuildSolution(2, sb, bb, 10.0 );
                         pretty_print_strat(S[0][0], 1);
                         pretty_print_strat(S[1][0], 1);
-                        #if 0
+                        #endif
+                        #if 1
+                        Driver dvr;
+                        dvr.Display();
                         std::vector<Eigen::VectorXd> S(2);
                         S[0].resize(169);
                         S[0].fill(0);
                         S[1].resize(169);
                         S[1].fill(0);
 
-                        holdem_
 
-                        for(double eff = 10.0;eff != 20.0; eff += 1.0 ){
-                                auto opt = Solve(sb, bb, eff);
+                        for(double eff = 2.0;eff - 1e-4 < 25.0; eff += 0.05 ){
+                                std::cout << "eff => " << eff << "\n"; // __CandyPrint__(cxx-print-scalar,eff)
+                                auto opt = dvr.FindOrBuildSolution(2, sb, bb, eff );
                                 if( opt ){
                                         for(size_t j=0;j!=2;++j){
                                                 for(size_t idx=0;idx!=169;++idx){
@@ -832,8 +854,8 @@ namespace ps{
                                         }
                                 }
                         }
-                        pretty_print_strat(S[0], 1);
-                        pretty_print_strat(S[1], 1);
+                        pretty_print_strat(S[0], 2);
+                        pretty_print_strat(S[1], 2);
                         #endif
                         #if 0
                         auto opt = Solve(sb, bb, 10.0);

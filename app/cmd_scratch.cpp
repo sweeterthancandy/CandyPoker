@@ -374,6 +374,8 @@ namespace ps{
                 virtual GNode* Root()=0;
                 virtual size_t NumPlayers()const=0;
 
+                virtual std::string StringDescription()const=0;
+
                 /*
                  * We have this because we need to visit every permutation of the form
                  *                  ( (P(cv_0),cv_0), (P(cv_1),cv_1), ... )
@@ -490,10 +492,15 @@ namespace ps{
                         state0.Stacks.resize(2);
                         state0.Stacks[0] = eff - sb;
                         state0.Stacks[1] = eff - bb;
+
+                        std::stringstream sstr;
+                        sstr << "GameTreeTwoPlayer:" << sb << ":" << bb << ":" << eff;
+                        sdesc_ = sstr.str();
                         
                         BuildStrategy();
 
                 }
+                virtual std::string StringDescription()const override{ return sdesc_; }
                 virtual void ColorPlayers(GraphColouring<size_t>& P)const override{
                         P[root] = 0;
                         P[p]    = 1;
@@ -529,6 +536,7 @@ namespace ps{
                 GEdge* e_1_p;
                 GEdge* e_1_f;
                 PushFoldState state0;
+                std::string sdesc_;
         };
         
         
@@ -589,9 +597,14 @@ namespace ps{
                         state0.Stacks[0] = eff;
                         state0.Stacks[1] = eff - sb;
                         state0.Stacks[2] = eff - bb;
+
+                        std::stringstream sstr;
+                        sstr << "GameTreeThreePlayer:" << sb << ":" << bb << ":" << eff;
+                        sdesc_ = sstr.str();
                         
                         BuildStrategy();
                 }
+                virtual std::string StringDescription()const override{ return sdesc_; }
                 virtual void ColorPlayers(GraphColouring<size_t>& P)const override{
                         P[root] = 0;
                         P[p]    = 1;
@@ -658,6 +671,7 @@ namespace ps{
                 GEdge* e_4_f;
                 GEdge* e_5_p;
                 GEdge* e_5_f;
+                std::string sdesc_;
         };
 
 

@@ -673,9 +673,36 @@ namespace ps{
                 }
 
                 auto S = S0;
+
+                std::function<void(std::vector<std::vector<Eigen::VectorXd> > const&, Eigen::VectorXd const&, double norm)> obs;
+                struct Printer{
+                        Printer(size_t n):n_{n}{
+                                if(  n ==  2){
+                                        lines_.emplace_back( std::vector<std::string>{"EV[0]", "EV[1]", "|.|"});
+                                        lines_.emplace_back(Pretty::LineBreak);
+                                }
+                        }
+                        void operator()(std::vector<std::vector<Eigen::VectorXd> > const&, Eigen::VectorXd const& ev, double norm){
+                                lines_.emplace_back(
+                                        std::vector<std::string>{
+                                                    boost::lexical_cast<std::string>(ev[0]),
+                                                    boost::lexical_cast<std::string>(ev[1]),
+                                                    boost::lexical_cast<std::string>(norm)
+                                        }
+                                );
+                                Pretty::RenderTablePretty(std::cout, lines_);
+                        }
+                private:
+                        size_t n_;
+                        std::vector<Pretty::LineItem> lines_;
+                };
+                Printer printer{N};
+                obs = printer;
+
                 for(size_t n=0;n!=200;++n){
                         boost::timer::auto_cpu_timer at;
-                        auto counter = S;
+                        auto S_counter = S;
+                        auto S_Before = S;
 
                         enum{ InnerLoop = 3 };
                         for(size_t inner=0;inner!=InnerLoop;++inner){
@@ -716,8 +743,8 @@ namespace ps{
                                         eval.Observe(Sf, fo);
                                         for(size_t idx=0;idx!=169;++idx){
                                                 double x = ( po.A[idx] >= fo.A[idx] ? 1.0 : 0.0 );
-                                                counter[sidx][0][idx] = x;
-                                                counter[sidx][1][idx] = 1.0 - x;
+                                                S_counter[sidx][0][idx] = x;
+                                                S_counter[sidx][1][idx] = 1.0 - x;
                                         }
                                 }
 
@@ -725,7 +752,7 @@ namespace ps{
                                 double factor = 0.05;
                                 for(size_t i=0;i!=strat->NumDecisions();++i){
                                         for(size_t j=0;j!=strat->Depth(i);++j){
-                                                S[i][j] = S[i][j] * ( 1.0 - factor ) + factor * counter[i][j];
+                                                S[i][j] = S[i][j] * ( 1.0 - factor ) + factor * S_counter[i][j];
                                         }
                                 }
                         }
@@ -734,19 +761,23 @@ namespace ps{
 
                         Eigen::VectorXd R_counter(N);
                         R_counter.fill(0);
-                        AG[root].Evaluate(R_counter, counter);
+                        AG[root].Evaluate(R_counter, S_counter);
 
-                        Eigen::VectorXd R(N);
-                        R.fill(0);
-                        AG[root].Evaluate(R, S);
+                        Eigen::VectorXd R_Before(N);
+                        R_Before.fill(0);
+                        AG[root].Evaluate(R_Before, S_Before);
 
-                        double norm = ( R - R_counter ).lpNorm<2>();
+                        double norm = ( R_Before - R_counter ).lpNorm<2>();
 
-                        if( norm < 0.0001 ){
-                                return counter;
+                        if( obs ){
+                                obs(S, R_Before, norm);
                         }
 
-                        std::cout << "vector_to_string(R) => " << vector_to_string(R) << "\n"; // __CandyPrint__(cxx-print-scalar,vector_to_string(ev))
+                        if( norm < 0.0001 ){
+                                return S_counter;
+                        }
+
+                        std::cout << "vector_to_string(R_Before) => " << vector_to_string(R_Before) << "\n"; // __CandyPrint__(cxx-print-scalar,vector_to_string(ev))
                         std::cout << "norm => " << norm << "\n"; // __CandyPrint__(cxx-print-scalar,norm)
                         for(size_t idx=0;idx!=S.size();++idx){
                                 pretty_print_strat(S[idx][0], 1);

@@ -406,6 +406,21 @@ namespace ps{
         };
         using PushFoldOperator = std::function<void(PushFoldState&)>;
 
+        struct GameTree{
+                virtual void ColorPlayers(GraphColouring<size_t>& P)const=0;
+                virtual void ColorOperators(GraphColouring<PushFoldOperator>& ops)const=0;
+        };
+        struct GameTreeTwoPlayer{
+                GameTreeTwoPlayer(){
+                }
+                virtual void ColorPlayers(GraphColouring<size_t>& P)const override{
+                }
+                virtual void ColorOperators(GraphColouring<PushFoldOperator>& ops)const override{
+                }
+        private:
+                Graph G;
+        };
+
         boost::optional<StateType> Solve(holdem_binary_strategy_ledger_s& ledger, size_t n, double sb, double bb, double eff){
                 std::cout << "Solve\n"; // __CandyPrint__(cxx-print-scalar,Solve)
 
@@ -804,7 +819,7 @@ namespace ps{
                         std::stringstream sstr;
                         sstr << n << ":" << sb << ":" << bb << ":" << eff;
                         auto key = sstr.str();
-                        #if 1
+                        #if 0
                         auto iter = ss_.find(key);
                         if( iter != ss_.end()){
                                 return iter->second.to_eigen_vv();
@@ -813,7 +828,7 @@ namespace ps{
 
                         auto ledger_key = ".ledger/" + key;
                         holdem_binary_strategy_ledger_s ledger;
-                        ledger.try_load_or_default(ledger_key);
+                        //ledger.try_load_or_default(ledger_key);
                         #if 0
                         if( ledger.size() ){
                                 ss_.add_solution(key, ledger.back());
@@ -876,7 +891,7 @@ namespace ps{
                         S[1].fill(0);
 
 
-                        for(double eff = 2.0;eff - 1e-4 < 35.0; eff += 0.05 ){
+                        for(double eff = 10.0;eff - 1e-4 < 10.0; eff += 0.05 ){
                                 std::cout << "eff => " << eff << "\n"; // __CandyPrint__(cxx-print-scalar,eff)
                                 auto opt = dvr.FindOrBuildSolution(2, sb, bb, eff );
                                 if( opt ){

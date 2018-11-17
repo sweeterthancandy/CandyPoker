@@ -677,19 +677,23 @@ namespace ps{
                 std::function<void(std::vector<std::vector<Eigen::VectorXd> > const&, Eigen::VectorXd const&, double norm)> obs;
                 struct Printer{
                         Printer(size_t n):n_{n}{
-                                if(  n ==  2){
-                                        lines_.emplace_back( std::vector<std::string>{"EV[0]", "EV[1]", "|.|"});
-                                        lines_.emplace_back(Pretty::LineBreak);
+                                std::vector<std::string> title;
+                                for(size_t idx=0;idx!=n_;++idx){
+                                        std::stringstream sstr;
+                                        sstr << "EV[" << idx << "]";
+                                        title.push_back(sstr.str());
                                 }
+                                title.push_back("|.|");
+                                lines_.emplace_back(std::move(title));
+                                lines_.emplace_back(Pretty::LineBreak);
                         }
                         void operator()(std::vector<std::vector<Eigen::VectorXd> > const&, Eigen::VectorXd const& ev, double norm){
-                                lines_.emplace_back(
-                                        std::vector<std::string>{
-                                                    boost::lexical_cast<std::string>(ev[0]),
-                                                    boost::lexical_cast<std::string>(ev[1]),
-                                                    boost::lexical_cast<std::string>(norm)
-                                        }
-                                );
+                                std::vector<std::string> l;
+                                for(size_t idx=0;idx!=n_;++idx){
+                                        l.push_back(boost::lexical_cast<std::string>(ev[idx]));
+                                }
+                                l.push_back(boost::lexical_cast<std::string>(norm));
+                                lines_.emplace_back(std::move(l));
                                 Pretty::RenderTablePretty(std::cout, lines_);
                         }
                 private:
@@ -872,7 +876,7 @@ namespace ps{
                         S[1].fill(0);
 
 
-                        for(double eff = 2.0;eff - 1e-4 < 25.0; eff += 0.05 ){
+                        for(double eff = 2.0;eff - 1e-4 < 35.0; eff += 0.05 ){
                                 std::cout << "eff => " << eff << "\n"; // __CandyPrint__(cxx-print-scalar,eff)
                                 auto opt = dvr.FindOrBuildSolution(2, sb, bb, eff );
                                 if( opt ){

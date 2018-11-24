@@ -963,11 +963,43 @@ namespace ps{
 
                         po.Display(boost::lexical_cast<std::string>(decision.GetIndex()) + "push");
                         fo.Display(boost::lexical_cast<std::string>(decision.GetIndex()) + "fold");
+                        
+                        Eigen::VectorXd surface(169);
+                        surface.fill(0.0);
+                        surface = po.A - fo.A;
+
+                        /*
+                         * want a forcing, such that  
+                         *      0 -> -A
+                         *      1 -> +B
+                         *      0.5 -> 0
+                         */
+                        Eigen::VectorXd forcing(169);
+                        forcing.fill(0.0);
+                        double delta = 0.05;
+                        auto scale = surface.maxCoeff();
+                        for(size_t cid=0;cid!=169;++cid){
+                                auto a = S[sidx][0][cid];
+                                auto aa = a * a;
+                                auto b = S[sidx][1][cid];
+                                auto bb = b * b;
+                                auto c = a - b;
+                                forcing[cid] = scale * delta * c;
+                        }
+
+                        surface += forcing;
 
                         for(size_t idx=0;idx!=169;++idx){
+                                #if 0
                                 double x = ( po.A[idx] - 1e-3 > fo.A[idx] ? 1.0 : 0.0 );
                                 S_counter[sidx][0][idx] = x;
                                 S_counter[sidx][1][idx] = 1.0 - x;
+                                #endif
+                                // on edge cases we push
+                                double x = ( surface[idx] >= 0.0 ? 1.0 : 0.0 );
+                                S_counter[sidx][0][idx] = x;
+                                S_counter[sidx][1][idx] = 1.0 - x;
+
                         }
                 }
                 return S_counter;
@@ -1172,8 +1204,7 @@ namespace ps{
                                 return S;
                         }
 
-                        #if 0
-                        std::cout << "vector_to_string(R_Before) => " << vector_to_string(R_Before) << "\n"; // __CandyPrint__(cxx-print-scalar,vector_to_string(ev))
+                        #if 1
                         std::cout << "norm => " << norm << "\n"; // __CandyPrint__(cxx-print-scalar,norm)
                         for(size_t idx=0;idx!=S.size();++idx){
                                 pretty_print_strat(S[idx][0], 1);
@@ -1239,12 +1270,6 @@ namespace ps{
                         size_t n = 2;
                         double sb = 0.5;
                         double bb = 1.0;
-                        #if 0
-                        Driver dvr;
-                        auto S = dvr.FindOrBuildSolution(2, sb, bb, 10.0 );
-                        pretty_print_strat(S[0][0], 1);
-                        pretty_print_strat(S[1][0], 1);
-                        #endif
                         #if 1
                         Driver dvr;
                         dvr.Display();
@@ -1254,7 +1279,7 @@ namespace ps{
                         std::shared_ptr<GameTree> any_gt;
 
 
-                        for(double eff = 2.0;eff - 1e-4 < 20.0; eff += 1.0 ){
+                        for(double eff = 10.0;eff - 1e-4 < 10.0; eff += 1.0 ){
                         //for(double eff = 11.0;eff - 1e-4 < 11.0; eff += 1.0 ){
                                 std::cout << "eff => " << eff << "\n"; // __CandyPrint__(cxx-print-scalar,eff)
 
@@ -1271,6 +1296,8 @@ namespace ps{
                                 any_gt = gt;
                                 auto opt = dvr.FindOrBuildSolution(gt);
                                 if( opt ){
+                                        pretty_print_strat(opt.get()[0][0], 1);
+                                        pretty_print_strat(opt.get()[1][0], 1);
                                         for(; S.size() < opt->size();){
                                                 S.emplace_back();
                                                 S.back().resize(169);

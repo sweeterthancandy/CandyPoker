@@ -891,8 +891,60 @@ namespace ps{
                 std::ostream* ostr_;
                 std::string section_;
         };
+        struct EvDetailDevice : boost::noncopyable{
+                enum {Debug = false };
+                EvDetailDevice(size_t pidx)
+                        :pidx_(pidx)
+                {
+                        A.resize(169);
+                        A.fill(0.0);
+                        dbg0.resize(169);
+                        dbg0.fill(0.0);
+                        dbg1.resize(169);
+                        dbg1.fill(0.0);
+                        dbg2.resize(169);
+                        dbg2.fill(0.0);
+                }
+                void operator()(holdem_class_vector const& cv, double p, double c, Eigen::VectorXd const& value){
+                        A[cv[pidx_]] += p * c * value[pidx_];
+                        if( Debug ){
+                                dbg0[cv[pidx_]] += p;
+                                dbg1[cv[pidx_]] += c;
+                                dbg2[cv[pidx_]] += p * c;
+                        }
+                }
+                void decl_section(std::string const& section){}
+                void Display(std::string const& title)const{
 
-        StateType CounterStrategy(std::shared_ptr<GameTree> gt, GraphColouring<AggregateComputer> const& AG, StateType const& S){
+                        if( Debug ){
+                                std::cout << "\n\n-------------------- " << title << " -----------------------\n\n";
+                                pretty_print_strat(A, 3);
+                                std::cout << "A.sum() => " << A.sum() << "\n"; // __CandyPrint__(cxx-print-scalar,A.sum())
+                                pretty_print_strat(dbg0, 3);
+                                std::cout << "dbg0.sum() => " << dbg0.sum() << "\n"; // __CandyPrint__(cxx-print-scalar,dbg0.sum())
+                                pretty_print_strat(dbg1, 3);
+                                std::cout << "dbg1.sum() => " << dbg1.sum() << "\n"; // __CandyPrint__(cxx-print-scalar,dbg0.sum())
+                                pretty_print_strat(dbg2, 3);
+                                std::cout << "dbg2.sum() => " << dbg2.sum() << "\n"; // __CandyPrint__(cxx-print-scalar,dbg0.sum())
+                        }
+                }
+                size_t pidx_;
+                Eigen::VectorXd A;
+                Eigen::VectorXd dbg0;
+                Eigen::VectorXd dbg1;
+                Eigen::VectorXd dbg2;
+        };
+        inline Eigen::VectorXd EvDetail(AggregateComputer const& ac,
+                                        StateType const& S,
+                                        size_t pidx)
+        {
+                EvDetailDevice dev(pidx);
+                ac.Observe( S, dev);
+                return dev.A;
+        }
+
+        StateType CounterStrategy(std::shared_ptr<GameTree> gt, GraphColouring<AggregateComputer> const& AG, StateType const& S,
+                                  double delta){
                 auto S_counter = S;
                 for(auto const& decision : *gt){
 
@@ -911,51 +963,8 @@ namespace ps{
                         Sf[sidx][0].fill(0);
                         Sf[sidx][1].fill(1);
 
-                        struct observer : boost::noncopyable{
-                                enum {Debug = false };
-                                observer(size_t pidx)
-                                        :pidx_(pidx)
-                                {
-                                        A.resize(169);
-                                        A.fill(0.0);
-                                        dbg0.resize(169);
-                                        dbg0.fill(0.0);
-                                        dbg1.resize(169);
-                                        dbg1.fill(0.0);
-                                        dbg2.resize(169);
-                                        dbg2.fill(0.0);
-                                }
-                                void operator()(holdem_class_vector const& cv, double p, double c, Eigen::VectorXd const& value){
-                                        A[cv[pidx_]] += p * c * value[pidx_];
-                                        if( Debug ){
-                                                dbg0[cv[pidx_]] += p;
-                                                dbg1[cv[pidx_]] += c;
-                                                dbg2[cv[pidx_]] += p * c;
-                                        }
-                                }
-                                void decl_section(std::string const& section){}
-                                void Display(std::string const& title)const{
-
-                                        if( Debug ){
-                                                std::cout << "\n\n-------------------- " << title << " -----------------------\n\n";
-                                                pretty_print_strat(A, 3);
-                                                std::cout << "A.sum() => " << A.sum() << "\n"; // __CandyPrint__(cxx-print-scalar,A.sum())
-                                                pretty_print_strat(dbg0, 3);
-                                                std::cout << "dbg0.sum() => " << dbg0.sum() << "\n"; // __CandyPrint__(cxx-print-scalar,dbg0.sum())
-                                                pretty_print_strat(dbg1, 3);
-                                                std::cout << "dbg1.sum() => " << dbg1.sum() << "\n"; // __CandyPrint__(cxx-print-scalar,dbg0.sum())
-                                                pretty_print_strat(dbg2, 3);
-                                                std::cout << "dbg2.sum() => " << dbg2.sum() << "\n"; // __CandyPrint__(cxx-print-scalar,dbg0.sum())
-                                        }
-                                }
-                                size_t pidx_;
-                                Eigen::VectorXd A;
-                                Eigen::VectorXd dbg0;
-                                Eigen::VectorXd dbg1;
-                                Eigen::VectorXd dbg2;
-                        };
-                        observer po{pidx};
-                        observer fo{pidx};
+                        EvDetailDevice po{pidx};
+                        EvDetailDevice fo{pidx};
 
 
                         eval.Observe(Sp, po);
@@ -976,7 +985,6 @@ namespace ps{
                          */
                         Eigen::VectorXd forcing(169);
                         forcing.fill(0.0);
-                        double delta = 0.05;
                         auto scale = surface.maxCoeff();
                         for(size_t cid=0;cid!=169;++cid){
                                 auto a = S[sidx][0][cid];
@@ -1150,6 +1158,7 @@ namespace ps{
 
                 enum{ MaxIter = 1000 };
 
+                double delta = 0.01 / 8;
 
                 for(size_t n=1;n!=MaxIter;++n){
                         boost::timer::auto_cpu_timer at;
@@ -1159,17 +1168,33 @@ namespace ps{
                         ev.fill(0);
                         AG[root].Evaluate(ev, S);
 
-                        auto S_counter = CounterStrategy(gt, AG, S);
+                        auto S_counter = CounterStrategy(gt, AG, S, delta);
 
                         Eigen::VectorXd ev_counter(N);
                         ev_counter.fill(0);
                         AG[root].Evaluate(ev_counter, S_counter);
 
-                        #if 1
                         double factor = 0.05;
                         for(size_t i=0;i!=gt->NumDecisions();++i){
                                 for(size_t j=0;j!=gt->Depth(i);++j){
                                         S[i][j] = S[i][j] * ( 1.0 - factor ) + factor * S_counter[i][j];
+                                }
+                        }
+                        #if 1
+                        // now we clamp, the idea is that the onyl way to get to
+                        //    clamp_epsilon is if we have had had a continus iterations of
+                        //  in one dir
+                        double clamp_epsilon = 0.0001;
+                        for(size_t i=0;i!=gt->NumDecisions();++i){
+                                for(size_t j=0;j!=gt->Depth(i);++j){
+                                        for(size_t cid=0;cid!=169;++cid){
+                                                if( std::fabs( S[i][j][cid] ) < clamp_epsilon ){
+                                                        S[i][j][cid] = 0.0;
+                                                }
+                                                if( std::fabs( 1.0 - S[i][j][cid] ) < clamp_epsilon ){
+                                                        S[i][j][cid] = 1.0;
+                                                }
+                                        }
                                 }
                         }
                         #endif
@@ -1191,7 +1216,8 @@ namespace ps{
                         //
                         printer(S, ev, ev - ev_counter, norm);
 
-                        if( norm < 0.000001 ){
+                        //if( norm < 0.000001 ){
+                        if( S == S_counter ){
                                 #if 0
                                 std::ofstream of("eval.csv");
                                 std::ofstream sof("S.csv");
@@ -1201,13 +1227,21 @@ namespace ps{
                                 ss(S);
                                 #endif
                                 printer.Display();
+                                auto p0 = EvDetail(AG[root], S, 0);
+                                auto p1 = EvDetail(AG[root], S, 1);
+                                pretty_print_strat(p0, 3);
+                                pretty_print_strat(p1, 3);
+                                std::cout << "------------ effect of forcing ========\n";
+                                auto counter_nf = CounterStrategy(gt, AG, S, 0.0);
+                                pretty_print_strat(S[0][0] - counter_nf[0][0], 2);
+                                pretty_print_strat(S[1][0] - counter_nf[1][0], 2);
                                 return S;
                         }
 
                         #if 1
                         std::cout << "norm => " << norm << "\n"; // __CandyPrint__(cxx-print-scalar,norm)
                         for(size_t idx=0;idx!=S.size();++idx){
-                                pretty_print_strat(S[idx][0], 1);
+                                pretty_print_strat(S[idx][0], 10);
                         }
                         #endif
 
@@ -1295,6 +1329,7 @@ namespace ps{
                                 #endif
                                 any_gt = gt;
                                 auto opt = dvr.FindOrBuildSolution(gt);
+                                auto root   = gt->Root();
                                 if( opt ){
                                         pretty_print_strat(opt.get()[0][0], 1);
                                         pretty_print_strat(opt.get()[1][0], 1);

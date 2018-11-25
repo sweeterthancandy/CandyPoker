@@ -77,6 +77,10 @@ namespace ps{
                 return sstr.str();
         }
         
+        
+        // this is for sim stuff
+        using StateType = std::vector<std::vector<Eigen::VectorXd> >;
+        
 } // ps
 
 #endif // PS_CARDS_FWD_H

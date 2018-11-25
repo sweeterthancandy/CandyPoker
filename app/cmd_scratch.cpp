@@ -63,19 +63,36 @@ namespace ps{
                 }
                 return x;
         }
+        StateType& InplaceClamp(StateType& x, double epsilon)
+        {
+                for(size_t i=0;i!=x.size();++i){
+                        for(size_t j=0;j!=x[i].size();++j){
+                                for(size_t cid=0;cid!=169;++cid){
+                                        if( std::fabs( x[i][j][cid] ) < epsilon ){
+                                                x[i][j][cid] = 0.0;
+                                        }
+                                        if( std::fabs( 1.0 - x[i][j][cid] ) < epsilon ){
+                                                x[i][j][cid] = 1.0;
+                                        }
+                                }
+                        }
+                }
+                return x;
+        }
 
         struct GeometricLoopOptions{
                 size_t MaxIter{1000};
                 double Delta{0.01};
                 size_t Stride{1};
                 double Factor{0.05};
+                double Epsilon{0.001};
         };
         template<class Condition>
-        ValueOrError<StateType> GeometricLoop(GeometricLoopOptions const& opts,
-                                              std::shared_ptr<GameTree> gt,
-                                              GraphColouring<AggregateComputer> const& AG,
-                                              StateType const& S0,
-                                              Condition const& cond)
+        ValueOrError<StateType> GeometricLoopWithClamp(GeometricLoopOptions const& opts,
+                                                       std::shared_ptr<GameTree> gt,
+                                                       GraphColouring<AggregateComputer> const& AG,
+                                                       StateType const& S0,
+                                                       Condition const& cond)
         {
                 size_t counter = 0;
                 auto S = S0;
@@ -84,6 +101,9 @@ namespace ps{
                                 auto S_counter = CounterStrategy(gt, AG, S, opts.Delta);
                                 InplaceLinearCombination(S, S_counter, 1 - opts.Factor );
                         }
+
+                        InplaceClamp(S, opts.Epsilon);
+
                         if( cond(S) ){
                                 return S;
                         }
@@ -91,14 +111,99 @@ namespace ps{
                 return Error{"too many iters"};
         }
 
-
-
-        boost::optional<StateType> Solve(holdem_binary_strategy_ledger_s& ledger, std::shared_ptr<GameTree> gt)
+        std::vector<size_t> GammaVector( std::shared_ptr<GameTree> gt,
+                                         GraphColouring<AggregateComputer> const& AG,
+                                         StateType const& S)
         {
-                std::cout << "Solve\n"; // __CandyPrint__(cxx-print-scalar,Solve)
+                // we have a mixed solution where the counter strategy 
+                // has only one cid different from our solutuon.
+                auto counter_nf = CounterStrategy(gt, AG, S, 0.0);
+                std::vector<size_t> gamma_vec;
+                for(size_t idx=0;idx!=S.size();++idx){
+                        auto A = S[idx][0] - counter_nf[idx][0];
+                        gamma_vec.push_back(0);
+                        for(size_t idx=0;idx!=169;++idx){
+                                if( A[idx] != 0.0 ){
+                                        ++gamma_vec.back();
+                                }
+                        }
+                }
+                return gamma_vec;
+        }
+        bool IsMixedSolution(std::vector<size_t> const& gamma_vec){
+                bool is_mixed_solution = true;
+                for(size_t idx=0;idx!=gamma_vec.size();++idx){
+                        if( gamma_vec[idx] <= 1 )
+                                continue;
+                        return false;
+                }
+                return true;
+        }
 
 
+        struct Printer{
+                Printer(size_t n):n_{n}{
+                        std::vector<std::string> title;
+                        title.push_back("n");
+                        for(size_t idx=0;idx!=n_;++idx){
+                                std::stringstream sstr;
+                                sstr << "EV[" << idx << "]";
+                                title.push_back(sstr.str());
+                        }
+                        for(size_t idx=0;idx!=n_;++idx){
+                                std::stringstream sstr;
+                                sstr << "CEV[" << idx << "]";
+                                title.push_back(sstr.str());
+                        }
+                        title.push_back("|.|");
+                        lines_.emplace_back(std::move(title));
+                        lines_.emplace_back(Pretty::LineBreak);
+                }
+                void operator()(std::vector<std::vector<Eigen::VectorXd> > const& S,
+                                Eigen::VectorXd const& ev,
+                                Eigen::VectorXd const& ev_counter,
+                                double norm){
+                        std::vector<std::string> l;
+                        l.push_back(boost::lexical_cast<std::string>(count_++));
+                        for(size_t idx=0;idx!=n_;++idx){
+                                l.push_back(boost::lexical_cast<std::string>(ev[idx]));
+                        }
+                        for(size_t idx=0;idx!=n_;++idx){
+                                l.push_back(boost::lexical_cast<std::string>(ev_counter[idx]));
+                        }
+                        l.push_back(boost::lexical_cast<std::string>(norm));
+                        size_t zero_or_one = 0;
+                        size_t total = 0;
+                        for(size_t idx=0;idx!=169;++idx){
+                                double epsilon = 1e-5;
+                                for(size_t j=0;j!=S.size();++j, ++total){
+                                        if( S[j][0][idx] < epsilon || 1 - S[j][0][idx] < epsilon ){
+                                                ++zero_or_one;
+                                        }
+                                }
+                        }
+                        l.push_back(boost::lexical_cast<std::string>(zero_or_one));
+                        l.push_back(boost::lexical_cast<std::string>(total));
+                        l.push_back(boost::lexical_cast<std::string>(S[0][0].lpNorm<Eigen::Infinity>()));
 
+                        lines_.emplace_back(std::move(l));
+                }
+                void Display()const{
+
+                        Pretty::RenderOptions opts;
+                        opts.SetAdjustment(1, Pretty::RenderAdjustment_Left);
+                        opts.SetAdjustment(2, Pretty::RenderAdjustment_Left);
+                        opts.SetAdjustment(3, Pretty::RenderAdjustment_Left);
+
+                        Pretty::RenderTablePretty(std::cout, lines_, opts);
+                }
+        private:
+                size_t n_;
+                size_t count_{0};
+                std::vector<Pretty::LineItem> lines_;
+        };
+
+        GraphColouring<AggregateComputer> MakeComputer(std::shared_ptr<GameTree> gt){
                 auto root   = gt->Root();
                 auto state0 = gt->InitialState();
 
@@ -160,6 +265,20 @@ namespace ps{
                 };
                 gt->VisitProbabilityDist(nv);
 
+                return AG;
+        }
+
+
+        boost::optional<StateType> Solve(holdem_binary_strategy_ledger_s& ledger, std::shared_ptr<GameTree> gt)
+        {
+                std::cout << "Solve\n"; // __CandyPrint__(cxx-print-scalar,Solve)
+
+
+
+                auto root   = gt->Root();
+                auto state0 = gt->InitialState();
+
+
 
 
                 decltype(gt->MakeDefaultState()) S0;
@@ -172,73 +291,14 @@ namespace ps{
                 auto S = S0;
 
                 std::function<void(std::vector<std::vector<Eigen::VectorXd> > const&, Eigen::VectorXd const&, Eigen::VectorXd const&, double norm)> obs;
-                struct Printer{
-                        Printer(size_t n):n_{n}{
-                                std::vector<std::string> title;
-                                title.push_back("n");
-                                for(size_t idx=0;idx!=n_;++idx){
-                                        std::stringstream sstr;
-                                        sstr << "EV[" << idx << "]";
-                                        title.push_back(sstr.str());
-                                }
-                                for(size_t idx=0;idx!=n_;++idx){
-                                        std::stringstream sstr;
-                                        sstr << "CEV[" << idx << "]";
-                                        title.push_back(sstr.str());
-                                }
-                                title.push_back("|.|");
-                                lines_.emplace_back(std::move(title));
-                                lines_.emplace_back(Pretty::LineBreak);
-                        }
-                        void operator()(std::vector<std::vector<Eigen::VectorXd> > const& S,
-                                        Eigen::VectorXd const& ev,
-                                        Eigen::VectorXd const& ev_counter,
-                                        double norm){
-                                std::vector<std::string> l;
-                                l.push_back(boost::lexical_cast<std::string>(count_++));
-                                for(size_t idx=0;idx!=n_;++idx){
-                                        l.push_back(boost::lexical_cast<std::string>(ev[idx]));
-                                }
-                                for(size_t idx=0;idx!=n_;++idx){
-                                        l.push_back(boost::lexical_cast<std::string>(ev_counter[idx]));
-                                }
-                                l.push_back(boost::lexical_cast<std::string>(norm));
-                                size_t zero_or_one = 0;
-                                size_t total = 0;
-                                for(size_t idx=0;idx!=169;++idx){
-                                        double epsilon = 1e-5;
-                                        for(size_t j=0;j!=S.size();++j, ++total){
-                                                if( S[j][0][idx] < epsilon || 1 - S[j][0][idx] < epsilon ){
-                                                        ++zero_or_one;
-                                                }
-                                        }
-                                }
-                                l.push_back(boost::lexical_cast<std::string>(zero_or_one));
-                                l.push_back(boost::lexical_cast<std::string>(total));
-                                l.push_back(boost::lexical_cast<std::string>(S[0][0].lpNorm<Eigen::Infinity>()));
-
-                                lines_.emplace_back(std::move(l));
-                        }
-                        void Display()const{
-
-                                Pretty::RenderOptions opts;
-                                opts.SetAdjustment(1, Pretty::RenderAdjustment_Left);
-                                opts.SetAdjustment(2, Pretty::RenderAdjustment_Left);
-                                opts.SetAdjustment(3, Pretty::RenderAdjustment_Left);
-
-                                Pretty::RenderTablePretty(std::cout, lines_, opts);
-                        }
-                private:
-                        size_t n_;
-                        size_t count_{0};
-                        std::vector<Pretty::LineItem> lines_;
-                };
                 auto N      = gt->NumPlayers();
                 Printer printer{N};
 
                 enum{ MaxIter = 500 };
 
                 double delta = 0.01 / 4;
+                
+                GraphColouring<AggregateComputer> AG = MakeComputer(gt);
 
                 size_t k=0;
                 for(;k!=4;++k){

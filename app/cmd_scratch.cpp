@@ -160,13 +160,21 @@ namespace ps{
                 return gamma_vec;
         }
         bool IsMinMixedSolution(std::vector<size_t> const& gamma_vec){
+                enum{
+                        T_Zero        = 0,
+                        T_One         = 1,
+                        T_Two         = 2,
+                        T_ThreeOrMore = 3,
+                };
+                std::array<size_t, 4> M = {0, 0, 0, 0 };
                 for(size_t idx=0;idx!=gamma_vec.size();++idx){
-                        if( gamma_vec[idx] <= 1 )
-                                continue;
-                        std::cout << "gamma_vec[idx] => " << gamma_vec[idx] << "\n"; // __CandyPrint__(cxx-print-scalar,gamma_vec[idx])
-                        return false;
+                        auto j = std::min<size_t>(gamma_vec[idx], 3);
+                        ++M[j];
                 }
-                return true;
+                if( M[T_ThreeOrMore] == 0 && M[T_Two] <= 1 ){
+                        return true;
+                }
+                return false;
         }
 
         struct Printer{
@@ -296,7 +304,9 @@ namespace ps{
                 return AG;
         }
 
-        struct NonMixedSolutionSolution{};
+        struct NonMixedSolutionSolution{
+                size_t metric;
+        };
         struct NonMixedSolutionSolutionCondition : AnyObserver{
                 enum{ Debug = true };
                 NonMixedSolutionSolutionCondition(std::shared_ptr<GameTree> gt,
@@ -311,16 +321,18 @@ namespace ps{
                                         return {};
                                 }
                         }
-                        return NonMixedSolutionSolution{};
+                        return NonMixedSolutionSolution{0};
                 }
         private:
                 std::shared_ptr<GameTree> gt_;
                 GraphColouring<AggregateComputer> const* AG_;
         };
 
-        struct MinMixedSolution{};
+        struct MinMixedSolution{
+                size_t metric;
+        };
         struct MinMixedSolutionCondition : AnyObserver{
-                enum{ Debug = true };
+                enum{ Debug = false };
                 MinMixedSolutionCondition(std::shared_ptr<GameTree> gt,
                                GraphColouring<AggregateComputer> const& AG)
                         : gt_{gt}, AG_{&AG}
@@ -332,7 +344,11 @@ namespace ps{
                         }
                         if( ! IsMinMixedSolution(gamma_vec) )
                                 return {};
-                        return MinMixedSolution{};
+                        size_t metric = 0;
+                        for(auto _ : gamma_vec ){
+                                metric += _ * _;
+                        }
+                        return MinMixedSolution{metric};
                 }
         private:
                 std::shared_ptr<GameTree> gt_;
@@ -349,10 +365,9 @@ namespace ps{
         };
 
 
-        boost::optional<StateType> Solve(holdem_binary_strategy_ledger_s& ledger, std::shared_ptr<GameTree> gt)
+        boost::optional<StateType> NumericalSolver(holdem_binary_strategy_ledger_s& ledger, std::shared_ptr<GameTree> gt,
+                                                   GraphColouring<AggregateComputer>& AG)
         {
-                std::cout << "Solve\n"; // __CandyPrint__(cxx-print-scalar,Solve)
-
 
 
                 auto root   = gt->Root();
@@ -376,14 +391,14 @@ namespace ps{
 
                 double delta = 0.01 / 4;
                 
-                GraphColouring<AggregateComputer> AG = MakeComputer(gt);
-
                 std::vector<std::shared_ptr<AnyObserver> > obs;
                 obs.push_back(std::make_shared<MinMixedSolutionCondition>(gt, AG));
                 obs.push_back(std::make_shared<NonMixedSolutionSolutionCondition>(gt, AG));
 
+                std::vector<std::tuple<StateType, size_t, size_t> > solution_set;
+
                 size_t k=0;
-                for(;k!=4;++k){
+                for(;k!=9;++k){
                         GeometricLoopOptions opts;
                         opts.Delta = delta;
                         auto solution = GeometricLoopWithClamp(opts,
@@ -395,20 +410,46 @@ namespace ps{
                                 // we have a converged solution, but it's not minimal mixed
                                 delta /= 2.0;
                                 S = solution.S;
-                                std::cerr << "decreasing\n";
+                                solution_set.emplace_back(S, 0, 100.0 - delta );
                         }
                         else if( auto ptr = boost::any_cast<MinMixedSolution>(&solution.Category)){
                                 // we have found it
-                                std::cerr << "found\n";
-                                return solution.S;
+                                delta /= 2.0;
+                                S = solution.S;
+                                solution_set.emplace_back(solution.S, 1, ptr->metric );
                         } else{
-                                // unknown
-                                BOOST_THROW_EXCEPTION(std::domain_error("unknown solution kind"));
+                                // must not convert
+                                break;
                         }
 
                 }
-                std::cout << "k => " << k << "\n"; // __CandyPrint__(cxx-print-scalar,k)
-                return boost::none;
+
+                if( solution_set.empty()){
+                        return boost::none;
+                }
+
+                std::cout << "solution_set.size() => " << solution_set.size() << "\n"; // __CandyPrint__(cxx-print-scalar,solution_set.size())
+                using std::get;
+                for(auto const& _ : solution_set ){
+                        std::cout << "std::get<1>(_) => " << std::get<1>(_) << ", "; // __CandyPrint__(cxx-print-scalar,std::get<1>(_))
+                        std::cout << "std::get<2>(_) => " << std::get<2>(_) << "\n"; // __CandyPrint__(cxx-print-scalar,std::get<2>(_))
+                }
+                std::sort( solution_set.begin(), solution_set.end(), [](auto&& l, auto&& r){
+                        if( get<1>(l) != get<1>(r)){
+                                return ( get<1>(l) < get<1>(r) );
+                        }
+                        return ( get<2>(l) > get<2>(r) );
+                });
+                return std::get<0>(solution_set.back());
+        }
+        boost::optional<StateType> AlgebraicSolver(holdem_binary_strategy_ledger_s& ledger, std::shared_ptr<GameTree> gt,
+                                                   GraphColouring<AggregateComputer>& AG)
+        {
+                auto numerical_solution = NumericalSolver(ledger, gt, AG);
+
+
+                return numerical_solution;
+
         }
 
         struct Driver{
@@ -439,7 +480,9 @@ namespace ps{
                                 ledger.try_load_or_default(ledger_key);
                         }
 
-                        auto sol = Solve(ledger, gt);
+
+                        GraphColouring<AggregateComputer> AG = MakeComputer(gt);
+                        auto sol = AlgebraicSolver(ledger, gt, AG);
 
                         if( sol ){
                                 ss_.add_solution(key, *sol);
@@ -461,7 +504,7 @@ namespace ps{
                 explicit
                 ScratchCmd(std::vector<std::string> const& args):args_{args}{}
                 virtual int Execute()override{
-                        enum { Dp = 2 };
+                        enum { Dp = 1 };
                         size_t n = 2;
                         double sb = 0.5;
                         double bb = 1.0;
@@ -477,7 +520,7 @@ namespace ps{
                         conv_tb.push_back(std::vector<std::string>{"Desc", "?"});
                         conv_tb.push_back(Pretty::LineBreak);
 
-                        for(double eff = 10.0;eff - 1e-4 < 10.0; eff += 1.0 ){
+                        for(double eff = 2.0;eff - 1e-4 < 20.0; eff += 0.1 ){
                         //for(double eff = 11.0;eff - 1e-4 < 11.0; eff += 1.0 ){
                                 std::cout << "eff => " << eff << "\n"; // __CandyPrint__(cxx-print-scalar,eff)
 
@@ -522,7 +565,7 @@ namespace ps{
 
                         #endif
                         #if 0
-                        auto opt = Solve(sb, bb, 10.0);
+                        auto opt = NumericalSolver(sb, bb, 10.0);
                         if( opt ){
                                 pretty_print_strat(opt.get()[0][0], 0);
                                 pretty_print_strat(opt.get()[1][0], 0);

@@ -394,6 +394,7 @@ namespace ps{
                 std::vector<std::shared_ptr<AnyObserver> > obs;
                 obs.push_back(std::make_shared<MinMixedSolutionCondition>(gt, AG));
                 obs.push_back(std::make_shared<NonMixedSolutionSolutionCondition>(gt, AG));
+                obs.push_back(std::make_shared<SolutionPrinter>());
 
                 std::vector<std::tuple<StateType, size_t, size_t> > solution_set;
 
@@ -505,7 +506,7 @@ namespace ps{
                 ScratchCmd(std::vector<std::string> const& args):args_{args}{}
                 virtual int Execute()override{
                         enum { Dp = 1 };
-                        size_t n = 2;
+                        size_t n = 3;
                         double sb = 0.5;
                         double bb = 1.0;
                         #if 1
@@ -520,8 +521,8 @@ namespace ps{
                         conv_tb.push_back(std::vector<std::string>{"Desc", "?"});
                         conv_tb.push_back(Pretty::LineBreak);
 
-                        for(double eff = 2.0;eff - 1e-4 < 20.0; eff += 0.1 ){
-                        //for(double eff = 11.0;eff - 1e-4 < 11.0; eff += 1.0 ){
+                        //for(double eff = 2.0;eff - 1e-4 < 20.0; eff += 0.1 ){
+                        for(double eff = 10.0;eff - 1e-4 < 10.0; eff += 1.0 ){
                                 std::cout << "eff => " << eff << "\n"; // __CandyPrint__(cxx-print-scalar,eff)
 
                                 std::shared_ptr<GameTree> gt;

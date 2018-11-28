@@ -9,6 +9,7 @@
 
 #include "ps/sim/computer.h"
 #include "ps/sim/game_tree.h"
+#include <boost/any.hpp>
                            
 
 
@@ -18,6 +19,7 @@
 namespace ps{
         using namespace sim;
         
+
 
 
         template<class Value, class Error_>
@@ -30,7 +32,7 @@ namespace ps{
                 {}
                 bool IsError()const{ return value_.operator bool(); }
                 operator bool()const{ return IsError(); }
-                std::string const& AsError()const{
+                auto AsError()const{
                         if( ! IsError() )
                                 BOOST_THROW_EXCEPTION(std::domain_error("is not an error"));
                         return error_.get();
@@ -80,6 +82,8 @@ namespace ps{
                 return x;
         }
 
+
+
         struct GeometricLoopOptions{
                 size_t MaxIter{1000};
                 double Delta{0.01};
@@ -87,15 +91,29 @@ namespace ps{
                 double Factor{0.05};
                 double Epsilon{0.001};
         };
-        template<class Condition>
-        ValueOrError<StateType> GeometricLoopWithClamp(GeometricLoopOptions const& opts,
-                                                       std::shared_ptr<GameTree> gt,
-                                                       GraphColouring<AggregateComputer> const& AG,
-                                                       StateType const& S0,
-                                                       Condition const& cond)
+        struct Solution{
+                StateType S;
+                boost::any Category;
+        };
+        struct AnyObserver{
+                virtual ~AnyObserver()=default;
+                virtual boost::any Condition(StateType const& S){ return {}; };
+                virtual void Start(StateType const& S){ }
+                virtual void Finish(StateType const& S){ }
+        };
+        Solution GeometricLoopWithClamp(GeometricLoopOptions const& opts,
+                                        std::shared_ptr<GameTree> gt,
+                                        GraphColouring<AggregateComputer> const& AG,
+                                        StateType const& S0,
+                                        std::vector<std::shared_ptr<AnyObserver> > const& obs)
         {
                 size_t counter = 0;
                 auto S = S0;
+
+                for(auto& _ : obs){
+                        _->Start(S0);
+                }
+
                 for(;counter < opts.MaxIter;){
                         for(size_t inner=0;inner!=opts.Stride;++inner, ++counter){
                                 auto S_counter = CounterStrategy(gt, AG, S, opts.Delta);
@@ -104,11 +122,22 @@ namespace ps{
 
                         InplaceClamp(S, opts.Epsilon);
 
-                        if( cond(S) ){
-                                return S;
+                        boost::any cond;
+                        for(auto& _ : obs){
+                                cond = _->Condition(S);
+                                if( ! cond.empty()){
+                                        break;
+                                }
+                        }
+
+                        if( ! cond.empty()){
+                                for(auto& _ : obs){
+                                        _->Finish(S);
+                                }
+                                return Solution{ S, cond };
                         }
                 }
-                return Error{"too many iters"};
+                return {};
         }
 
         std::vector<size_t> GammaVector( std::shared_ptr<GameTree> gt,
@@ -130,16 +159,15 @@ namespace ps{
                 }
                 return gamma_vec;
         }
-        bool IsMixedSolution(std::vector<size_t> const& gamma_vec){
-                bool is_mixed_solution = true;
+        bool IsMinMixedSolution(std::vector<size_t> const& gamma_vec){
                 for(size_t idx=0;idx!=gamma_vec.size();++idx){
                         if( gamma_vec[idx] <= 1 )
                                 continue;
+                        std::cout << "gamma_vec[idx] => " << gamma_vec[idx] << "\n"; // __CandyPrint__(cxx-print-scalar,gamma_vec[idx])
                         return false;
                 }
                 return true;
         }
-
 
         struct Printer{
                 Printer(size_t n):n_{n}{
@@ -268,6 +296,58 @@ namespace ps{
                 return AG;
         }
 
+        struct NonMixedSolutionSolution{};
+        struct NonMixedSolutionSolutionCondition : AnyObserver{
+                enum{ Debug = true };
+                NonMixedSolutionSolutionCondition(std::shared_ptr<GameTree> gt,
+                                   GraphColouring<AggregateComputer> const& AG)
+                        : gt_{gt}, AG_{&AG}
+                {}
+                boost::any Condition(StateType const& S)override{
+                        for(size_t idx=0;idx!=S.size();++idx){
+                                for(size_t cid=0;cid!=169;++cid){
+                                        if( S[idx][0][cid] == 0.0 || S[idx][0][cid] == 1.0 )
+                                                continue;
+                                        return {};
+                                }
+                        }
+                        return NonMixedSolutionSolution{};
+                }
+        private:
+                std::shared_ptr<GameTree> gt_;
+                GraphColouring<AggregateComputer> const* AG_;
+        };
+
+        struct MinMixedSolution{};
+        struct MinMixedSolutionCondition : AnyObserver{
+                enum{ Debug = true };
+                MinMixedSolutionCondition(std::shared_ptr<GameTree> gt,
+                               GraphColouring<AggregateComputer> const& AG)
+                        : gt_{gt}, AG_{&AG}
+                {}
+                boost::any Condition(StateType const& S)override{
+                        auto gamma_vec = GammaVector(gt_, *AG_, S);
+                        if( Debug ){
+                                std::cout << "detail::to_string(gamma_vec) => " << detail::to_string(gamma_vec) << "\n"; // __CandyPrint__(cxx-print-scalar,detail::to_string(gamma_vec))
+                        }
+                        if( ! IsMinMixedSolution(gamma_vec) )
+                                return {};
+                        return MinMixedSolution{};
+                }
+        private:
+                std::shared_ptr<GameTree> gt_;
+                GraphColouring<AggregateComputer> const* AG_;
+        };
+
+        struct SolutionPrinter : AnyObserver{
+                virtual boost::any Condition(StateType const& S)override{
+                        for(size_t idx=0;idx!=S.size();++idx){
+                                pretty_print_strat(S[idx][0], 4);
+                        }
+                        return {};
+                }
+        };
+
 
         boost::optional<StateType> Solve(holdem_binary_strategy_ledger_s& ledger, std::shared_ptr<GameTree> gt)
         {
@@ -290,9 +370,7 @@ namespace ps{
 
                 auto S = S0;
 
-                std::function<void(std::vector<std::vector<Eigen::VectorXd> > const&, Eigen::VectorXd const&, Eigen::VectorXd const&, double norm)> obs;
                 auto N      = gt->NumPlayers();
-                Printer printer{N};
 
                 enum{ MaxIter = 500 };
 
@@ -300,135 +378,35 @@ namespace ps{
                 
                 GraphColouring<AggregateComputer> AG = MakeComputer(gt);
 
+                std::vector<std::shared_ptr<AnyObserver> > obs;
+                obs.push_back(std::make_shared<MinMixedSolutionCondition>(gt, AG));
+                obs.push_back(std::make_shared<NonMixedSolutionSolutionCondition>(gt, AG));
+
                 size_t k=0;
                 for(;k!=4;++k){
-                        for(size_t n=1;n!=MaxIter;++n){
-                                boost::timer::auto_cpu_timer at;
-
-
-                                Eigen::VectorXd ev(N);
-                                ev.fill(0);
-                                AG[root].Evaluate(ev, S);
-
-                                auto S_counter = CounterStrategy(gt, AG, S, delta);
-
-                                Eigen::VectorXd ev_counter(N);
-                                ev_counter.fill(0);
-                                AG[root].Evaluate(ev_counter, S_counter);
-
-                                double factor = 0.05;
-                                for(size_t i=0;i!=gt->NumDecisions();++i){
-                                        double c = 0.0;
-                                        for(size_t j=0;j!=gt->Depth(i);++j){
-                                                S[i][j] = S[i][j] * ( 1.0 - factor ) + factor * S_counter[i][j];
-                                        }
-                                }
-                                #if 1
-                                // now we clamp, the idea is that the onyl way to get to
-                                //    clamp_epsilon is if we have had had a continus iterations of
-                                //  in one dir
-                                double clamp_epsilon = 0.001;
-                                for(size_t i=0;i!=gt->NumDecisions();++i){
-                                        for(size_t j=0;j!=gt->Depth(i);++j){
-                                                for(size_t cid=0;cid!=169;++cid){
-                                                        if( std::fabs( S[i][j][cid] ) < clamp_epsilon ){
-                                                                S[i][j][cid] = 0.0;
-                                                        }
-                                                        if( std::fabs( 1.0 - S[i][j][cid] ) < clamp_epsilon ){
-                                                                S[i][j][cid] = 1.0;
-                                                        }
-                                                }
-                                        }
-                                }
-                                #endif
-                                
-
-                                double norm = ( ev - ev_counter ).lpNorm<Eigen::Infinity>();
-
-                                #if 0
-                                for(size_t i=0;i!=gt->NumDecisions();++i){
-                                        for(size_t j=0;j!=gt->Depth(i);++j){
-                                                S[i][j] = S[i][j] * ( 1.0 - 1.0/n ) + 1.0 / n * S_counter[i][j];
-                                        }
-                                }
-                                #endif
-
-                                ledger.push(S);
-                                if( n != 2 )
-                                        ledger.save_();
-
-                                //factor = norm;
-                                //
-                                printer(S, ev, ev - ev_counter, norm);
-
-
-                                // we have a mixed solution where the counter strategy 
-                                // has only one cid different from our solutuon.
-                                auto counter_nf = CounterStrategy(gt, AG, S, 0.0);
-                                std::vector<double> gamma_vec;
-                                for(size_t idx=0;idx!=S.size();++idx){
-                                        auto A = S[idx][0] - counter_nf[idx][0];
-                                        double b = 0.0;
-                                        for(size_t idx=0;idx!=169;++idx){
-                                                if( A[idx] != 0.0 ){
-                                                        ++b;
-                                                }
-                                        }
-                                        gamma_vec.push_back(b);
-                                }
-                                std::cout << "gamma_vec => " << detail::to_string(gamma_vec) << "\n"; // __CandyPrint__(cxx-print-scalar,gamma)
-                                bool is_mixed_solution = true;
-                                for(size_t idx=0;idx!=gamma_vec.size();++idx){
-                                        if( gamma_vec[idx] < 1.0 + 1e-3 )
-                                                continue;
-                                        is_mixed_solution = false;
-                                }
-
-                                if( S == S_counter && ( ! is_mixed_solution ) ){
-                                        n = 1; // re-start counter
-                                        delta /= 2.0;
-                                        continue;
-                                }
-
-                                if( is_mixed_solution ){
-
-                                        #if 0
-                                        std::ofstream of("eval.csv");
-                                        std::ofstream sof("S.csv");
-                                        evaluate_saver es(of);
-                                        AG[root].Observe(S, es);
-                                        strategy_saver ss(sof);
-                                        ss(S);
-                                        #endif
-                                        printer.Display();
-                                        auto p0 = EvDetail(AG[root], S, 0);
-                                        auto p1 = EvDetail(AG[root], S, 1);
-                                        pretty_print_strat(p0, 3);
-                                        pretty_print_strat(p1, 3);
-                                        std::cout << "------------ effect of forcing ========\n";
-                                        pretty_print_strat(S[0][0] - counter_nf[0][0], 2);
-                                        pretty_print_strat(S[1][0] - counter_nf[1][0], 2);
-                                        return S;
-                                }
-
-                                #if 1
-                                std::cout << "norm => " << norm << "\n"; // __CandyPrint__(cxx-print-scalar,norm)
-                                for(size_t idx=0;idx!=S.size();++idx){
-                                        pretty_print_strat(S[idx][0], 10);
-                                }
-                                #endif
-
+                        GeometricLoopOptions opts;
+                        opts.Delta = delta;
+                        auto solution = GeometricLoopWithClamp(opts,
+                                                               gt,
+                                                               AG,
+                                                               S,
+                                                               obs);
+                        if( auto ptr = boost::any_cast<NonMixedSolutionSolution>(&solution.Category)){
+                                // we have a converged solution, but it's not minimal mixed
+                                delta /= 2.0;
+                                S = solution.S;
+                                std::cerr << "decreasing\n";
+                        }
+                        else if( auto ptr = boost::any_cast<MinMixedSolution>(&solution.Category)){
+                                // we have found it
+                                std::cerr << "found\n";
+                                return solution.S;
+                        } else{
+                                // unknown
+                                BOOST_THROW_EXCEPTION(std::domain_error("unknown solution kind"));
                         }
 
-                        // do we have a candidate mixed solution.
-
-
-                        delta *= 2.0;
-
-                        delta *= 2.0;
-                        delta /= 3.0;
                 }
-                printer.Display();
                 std::cout << "k => " << k << "\n"; // __CandyPrint__(cxx-print-scalar,k)
                 return boost::none;
         }

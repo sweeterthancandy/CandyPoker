@@ -94,6 +94,9 @@ namespace ps{
         struct Solution{
                 StateType S;
                 boost::any Category;
+                operator bool()const{
+                        return ! S.empty();
+                }
         };
         struct AnyObserver{
                 virtual ~AnyObserver()=default;
@@ -113,31 +116,38 @@ namespace ps{
                 for(auto& _ : obs){
                         _->Start(S0);
                 }
+                        
+                boost::any cond;
 
-                for(;counter < opts.MaxIter;){
+                for(;;){
                         for(size_t inner=0;inner!=opts.Stride;++inner, ++counter){
                                 auto S_counter = CounterStrategy(gt, AG, S, opts.Delta);
                                 InplaceLinearCombination(S, S_counter, 1 - opts.Factor );
                         }
 
+                        // intrinsic terminal condition
+                        if( ! ( counter < opts.MaxIter ) ){
+                                return {};
+                        }
+
+
                         InplaceClamp(S, opts.Epsilon);
 
-                        boost::any cond;
+
                         for(auto& _ : obs){
                                 cond = _->Condition(S);
                                 if( ! cond.empty()){
                                         break;
                                 }
                         }
-
-                        if( ! cond.empty()){
-                                for(auto& _ : obs){
-                                        _->Finish(S);
-                                }
-                                return Solution{ S, cond };
-                        }
+                        if( ! cond.empty() )
+                                break;
                 }
-                return {};
+
+                for(auto& _ : obs){
+                        _->Finish(S);
+                }
+                return Solution{ S, cond };
         }
 
         std::vector<size_t> GammaVector( std::shared_ptr<GameTree> gt,
@@ -426,6 +436,9 @@ namespace ps{
                                                                AG,
                                                                S,
                                                                obs);
+                        if( ! solution ){
+                                return {};
+                        }
                         ledger.push(solution.S);
                         ledger.save_();
                         if( auto ptr = boost::any_cast<NonMixedSolutionSolution>(&solution.Category)){
@@ -496,7 +509,11 @@ namespace ps{
                         if( ! NoPersistent ){
                                 auto iter = ss_.find(key);
                                 if( iter != ss_.end()){
-                                        return iter->second.to_eigen_vv();
+                                        if( iter->second.good() ){
+                                                return iter->second.to_eigen_vv();
+                                        } else {
+                                                return {};
+                                        }
                                 }
                         }
 
@@ -512,6 +529,9 @@ namespace ps{
 
                         if( sol ){
                                 ss_.add_solution(key, *sol);
+                        } else {
+                                // indicate bad solution
+                                ss_.add_solution(key, holdem_binary_strategy_s{});
                         }
 
                         return sol; // might be nothing
@@ -546,7 +566,7 @@ namespace ps{
                         conv_tb.push_back(std::vector<std::string>{"Desc", "?"});
                         conv_tb.push_back(Pretty::LineBreak);
 
-                        for(double eff = 10.0;eff - 1e-4 < 20.0; eff += 1.0 ){
+                        for(double eff = 2.0;eff - 1e-4 < 20.0; eff += 1.0 ){
                                 std::cout << "eff => " << eff << "\n"; // __CandyPrint__(cxx-print-scalar,eff)
 
                                 std::shared_ptr<GameTree> gt;

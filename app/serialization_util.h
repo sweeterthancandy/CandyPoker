@@ -57,6 +57,8 @@ namespace ps{
                         }
                         return tmp;
                 }
+                bool good()const{ return state_.size() != 0; }
+
         private:
                 friend class boost::serialization::access;
                 template<class Archive>

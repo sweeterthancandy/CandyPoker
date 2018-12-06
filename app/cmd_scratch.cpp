@@ -91,6 +91,17 @@ namespace ps{
                 double Factor{0.05};
                 double Epsilon{0.001};
         };
+
+        struct TaggedSolution{
+                explicit TaggedSolution(StateType S_, double rank)
+                        : S{ std::move(S_) }, rank_{rank}
+                {}
+                double LinearRank()const{ return rank_; }
+        private:
+                StateType S;
+                double rank_;
+        };
+
         struct Solution{
                 StateType S;
                 boost::any Category;
@@ -98,11 +109,37 @@ namespace ps{
                         return ! S.empty();
                 }
         };
+
+        enum SolutionGroup{
+                /*
+                 * When we have a solution, with only 
+                 */
+                SG_Mixed,
+                SG_Ev,
+        };
+        struct CandidateSet : std::map<std::pair<size_t, double>, StateType>{
+                void Emit(size_t group, double rank, StateType S){
+                        (*this)[std::make_pair(group, rank)] = std::move(S);
+                }
+        };
         struct AnyObserver{
+                explicit AnyObserver(std::string const& name, size_t stride = 0 )
+                        : name_{name}, stride_{stride}
+                {}
                 virtual ~AnyObserver()=default;
-                virtual boost::any Condition(StateType const& S){ return {}; };
+
+                boost::any MaybeCondition(StateType& S, CandidateSet* C){
+                        if( stride_ != 0 && ( ++count_ % stride_ != 0 ) )
+                                return {};
+                        return Condition(S, C);
+                }
+                virtual boost::any Condition(StateType& S, CandidateSet* C){ return {}; };
                 virtual void Start(StateType const& S){ }
                 virtual void Finish(StateType const& S){ }
+        private:
+                std::string name_; // for debugging
+                size_t stride_{0};
+                size_t count_{0};
         };
         Solution GeometricLoopWithClamp(GeometricLoopOptions const& opts,
                                         std::shared_ptr<GameTree> gt,
@@ -118,8 +155,19 @@ namespace ps{
                 }
                         
                 boost::any cond;
+                CandidateSet C;
 
                 for(;;){
+                        // this is the main part of this algorithm. We increment the solution
+                        // so be a linear combination of
+                        //                  S_{n+1} = \alpha S_n + ( 1 - \alpha ) Counter( S_n ),
+                        // the idea is that this new solution is not as exploitable as S_n, and 
+                        // eventaually converges to a solution such that the difference in EV
+                        // is small.
+                        //      However I'm interested in the minimally mixed solution, which
+                        // is where no more than one card per solution is not in {0,1}.
+                        //
+                        //
                         for(size_t inner=0;inner!=opts.Stride;++inner, ++counter){
                                 auto S_counter = CounterStrategy(gt, AG, S, opts.Delta);
                                 InplaceLinearCombination(S, S_counter, 1 - opts.Factor );
@@ -135,7 +183,7 @@ namespace ps{
 
 
                         for(auto& _ : obs){
-                                cond = _->Condition(S);
+                                cond = _->Condition(S, &C);
                                 if( ! cond.empty()){
                                         break;
                                 }
@@ -330,7 +378,7 @@ namespace ps{
                                    GraphColouring<AggregateComputer> const& AG)
                         : gt_{gt}, AG_{&AG}
                 {}
-                boost::any Condition(StateType const& S)override{
+                boost::any Condition(StateType& S, CandidateSet* C)override{
                         for(size_t idx=0;idx!=S.size();++idx){
                                 for(size_t cid=0;cid!=169;++cid){
                                         if( S[idx][0][cid] == 0.0 || S[idx][0][cid] == 1.0 )
@@ -355,7 +403,7 @@ namespace ps{
                                GraphColouring<AggregateComputer> const& AG)
                         : gt_{gt}, AG_{&AG}
                 {}
-                boost::any Condition(StateType const& S)override{
+                boost::any Condition(StateType& S, CandidateSet* C)override{
                         auto gamma_vec = GammaVector(gt_, *AG_, S);
                         if( Debug ){
                                 std::cout << "detail::to_string(gamma_vec) => " << detail::to_string(gamma_vec) << "\n"; // __CandyPrint__(cxx-print-scalar,detail::to_string(gamma_vec))
@@ -386,7 +434,7 @@ namespace ps{
         };
 
         struct SolutionPrinter : AnyObserver{
-                virtual boost::any Condition(StateType const& S)override{
+                virtual boost::any Condition(StateType& S, CandidateSet* C)override{
                         for(size_t idx=0;idx!=S.size();++idx){
                                 pretty_print_strat(S[idx][0], 4);
                         }
@@ -459,27 +507,6 @@ namespace ps{
                         return ms->S;
                 }
                 return {};
-
-                #if 0
-                if( solution_set.empty()){
-                        return boost::none;
-                }
-                if( 
-
-                std::cout << "solution_set.size() => " << solution_set.size() << "\n"; // __CandyPrint__(cxx-print-scalar,solution_set.size())
-                using std::get;
-                for(auto const& _ : solution_set ){
-                        std::cout << "std::get<1>(_) => " << std::get<1>(_) << ", "; // __CandyPrint__(cxx-print-scalar,std::get<1>(_))
-                        std::cout << "std::get<2>(_) => " << std::get<2>(_) << "\n"; // __CandyPrint__(cxx-print-scalar,std::get<2>(_))
-                }
-                std::sort( solution_set.begin(), solution_set.end(), [](auto&& l, auto&& r){
-                        if( get<1>(l) != get<1>(r)){
-                                return ( get<1>(l) < get<1>(r) );
-                        }
-                        return ( get<2>(l) > get<2>(r) );
-                });
-                return std::get<0>(solution_set.back());
-                #endif
         }
         boost::optional<StateType> AlgebraicSolver(holdem_binary_strategy_ledger_s& ledger, std::shared_ptr<GameTree> gt,
                                                    GraphColouring<AggregateComputer>& AG)
@@ -551,7 +578,7 @@ namespace ps{
                 ScratchCmd(std::vector<std::string> const& args):args_{args}{}
                 virtual int Execute()override{
                         enum { Dp = 1 };
-                        size_t n = 2;
+                        size_t n = 3;
                         double sb = 0.5;
                         double bb = 1.0;
                         #if 1
@@ -566,7 +593,7 @@ namespace ps{
                         conv_tb.push_back(std::vector<std::string>{"Desc", "?"});
                         conv_tb.push_back(Pretty::LineBreak);
 
-                        for(double eff = 2.0;eff - 1e-4 < 20.0; eff += 1.0 ){
+                        for(double eff = 2.0;eff - 1e-4 < 20.0; eff += 0.5 ){
                                 std::cout << "eff => " << eff << "\n"; // __CandyPrint__(cxx-print-scalar,eff)
 
                                 std::shared_ptr<GameTree> gt;

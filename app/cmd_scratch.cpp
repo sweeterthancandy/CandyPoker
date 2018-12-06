@@ -83,45 +83,24 @@ namespace ps{
         }
 
 
-
-        struct GeometricLoopOptions{
-                size_t MaxIter{1000};
-                double Delta{0.01};
-                size_t Stride{1};
-                double Factor{0.05};
-                double Epsilon{0.001};
-        };
-
-        struct TaggedSolution{
-                explicit TaggedSolution(StateType S_, double rank)
-                        : S{ std::move(S_) }, rank_{rank}
-                {}
-                double LinearRank()const{ return rank_; }
-        private:
-                StateType S;
-                double rank_;
-        };
-
         struct Solution{
                 StateType S;
-                boost::any Category;
-                operator bool()const{
-                        return ! S.empty();
-                }
+                StateType Counter;
+                Eigen::VectorXd<double> EV;
+                Eigen::VectorXd<double> counter_EV;
+                std::vector<size_t> Gamma;
         };
 
-        enum SolutionGroup{
-                /*
-                 * When we have a solution, with only 
-                 */
-                SG_Mixed,
-                SG_Ev,
+        /*
+                This allows me to abstract the computation from the search
+         */
+        struct SolutionFactory{
+                virtual ~SolutionFactory()=default;
+                virtual std::shared_ptr<Solution> Create(StateType const& S)=0;
         };
-        struct CandidateSet : std::map<std::pair<size_t, double>, StateType>{
-                void Emit(size_t group, double rank, StateType S){
-                        (*this)[std::make_pair(group, rank)] = std::move(S);
-                }
-        };
+
+
+
         struct AnyObserver{
                 explicit AnyObserver(std::string const& name, size_t stride = 0 )
                         : name_{name}, stride_{stride}
@@ -140,6 +119,27 @@ namespace ps{
                 std::string name_; // for debugging
                 size_t stride_{0};
                 size_t count_{0};
+        };
+        
+        /* need object to keep track of the best solution,
+           I can't reply on getting a certain solution */
+        struct SolutionConsumer{
+                void Consume(StateType const& S){
+                        if( ledger_.empty() )
+                                ledger_.push_back(S);
+                        auto const& head = ledger_.back();
+                }
+        private:
+                std::vector<StateType> ledger_;
+                StateType counter_;
+        };
+
+        struct GeometricLoopOptions{
+                size_t MaxIter{1000};
+                double Delta{0.01};
+                size_t Stride{1};
+                double Factor{0.05};
+                double Epsilon{0.001};
         };
         Solution GeometricLoopWithClamp(GeometricLoopOptions const& opts,
                                         std::shared_ptr<GameTree> gt,

@@ -16,6 +16,44 @@
 
 #include <boost/timer/timer.hpp>
 
+/*
+        My idea here is that I want to find a solution S, subject to certain containts,
+        such as only having a single cid having a mixed solution.
+        
+        
+        For a n-player push/fold game, we seek a solution S, which represents how each
+        player plays each hand in any given situation. We know that a solution exist,
+        and in fact a solution exists with only one mixed cid.
+                The solution S, has the property that no player can unilaterally improve
+        their ev, ie
+                                EV[T] <= EV[S] \forall T ,
+        for any given player. The (mixed) numerical solution, which is mostly trivial
+        is just the iterative solution
+                     S_{i+1} = S_{i} * \alpha + Counter(S_{i}) * ( 1 - \alpha ),
+        and we can impose the stoppage condition
+                        || EV[S_{i}] - EV[Counter(S_{i-1})] ||_{\inf} < \epsilon.
+        However the above design will converge to a solution with multiple cid's having
+        mixed solutions.
+                We can modify the pervious design to have a forcing term, with the idea
+        is that there is a set B of cid's for which have very little difference between
+        push or fold. By introducing a forcing term, we can have the counterstrategy
+        that requires a minimal jump in ev for go from push to fold. In this same design,
+        we also want to map those very close to one or zero, into one or zero.
+                However not all numerical solution will converge to the most restrictive
+        conditon, so we need to have versile stoppage conditions.
+                
+
+                A) Mixed solution, minimal EV
+                B) minimal mixed solution, 
+                B) algebraic solution
+
+
+                When using the EV stoppage condition, not all solution will converge, as
+        there may be an endless loop of two cards ocilating.
+        
+ */
+
+
 namespace ps{
         using namespace sim;
         
@@ -24,11 +62,15 @@ namespace ps{
 
         template<class Value, class Error_>
         struct BasicValueOrError{
-                BasicValueOrError(Error_ const& err):
-                        error_{err}
-                {}
-                BasicValueOrError(Value const& val):
+                explicit BasicValueOrError(Value const& val):
                         value_{val}
+                {}
+                struct ErrorTag{};
+                static BasicValueOrError MakeError(Error_ const& err){
+                        return BasicValueOrError{ ErrorTag{}, err};
+                }
+                BasicValueOrError(ErrorTag const& tag, Error_ const& err):
+                        error_{err}
                 {}
                 bool IsError()const{ return value_.operator bool(); }
                 operator bool()const{ return IsError(); }
@@ -47,11 +89,65 @@ namespace ps{
                 boost::optional<Error_> error_;
         };
 
-        struct Error{
-                std::string msg;
-        };
         template<class T>
         using ValueOrError = BasicValueOrError<T, Error>;
+        
+        struct PathSolver{
+
+                enum AnyObserverCtrl{
+                        CTRL_Continue,
+                        CTRL_Success,
+                        CTRL_Failure,
+                };
+                struct AnyObserver{
+                        enum Kind{
+                                K_KillCounter,
+                        };
+                        explicit AnyObserver(std::string const& name, size_t stride = 0 )
+                                : name_{name}, stride_{stride}
+                        {}
+                        virtual ~AnyObserver()=default;
+
+                        AnyObserverCtrl MaybeCondition(StateType& S){
+                                if( stride_ != 0 && ( ++count_ % stride_ != 0 ) )
+                                        return CTRL_Continue;
+                                return Condition(S);
+                        }
+                        virtual AnyObserverCtrl Condition(StateType& S){ return CTRL_Continue; };
+                private:
+                        std::string name_; // for debugging
+                        size_t stride_{0};
+                        size_t count_{0};
+                };
+
+                struct GenerlizedStep{
+                        virtual ~GenerlizedStep()=default;
+                        virtual ValueOrError<StateType> ExecuteStep(StateType const& S0)const=0;
+                };
+                struct Step
+                        : GenerlizedStep
+                        , std::vector<std::shared_ptr<AnyObserver> >
+                {
+                        virtual ValueOrError<StateType> ExecuteStep(StateType const& S0)const{
+                                auto S = S0;
+
+                                for(;;){
+                                        for(auto const& obs : *this){
+                                                switch(obs->MaybeCondition(S))
+                                                {
+                                                        case CTRL_Continue:
+                                                                break;
+                                                        case CTRL_Success:
+                                                                return S;
+                                                        case CTRL_Failure:
+                                                                return ValueOrError<StateType>::MakeError("error");
+                                                }
+                                        }
+                                }
+                                PS_UNREACHABLE();
+                        }
+                };
+        };
         
         StateType& InplaceLinearCombination(StateType& x,
                                             StateType const& y,
@@ -83,6 +179,7 @@ namespace ps{
         }
 
 
+
         struct Solution{
                 StateType S;
                 StateType Counter;
@@ -90,6 +187,7 @@ namespace ps{
                 Eigen::VectorXd<double> counter_EV;
                 std::vector<size_t> Gamma;
         };
+        
 
         /*
                 This allows me to abstract the computation from the search
@@ -101,25 +199,6 @@ namespace ps{
 
 
 
-        struct AnyObserver{
-                explicit AnyObserver(std::string const& name, size_t stride = 0 )
-                        : name_{name}, stride_{stride}
-                {}
-                virtual ~AnyObserver()=default;
-
-                boost::any MaybeCondition(StateType& S, CandidateSet* C){
-                        if( stride_ != 0 && ( ++count_ % stride_ != 0 ) )
-                                return {};
-                        return Condition(S, C);
-                }
-                virtual boost::any Condition(StateType& S, CandidateSet* C){ return {}; };
-                virtual void Start(StateType const& S){ }
-                virtual void Finish(StateType const& S){ }
-        private:
-                std::string name_; // for debugging
-                size_t stride_{0};
-                size_t count_{0};
-        };
         
         /* need object to keep track of the best solution,
            I can't reply on getting a certain solution */

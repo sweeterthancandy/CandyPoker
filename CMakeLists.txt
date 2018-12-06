@@ -1,7 +1,8 @@
 cmake_minimum_required(VERSION 3.6)
 
-find_package (Eigen3 3.3 REQUIRED )
+#find_package (Eigen3 3.3 REQUIRED NO_MODULE)
 project(ps)
+
 
 
 if( WIN32 )
@@ -35,9 +36,10 @@ endif()
 find_package(Boost REQUIRED COMPONENTS log system timer serialization)
 
 include_directories(${Boost_INCLUDE_DIRS})
-include_directories(${EIGEN3_INCLUDE_DIR})
 
 include_directories(.)
+include_directories( /usr/include/eigen3/ )
+include_directories( /usr/include/eigen3/Eigen/ )
 
 
 #aux_source_directory(lib/base base_sources)
@@ -57,6 +59,7 @@ set(base_sources
 )
 add_library(ps_lib SHARED ${base_sources}) 
 target_link_libraries(ps_lib ${Boost_LIBRARIES})
+#target_link_libraries(ps_lib Eigen3::Eigen)
 
                 
 
@@ -66,13 +69,13 @@ set(
         app/driver.cpp
         #app/cmd_heads_up_solver.cpp
         app/cmd_flopzilla.cpp
-        #app/cmd_solver.cpp
-        app/cmd_scratch.cpp
+        app/cmd_solver.cpp
 )
 
 add_executable(driver ${driver_sources} )
 target_link_libraries(driver pthread )
 target_link_libraries(driver ${Boost_LIBRARIES})
 target_link_libraries(driver ps_lib )
+#target_link_libraries(driver Eigen3::Eigen)
 
 

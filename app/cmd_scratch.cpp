@@ -11,9 +11,10 @@
 #include "ps/sim/game_tree.h"
 #include <boost/any.hpp>
 
-                           
-
-
+#include "CandyTransform/Transform.h"
+namespace ps{
+        namespace ct = CandyTransform;
+} // end namespace ps
 
 #include <boost/timer/timer.hpp>
 
@@ -75,147 +76,6 @@
  */
 
 
-namespace ps{
-namespace sim{
-        GraphColouring<AggregateComputer> MakeComputer(std::shared_ptr<GameTree> gt){
-                auto root   = gt->Root();
-                auto state0 = gt->InitialState();
-
-
-
-                
-                /*
-                 * To simplify the construction, we first create a object which represents
-                 * the teriminal state of the game, for hu we have 3 terminal states
-                 *                        {f,pf,pp},
-                 * with the first two being independent of the dealt hand, whilst the 
-                 * last state pp required all in equity evaluation. We create a vector
-                 * of each of these terminal states, then which create Computer objects
-                 * for fast computation. This is mainly to simplify the code.
-                 */
-                std::vector<std::shared_ptr<MakerConcept> > maker_dev;
-
-                /*
-                 * Now we go over all the terminal nodes, which is basically a path to
-                 * something that can be evaluated. 
-                 */
-                GraphColouring<AggregateComputer> AG;
-                GraphColouring<PushFoldOperator> ops;
-                gt->ColorOperators(ops);
-
-                for(auto t : root->TerminalNodes() ){
-
-                        auto path = t->EdgePath();
-                        auto ptr = std::make_shared<Computer>(path_to_string(path));
-                        AG[t].push_back(ptr);
-                        for(auto e : path ){
-                                AG[e->From()].push_back(ptr); 
-                        }
-
-                        /*
-                         * Work out the terminal state, independent of the deal, and
-                         * make an factory object
-                         */
-                        auto state = state0;
-                        for( auto e : path ){
-                                ops[e](state);
-                        }
-                        std::vector<size_t> perm(state.Active.begin(), state.Active.end());
-                        maker_dev.push_back(std::make_shared<StaticEmit>(ptr, path, perm, state.Pot) );
-
-                }
-                
-                std::string cache_name{".cc.bin.prod"};
-                class_cache C;
-                C.load(cache_name);
-                IndexMaker im(*gt);
-                        
-                MakerConcept::Display(maker_dev);
-
-                auto nv = [&](double prob, holdem_class_vector const& cv){
-                        for(auto& m : maker_dev ){
-                                m->Emit(&im, &C, prob, cv );
-                        }
-                };
-                gt->VisitProbabilityDist(nv);
-
-                return AG;
-        }
-namespace computation_kernel{
-        StateType& InplaceLinearCombination(StateType& x,
-                                            StateType const& y,
-                                            double alpha)
-        {
-                for(size_t i=0;i!=x.size();++i){
-                        for(size_t j=0;j!=x[i].size();++j){
-                                x[i][j] *= alpha;
-                                x[i][j] += y[i][j] * ( 1.0 - alpha );
-                        }
-                }
-                return x;
-        }
-        StateType& InplaceClamp(StateType& x, double epsilon)
-        {
-                for(size_t i=0;i!=x.size();++i){
-                        for(size_t j=0;j!=x[i].size();++j){
-                                for(size_t cid=0;cid!=169;++cid){
-                                        if( std::fabs( x[i][j][cid] ) < epsilon ){
-                                                x[i][j][cid] = 0.0;
-                                        }
-                                        if( std::fabs( 1.0 - x[i][j][cid] ) < epsilon ){
-                                                x[i][j][cid] = 1.0;
-                                        }
-                                }
-                        }
-                }
-                return x;
-        }
-        std::vector<size_t> GammaVector( std::shared_ptr<GameTree> gt,
-                                         GraphColouring<AggregateComputer> const& AG,
-                                         StateType const& S)
-        {
-                // we have a mixed solution where the counter strategy 
-                // has only one cid different from our solutuon.
-                auto counter_nf = CounterStrategy(gt, AG, S, 0.0);
-                std::vector<size_t> gamma_vec;
-                for(size_t idx=0;idx!=S.size();++idx){
-                        auto A = S[idx][0] - counter_nf[idx][0];
-                        gamma_vec.push_back(0);
-                        for(size_t idx=0;idx!=169;++idx){
-                                if( A[idx] != 0.0 ){
-                                        ++gamma_vec.back();
-                                }
-                        }
-                }
-                return gamma_vec;
-        }
-        bool IsMinMixedSolution(std::vector<size_t> const& gamma_vec){
-                enum{
-                        T_Zero        = 0,
-                        T_One         = 1,
-                        T_Two         = 2,
-                        T_ThreeOrMore = 3,
-                };
-                std::array<size_t, 4> M = {0, 0, 0, 0 };
-                for(size_t idx=0;idx!=gamma_vec.size();++idx){
-                        auto j = std::min<size_t>(gamma_vec[idx], 3);
-                        ++M[j];
-                }
-                if( M[T_ThreeOrMore] == 0 && M[T_Two] <= 1 ){
-                        return true;
-                }
-                return false;
-        }
-        size_t MinMixedSolutionMetric(std::vector<size_t> const& gamma_vec){
-                size_t metric = 0;
-                for(size_t idx=0;idx!=gamma_vec.size();++idx){
-                        metric += gamma_vec[idx] * gamma_vec[idx];
-                }
-                return metric;
-        }
-} // end namespace computation_kernel
-} // end namespace sim
-} // end namespace ps
 
 namespace ps{
         using namespace sim;
@@ -349,6 +209,8 @@ namespace ps{
                 virtual ~SolverConcept()=default;
                 virtual boost::optional<StateType> ComputeSolution(std::shared_ptr<GameTree> gt, GraphColouring<AggregateComputer>& AG)const noexcept=0;
         };
+
+
         struct NumericalSolver : SolverConcept{
                 virtual boost::optional<StateType> ComputeSolution(std::shared_ptr<GameTree> gt, GraphColouring<AggregateComputer>& AG)const noexcept override
                 {
@@ -375,6 +237,85 @@ namespace ps{
                                 if( norm < epsilon ){
                                         return S;
                                 }
+                        }
+                        return {};
+                }
+        };
+        namespace SolverPaths{
+
+                struct Context{
+                        std::shared_ptr<GameTree> gt;
+                        GraphColouring<AggregateComputer>& AG;
+
+                        StateType S;
+
+                        GNode* root;
+                };
+
+                struct StaticLoop : ct::Transform<Context*, Context*>{
+                        size_t Count{10};
+                        double Factor{0.05};
+
+                        virtual void Apply(ct::TransformControl* ctrl, ParamType in)override{
+                                for(size_t n=0;n!=Count;++n){
+                                        auto S_counter = computation_kernel::CounterStrategy(in->gt, in->AG, in->S, 0.0);
+                                        computation_kernel::InplaceLinearCombination(in->S, S_counter, 1 - Factor );
+                                }
+                                ctrl->Emit(in);
+                        }
+                };
+
+                struct MaybeStop : ct::Transform<Context*, Context*>{
+                        virtual void Apply(ct::TransformControl* ctrl, ParamType in)override
+                        {
+                                auto S_counter = computation_kernel::CounterStrategy(in->gt, in->AG, in->S, 0.0);
+                                auto ev = in->AG.Color(in->root).ExpectedValue(in->S);
+                                auto counter_ev = in->AG.Color(in->root).ExpectedValue(S_counter);
+                                auto d = ev - counter_ev;
+                                auto norm = d.lpNorm<Eigen::Infinity>();
+
+                                std::cout << "norm = " << norm << "\n";
+                                DisplayStrategy(in->S);
+
+                                double epsilon = 0.00001;
+                                if( norm < epsilon ){
+                                        ctrl->Return(in->S);
+                                } else {
+                                        ctrl->Emit(in);
+                                }
+                        }
+                };
+
+
+
+        } // end namespace SolverPaths
+        struct CTNumericalSolver : SolverConcept{
+                struct MainLoop : ct::Transform<SolverPaths::Context*, SolverPaths::Context*>, std::enable_shared_from_this<MainLoop>{
+                        using StaticLoop = SolverPaths::StaticLoop;
+                        using MaybeStop  = SolverPaths::MaybeStop;
+                        virtual void Apply(ct::TransformControl* ctrl, ParamType in)override
+                        {
+                                auto dp = ctrl->DeclPath();
+                                dp->Next(A)
+                                  ->Next(B)
+                                  ->Next(shared_from_this());
+                                ctrl->Emit(in);
+                        }
+                        std::shared_ptr<StaticLoop> A{std::make_shared<StaticLoop>()};
+                        std::shared_ptr<MaybeStop> B{std::make_shared<MaybeStop>()};
+                };
+                virtual boost::optional<StateType> ComputeSolution(std::shared_ptr<GameTree> gt, GraphColouring<AggregateComputer>& AG)const noexcept override
+                {
+                        using namespace SolverPaths;
+                        ct::TransformContext ctx;
+                        auto path = ctx.Start();
+                        path->Next(std::make_shared<MainLoop>());
+                        
+                        Context pp{gt, AG};
+                        pp.S = gt->MakeDefaultState();
+                        pp.root = gt->Root();
+                        for(auto const& result : ctx.Execute<StateType>(&pp) ){
+                                return result;
                         }
                         return {};
                 }
@@ -415,7 +356,7 @@ namespace ps{
 
                         GraphColouring<AggregateComputer> AG = MakeComputer(gt);
                         //auto sol = AlgebraicSolver(ledger, gt, AG);
-                        auto solver = std::make_shared<NumericalSolver>();
+                        auto solver = std::make_shared<CTNumericalSolver>();
                         auto sol = solver->ComputeSolution(gt, AG);
 
                         if( sol ){
@@ -457,8 +398,8 @@ namespace ps{
                         conv_tb.push_back(std::vector<std::string>{"Desc", "?"});
                         conv_tb.push_back(Pretty::LineBreak);
 
-                        for(double eff = 2.0;eff - 1e-4 < 20.0; eff += 0.5 ){
-                        //for(double eff = 10.0;eff - 1e-4 < 10.0; eff += 0.5 ){
+                        //for(double eff = 2.0;eff - 1e-4 < 20.0; eff += 0.5 ){
+                        for(double eff = 10.0;eff - 1e-4 < 10.0; eff += 0.5 ){
                                 std::cout << "eff => " << eff << "\n"; // __CandyPrint__(cxx-print-scalar,eff)
 
                                 std::shared_ptr<GameTree> gt;

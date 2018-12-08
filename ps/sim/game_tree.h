@@ -746,7 +746,99 @@ namespace sim{
                 return dev.A;
         }
 
+        GraphColouring<AggregateComputer> MakeComputer(std::shared_ptr<GameTree> gt){
+                auto root   = gt->Root();
+                auto state0 = gt->InitialState();
+
+
+
+                
+                /*
+                 * To simplify the construction, we first create a object which represents
+                 * the teriminal state of the game, for hu we have 3 terminal states
+                 *                        {f,pf,pp},
+                 * with the first two being independent of the dealt hand, whilst the 
+                 * last state pp required all in equity evaluation. We create a vector
+                 * of each of these terminal states, then which create Computer objects
+                 * for fast computation. This is mainly to simplify the code.
+                 */
+                std::vector<std::shared_ptr<MakerConcept> > maker_dev;
+
+                /*
+                 * Now we go over all the terminal nodes, which is basically a path to
+                 * something that can be evaluated. 
+                 */
+                GraphColouring<AggregateComputer> AG;
+                GraphColouring<PushFoldOperator> ops;
+                gt->ColorOperators(ops);
+
+                for(auto t : root->TerminalNodes() ){
+
+                        auto path = t->EdgePath();
+                        auto ptr = std::make_shared<Computer>(path_to_string(path));
+                        AG[t].push_back(ptr);
+                        for(auto e : path ){
+                                AG[e->From()].push_back(ptr); 
+                        }
+
+                        /*
+                         * Work out the terminal state, independent of the deal, and
+                         * make an factory object
+                         */
+                        auto state = state0;
+                        for( auto e : path ){
+                                ops[e](state);
+                        }
+                        std::vector<size_t> perm(state.Active.begin(), state.Active.end());
+                        maker_dev.push_back(std::make_shared<StaticEmit>(ptr, path, perm, state.Pot) );
+
+                }
+                
+                std::string cache_name{".cc.bin.prod"};
+                class_cache C;
+                C.load(cache_name);
+                IndexMaker im(*gt);
+                        
+                MakerConcept::Display(maker_dev);
+
+                auto nv = [&](double prob, holdem_class_vector const& cv){
+                        for(auto& m : maker_dev ){
+                                m->Emit(&im, &C, prob, cv );
+                        }
+                };
+                gt->VisitProbabilityDist(nv);
+
+                return AG;
+        }
         namespace computation_kernel{
+                StateType& InplaceLinearCombination(StateType& x,
+                                                    StateType const& y,
+                                                    double alpha)
+                {
+                        for(size_t i=0;i!=x.size();++i){
+                                for(size_t j=0;j!=x[i].size();++j){
+                                        x[i][j] *= alpha;
+                                        x[i][j] += y[i][j] * ( 1.0 - alpha );
+                                }
+                        }
+                        return x;
+                }
+                StateType& InplaceClamp(StateType& x, double epsilon)
+                {
+                        for(size_t i=0;i!=x.size();++i){
+                                for(size_t j=0;j!=x[i].size();++j){
+                                        for(size_t cid=0;cid!=169;++cid){
+                                                if( std::fabs( x[i][j][cid] ) < epsilon ){
+                                                        x[i][j][cid] = 0.0;
+                                                }
+                                                if( std::fabs( 1.0 - x[i][j][cid] ) < epsilon ){
+                                                        x[i][j][cid] = 1.0;
+                                                }
+                                        }
+                                }
+                        }
+                        return x;
+                }
                 StateType CounterStrategy(std::shared_ptr<GameTree> gt, 
                                           GraphColouring<AggregateComputer> const& AG,
                                           StateType const& S,
@@ -818,6 +910,49 @@ namespace sim{
                                 }
                         }
                         return S_counter;
+                }
+                std::vector<size_t> GammaVector( std::shared_ptr<GameTree> gt,
+                                                 GraphColouring<AggregateComputer> const& AG,
+                                                 StateType const& S)
+                {
+                        // we have a mixed solution where the counter strategy 
+                        // has only one cid different from our solutuon.
+                        auto counter_nf = CounterStrategy(gt, AG, S, 0.0);
+                        std::vector<size_t> gamma_vec;
+                        for(size_t idx=0;idx!=S.size();++idx){
+                                auto A = S[idx][0] - counter_nf[idx][0];
+                                gamma_vec.push_back(0);
+                                for(size_t idx=0;idx!=169;++idx){
+                                        if( A[idx] != 0.0 ){
+                                                ++gamma_vec.back();
+                                        }
+                                }
+                        }
+                        return gamma_vec;
+                }
+                bool IsMinMixedSolution(std::vector<size_t> const& gamma_vec){
+                        enum{
+                                T_Zero        = 0,
+                                T_One         = 1,
+                                T_Two         = 2,
+                                T_ThreeOrMore = 3,
+                        };
+                        std::array<size_t, 4> M = {0, 0, 0, 0 };
+                        for(size_t idx=0;idx!=gamma_vec.size();++idx){
+                                auto j = std::min<size_t>(gamma_vec[idx], 3);
+                                ++M[j];
+                        }
+                        if( M[T_ThreeOrMore] == 0 && M[T_Two] <= 1 ){
+                                return true;
+                        }
+                        return false;
+                }
+                size_t MinMixedSolutionMetric(std::vector<size_t> const& gamma_vec){
+                        size_t metric = 0;
+                        for(size_t idx=0;idx!=gamma_vec.size();++idx){
+                                metric += gamma_vec[idx] * gamma_vec[idx];
+                        }
+                        return metric;
                 }
         } // end namespace computation_kernel
 

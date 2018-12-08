@@ -746,76 +746,80 @@ namespace sim{
                 return dev.A;
         }
 
-        StateType CounterStrategy(std::shared_ptr<GameTree> gt, GraphColouring<AggregateComputer> const& AG, StateType const& S,
-                                  double delta)
-        {
-                auto S_counter = S;
-                for(auto const& decision : *gt){
+        namespace computation_kernel{
+                StateType CounterStrategy(std::shared_ptr<GameTree> gt, 
+                                          GraphColouring<AggregateComputer> const& AG,
+                                          StateType const& S,
+                                          double delta)
+                {
+                        auto S_counter = S;
+                        for(auto const& decision : *gt){
 
-                        auto const& eval = AG.Color(decision.CommonRoot());
-                        //auto const& eval = AG[root];
+                                auto const& eval = AG.Color(decision.CommonRoot());
+                                //auto const& eval = AG[root];
 
-                        auto sidx = decision.GetIndex();
-                        auto pidx = decision.GetPlayer();
+                                auto sidx = decision.GetIndex();
+                                auto pidx = decision.GetPlayer();
 
-                        // assume binary
-                        auto Sp = S;
-                        Sp[sidx][0].fill(1);
-                        Sp[sidx][1].fill(0);
+                                // assume binary
+                                auto Sp = S;
+                                Sp[sidx][0].fill(1);
+                                Sp[sidx][1].fill(0);
 
-                        auto Sf = S;
-                        Sf[sidx][0].fill(0);
-                        Sf[sidx][1].fill(1);
+                                auto Sf = S;
+                                Sf[sidx][0].fill(0);
+                                Sf[sidx][1].fill(1);
 
-                        EvDetailDevice po{pidx};
-                        EvDetailDevice fo{pidx};
+                                EvDetailDevice po{pidx};
+                                EvDetailDevice fo{pidx};
 
 
-                        eval.Observe(Sp, po);
-                        eval.Observe(Sf, fo);
+                                eval.Observe(Sp, po);
+                                eval.Observe(Sf, fo);
 
-                        po.Display(boost::lexical_cast<std::string>(decision.GetIndex()) + "push");
-                        fo.Display(boost::lexical_cast<std::string>(decision.GetIndex()) + "fold");
-                        
-                        Eigen::VectorXd surface(169);
-                        surface.fill(0.0);
-                        surface = po.A - fo.A;
+                                po.Display(boost::lexical_cast<std::string>(decision.GetIndex()) + "push");
+                                fo.Display(boost::lexical_cast<std::string>(decision.GetIndex()) + "fold");
+                                
+                                Eigen::VectorXd surface(169);
+                                surface.fill(0.0);
+                                surface = po.A - fo.A;
 
-                        /*
-                         * want a forcing, such that  
-                         *      0 -> -A
-                         *      1 -> +B
-                         *      0.5 -> 0
-                         */
-                        Eigen::VectorXd forcing(169);
-                        forcing.fill(0.0);
-                        auto scale = surface.maxCoeff();
-                        for(size_t cid=0;cid!=169;++cid){
-                                auto a = S[sidx][0][cid];
-                                auto aa = a * a;
-                                auto b = S[sidx][1][cid];
-                                auto bb = b * b;
-                                auto c = a - b;
-                                forcing[cid] = scale * delta * c;
+                                /*
+                                 * want a forcing, such that  
+                                 *      0 -> -A
+                                 *      1 -> +B
+                                 *      0.5 -> 0
+                                 */
+                                Eigen::VectorXd forcing(169);
+                                forcing.fill(0.0);
+                                auto scale = surface.maxCoeff();
+                                for(size_t cid=0;cid!=169;++cid){
+                                        auto a = S[sidx][0][cid];
+                                        auto aa = a * a;
+                                        auto b = S[sidx][1][cid];
+                                        auto bb = b * b;
+                                        auto c = a - b;
+                                        forcing[cid] = scale * delta * c;
+                                }
+
+                                surface += forcing;
+
+                                for(size_t idx=0;idx!=169;++idx){
+                                        #if 0
+                                        double x = ( po.A[idx] - 1e-3 > fo.A[idx] ? 1.0 : 0.0 );
+                                        S_counter[sidx][0][idx] = x;
+                                        S_counter[sidx][1][idx] = 1.0 - x;
+                                        #endif
+                                        // on edge cases we push
+                                        double x = ( surface[idx] >= 0.0 ? 1.0 : 0.0 );
+                                        S_counter[sidx][0][idx] = x;
+                                        S_counter[sidx][1][idx] = 1.0 - x;
+
+                                }
                         }
-
-                        surface += forcing;
-
-                        for(size_t idx=0;idx!=169;++idx){
-                                #if 0
-                                double x = ( po.A[idx] - 1e-3 > fo.A[idx] ? 1.0 : 0.0 );
-                                S_counter[sidx][0][idx] = x;
-                                S_counter[sidx][1][idx] = 1.0 - x;
-                                #endif
-                                // on edge cases we push
-                                double x = ( surface[idx] >= 0.0 ? 1.0 : 0.0 );
-                                S_counter[sidx][0][idx] = x;
-                                S_counter[sidx][1][idx] = 1.0 - x;
-
-                        }
+                        return S_counter;
                 }
-                return S_counter;
-        }
+        } // end namespace computation_kernel
 
 } // end namespace sim
 } // end namespace ps

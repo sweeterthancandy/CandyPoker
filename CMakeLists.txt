@@ -28,6 +28,8 @@ else()
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-sign-compare")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-variable")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-missing-braces")
+  #for eigen
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-misleading-indentation")
 
 endif()
 
@@ -40,6 +42,7 @@ include_directories(${Boost_INCLUDE_DIRS})
 include_directories(.)
 include_directories( /usr/include/eigen3/ )
 include_directories( /usr/include/eigen3/Eigen/ )
+include_directories( deps/CandyTransform/include/ )
 
 
 #aux_source_directory(lib/base base_sources)
@@ -70,6 +73,7 @@ set(
         #app/cmd_heads_up_solver.cpp
         app/cmd_flopzilla.cpp
         app/cmd_solver.cpp
+        app/cmd_scratch.cpp
 )
 
 add_executable(driver ${driver_sources} )

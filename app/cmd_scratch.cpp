@@ -248,11 +248,11 @@ namespace ps{
                         GraphColouring<AggregateComputer>& AG;
 
                         StateType S;
-
                         GNode* root;
+                        double Epsilon{1e-8};
                 };
 
-                struct StaticLoop : ct::Transform<Context*, Context*>{
+                struct StaticLoop : ct::Transform<std::shared_ptr<Context>, std::shared_ptr<Context> >{
                         size_t Count{10};
                         double Factor{0.05};
 
@@ -261,11 +261,11 @@ namespace ps{
                                         auto S_counter = computation_kernel::CounterStrategy(in->gt, in->AG, in->S, 0.0);
                                         computation_kernel::InplaceLinearCombination(in->S, S_counter, 1 - Factor );
                                 }
-                                ctrl->Emit(in);
+                                ctrl->Pass();
                         }
                 };
 
-                struct MaybeStop : ct::Transform<Context*, Context*>{
+                struct MaybeStop : ct::Transform<std::shared_ptr<Context>, std::shared_ptr<Context> >{
                         virtual void Apply(ct::TransformControl* ctrl, ParamType in)override
                         {
                                 auto S_counter = computation_kernel::CounterStrategy(in->gt, in->AG, in->S, 0.0);
@@ -277,11 +277,10 @@ namespace ps{
                                 std::cout << "norm = " << norm << "\n";
                                 DisplayStrategy(in->S);
 
-                                double epsilon = 0.00001;
-                                if( norm < epsilon ){
+                                if( norm < in->Epsilon ){
                                         ctrl->Return(in->S);
                                 } else {
-                                        ctrl->Emit(in);
+                                        ctrl->Pass();
                                 }
                         }
                 };
@@ -290,16 +289,34 @@ namespace ps{
 
         } // end namespace SolverPaths
         struct CTNumericalSolver : SolverConcept{
-                struct MainLoop : ct::Transform<SolverPaths::Context*, SolverPaths::Context*>, std::enable_shared_from_this<MainLoop>{
-                        using StaticLoop = SolverPaths::StaticLoop;
+                struct LoopInit
+                        : ct::Transform<std::shared_ptr<SolverPaths::Context>, std::shared_ptr<SolverPaths::Context> >
+                {
+                        virtual void Apply(ct::TransformControl* ctrl, ParamType in)override
+                        {
+                                for(double epsilon = 1e-4; epsilon > 1e-20; epsilon /= 10){
+                                        auto ctx = std::make_shared<SolverPaths::Context>(*in);
+                                        ctx->Epsilon = epsilon;
+                                        ctrl->Emit(ctx);
+                                }
+                        }
+                };
+                struct MainLoop
+                        : ct::Transform<std::shared_ptr<SolverPaths::Context>
+                        , std::shared_ptr<SolverPaths::Context> >, std::enable_shared_from_this<MainLoop>
+                {
+                        using StaticLoop = SolverPaths::StaticLoop; 
                         using MaybeStop  = SolverPaths::MaybeStop;
                         virtual void Apply(ct::TransformControl* ctrl, ParamType in)override
                         {
-                                auto dp = ctrl->DeclPath();
-                                dp->Next(A)
-                                  ->Next(B)
-                                  ->Next(shared_from_this());
-                                ctrl->Emit(in);
+                                std::cout << "ctrl->Depth() = " << ctrl->Depth() << "\n";
+                                if( ctrl->Depth() < 100 ){
+                                        auto dp = ctrl->DeclPath();
+                                        dp->Next(A)
+                                          ->Next(B)
+                                          ->Next(shared_from_this());
+                                        ctrl->Pass();
+                                }
                         }
                         std::shared_ptr<StaticLoop> A{std::make_shared<StaticLoop>()};
                         std::shared_ptr<MaybeStop> B{std::make_shared<MaybeStop>()};
@@ -309,13 +326,18 @@ namespace ps{
                         using namespace SolverPaths;
                         ct::TransformContext ctx;
                         auto path = ctx.Start();
-                        path->Next(std::make_shared<MainLoop>());
+                        path->Next(std::make_shared<LoopInit>())
+                            ->Next(std::make_shared<MainLoop>())
+                        ;
                         
-                        Context pp{gt, AG};
-                        pp.S = gt->MakeDefaultState();
-                        pp.root = gt->Root();
-                        for(auto const& result : ctx.Execute<StateType>(&pp) ){
-                                return result;
+                        using SolverPaths::Context;
+                        auto pp = std::make_shared<Context>(Context{gt, AG});
+                        pp->S = gt->MakeDefaultState();
+                        pp->root = gt->Root();
+                        std::vector<StateType> SV = ctx.Execute<StateType>(pp);
+                        std::cout << "SV.size() = " << SV.size() << "\n";
+                        if( SV.size() ){
+                                return SV.back();
                         }
                         return {};
                 }

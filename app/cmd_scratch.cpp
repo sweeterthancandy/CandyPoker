@@ -116,6 +116,7 @@ namespace ps{
                  * of the optional solution being mixed in one card
                  */
                 std::vector<size_t> Gamma;
+                
 
         };
 
@@ -255,7 +256,7 @@ namespace ps{
 
                         StateType S;
                         GNode* root;
-                        double Epsilon{1e-8};
+                        double Epsilon{1e-4};
                         double Alpha{0.05};
 
                         std::vector<Solution> Ledger;
@@ -289,7 +290,10 @@ namespace ps{
                                 
                                 auto norm = d.lpNorm<Eigen::Infinity>();
 
-                                in->Ledger.push_back(Solution{in->S, ev, S_counter, counter_ev, norm});
+                                auto mv = computation_kernel::MixedVector( in->gt, in->S );
+                                auto gv = computation_kernel::GammaVector( in->gt, in->AG, in->S );
+
+                                in->Ledger.push_back(Solution{in->S, ev, S_counter, counter_ev, norm, mv, gv});
                                 ctrl->Pass();
                         }
                 };
@@ -343,8 +347,8 @@ namespace ps{
         
         struct CTNumericalSolver : SolverConcept{
                 struct MainLoop
-                        : ct::Transform<std::shared_ptr<SolverPaths::Context>
-                        , std::shared_ptr<SolverPaths::Context> >, std::enable_shared_from_this<MainLoop>
+                        : ct::Transform<std::shared_ptr<SolverPaths::Context> , std::shared_ptr<SolverPaths::Context> >
+                        , std::enable_shared_from_this<MainLoop>
                 {
                         virtual void Apply(ct::TransformControl* ctrl, ParamType in)override
                         {
@@ -377,6 +381,19 @@ namespace ps{
                         pp->root = gt->Root();
                         std::vector<Solution> ledger;
                         ctx.Execute<int>(pp);
+
+                        std::vector<Pretty::LineItem> buf;
+                        for(size_t idx=0;idx!=pp->Ledger.size();++idx){
+                                auto const& sol = pp->Ledger[idx];
+                                std::vector<std::string> line;
+                                line.push_back(boost::lexical_cast<std::string>(idx));
+                                line.push_back(vector_to_string(sol.EV));
+                                line.push_back(boost::lexical_cast<std::string>(sol.Norm));
+
+                                buf.push_back(line);
+                        }
+                        Pretty::RenderTablePretty(std::cout, buf);
+
                         std::cout << "pp->Ledger.size() = " << pp->Ledger.size() << "\n";
                         return pp->Ledger.back().S;
                 }

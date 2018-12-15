@@ -911,6 +911,19 @@ namespace sim{
                         }
                         return S_counter;
                 }
+                std::vector<size_t> MixedVector(std::shared_ptr<GameTree>,
+                                                StateType const& S ){
+                        std::vector<size_t> v(S.size(), 0);
+                        for(size_t idx=0;idx!=S.size();++idx){
+                                auto const& t = S[idx][0];
+                                for(size_t cid=0;cid!=169;++cid){
+                                        if( ! ( t[cid] == 1.0 || t[cid] == 0.0 ) ){
+                                                ++v[idx];
+                                        }
+                                }
+                        }
+                        return v;
+                }
                 std::vector<size_t> GammaVector( std::shared_ptr<GameTree> gt,
                                                  GraphColouring<AggregateComputer> const& AG,
                                                  StateType const& S)
@@ -918,13 +931,12 @@ namespace sim{
                         // we have a mixed solution where the counter strategy 
                         // has only one cid different from our solutuon.
                         auto counter_nf = CounterStrategy(gt, AG, S, 0.0);
-                        std::vector<size_t> gamma_vec;
+                        std::vector<size_t> gamma_vec(S.size(), 0);
                         for(size_t idx=0;idx!=S.size();++idx){
                                 auto A = S[idx][0] - counter_nf[idx][0];
-                                gamma_vec.push_back(0);
-                                for(size_t idx=0;idx!=169;++idx){
-                                        if( A[idx] != 0.0 ){
-                                                ++gamma_vec.back();
+                                for(size_t cid=0;cid!=169;++cid){
+                                        if( A[cid] != 0.0 ){
+                                                ++gamma_vec[idx];
                                         }
                                 }
                         }

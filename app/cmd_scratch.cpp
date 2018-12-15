@@ -91,6 +91,18 @@ namespace ps{
                  */
                 StateType S;
                 Eigen::VectorXd EV;
+                
+                /*
+                 * Because it's expensive for calculate
+                 * the Counter strategy, we keep it here on
+                 * the object rather than do the calculation
+                 * multiple times
+                 */
+                StateType Counter;
+                Eigen::VectorXd Counter_EV;
+
+                double Norm;
+
                 /*
                  * This is one of the classifications of the
                  * soltion, which represents how many cid's 
@@ -104,14 +116,7 @@ namespace ps{
                  * of the optional solution being mixed in one card
                  */
                 std::vector<size_t> Gamma;
-                /*
-                 * Because it's expensive for calculate
-                 * the Counter strategy, we keep it here on
-                 * the object rather than do the calculation
-                 * multiple times
-                 */
-                StateType Counter;
-                Eigen::VectorXd counter_EV;
+
         };
 
         
@@ -241,6 +246,7 @@ namespace ps{
                         return {};
                 }
         };
+
         namespace SolverPaths{
 
                 struct Context{
@@ -250,6 +256,12 @@ namespace ps{
                         StateType S;
                         GNode* root;
                         double Epsilon{1e-8};
+                        double Alpha{0.05};
+
+                        std::vector<Solution> Ledger;
+
+                        size_t Count{0};
+                        size_t MaxCount{100};
                 };
 
                 struct StaticLoop : ct::Transform<std::shared_ptr<Context>, std::shared_ptr<Context> >{
@@ -265,81 +277,108 @@ namespace ps{
                         }
                 };
 
-                struct MaybeStop : ct::Transform<std::shared_ptr<Context>, std::shared_ptr<Context> >{
+                struct AddLedger : ct::Transform<std::shared_ptr<Context>, std::shared_ptr<Context> >{
                         virtual void Apply(ct::TransformControl* ctrl, ParamType in)override
                         {
-                                auto S_counter = computation_kernel::CounterStrategy(in->gt, in->AG, in->S, 0.0);
                                 auto ev = in->AG.Color(in->root).ExpectedValue(in->S);
+                                
+                                auto S_counter = computation_kernel::CounterStrategy(in->gt, in->AG, in->S, 0.0);
                                 auto counter_ev = in->AG.Color(in->root).ExpectedValue(S_counter);
+
                                 auto d = ev - counter_ev;
+                                
                                 auto norm = d.lpNorm<Eigen::Infinity>();
 
-                                std::cout << "norm = " << norm << "\n";
-                                DisplayStrategy(in->S);
+                                in->Ledger.push_back(Solution{in->S, ev, S_counter, counter_ev, norm});
+                                ctrl->Pass();
+                        }
+                };
+                struct Display : ct::Transform<std::shared_ptr<Context>, std::shared_ptr<Context> >{
+                        virtual void Apply(ct::TransformControl* ctrl, ParamType in)override
+                        {
+                                auto const& sol = in->Ledger.back();
+                                std::cout << "\n==================================================================================\n\n";
+                                std::cout << "in->Epsilon = " << in->Epsilon << "\n";
+                                std::cout << "in->Alpha = " << in->Alpha << "\n";
+                                std::cout << "in->Count = " << in->Count << "\n";
+                                std::cout << "in->MaxCount = " << in->MaxCount << "\n";
+                                std::cout << "sol.Norm = " << sol.Norm << "\n";
+                                DisplayStrategy(sol.S);
+                                ctrl->Pass();
+                        }
+                };
+                
+                struct Control : ct::Transform<std::shared_ptr<Context>, std::shared_ptr<Context> >{
+                        virtual void Apply(ct::TransformControl* ctrl, ParamType in)override
+                        {
+                                auto& sol = in->Ledger.back();
 
-                                if( norm < in->Epsilon ){
-                                        ctrl->Return(in->S);
-                                } else {
-                                        ctrl->Pass();
+                                if( sol.Norm < in->Epsilon ){
+                                        in->Epsilon /= 2.0;
+                                        in->Alpha /= 2.0;
+                                        in->Count = 0;
                                 }
+
+                                ctrl->Pass();
+                        }
+                };
+
+                struct Breaker : ct::Transform<std::shared_ptr<Context>, std::shared_ptr<Context> >{
+                        virtual void Apply(ct::TransformControl* ctrl, ParamType in)override
+                        {
+                                ++in->Count;
+                                if( in->Count > in->MaxCount ){
+                                        ctrl->Return(0);
+                                        return;
+                                }
+                                ctrl->Pass();
                         }
                 };
 
 
 
         } // end namespace SolverPaths
+        
+        using SolverTransformBase = ct::Transform<std::shared_ptr<SolverPaths::Context>, std::shared_ptr<SolverPaths::Context> >;
+        
         struct CTNumericalSolver : SolverConcept{
-                struct LoopInit
-                        : ct::Transform<std::shared_ptr<SolverPaths::Context>, std::shared_ptr<SolverPaths::Context> >
-                {
-                        virtual void Apply(ct::TransformControl* ctrl, ParamType in)override
-                        {
-                                for(double epsilon = 1e-4; epsilon > 1e-20; epsilon /= 10){
-                                        auto ctx = std::make_shared<SolverPaths::Context>(*in);
-                                        ctx->Epsilon = epsilon;
-                                        ctrl->Emit(ctx);
-                                }
-                        }
-                };
                 struct MainLoop
                         : ct::Transform<std::shared_ptr<SolverPaths::Context>
                         , std::shared_ptr<SolverPaths::Context> >, std::enable_shared_from_this<MainLoop>
                 {
-                        using StaticLoop = SolverPaths::StaticLoop; 
-                        using MaybeStop  = SolverPaths::MaybeStop;
                         virtual void Apply(ct::TransformControl* ctrl, ParamType in)override
                         {
-                                std::cout << "ctrl->Depth() = " << ctrl->Depth() << "\n";
-                                if( ctrl->Depth() < 100 ){
-                                        auto dp = ctrl->DeclPath();
-                                        dp->Next(A)
-                                          ->Next(B)
-                                          ->Next(shared_from_this());
-                                        ctrl->Pass();
-                                }
+                                auto dp = ctrl->DeclPath();
+                                dp->Next(loop_)
+                                  ->Next(add_ledger_)
+                                  ->Next(display_)
+                                  ->Next(ctrl_)
+                                  ->Next(breaker_)
+                                  ->Next(shared_from_this())
+                                ;
+                                ctrl->Pass();
                         }
-                        std::shared_ptr<StaticLoop> A{std::make_shared<StaticLoop>()};
-                        std::shared_ptr<MaybeStop> B{std::make_shared<MaybeStop>()};
+                        std::shared_ptr<SolverTransformBase> loop_{      std::make_shared<SolverPaths::StaticLoop>()};
+                        std::shared_ptr<SolverTransformBase> add_ledger_{std::make_shared<SolverPaths::AddLedger>()};
+                        std::shared_ptr<SolverTransformBase> display_{   std::make_shared<SolverPaths::Display>()};
+                        std::shared_ptr<SolverTransformBase> ctrl_{      std::make_shared<SolverPaths::Control>()};
+                        std::shared_ptr<SolverTransformBase> breaker_{   std::make_shared<SolverPaths::Breaker>()};
                 };
                 virtual boost::optional<StateType> ComputeSolution(std::shared_ptr<GameTree> gt, GraphColouring<AggregateComputer>& AG)const noexcept override
                 {
                         using namespace SolverPaths;
                         ct::TransformContext ctx;
                         auto path = ctx.Start();
-                        path->Next(std::make_shared<LoopInit>())
-                            ->Next(std::make_shared<MainLoop>())
-                        ;
+                        path->Next(std::make_shared<MainLoop>());
                         
                         using SolverPaths::Context;
                         auto pp = std::make_shared<Context>(Context{gt, AG});
                         pp->S = gt->MakeDefaultState();
                         pp->root = gt->Root();
-                        std::vector<StateType> SV = ctx.Execute<StateType>(pp);
-                        std::cout << "SV.size() = " << SV.size() << "\n";
-                        if( SV.size() ){
-                                return SV.back();
-                        }
-                        return {};
+                        std::vector<Solution> ledger;
+                        ctx.Execute<int>(pp);
+                        std::cout << "pp->Ledger.size() = " << pp->Ledger.size() << "\n";
+                        return pp->Ledger.back().S;
                 }
         };
 

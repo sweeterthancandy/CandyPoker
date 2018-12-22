@@ -6,6 +6,7 @@
 #include "app/pretty_printer.h"
 #include "app/serialization_util.h"
 #include "ps/detail/graph.h"
+#include "ps/support/any_context.h"
 
 #include "ps/sim/computer.h"
 #include "ps/sim/game_tree.h"
@@ -83,33 +84,6 @@ namespace ps{
         using namespace sim;
 
 
-        struct AnyContext{
-                struct Item{
-                        virtual ~Item()=default;
-                        boost::any value_;
-                };
-
-                template<class Decl>
-                std::decay_t<Decl>::ReturnType Value(Decl const& decl){
-                        auto iter = 
-                }
-        private:
-                std::unordered_map<std::string, Item> items_;
-        };
-        template<class T>
-        struct AnyContextValue{
-                AnyContextValue(std::string const& name, T const& init){
-                }
-        private:
-                std::string name_;
-                T value_;
-        };
-
-        void AnyContextTest(){
-                AnyContext ctx;
-                ctx.Define(
-        }
-
 
 
 
@@ -169,9 +143,6 @@ namespace ps{
 
                         return {S, ev, S_counter, counter_ev, norm, mv, gv};
                 }
-
-                
-
         };
 
         
@@ -569,6 +540,7 @@ namespace ps{
                         dvr.Display();
                         std::vector<Eigen::VectorXd> S;
 
+                        AnyContextTest();
 
                         std::shared_ptr<GameTree> any_gt;
 

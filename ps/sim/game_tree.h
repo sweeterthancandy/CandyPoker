@@ -975,6 +975,7 @@ namespace sim{
                         }
                         return false;
                 }
+                #if 0
                 size_t MinMixedSolutionMetric(std::vector<size_t> const& gamma_vec){
                         size_t metric = 0;
                         for(size_t idx=0;idx!=gamma_vec.size();++idx){
@@ -982,6 +983,7 @@ namespace sim{
                         }
                         return metric;
                 }
+                #endif
         } // end namespace computation_kernel
 
 } // end namespace sim

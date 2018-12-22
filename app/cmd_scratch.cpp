@@ -11,6 +11,8 @@
 #include "ps/sim/game_tree.h"
 #include <boost/any.hpp>
 
+#include <numeric>
+
 #include "CandyTransform/Transform.h"
 namespace ps{
         namespace ct = CandyTransform;
@@ -116,6 +118,27 @@ namespace ps{
                  * of the optional solution being mixed in one card
                  */
                 std::vector<size_t> Gamma;
+
+
+                static Solution MakeWithDeps(std::shared_ptr<GameTree> gt,
+                                             GraphColouring<AggregateComputer>& AG,
+                                             StateType const& S)
+                {
+                        auto root = gt->Root();
+                        auto ev = AG.Color(root).ExpectedValue(S);
+
+                        auto S_counter = computation_kernel::CounterStrategy(gt, AG, S, 0.0);
+                        auto counter_ev = AG.Color(root).ExpectedValue(S_counter);
+
+                        auto d = ev - counter_ev;
+
+                        auto norm = d.lpNorm<Eigen::Infinity>();
+
+                        auto mv = computation_kernel::MixedVector( gt, S );
+                        auto gv = computation_kernel::GammaVector( gt, AG, S );
+
+                        return {S, ev, S_counter, counter_ev, norm, mv, gv};
+                }
 
                 
 
@@ -266,6 +289,49 @@ namespace ps{
 
                         size_t Count{0};
                         size_t MaxCount{100};
+
+
+                        #if 0
+                        void EmitSolution(StateType const& state){
+                                auto ev = AG.Color(root).ExpectedValue(state);
+                                
+                                auto S_counter = computation_kernel::CounterStrategy(gt, AG, state, 0.0);
+                                auto counter_ev = AG.Color(root).ExpectedValue(S_counter);
+
+                                auto d = ev - counter_ev;
+                                
+                                auto norm = d.lpNorm<Eigen::Infinity>();
+
+                                auto mv = computation_kernel::MixedVector( gt, state );
+                                auto gv = computation_kernel::GammaVector( gt, AG, state );
+
+                                Ledger.push_back(Solution{state, ev, S_counter, counter_ev, norm, mv, gv});
+                        }
+                        #endif
+                        void DoDisplay()const{
+                                auto const& sol = Ledger.back();
+                                std::cout << "\n==================================================================================\n\n";
+                                std::cout << "Epsilon = " << Epsilon << "\n";
+                                std::cout << "Alpha = " << Alpha << "\n";
+                                std::cout << "Count = " << Count << "\n";
+                                std::cout << "MaxCount = " << MaxCount << "\n";
+                                std::cout << "sol.Norm = " << sol.Norm << "\n";
+                                DisplayStrategy(sol.S, 8);
+                                std::vector<std::string> header{"N", "EV", "Norm", "Mixed", "Gamma"};
+                                using namespace Pretty;
+                                std::vector<LineItem> buf{header, LineBreak};
+                                for(size_t idx=0;idx!=Ledger.size();++idx){
+                                        auto const& L = Ledger[idx];
+                                        std::vector<std::string> line; 
+                                        line.push_back(boost::lexical_cast<std::string>(idx));
+                                        line.push_back(vector_to_string(L.EV));
+                                        line.push_back(boost::lexical_cast<std::string>(L.Norm));
+                                        line.push_back(detail::to_string(L.Mixed));
+                                        line.push_back(detail::to_string(L.Gamma));
+                                        buf.push_back(line);
+                                }
+                                RenderTablePretty(std::cout, buf);
+                        }
                 };
 
                 struct StaticLoop : ct::Transform<std::shared_ptr<Context>, std::shared_ptr<Context> >{
@@ -285,46 +351,124 @@ namespace ps{
                 struct AddLedger : ct::Transform<std::shared_ptr<Context>, std::shared_ptr<Context> >{
                         virtual void Apply(ct::TransformControl* ctrl, ParamType in)override
                         {
-                                auto ev = in->AG.Color(in->root).ExpectedValue(in->S);
-                                
-                                auto S_counter = computation_kernel::CounterStrategy(in->gt, in->AG, in->S, 0.0);
-                                auto counter_ev = in->AG.Color(in->root).ExpectedValue(S_counter);
-
-                                auto d = ev - counter_ev;
-                                
-                                auto norm = d.lpNorm<Eigen::Infinity>();
-
-                                auto mv = computation_kernel::MixedVector( in->gt, in->S );
-                                auto gv = computation_kernel::GammaVector( in->gt, in->AG, in->S );
-
-                                in->Ledger.push_back(Solution{in->S, ev, S_counter, counter_ev, norm, mv, gv});
+                                //in->EmitSolution(Soluin->S);
+                                in->Ledger.push_back(Solution::MakeWithDeps(in->gt, in->AG, in->S));
                                 ctrl->Pass();
                         }
                 };
                 struct Display : ct::Transform<std::shared_ptr<Context>, std::shared_ptr<Context> >{
                         virtual void Apply(ct::TransformControl* ctrl, ParamType in)override
                         {
-                                auto const& sol = in->Ledger.back();
-                                std::cout << "\n==================================================================================\n\n";
-                                std::cout << "in->Epsilon = " << in->Epsilon << "\n";
-                                std::cout << "in->Alpha = " << in->Alpha << "\n";
-                                std::cout << "in->Count = " << in->Count << "\n";
-                                std::cout << "in->MaxCount = " << in->MaxCount << "\n";
-                                std::cout << "sol.Norm = " << sol.Norm << "\n";
-                                DisplayStrategy(sol.S, 8);
-                                std::vector<std::string> header{"Norm", "Mixed", "Gamma"};
-                                using namespace Pretty;
-                                std::vector<LineItem> buf{header, LineBreak};
-                                for(auto const& L : in->Ledger ){
-                                        std::vector<std::string> line; 
-                                        line.push_back(boost::lexical_cast<std::string>(L.Norm));
-                                        line.push_back(detail::to_string(L.Mixed));
-                                        line.push_back(detail::to_string(L.Gamma));
-                                        buf.push_back(line);
-                                }
-                                RenderTablePretty(std::cout, buf);
-                                
+                                in->DoDisplay();
                                 ctrl->Pass();
+                        }
+                };
+                
+                /*
+                 * The idea here is that the solution we get numerically won't converge to a satisfactory 
+                 * solition, mainly because without a forcing it will be heavily mixed, and also it would
+                 * never be balanced. 
+                 */
+                struct GridSolver : ct::Transform<std::shared_ptr<Context>, std::shared_ptr<Context> >{
+                        virtual void Apply(ct::TransformControl* ctrl, ParamType in)override
+                        {
+                                // find best one from the ledger
+                                
+                                // pick any
+                                std::vector<Solution const*> candidates;
+                                for(auto const& S : in->Ledger){
+                                        if( computation_kernel::IsMinMixedSolution( S.Mixed ) ){
+                                                candidates.push_back(&S);
+                                        }
+                                }
+                                std::cout << "candidates.size() = " << candidates.size() << "\n";
+                                std::sort( candidates.begin(), candidates.end(),
+                                           [](auto l, auto r)
+                                           {
+                                                auto la = std::accumulate(l->Mixed.begin(), l->Mixed.end(), 0 );
+                                                auto ra = std::accumulate(r->Mixed.begin(), r->Mixed.end(), 0 );
+                                                if( la != ra )
+                                                        return la < ra;
+
+                                                return l->Norm < r->Norm;
+                                           }
+                                );
+                                
+                                auto const& Sol = *candidates.front();
+                                auto const& S = Sol.S;
+                                for(auto _ : Sol.Gamma ){
+                                        if( 1 != _ ){
+                                                std::cerr << "No [1,1] gamma vector " << detail::to_string(Sol.Gamma) << "\n";
+                                                ctrl->Return(0);
+                                                return;
+                                        }
+                                }
+                                std::vector<std::vector<size_t> > CIDS(S.size());
+                                for(size_t idx=0;idx!=S.size();++idx){
+                                        auto const& t = S[idx][0];
+                                        for(size_t cid=0;cid!=169;++cid){
+                                                if( t[cid] == 0.0 || t[cid] == 1.0 )
+                                                        continue;
+                                                CIDS[idx].push_back(cid);
+                                        }
+                                }
+
+                                std::cout << "detail::to_string(CIDS[0]) = " << detail::to_string(CIDS[0]) << "\n";
+                                std::cout << "detail::to_string(CIDS[1]) = " << detail::to_string(CIDS[1]) << "\n";
+
+                                boost::optional<Solution> best;
+
+                                auto try_solution = [&](double a, double b){
+                                        auto Q = S;
+                                        Q[0][0][CIDS[0][0]] = a;
+                                        Q[0][1][CIDS[0][0]] = 1.0 - Q[0][0][CIDS[0][0]];
+                                        Q[1][0][CIDS[1][0]] = b;
+                                        Q[1][1][CIDS[1][0]] = 1.0 - Q[1][0][CIDS[1][0]];
+                                        computation_kernel::InplaceClamp(Q, in->ClampEpsilon);
+                                        auto candidate = Solution::MakeWithDeps(in->gt, in->AG, Q);
+                                        #if 0
+                                        std::cout << "detail::to_string(candidate.Gamma) = " << detail::to_string(candidate.Gamma) << "\n";
+                                        std::cout << "candidate.Norm = " << std::fixed << std::setprecision(30) << candidate.Norm << "\n";
+                                        #endif
+                                        if( candidate.Gamma != std::vector<size_t>{1,1} &&
+                                            candidate.Gamma != std::vector<size_t>{0,1} &&
+                                            candidate.Gamma != std::vector<size_t>{1,0} ){
+                                                return;
+                                        }
+                                        if( ! best ){
+                                                best = std::move(candidate);
+                                                return;
+                                        }
+                                        if( candidate.Norm < best->Norm ){
+                                                std::cout << "candidate.Norm = " << candidate.Norm << "\n";
+                                                best = std::move(candidate);
+                                                return;
+                                        }
+                                };
+
+                                
+                                #if 0
+                                size_t step = 1;
+                                for(size_t p=0;p<=100;p+=step){
+                                        for(size_t q=0;q<=100;q+=step){
+                                                auto a = p / 100.0;
+                                                auto b = q / 100.0;
+                                        }
+                                }
+                                #endif
+                                for(size_t number=0;number<=100;++number){
+                                        try_solution( number /100.0, 0 );
+                                        try_solution( number /100.0, 1 );
+                                        try_solution( 0, number /100.0);
+                                        try_solution( 1, number /100.0);
+                                }
+                                if( best ){
+                                        in->Ledger.push_back(best.get());
+                                }
+
+                                in->DoDisplay();
+
+                                ctrl->Return(0);
                         }
                 };
                 
@@ -333,6 +477,13 @@ namespace ps{
                         {
                                 auto& sol = in->Ledger.back();
 
+                                #if 0
+                                if( computation_kernel::IsMinMixedSolution( sol.Mixed ) ){
+                                        auto dp = ctrl->DeclPath();
+                                        dp->Next(std::make_shared<GridSolver>());
+                                        ctrl->Pass();
+                                } else {
+                                #endif
                                 if( sol.Norm < in->Epsilon ){
                                         in->Epsilon /= 2.0;
                                         in->Alpha /= 2.0;
@@ -347,13 +498,15 @@ namespace ps{
                         virtual void Apply(ct::TransformControl* ctrl, ParamType in)override
                         {
                                 ++in->Count;
-                                if( in->Count > in->MaxCount ){
-                                        ctrl->Return(0);
-                                        return;
+                                //if( in->Count > in->MaxCount ){
+                                if( in->Ledger.back().Gamma == std::vector<size_t>{1,1} ){
+                                        auto dp = ctrl->DeclPath();
+                                        dp->Next(std::make_shared<GridSolver>());
                                 }
                                 ctrl->Pass();
                         }
                 };
+
 
 
 
@@ -398,6 +551,7 @@ namespace ps{
                         std::vector<Solution> ledger;
                         ctx.Execute<int>(pp);
 
+                        #if 0
                         std::vector<Pretty::LineItem> buf;
                         for(size_t idx=0;idx!=pp->Ledger.size();++idx){
                                 auto const& sol = pp->Ledger[idx];
@@ -411,6 +565,7 @@ namespace ps{
                         Pretty::RenderTablePretty(std::cout, buf);
 
                         std::cout << "pp->Ledger.size() = " << pp->Ledger.size() << "\n";
+                        #endif
                         return pp->Ledger.back().S;
                 }
         };

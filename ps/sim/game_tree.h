@@ -911,19 +911,35 @@ namespace sim{
                         }
                         return S_counter;
                 }
+                /*
+                 * Returns a vector
+                 *        (v0,v1,...,vn),
+                 * such that vi is the number of cid's for which strategy si
+                 * has mixed solutions. 
+                 */
                 std::vector<size_t> MixedVector(std::shared_ptr<GameTree>,
                                                 StateType const& S ){
                         std::vector<size_t> v(S.size(), 0);
                         for(size_t idx=0;idx!=S.size();++idx){
                                 auto const& t = S[idx][0];
                                 for(size_t cid=0;cid!=169;++cid){
-                                        if( ! ( t[cid] == 1.0 || t[cid] == 0.0 ) ){
+                                        if( t[cid] != 1.0 && t[cid] != 0.0 ){
                                                 ++v[idx];
                                         }
                                 }
                         }
                         return v;
                 }
+                /*
+                 * Returns a vector
+                 *        (v0,v1,...,vn),
+                * such that vi is the number of cid's which is different from
+                * the canonical counter strategy. 
+                *     For example, if S is indeed a gto optimal strategy, we
+                * would have that every non-mixed cid should be equal to the
+                * counter strategy. Of coure it's not really this simple, but 
+                * as a measure of convergenct
+                */
                 std::vector<size_t> GammaVector( std::shared_ptr<GameTree> gt,
                                                  GraphColouring<AggregateComputer> const& AG,
                                                  StateType const& S)

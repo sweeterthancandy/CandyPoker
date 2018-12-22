@@ -116,6 +116,7 @@ namespace ps{
                  * of the optional solution being mixed in one card
                  */
                 std::vector<size_t> Gamma;
+
                 
 
         };
@@ -127,9 +128,9 @@ namespace ps{
 
 
 
-        void DisplayStrategy(StateType const& S){
+        void DisplayStrategy(StateType const& S, size_t dp = 4){
                 for(size_t idx=0;idx!=S.size();++idx){
-                        pretty_print_strat(S[idx][0], 4);
+                        pretty_print_strat(S[idx][0], dp);
                 }
         }
 
@@ -258,6 +259,8 @@ namespace ps{
                         GNode* root;
                         double Epsilon{1e-4};
                         double Alpha{0.05};
+                        double ClampEpsilon{1e-6};
+
 
                         std::vector<Solution> Ledger;
 
@@ -266,14 +269,15 @@ namespace ps{
                 };
 
                 struct StaticLoop : ct::Transform<std::shared_ptr<Context>, std::shared_ptr<Context> >{
-                        size_t Count{10};
+                        size_t LoopCount{10};
                         double Factor{0.05};
 
                         virtual void Apply(ct::TransformControl* ctrl, ParamType in)override{
-                                for(size_t n=0;n!=Count;++n){
+                                for(size_t n=0;n!=LoopCount;++n){
                                         auto S_counter = computation_kernel::CounterStrategy(in->gt, in->AG, in->S, 0.0);
                                         computation_kernel::InplaceLinearCombination(in->S, S_counter, 1 - Factor );
                                 }
+                                computation_kernel::InplaceClamp(in->S, in->ClampEpsilon);
                                 ctrl->Pass();
                         }
                 };
@@ -307,7 +311,19 @@ namespace ps{
                                 std::cout << "in->Count = " << in->Count << "\n";
                                 std::cout << "in->MaxCount = " << in->MaxCount << "\n";
                                 std::cout << "sol.Norm = " << sol.Norm << "\n";
-                                DisplayStrategy(sol.S);
+                                DisplayStrategy(sol.S, 8);
+                                std::vector<std::string> header{"Norm", "Mixed", "Gamma"};
+                                using namespace Pretty;
+                                std::vector<LineItem> buf{header, LineBreak};
+                                for(auto const& L : in->Ledger ){
+                                        std::vector<std::string> line; 
+                                        line.push_back(boost::lexical_cast<std::string>(L.Norm));
+                                        line.push_back(detail::to_string(L.Mixed));
+                                        line.push_back(detail::to_string(L.Gamma));
+                                        buf.push_back(line);
+                                }
+                                RenderTablePretty(std::cout, buf);
+                                
                                 ctrl->Pass();
                         }
                 };
@@ -362,11 +378,11 @@ namespace ps{
                                 ;
                                 ctrl->Pass();
                         }
-                        std::shared_ptr<SolverTransformBase> loop_{      std::make_shared<SolverPaths::StaticLoop>()};
+                        std::shared_ptr<SolverTransformBase> loop_      {std::make_shared<SolverPaths::StaticLoop>()};
                         std::shared_ptr<SolverTransformBase> add_ledger_{std::make_shared<SolverPaths::AddLedger>()};
-                        std::shared_ptr<SolverTransformBase> display_{   std::make_shared<SolverPaths::Display>()};
-                        std::shared_ptr<SolverTransformBase> ctrl_{      std::make_shared<SolverPaths::Control>()};
-                        std::shared_ptr<SolverTransformBase> breaker_{   std::make_shared<SolverPaths::Breaker>()};
+                        std::shared_ptr<SolverTransformBase> display_   {std::make_shared<SolverPaths::Display>()};
+                        std::shared_ptr<SolverTransformBase> ctrl_      {std::make_shared<SolverPaths::Control>()};
+                        std::shared_ptr<SolverTransformBase> breaker_   {std::make_shared<SolverPaths::Breaker>()};
                 };
                 virtual boost::optional<StateType> ComputeSolution(std::shared_ptr<GameTree> gt, GraphColouring<AggregateComputer>& AG)const noexcept override
                 {

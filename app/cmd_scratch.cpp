@@ -83,6 +83,36 @@ namespace ps{
         using namespace sim;
 
 
+        struct AnyContext{
+                struct Item{
+                        virtual ~Item()=default;
+                        boost::any value_;
+                };
+
+                template<class Decl>
+                std::decay_t<Decl>::ReturnType Value(Decl const& decl){
+                        auto iter = 
+                }
+        private:
+                std::unordered_map<std::string, Item> items_;
+        };
+        template<class T>
+        struct AnyContextValue{
+                AnyContextValue(std::string const& name, T const& init){
+                }
+        private:
+                std::string name_;
+                T value_;
+        };
+
+        void AnyContextTest(){
+                AnyContext ctx;
+                ctx.Define(
+        }
+
+
+
+
         /*
          * This is a wrapper around StateType. This solves the problem
          * of computing the counter strategy and EV in observer functions.
@@ -158,82 +188,6 @@ namespace ps{
         }
 
 
-        #if 0
-        boost::optional<StateType> NumericalSolver(holdem_binary_strategy_ledger_s& ledger, std::shared_ptr<GameTree> gt,
-                                                   GraphColouring<AggregateComputer>& AG)
-        {
-
-
-                auto root   = gt->Root();
-                auto state0 = gt->InitialState();
-
-
-
-
-                decltype(gt->MakeDefaultState()) S0;
-                if( ledger.size()){
-                        S0 = ledger.back().to_eigen_vv();
-                } else {
-                        S0 = gt->MakeDefaultState();
-                }
-
-                auto S = S0;
-
-                auto N      = gt->NumPlayers();
-
-                enum{ MaxIter = 500 };
-
-                double delta = 0.01 / 4;
-                
-                std::vector<std::shared_ptr<AnyObserver> > obs;
-                auto mixed = std::make_shared<MinMixedSolutionCondition>(gt, AG);
-                obs.push_back(mixed);
-                obs.push_back(std::make_shared<NonMixedSolutionSolutionCondition>(gt, AG));
-                obs.push_back(std::make_shared<SolutionPrinter>());
-
-                size_t k=0;
-                for(;k!=9;++k){
-                        GeometricLoopOptions opts;
-                        opts.Delta = delta;
-                        auto solution = GeometricLoopWithClamp(opts,
-                                                               gt,
-                                                               AG,
-                                                               S,
-                                                               obs);
-                        if( ! solution ){
-                                return {};
-                        }
-                        ledger.push(solution.S);
-                        ledger.save_();
-                        if( auto ptr = boost::any_cast<NonMixedSolutionSolution>(&solution.Category)){
-                                // we have a converged solution, but it's not minimal mixed
-                                delta /= 2.0;
-                                S = solution.S;
-                        }
-                        else if( auto ptr = boost::any_cast<MinMixedSolution>(&solution.Category)){
-                                return solution.S;
-                        } else{
-                                // must not converg
-                                break;
-                        }
-
-                }
-
-                if( auto ms = mixed->Get() ){
-                        return ms->S;
-                }
-                return {};
-        }
-        boost::optional<StateType> AlgebraicSolver(holdem_binary_strategy_ledger_s& ledger, std::shared_ptr<GameTree> gt,
-                                                   GraphColouring<AggregateComputer>& AG)
-        {
-                auto numerical_solution = NumericalSolver(ledger, gt, AG);
-
-
-                return numerical_solution;
-
-        }
-        #endif
 
         struct SolverConcept{
                 virtual ~SolverConcept()=default;
@@ -291,23 +245,6 @@ namespace ps{
                         size_t MaxCount{100};
 
 
-                        #if 0
-                        void EmitSolution(StateType const& state){
-                                auto ev = AG.Color(root).ExpectedValue(state);
-                                
-                                auto S_counter = computation_kernel::CounterStrategy(gt, AG, state, 0.0);
-                                auto counter_ev = AG.Color(root).ExpectedValue(S_counter);
-
-                                auto d = ev - counter_ev;
-                                
-                                auto norm = d.lpNorm<Eigen::Infinity>();
-
-                                auto mv = computation_kernel::MixedVector( gt, state );
-                                auto gv = computation_kernel::GammaVector( gt, AG, state );
-
-                                Ledger.push_back(Solution{state, ev, S_counter, counter_ev, norm, mv, gv});
-                        }
-                        #endif
                         void DoDisplay()const{
                                 auto const& sol = Ledger.back();
                                 std::cout << "\n==================================================================================\n\n";
@@ -351,7 +288,6 @@ namespace ps{
                 struct AddLedger : ct::Transform<std::shared_ptr<Context>, std::shared_ptr<Context> >{
                         virtual void Apply(ct::TransformControl* ctrl, ParamType in)override
                         {
-                                //in->EmitSolution(Soluin->S);
                                 in->Ledger.push_back(Solution::MakeWithDeps(in->gt, in->AG, in->S));
                                 ctrl->Pass();
                         }
@@ -447,20 +383,13 @@ namespace ps{
                                 };
 
                                 
-                                #if 0
-                                size_t step = 1;
-                                for(size_t p=0;p<=100;p+=step){
-                                        for(size_t q=0;q<=100;q+=step){
-                                                auto a = p / 100.0;
-                                                auto b = q / 100.0;
-                                        }
-                                }
-                                #endif
-                                for(size_t number=0;number<=100;++number){
-                                        try_solution( number /100.0, 0 );
-                                        try_solution( number /100.0, 1 );
-                                        try_solution( 0, number /100.0);
-                                        try_solution( 1, number /100.0);
+                                // \foreach val \in [0,100]
+                                for(size_t val=0;val<=100;++val){
+                                        //          ^ including
+                                        try_solution( val /100.0, 0 );
+                                        try_solution( val /100.0, 1 );
+                                        try_solution( 0, val /100.0);
+                                        try_solution( 1, val /100.0);
                                 }
                                 if( best ){
                                         in->Ledger.push_back(best.get());

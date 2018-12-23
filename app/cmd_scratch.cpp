@@ -87,6 +87,8 @@ namespace ps{
 
 
 
+
+
         /*
          * This is a wrapper around StateType. This solves the problem
          * of computing the counter strategy and EV in observer functions.
@@ -206,7 +208,6 @@ namespace ps{
                         StateType S;
                         GNode* root;
                         double Epsilon{1e-4};
-                        double Alpha{0.05};
                         double ClampEpsilon{1e-6};
 
 
@@ -220,7 +221,6 @@ namespace ps{
                                 auto const& sol = Ledger.back();
                                 std::cout << "\n==================================================================================\n\n";
                                 std::cout << "Epsilon = " << Epsilon << "\n";
-                                std::cout << "Alpha = " << Alpha << "\n";
                                 std::cout << "Count = " << Count << "\n";
                                 std::cout << "MaxCount = " << MaxCount << "\n";
                                 std::cout << "sol.Norm = " << sol.Norm << "\n";
@@ -386,7 +386,6 @@ namespace ps{
                                 #endif
                                 if( sol.Norm < in->Epsilon ){
                                         in->Epsilon /= 2.0;
-                                        in->Alpha /= 2.0;
                                         in->Count = 0;
                                 }
 
@@ -469,6 +468,60 @@ namespace ps{
                         return pp->Ledger.back().S;
                 }
         };
+        
+        static support::ValueDecl<std::shared_ptr<GameTree> >         V_GT("game-tree");
+        static support::ValueDecl<GraphColouring<AggregateComputer> > V_AG("computer");
+        
+        static support::ValueDecl<StateType>                          V_State("state");
+        static support::ValueDecl<std::vector<support::AnyContext> >  V_Ledger("ledger");
+        
+        // parameters
+        static support::ValueDecl<double>                             V_Epsilon("epsilon");
+        static support::ValueDecl<double>                             V_Factor("factor");
+        static support::ValueDecl<double>                             V_ClampEpsilon("clamp-epsilon");
+
+        
+        struct NumericalSolution{
+                void operator()(AnyContext& ctx)const{
+                        auto& gt           = ctx.ValueOrThrow(V_GT);
+                        auto& AG           = ctx.ValueOrThrow(V_AG);
+                        auto& S            = ctx.ValueOrThrow(V_S);
+                        auto& Factor       = ctx.ValueOrThrow(V_Factor);
+                        auto& ClampEpsilon = ctx.ValueOrThrow(V_ClampEpsilon);
+                        auto& Ledger       = ctx.ValueOrThrow(V_Ledger);
+                        for(;;){
+                                for(size_t n=0;n!=LoopCount;++n){
+                                        auto S_counter = computation_kernel::CounterStrategy(gt, AG, S, 0.0);
+                                        computation_kernel::InplaceLinearCombination(S, S_counter, 1 - Factor );
+                                }
+                                computation_kernel::InplaceClamp(in->S, in->ClampEpsilon);
+
+                                AnyContext step(AnyContext::Parent(ctx));
+                                step.Define(V_S, S);
+                                Ledger.push_back(step);
+
+                        }
+                }
+        };
+        
+        struct Solver22Dec18 : SolverConcept{
+                virtual boost::optional<StateType> ComputeSolution(std::shared_ptr<GameTree> gt, GraphColouring<AggregateComputer>& AG)const noexcept override
+                {
+                        using support::AnyContext;
+                        AnyContext globals;
+                        ctx.Define(V_GT, gt);
+                        ctx.Define(V_AG, AG);
+
+                        ctx.Define(V_Epsilon, 1e-4);
+                        ctx.Define(V_ClampEpsilon, 1e-6);
+
+                        AnyContext ctx{AnyContext::Parent{globals}};
+                        ctx.Define(V_State, gt->MakeDefaultState());
+
+
+
+                }
+        };
 
         struct Driver{
                 // enable this for debugging
@@ -540,7 +593,7 @@ namespace ps{
                         dvr.Display();
                         std::vector<Eigen::VectorXd> S;
 
-                        AnyContextTest();
+                        support::AnyContextTest();
 
                         std::shared_ptr<GameTree> any_gt;
 

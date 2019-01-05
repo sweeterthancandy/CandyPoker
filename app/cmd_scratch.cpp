@@ -328,8 +328,8 @@ namespace ps{
                         auto const& Sol = *candidates.front();
                         auto const& S = Sol.S;
                         for(auto _ : Sol.Gamma ){
-                                if( 1 != _ ){
-                                        std::cerr << "No [1,1] gamma vector " << detail::to_string(Sol.Gamma) << "\n";
+                                if( 1 < _ ){
+                                        std::cerr << "No ij9 gamma vector " << detail::to_string(Sol.Gamma) << "\n";
                                         return Error;
                                 }
                         }
@@ -348,6 +348,71 @@ namespace ps{
 
                         boost::optional<Solution> best;
 
+                        std::vector<StateType> cand_vec;
+                        auto consume_candidate = [&](auto Q){
+                                cand_vec.push_back(Q);
+                        };
+
+                
+                        for(size_t idx=0;idx!=CIDS.size();++idx){
+                                if( CIDS[idx].empty())
+                                        continue;
+                                std::vector<StateType> SV;
+                                SV.push_back(S);
+                                for(size_t j=0;j!=CIDS.size();++idx){
+                                        if( j == idx)
+                                                continue;
+                                        if( CIDS[j].empty())
+                                                continue;
+                                        auto gen = std::move(SV);
+                                        SV.clear();
+                                        for(auto const& s : gen){
+                                                SV.push_back(s);
+                                                SV.back()[j][0][CIDS[j][0]] = 0;
+                                                SV.back()[j][1][CIDS[j][0]] = 1;
+                                                SV.push_back(s);
+                                                SV.back()[j][1][CIDS[j][0]] = 1;
+                                                SV.back()[j][0][CIDS[j][0]] = 0;
+                                        }
+                                }
+                                for(size_t pct=0;pct<=100;++pct){
+                                        for(auto& s : SV){
+                                                s[idx][0][CIDS[idx][0]] = pct;
+                                                s[idx][1][CIDS[idx][0]] = 1.0 - pct;
+
+                                                consume_candidate(s);
+                                        }
+                                }
+                        }
+
+                        std::cout << "cand_vec.size() = " << cand_vec.size() << "\n";
+                        for(auto& Q : cand_vec){
+                                computation_kernel::InplaceClamp(Q, in->ClampEpsilon);
+                                auto candidate = Solution::MakeWithDeps(in->gt, in->AG, Q);
+                                #if 0
+                                std::cout << "detail::to_string(candidate.Gamma) = " << detail::to_string(candidate.Gamma) << "\n";
+                                std::cout << "candidate.Norm = " << std::fixed << std::setprecision(30) << candidate.Norm << "\n";
+                                #endif
+
+                                if( candidate.Gamma != std::vector<size_t>{1,1} &&
+                                    candidate.Gamma != std::vector<size_t>{0,1} &&
+                                    candidate.Gamma != std::vector<size_t>{0,0} &&
+                                    candidate.Gamma != std::vector<size_t>{1,0} ){
+                                        continue;
+                                }
+                                if( ! best ){
+                                        best = std::move(candidate);
+                                        continue;
+                                }
+                                if( candidate.Norm < best->Norm ){
+                                        std::cout << "candidate.Norm = " << candidate.Norm << "\n";
+                                        best = std::move(candidate);
+                                        continue;
+                                }
+                        }
+
+
+                        #if 0
                         auto try_solution = [&](double a, double b){
                                 auto Q = S;
                                 Q[0][0][CIDS[0][0]] = a;
@@ -385,6 +450,9 @@ namespace ps{
                                 try_solution( 0, val /100.0);
                                 try_solution( 1, val /100.0);
                         }
+                        #endif
+
+
                         if( best ){
                                 in->Ledger.push_back(best.get());
                         }

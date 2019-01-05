@@ -469,6 +469,7 @@ namespace ps{
                 }
         };
         
+        #if 0
         static support::ValueDecl<std::shared_ptr<GameTree> >         V_GT("game-tree");
         static support::ValueDecl<GraphColouring<AggregateComputer> > V_AG("computer");
         
@@ -482,24 +483,26 @@ namespace ps{
 
         
         struct NumericalSolution{
-                void operator()(AnyContext& ctx)const{
+                void operator()(support::AnyContext& ctx)const{
                         auto& gt           = ctx.ValueOrThrow(V_GT);
                         auto& AG           = ctx.ValueOrThrow(V_AG);
-                        auto& S            = ctx.ValueOrThrow(V_S);
+                        auto& S            = ctx.ValueOrThrow(V_State);
                         auto& Factor       = ctx.ValueOrThrow(V_Factor);
                         auto& ClampEpsilon = ctx.ValueOrThrow(V_ClampEpsilon);
                         auto& Ledger       = ctx.ValueOrThrow(V_Ledger);
-                        for(;;){
+
+                        size_t LoopCount{10};
+                        enum{ MaxOuterLoop =100 };
+                        for(size_t count=0;count<MaxOuterLoop;++count){
                                 for(size_t n=0;n!=LoopCount;++n){
                                         auto S_counter = computation_kernel::CounterStrategy(gt, AG, S, 0.0);
                                         computation_kernel::InplaceLinearCombination(S, S_counter, 1 - Factor );
                                 }
-                                computation_kernel::InplaceClamp(in->S, in->ClampEpsilon);
+                                computation_kernel::InplaceClamp(S, ClampEpsilon);
 
-                                AnyContext step(AnyContext::Parent(ctx));
+                                support::AnyContext step(support::AnyContext::Parent(ctx));
                                 step.Define(V_S, S);
                                 Ledger.push_back(step);
-
                         }
                 }
         };
@@ -522,6 +525,7 @@ namespace ps{
 
                 }
         };
+        #endif
 
         struct Driver{
                 // enable this for debugging
@@ -592,8 +596,6 @@ namespace ps{
                         Driver dvr;
                         dvr.Display();
                         std::vector<Eigen::VectorXd> S;
-
-                        support::AnyContextTest();
 
                         std::shared_ptr<GameTree> any_gt;
 

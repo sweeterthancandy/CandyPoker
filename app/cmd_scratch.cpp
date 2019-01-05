@@ -14,10 +14,6 @@
 
 #include <numeric>
 
-#include "CandyTransform/Transform.h"
-namespace ps{
-        namespace ct = CandyTransform;
-} // end namespace ps
 
 #include <boost/timer/timer.hpp>
 
@@ -199,182 +195,72 @@ namespace ps{
                 }
         };
 
-        namespace SolverPaths{
-
-                struct Context{
-                        std::shared_ptr<GameTree> gt;
-                        GraphColouring<AggregateComputer>& AG;
-
-                        StateType S;
-                        GNode* root;
-                        double Epsilon{1e-4};
-                        double ClampEpsilon{1e-6};
 
 
-                        std::vector<Solution> Ledger;
+        struct Context{
+                std::shared_ptr<GameTree> gt;
+                GraphColouring<AggregateComputer>& AG;
 
-                        size_t Count{0};
-                        size_t MaxCount{100};
+                StateType S;
+                GNode* root;
+                double ClampEpsilon{1e-6};
 
 
-                        void DoDisplay()const{
-                                auto const& sol = Ledger.back();
-                                std::cout << "\n==================================================================================\n\n";
-                                std::cout << "Epsilon = " << Epsilon << "\n";
-                                std::cout << "Count = " << Count << "\n";
-                                std::cout << "MaxCount = " << MaxCount << "\n";
-                                std::cout << "sol.Norm = " << sol.Norm << "\n";
-                                DisplayStrategy(sol.S, 8);
-                                std::vector<std::string> header{"N", "EV", "Norm", "Mixed", "Gamma"};
-                                using namespace Pretty;
-                                std::vector<LineItem> buf{header, LineBreak};
-                                for(size_t idx=0;idx!=Ledger.size();++idx){
-                                        auto const& L = Ledger[idx];
-                                        std::vector<std::string> line; 
-                                        line.push_back(boost::lexical_cast<std::string>(idx));
-                                        line.push_back(vector_to_string(L.EV));
-                                        line.push_back(boost::lexical_cast<std::string>(L.Norm));
-                                        line.push_back(detail::to_string(L.Mixed));
-                                        line.push_back(detail::to_string(L.Gamma));
-                                        buf.push_back(line);
-                                }
-                                RenderTablePretty(std::cout, buf);
+                std::vector<Solution> Ledger;
+
+                size_t Count{0};
+                size_t MaxCount{100};
+
+
+                void DoDisplay()const{
+                        auto const& sol = Ledger.back();
+                        std::cout << "\n==================================================================================\n\n";
+                        std::cout << "Count = " << Count << "\n";
+                        std::cout << "MaxCount = " << MaxCount << "\n";
+                        std::cout << "sol.Norm = " << sol.Norm << "\n";
+                        DisplayStrategy(sol.S, 8);
+                        std::vector<std::string> header{"N", "EV", "Norm", "Mixed", "Gamma"};
+                        using namespace Pretty;
+                        std::vector<LineItem> buf{header, LineBreak};
+                        for(size_t idx=0;idx!=Ledger.size();++idx){
+                                auto const& L = Ledger[idx];
+                                std::vector<std::string> line; 
+                                line.push_back(boost::lexical_cast<std::string>(idx));
+                                line.push_back(vector_to_string(L.EV));
+                                line.push_back(boost::lexical_cast<std::string>(L.Norm));
+                                line.push_back(detail::to_string(L.Mixed));
+                                line.push_back(detail::to_string(L.Gamma));
+                                buf.push_back(line);
                         }
+                        RenderTablePretty(std::cout, buf);
+                }
+        };
+
+
+
+
+        struct StaticLoop{
+                size_t LoopCount{10};
+                double Factor{0.05};
+
+                enum ResultType{
+                        FoundGamma,
+                        FoundPerfect,
+                        LoopOverFlow,
                 };
 
-                struct StaticLoop : ct::Transform<std::shared_ptr<Context>, std::shared_ptr<Context> >{
-                        size_t LoopCount{10};
-                        double Factor{0.05};
-
-                        virtual void Apply(ct::TransformControl* ctrl, ParamType in)override{
+                ResultType operator()(Context* in){
+                        enum{ MaxLoop = 100 };
+                        size_t Count=0;
+                        double Epsilon{1e-4};
+                        for(;Count!=MaxLoop;++Count){
                                 for(size_t n=0;n!=LoopCount;++n){
                                         auto S_counter = computation_kernel::CounterStrategy(in->gt, in->AG, in->S, 0.0);
                                         computation_kernel::InplaceLinearCombination(in->S, S_counter, 1 - Factor );
                                 }
                                 computation_kernel::InplaceClamp(in->S, in->ClampEpsilon);
-                                ctrl->Pass();
-                        }
-                };
-
-                struct AddLedger : ct::Transform<std::shared_ptr<Context>, std::shared_ptr<Context> >{
-                        virtual void Apply(ct::TransformControl* ctrl, ParamType in)override
-                        {
                                 in->Ledger.push_back(Solution::MakeWithDeps(in->gt, in->AG, in->S));
-                                ctrl->Pass();
-                        }
-                };
-                struct Display : ct::Transform<std::shared_ptr<Context>, std::shared_ptr<Context> >{
-                        virtual void Apply(ct::TransformControl* ctrl, ParamType in)override
-                        {
-                                in->DoDisplay();
-                                ctrl->Pass();
-                        }
-                };
-                
-                /*
-                 * The idea here is that the solution we get numerically won't converge to a satisfactory 
-                 * solition, mainly because without a forcing it will be heavily mixed, and also it would
-                 * never be balanced. 
-                 */
-                struct GridSolver : ct::Transform<std::shared_ptr<Context>, std::shared_ptr<Context> >{
-                        virtual void Apply(ct::TransformControl* ctrl, ParamType in)override
-                        {
-                                // find best one from the ledger
                                 
-                                // pick any
-                                std::vector<Solution const*> candidates;
-                                for(auto const& S : in->Ledger){
-                                        if( computation_kernel::IsMinMixedSolution( S.Mixed ) ){
-                                                candidates.push_back(&S);
-                                        }
-                                }
-                                std::cout << "candidates.size() = " << candidates.size() << "\n";
-                                std::sort( candidates.begin(), candidates.end(),
-                                           [](auto l, auto r)
-                                           {
-                                                auto la = std::accumulate(l->Mixed.begin(), l->Mixed.end(), 0 );
-                                                auto ra = std::accumulate(r->Mixed.begin(), r->Mixed.end(), 0 );
-                                                if( la != ra )
-                                                        return la < ra;
-
-                                                return l->Norm < r->Norm;
-                                           }
-                                );
-                                
-                                auto const& Sol = *candidates.front();
-                                auto const& S = Sol.S;
-                                for(auto _ : Sol.Gamma ){
-                                        if( 1 != _ ){
-                                                std::cerr << "No [1,1] gamma vector " << detail::to_string(Sol.Gamma) << "\n";
-                                                ctrl->Return(0);
-                                                return;
-                                        }
-                                }
-                                std::vector<std::vector<size_t> > CIDS(S.size());
-                                for(size_t idx=0;idx!=S.size();++idx){
-                                        auto const& t = S[idx][0];
-                                        for(size_t cid=0;cid!=169;++cid){
-                                                if( t[cid] == 0.0 || t[cid] == 1.0 )
-                                                        continue;
-                                                CIDS[idx].push_back(cid);
-                                        }
-                                }
-
-                                std::cout << "detail::to_string(CIDS[0]) = " << detail::to_string(CIDS[0]) << "\n";
-                                std::cout << "detail::to_string(CIDS[1]) = " << detail::to_string(CIDS[1]) << "\n";
-
-                                boost::optional<Solution> best;
-
-                                auto try_solution = [&](double a, double b){
-                                        auto Q = S;
-                                        Q[0][0][CIDS[0][0]] = a;
-                                        Q[0][1][CIDS[0][0]] = 1.0 - Q[0][0][CIDS[0][0]];
-                                        Q[1][0][CIDS[1][0]] = b;
-                                        Q[1][1][CIDS[1][0]] = 1.0 - Q[1][0][CIDS[1][0]];
-                                        computation_kernel::InplaceClamp(Q, in->ClampEpsilon);
-                                        auto candidate = Solution::MakeWithDeps(in->gt, in->AG, Q);
-                                        #if 0
-                                        std::cout << "detail::to_string(candidate.Gamma) = " << detail::to_string(candidate.Gamma) << "\n";
-                                        std::cout << "candidate.Norm = " << std::fixed << std::setprecision(30) << candidate.Norm << "\n";
-                                        #endif
-                                        if( candidate.Gamma != std::vector<size_t>{1,1} &&
-                                            candidate.Gamma != std::vector<size_t>{0,1} &&
-                                            candidate.Gamma != std::vector<size_t>{1,0} ){
-                                                return;
-                                        }
-                                        if( ! best ){
-                                                best = std::move(candidate);
-                                                return;
-                                        }
-                                        if( candidate.Norm < best->Norm ){
-                                                std::cout << "candidate.Norm = " << candidate.Norm << "\n";
-                                                best = std::move(candidate);
-                                                return;
-                                        }
-                                };
-
-                                
-                                // \foreach val \in [0,100]
-                                for(size_t val=0;val<=100;++val){
-                                        //          ^ including
-                                        try_solution( val /100.0, 0 );
-                                        try_solution( val /100.0, 1 );
-                                        try_solution( 0, val /100.0);
-                                        try_solution( 1, val /100.0);
-                                }
-                                if( best ){
-                                        in->Ledger.push_back(best.get());
-                                }
-
-                                in->DoDisplay();
-
-                                ctrl->Return(0);
-                        }
-                };
-                
-                struct Control : ct::Transform<std::shared_ptr<Context>, std::shared_ptr<Context> >{
-                        virtual void Apply(ct::TransformControl* ctrl, ParamType in)override
-                        {
                                 auto& sol = in->Ledger.back();
 
                                 #if 0
@@ -382,73 +268,167 @@ namespace ps{
                                         auto dp = ctrl->DeclPath();
                                         dp->Next(std::make_shared<GridSolver>());
                                         ctrl->Pass();
-                                } else {
+                                }
                                 #endif
-                                if( sol.Norm < in->Epsilon ){
-                                        in->Epsilon /= 2.0;
-                                        in->Count = 0;
+                                if( sol.Norm < Epsilon ){
+                                        Epsilon /= 2.0;
+                                        Count = 0;
+                                }
+                                
+                                if( in->Ledger.back().Gamma == std::vector<size_t>{0,0} ){
+                                        return FoundPerfect;
+                                }
+                                
+                                if( in->Ledger.back().Gamma == std::vector<size_t>{1,1} ||
+                                    in->Ledger.back().Gamma == std::vector<size_t>{1,0} ||
+                                    in->Ledger.back().Gamma == std::vector<size_t>{0,1} ){
+                                        return FoundGamma;
                                 }
 
-                                ctrl->Pass();
+                                in->DoDisplay();
                         }
-                };
-
-                struct Breaker : ct::Transform<std::shared_ptr<Context>, std::shared_ptr<Context> >{
-                        virtual void Apply(ct::TransformControl* ctrl, ParamType in)override
-                        {
-                                ++in->Count;
-                                //if( in->Count > in->MaxCount ){
-                                if( in->Ledger.back().Gamma == std::vector<size_t>{1,1} ){
-                                        auto dp = ctrl->DeclPath();
-                                        dp->Next(std::make_shared<GridSolver>());
-                                }
-                                ctrl->Pass();
-                        }
-                };
-
-
-
-
-        } // end namespace SolverPaths
+                        return LoopOverFlow;
+                }
+        };
         
-        using SolverTransformBase = ct::Transform<std::shared_ptr<SolverPaths::Context>, std::shared_ptr<SolverPaths::Context> >;
+        /*
+         * The idea here is that the solution we get numerically won't converge to a satisfactory 
+         * solition, mainly because without a forcing it will be heavily mixed, and also it would
+         * never be balanced. 
+         */
+        struct GridSolver{
+                enum ResultType{
+                        Success,
+                        Error,
+                };
+                ResultType operator()(Context* in)
+                {
+                        // find best one from the ledger
+                        
+                        // pick any
+                        std::vector<Solution const*> candidates;
+                        for(auto const& S : in->Ledger){
+                                if( computation_kernel::IsMinMixedSolution( S.Mixed ) ){
+                                        candidates.push_back(&S);
+                                }
+                        }
+                        std::cout << "candidates.size() = " << candidates.size() << "\n";
+                        std::sort( candidates.begin(), candidates.end(),
+                                   [](auto l, auto r)
+                                   {
+                                        auto la = std::accumulate(l->Mixed.begin(), l->Mixed.end(), 0 );
+                                        auto ra = std::accumulate(r->Mixed.begin(), r->Mixed.end(), 0 );
+                                        if( la != ra )
+                                                return la < ra;
+
+                                        return l->Norm < r->Norm;
+                                   }
+                        );
+                        
+                        auto const& Sol = *candidates.front();
+                        auto const& S = Sol.S;
+                        for(auto _ : Sol.Gamma ){
+                                if( 1 != _ ){
+                                        std::cerr << "No [1,1] gamma vector " << detail::to_string(Sol.Gamma) << "\n";
+                                        return Error;
+                                }
+                        }
+                        std::vector<std::vector<size_t> > CIDS(S.size());
+                        for(size_t idx=0;idx!=S.size();++idx){
+                                auto const& t = S[idx][0];
+                                for(size_t cid=0;cid!=169;++cid){
+                                        if( t[cid] == 0.0 || t[cid] == 1.0 )
+                                                continue;
+                                        CIDS[idx].push_back(cid);
+                                }
+                        }
+
+                        std::cout << "detail::to_string(CIDS[0]) = " << detail::to_string(CIDS[0]) << "\n";
+                        std::cout << "detail::to_string(CIDS[1]) = " << detail::to_string(CIDS[1]) << "\n";
+
+                        boost::optional<Solution> best;
+
+                        auto try_solution = [&](double a, double b){
+                                auto Q = S;
+                                Q[0][0][CIDS[0][0]] = a;
+                                Q[0][1][CIDS[0][0]] = 1.0 - Q[0][0][CIDS[0][0]];
+                                Q[1][0][CIDS[1][0]] = b;
+                                Q[1][1][CIDS[1][0]] = 1.0 - Q[1][0][CIDS[1][0]];
+                                computation_kernel::InplaceClamp(Q, in->ClampEpsilon);
+                                auto candidate = Solution::MakeWithDeps(in->gt, in->AG, Q);
+                                #if 0
+                                std::cout << "detail::to_string(candidate.Gamma) = " << detail::to_string(candidate.Gamma) << "\n";
+                                std::cout << "candidate.Norm = " << std::fixed << std::setprecision(30) << candidate.Norm << "\n";
+                                #endif
+                                if( candidate.Gamma != std::vector<size_t>{1,1} &&
+                                    candidate.Gamma != std::vector<size_t>{0,1} &&
+                                    candidate.Gamma != std::vector<size_t>{1,0} ){
+                                        return;
+                                }
+                                if( ! best ){
+                                        best = std::move(candidate);
+                                        return;
+                                }
+                                if( candidate.Norm < best->Norm ){
+                                        std::cout << "candidate.Norm = " << candidate.Norm << "\n";
+                                        best = std::move(candidate);
+                                        return;
+                                }
+                        };
+
+                        
+                        // \foreach val \in [0,100]
+                        for(size_t val=0;val<=100;++val){
+                                //          ^ including
+                                try_solution( val /100.0, 0 );
+                                try_solution( val /100.0, 1 );
+                                try_solution( 0, val /100.0);
+                                try_solution( 1, val /100.0);
+                        }
+                        if( best ){
+                                in->Ledger.push_back(best.get());
+                        }
+
+
+                        return Success;
+                }
+        };
+
+        
+
+
+
+
+
+        
         
         struct CTNumericalSolver : SolverConcept{
-                struct MainLoop
-                        : ct::Transform<std::shared_ptr<SolverPaths::Context> , std::shared_ptr<SolverPaths::Context> >
-                        , std::enable_shared_from_this<MainLoop>
-                {
-                        virtual void Apply(ct::TransformControl* ctrl, ParamType in)override
-                        {
-                                auto dp = ctrl->DeclPath();
-                                dp->Next(loop_)
-                                  ->Next(add_ledger_)
-                                  ->Next(display_)
-                                  ->Next(ctrl_)
-                                  ->Next(breaker_)
-                                  ->Next(shared_from_this())
-                                ;
-                                ctrl->Pass();
-                        }
-                        std::shared_ptr<SolverTransformBase> loop_      {std::make_shared<SolverPaths::StaticLoop>()};
-                        std::shared_ptr<SolverTransformBase> add_ledger_{std::make_shared<SolverPaths::AddLedger>()};
-                        std::shared_ptr<SolverTransformBase> display_   {std::make_shared<SolverPaths::Display>()};
-                        std::shared_ptr<SolverTransformBase> ctrl_      {std::make_shared<SolverPaths::Control>()};
-                        std::shared_ptr<SolverTransformBase> breaker_   {std::make_shared<SolverPaths::Breaker>()};
-                };
                 virtual boost::optional<StateType> ComputeSolution(std::shared_ptr<GameTree> gt, GraphColouring<AggregateComputer>& AG)const noexcept override
                 {
-                        using namespace SolverPaths;
-                        ct::TransformContext ctx;
-                        auto path = ctx.Start();
-                        path->Next(std::make_shared<MainLoop>());
                         
-                        using SolverPaths::Context;
                         auto pp = std::make_shared<Context>(Context{gt, AG});
                         pp->S = gt->MakeDefaultState();
                         pp->root = gt->Root();
                         std::vector<Solution> ledger;
-                        ctx.Execute<int>(pp);
+
+                        switch(StaticLoop{}(pp.get()))
+                        {
+                                case StaticLoop::LoopOverFlow:
+                                {
+                                        BOOST_THROW_EXCEPTION(std::domain_error("not convergence"));
+                                }
+                                case StaticLoop::FoundPerfect:
+                                {
+                                        break;
+                                }
+                                case StaticLoop::FoundGamma:
+                                {
+                                        if(GridSolver{}(pp.get()) != GridSolver::Success)
+                                                BOOST_THROW_EXCEPTION(std::domain_error("not convergence in grid"));
+                                        break;
+                                }
+                        }
+
 
                         #if 0
                         std::vector<Pretty::LineItem> buf;
@@ -469,63 +449,6 @@ namespace ps{
                 }
         };
         
-        #if 0
-        static support::ValueDecl<std::shared_ptr<GameTree> >         V_GT("game-tree");
-        static support::ValueDecl<GraphColouring<AggregateComputer> > V_AG("computer");
-        
-        static support::ValueDecl<StateType>                          V_State("state");
-        static support::ValueDecl<std::vector<support::AnyContext> >  V_Ledger("ledger");
-        
-        // parameters
-        static support::ValueDecl<double>                             V_Epsilon("epsilon");
-        static support::ValueDecl<double>                             V_Factor("factor");
-        static support::ValueDecl<double>                             V_ClampEpsilon("clamp-epsilon");
-
-        
-        struct NumericalSolution{
-                void operator()(support::AnyContext& ctx)const{
-                        auto& gt           = ctx.ValueOrThrow(V_GT);
-                        auto& AG           = ctx.ValueOrThrow(V_AG);
-                        auto& S            = ctx.ValueOrThrow(V_State);
-                        auto& Factor       = ctx.ValueOrThrow(V_Factor);
-                        auto& ClampEpsilon = ctx.ValueOrThrow(V_ClampEpsilon);
-                        auto& Ledger       = ctx.ValueOrThrow(V_Ledger);
-
-                        size_t LoopCount{10};
-                        enum{ MaxOuterLoop =100 };
-                        for(size_t count=0;count<MaxOuterLoop;++count){
-                                for(size_t n=0;n!=LoopCount;++n){
-                                        auto S_counter = computation_kernel::CounterStrategy(gt, AG, S, 0.0);
-                                        computation_kernel::InplaceLinearCombination(S, S_counter, 1 - Factor );
-                                }
-                                computation_kernel::InplaceClamp(S, ClampEpsilon);
-
-                                support::AnyContext step(support::AnyContext::Parent(ctx));
-                                step.Define(V_S, S);
-                                Ledger.push_back(step);
-                        }
-                }
-        };
-        
-        struct Solver22Dec18 : SolverConcept{
-                virtual boost::optional<StateType> ComputeSolution(std::shared_ptr<GameTree> gt, GraphColouring<AggregateComputer>& AG)const noexcept override
-                {
-                        using support::AnyContext;
-                        AnyContext globals;
-                        ctx.Define(V_GT, gt);
-                        ctx.Define(V_AG, AG);
-
-                        ctx.Define(V_Epsilon, 1e-4);
-                        ctx.Define(V_ClampEpsilon, 1e-6);
-
-                        AnyContext ctx{AnyContext::Parent{globals}};
-                        ctx.Define(V_State, gt->MakeDefaultState());
-
-
-
-                }
-        };
-        #endif
 
         struct Driver{
                 // enable this for debugging
@@ -603,8 +526,8 @@ namespace ps{
                         conv_tb.push_back(std::vector<std::string>{"Desc", "?"});
                         conv_tb.push_back(Pretty::LineBreak);
 
-                        //for(double eff = 2.0;eff - 1e-4 < 20.0; eff += 0.5 ){
-                        for(double eff = 10.0;eff - 1e-4 < 10.0; eff += 0.5 ){
+                        for(double eff = 2.0;eff - 1e-4 < 20.0; eff += 1.0 ){
+                        //for(double eff = 10.0;eff - 1e-4 < 10.0; eff += 0.5 ){
                                 std::cout << "eff => " << eff << "\n"; // __CandyPrint__(cxx-print-scalar,eff)
 
                                 std::shared_ptr<GameTree> gt;

@@ -328,6 +328,9 @@ namespace ps{
                                         return;
                                 }
                         }
+
+                        auto const& Counter = Sol.Counter;
+                        
                         /*
                                 Here we want to construct a vector which indicate all the mixed strategis.
                                 For example if every was push/fold for hero/villian excep A2o for Hero, and 
@@ -336,9 +339,14 @@ namespace ps{
                          */
                         std::vector<std::vector<size_t> > CIDS(S.size());
                         for(size_t idx=0;idx!=S.size();++idx){
+                                auto const& c = Counter[idx][0];
                                 auto const& t = S[idx][0];
                                 for(size_t cid=0;cid!=169;++cid){
+                                        #if 0
                                         if( t[cid] == 0.0 || t[cid] == 1.0 )
+                                                continue;
+                                        #endif
+                                        if( t[cid] == c[cid] )
                                                 continue;
                                         CIDS[idx].push_back(cid);
                                 }

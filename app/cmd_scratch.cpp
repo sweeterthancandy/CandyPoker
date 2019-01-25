@@ -6,10 +6,12 @@
 #include "app/pretty_printer.h"
 #include "app/serialization_util.h"
 #include "ps/detail/graph.h"
-#include "ps/support/any_context.h"
 
 #include "ps/sim/computer.h"
 #include "ps/sim/game_tree.h"
+#include "ps/sim/computer_factory.h"
+#include "ps/sim/_extra.h"
+
 #include <boost/any.hpp>
 
 #include <numeric>

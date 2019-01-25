@@ -1,6 +1,25 @@
 #ifndef PS_SIM_COMPUTER_H
 #define PS_SIM_COMPUTER_H
 
+/*
+        to do three player all in evaluation, I found that creating a 
+        static vector was the most computationally tangibble. The alternative
+        is to do a lookup each evaluation, but that is much slower it 
+        it fits in memory.
+                For the taxonomy, we have the below, which means that this
+        code build on on pre-flop all in equity evaluator. Basically solving
+        preflop all in situations is figuring out the the strategy performs
+        on average against the other opponent
+
+
+                                HandEval
+                                   ^
+                              PreFlopAllInEval
+                                   ^
+                         StrategyVsStrategyEval
+
+
+ */
 
 namespace ps{
 namespace sim{

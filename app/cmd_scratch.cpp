@@ -80,10 +80,105 @@
 
 namespace ps{
         using namespace sim;
+        
+
+        /*
+                After several iterations, I 
+         */
+        struct SolverContext{
+                virtual ~SolverContext()=default;
+
+                // ultimatley the input
+                virtual std::shared_ptr<GameTree>         ArgGameTree()=0;
+                virtual GraphColouring<AggregateComputer> ArgComputer()=0;
+                //virtual boost::property_tree::ptree       ArgExtra()=0;
+
+                // A large part of the solution is being able to run it for 6 hours,
+                // then turn off the computer, and come back to it at a later date
+                virtual void Message(std::string const& msg)=0;
+                virtual void UpdateCandidateSolution(StateType const& S)=0;
+                virtual boost::optional<StateType> RetreiveCandidateSolution()=0;
+
+                virtual void EmitSolution(StateType const& S)=0;
+
+        };
+
+        struct Solver{
+                virtual ~Solver()=default;
+                virtual void Execute(SolverContext& ctx)=0;
+        };
+
+        struct SimpleNumericalSolver : Solver{
+                virtual void Execute(SolverContext& ctx)override{
+                        double factor_ = 0.05;
+                        double epsilon = 0.00001;
+                        enum{ Stride = 10 };
+                        auto gt = ctx.ArgGameTree();
+                        auto root   = gt->Root();
+                        auto state0 = gt->MakeDefaultState();
+
+                        auto AG   = ctx.ArgComputer();
+                        
+                        auto S = state0;
+                        for(size_t counter=0;counter!=400;){
+                                for(size_t inner=0;inner!=Stride;++inner, ++counter){
+                                        auto S_counter = computation_kernel::CounterStrategy(gt, AG, S, 0.0);
+                                        computation_kernel::InplaceLinearCombination(S, S_counter, 1 - factor_ );
+                                }
+                                auto S_counter = computation_kernel::CounterStrategy(gt, AG, S, 0.0);
+
+                                auto ev = AG.Color(root).ExpectedValue(S);
+                                auto counter_ev = AG.Color(root).ExpectedValue(S_counter);
+                                auto d = ev - counter_ev;
+                                auto norm = d.lpNorm<Eigen::Infinity>();
+                                std::cout << "norm = " << norm << "\n";
+                                ctx.UpdateCandidateSolution(S);
+                                if( norm < epsilon ){
+                                        ctx.EmitSolution(S);
+                                        return;
+                                }
+                        }
+                }
+        };
 
 
+        #if 0
+        struct SolutionBase{
+                SolutionBase(std::shared_ptr<GameTree> gt, GraphColouring<AggregateComputer>& AG, StateType const& S)
+                        : gt_{gt}
+                        , AG_{&AG}
+                        , S_{S}
+                }
+        protected:
+                std::shared_ptr<GameTree> gt_;
+                GraphColouring<AggregateComputer>* AG_;
+                StateType const& S_;
+        };
 
+        template<class... Attrs>
+        struct GeneralizedSolution
+                : SolutionBase
+                , Attrs::template Build<GeneralizedSolution<Attrs...> >...
+        {
+                GeneralizedSolution(std::shared_ptr<GameTree> gt, GraphColouring<AggregateComputer>& AG, StateType const& S)
+                        : SolutionBase{gt, AG, S}
+                {}
+        };
 
+        struct GammaAttribute{
+                template<class Self>
+                struct Build{
+                        std::vector<size_t> const& GammaVector()const{
+                                auto* self = dynamic_cast<Self const*>(this);
+                                if( vec_.empty() ){
+                                        vec_ = computation_kernel::GammaVector( self->gt_, *(self->AG_), self->S_ );
+                                }
+                        }
+                private:
+                        mutable std::vector<size_t> vec_;
+                };
+        };
+        #endif
 
 
 
@@ -556,8 +651,11 @@ namespace ps{
                         GraphColouring<AggregateComputer> AG = MakeComputer(gt);
                         //auto sol = AlgebraicSolver(ledger, gt, AG);
                         auto solver = std::make_shared<CTNumericalSolver>();
-                        auto sol = solver->ComputeSolution(gt, AG);
 
+
+
+                        #if 0
+                        auto sol = solver->ComputeSolution(gt, AG);
                         if( sol ){
                                 ss_.add_solution(key, *sol);
                         } else {
@@ -566,6 +664,35 @@ namespace ps{
                         }
 
                         return sol; // might be nothing
+                        #endif
+                        struct Context : SolverContext{
+                                Context(std::shared_ptr<GameTree> gt, GraphColouring<AggregateComputer> AG)
+                                        :gt_(gt),
+                                        AG_(AG)
+                                {}
+                                std::shared_ptr<GameTree> gt_;
+                                GraphColouring<AggregateComputer> AG_;
+                                boost::optional<StateType> S_;
+
+                                virtual std::shared_ptr<GameTree>         ArgGameTree()override{ return gt_; }
+                                virtual GraphColouring<AggregateComputer> ArgComputer()override{ return AG_; }
+                                //virtual boost::property_tree::ptree       ArgExtra()=0;
+
+                                // A large part of the solution is being able to run it for 6 hours,
+                                // then turn off the computer, and come back to it at a later date
+                                virtual void Message(std::string const& msg){}
+                                virtual void UpdateCandidateSolution(StateType const& S){}
+                                virtual boost::optional<StateType> RetreiveCandidateSolution(){ return {}; }
+
+                                virtual void EmitSolution(StateType const& S){
+                                        BOOST_ASSERT( ! S_ );
+                                        S_ = S;
+                                }
+                        };
+                        Context ctx{gt, AG};
+                        SimpleNumericalSolver{}.Execute(ctx);
+                        return ctx.S_;
+
                 }
                 void Display()const{
                         for(auto const& _ : ss_){

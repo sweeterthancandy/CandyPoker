@@ -81,6 +81,11 @@
 namespace ps{
         using namespace sim;
         
+        void DisplayStrategy(StateType const& S, size_t dp = 4){
+                for(size_t idx=0;idx!=S.size();++idx){
+                        pretty_print_strat(S[idx][0], dp);
+                }
+        }
 
         /*
                 After several iterations, I 
@@ -209,7 +214,8 @@ namespace ps{
                         auto S = ctx.ArgGameTree()->MakeDefaultState();
 
                         std::vector<Solution> ledger;
-                        switch(NumericalPart_(ctx, ledger, S))
+                        auto ret = NumericalPart_(ctx, ledger, S);
+                        switch(ret)
                         {
                                 case LoopOverFlow:
                                 {
@@ -237,6 +243,8 @@ namespace ps{
                         double Epsilon{1e-4};
                         double ClampEpsilon{1e-6};
 
+                        double Delta = 0.0;
+
                         auto gt = ctx.ArgGameTree();
                         auto AG = ctx.ArgComputer();
                         
@@ -246,7 +254,7 @@ namespace ps{
                         for(size_t Outer=0;Outer!=3;++Outer){
                                 for(;Count!=MaxLoop;++Count){
                                         for(size_t n=0;n!=LoopCount;++n){
-                                                auto S_counter = computation_kernel::CounterStrategy(gt, AG, S, 0.0);
+                                                auto S_counter = computation_kernel::CounterStrategy(gt, AG, S, Delta);
                                                 computation_kernel::InplaceLinearCombination(S, S_counter, 1 - Factor );
                                         }
                                         computation_kernel::InplaceClamp(S, ClampEpsilon);
@@ -261,17 +269,20 @@ namespace ps{
                                         }
                                         
                                         if( sol.Gamma == std::vector<size_t>{0,0} ){
+                                                std::cout << "detail::to_string(sol.Gamma) => " << detail::to_string(sol.Gamma) << "\n"; // __CandyPrint__(cxx-print-scalar,detail::to_string(sol.Gamma))
                                                 return FoundPerfect;
                                         }
                                         
                                         if( sol.Gamma == std::vector<size_t>{1,1} ||
                                             sol.Gamma == std::vector<size_t>{1,0} ||
-                                            sol.Gamma == std::vector<size_t>{0,1} ){
+                                            sol.Gamma == std::vector<size_t>{0,1} )
+                                        {
+                                                std::cout << "detail::to_string(sol.Gamma) => " << detail::to_string(sol.Gamma) << "\n"; // __CandyPrint__(cxx-print-scalar,detail::to_string(sol.Gamma))
                                                 return FoundGamma;
                                         }
                                 }
-                                Epsilon /= 2.0;
                                 Count = 0;
+                                Delta += 0.01;
                         }
                         return LoopOverFlow;
                 }
@@ -505,11 +516,6 @@ namespace ps{
 
 
 
-        void DisplayStrategy(StateType const& S, size_t dp = 4){
-                for(size_t idx=0;idx!=S.size();++idx){
-                        pretty_print_strat(S[idx][0], dp);
-                }
-        }
 
 
 
@@ -620,7 +626,7 @@ namespace ps{
                                         std::cerr << msg << "\n";
                                 }
                                 virtual void UpdateCandidateSolution(StateType const& S){
-                                        enum{ Dp = 4};
+                                        enum{ Dp = 10};
                                         DisplayStrategy(S, Dp);
                                 }
                                 virtual boost::optional<StateType> RetreiveCandidateSolution(){ return {}; }
@@ -666,7 +672,7 @@ namespace ps{
                         conv_tb.push_back(std::vector<std::string>{"Desc", "?"});
                         conv_tb.push_back(Pretty::LineBreak);
 
-                        for(double eff = 2.0;eff - 1e-4 < 20.0; eff += 1.0 ){
+                        for(double eff = 3.0;eff - 1e-4 < 20.0; eff += 1.0 ){
                         //for(double eff = 10.0;eff - 1e-4 < 10.0; eff += 0.5 ){
                                 std::cout << "eff => " << eff << "\n"; // __CandyPrint__(cxx-print-scalar,eff)
 
@@ -702,6 +708,7 @@ namespace ps{
                                         }
                                 }
                                 Pretty::RenderTablePretty(std::cout, conv_tb);
+                                break;
                         }
                         for( auto const& _ : *any_gt){
                                 std::cout << "\n            " << _.PrettyAction() << "\n\n";

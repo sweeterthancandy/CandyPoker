@@ -282,7 +282,7 @@ namespace ps{
                                         }
                                 }
                                 Count = 0;
-                                Delta += 0.01;
+                                Delta += 0.005;
                         }
                         return LoopOverFlow;
                 }
@@ -468,9 +468,17 @@ namespace ps{
 
 
                         if( best ){
+                                std::cout << "detail::to_string(best.get().Gamma) => " << detail::to_string(best.get().Gamma) << "\n"; // __CandyPrint__(cxx-print-scalar,detail::to_string(best.get().Gamma))
                                 ctx.EmitSolution(best.get().S);
                         } else {
                                 ctx.Message("no best :(");
+                        }
+                        for(auto& Q : cand_vec){
+                                computation_kernel::InplaceClamp(Q, ClampEpsilon);
+                                auto candidate = Solution::MakeWithDeps(gt, AG, Q);
+
+
+                                std::cout << "detail::to_string(candidate.Gamma) => " << detail::to_string(candidate.Gamma) << "\n"; // __CandyPrint__(cxx-print-scalar,detail::to_string(candidate.Gamma))
                         }
                 }
         };
@@ -680,7 +688,7 @@ namespace ps{
                         conv_tb.push_back(std::vector<std::string>{"Desc", "?"});
                         conv_tb.push_back(Pretty::LineBreak);
 
-                        for(double eff = 3.0;eff - 1e-4 < 20.0; eff += 1.0 ){
+                        for(double eff = 5.0;eff - 1e-4 < 20.0; eff += 1.0 ){
                         //for(double eff = 10.0;eff - 1e-4 < 10.0; eff += 0.5 ){
                                 std::cout << "eff => " << eff << "\n"; // __CandyPrint__(cxx-print-scalar,eff)
 
@@ -716,7 +724,7 @@ namespace ps{
                                         }
                                 }
                                 Pretty::RenderTablePretty(std::cout, conv_tb);
-                                break;
+                                std::exit(0);
                         }
                         for( auto const& _ : *any_gt){
                                 std::cout << "\n            " << _.PrettyAction() << "\n\n";

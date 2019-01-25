@@ -141,6 +141,295 @@ namespace ps{
                 }
         };
 
+        struct MinimalMixedSolutionSolver : Solver{
+                enum ResultType{
+                        FoundGamma,
+                        FoundPerfect,
+                        LoopOverFlow,
+                };
+                /*
+                 * This is a wrapper around StateType. This solves the problem
+                 * of computing the counter strategy and EV in observer functions.
+                 */
+                struct Solution{
+                        /*
+                         * This represents the strategy
+                         */
+                        StateType S;
+                        Eigen::VectorXd EV;
+                        
+                        /*
+                         * Because it's expensive for calculate
+                         * the Counter strategy, we keep it here on
+                         * the object rather than do the calculation
+                         * multiple times
+                         */
+                        StateType Counter;
+                        Eigen::VectorXd Counter_EV;
+
+                        double Norm;
+
+                        /*
+                         * This is one of the classifications of the
+                         * soltion, which represents how many cid's 
+                         * are mixed soltions (not 0 or 1).
+                         */
+                        std::vector<size_t> Mixed;
+                        /*
+                         * This represents how many cid's are different
+                         * from the counter strategy. This would never be
+                         * all zero, but ideally all 1's, which is the manifestation
+                         * of the optional solution being mixed in one card
+                         */
+                        std::vector<size_t> Gamma;
+
+
+                        static Solution MakeWithDeps(std::shared_ptr<GameTree> gt,
+                                                     GraphColouring<AggregateComputer>& AG,
+                                                     StateType const& S)
+                        {
+                                auto root = gt->Root();
+                                auto ev = AG.Color(root).ExpectedValue(S);
+
+                                auto S_counter = computation_kernel::CounterStrategy(gt, AG, S, 0.0);
+                                auto counter_ev = AG.Color(root).ExpectedValue(S_counter);
+
+                                auto d = ev - counter_ev;
+
+                                auto norm = d.lpNorm<Eigen::Infinity>();
+
+                                auto mv = computation_kernel::MixedVector( gt, S );
+                                auto gv = computation_kernel::GammaVector( gt, AG, S );
+
+                                return {S, ev, S_counter, counter_ev, norm, mv, gv};
+                        }
+                };
+                virtual void Execute(SolverContext& ctx)override{
+
+                        auto S = ctx.ArgGameTree()->MakeDefaultState();
+
+                        std::vector<Solution> ledger;
+                        switch(NumericalPart_(ctx, ledger, S))
+                        {
+                                case LoopOverFlow:
+                                {
+                                        BOOST_THROW_EXCEPTION(std::domain_error("not convergence"));
+                                }
+                                case FoundPerfect:
+                                {
+                                        ctx.EmitSolution(S);
+                                        return;
+                                }
+                                case FoundGamma:
+                                {
+                                        BruteForcePart_(ctx, ledger);
+                                        return;
+                                }
+                        }
+                }
+        private:
+                ResultType NumericalPart_(SolverContext& ctx, std::vector<Solution>& ledger, StateType& S){
+                        size_t LoopCount{10};
+                        double Factor{0.05};
+                        enum{ MaxLoop = 100 };
+                        size_t Count=0;
+                        double Epsilon{1e-4};
+                        double ClampEpsilon{1e-6};
+
+                        auto gt = ctx.ArgGameTree();
+                        auto AG = ctx.ArgComputer();
+                        
+                        auto root = gt->Root();
+
+                        for(;Count!=MaxLoop;++Count){
+                                for(size_t n=0;n!=LoopCount;++n){
+                                        auto S_counter = computation_kernel::CounterStrategy(gt, AG, S, 0.0);
+                                        computation_kernel::InplaceLinearCombination(S, S_counter, 1 - Factor );
+                                }
+                                computation_kernel::InplaceClamp(S, ClampEpsilon);
+                                ledger.push_back(Solution::MakeWithDeps(gt, AG, S));
+
+                                auto& sol = ledger.back();
+
+                                if( sol.Norm < Epsilon ){
+                                        Epsilon /= 2.0;
+                                        Count = 0;
+                                }
+                                
+                                if( sol.Gamma == std::vector<size_t>{0,0} ){
+                                        return FoundPerfect;
+                                }
+                                
+                                if( sol.Gamma == std::vector<size_t>{1,1} ||
+                                    sol.Gamma == std::vector<size_t>{1,0} ||
+                                    sol.Gamma == std::vector<size_t>{0,1} ){
+                                        return FoundGamma;
+                                }
+                        }
+                        return LoopOverFlow;
+                }
+                void BruteForcePart_(SolverContext& ctx, std::vector<Solution> const& ledger){
+                        double ClampEpsilon{1e-6};
+
+                        auto gt = ctx.ArgGameTree();
+                        auto AG = ctx.ArgComputer();
+
+                        // find best one from the ledger
+                        
+                        // pick any
+                        std::vector<Solution const*> candidates;
+                        for(auto const& S : ledger){
+                                if( computation_kernel::IsMinMixedSolution( S.Mixed ) ){
+                                        candidates.push_back(&S);
+                                }
+                        }
+                        std::cout << "candidates.size() = " << candidates.size() << "\n";
+                        std::sort( candidates.begin(), candidates.end(),
+                                   [](auto l, auto r)
+                                   {
+                                        auto la = std::accumulate(l->Mixed.begin(), l->Mixed.end(), 0 );
+                                        auto ra = std::accumulate(r->Mixed.begin(), r->Mixed.end(), 0 );
+                                        if( la != ra )
+                                                return la < ra;
+
+                                        return l->Norm < r->Norm;
+                                   }
+                        );
+                        
+                        auto const& Sol = *candidates.front();
+                        auto const& S = Sol.S;
+                        for(auto _ : Sol.Gamma ){
+                                if( 1 < _ ){
+                                        std::cerr << "No ij9 gamma vector " << detail::to_string(Sol.Gamma) << "\n";
+                                        return;
+                                }
+                        }
+                        std::vector<std::vector<size_t> > CIDS(S.size());
+                        for(size_t idx=0;idx!=S.size();++idx){
+                                auto const& t = S[idx][0];
+                                for(size_t cid=0;cid!=169;++cid){
+                                        if( t[cid] == 0.0 || t[cid] == 1.0 )
+                                                continue;
+                                        CIDS[idx].push_back(cid);
+                                }
+                        }
+
+                        std::cout << "detail::to_string(CIDS[0]) = " << detail::to_string(CIDS[0]) << "\n";
+                        std::cout << "detail::to_string(CIDS[1]) = " << detail::to_string(CIDS[1]) << "\n";
+
+                        boost::optional<Solution> best;
+
+                        std::vector<StateType> cand_vec;
+                        auto consume_candidate = [&](auto Q){
+                                cand_vec.push_back(Q);
+                        };
+
+                
+                        for(size_t idx=0;idx!=CIDS.size();++idx){
+                                if( CIDS[idx].empty())
+                                        continue;
+                                std::vector<StateType> SV;
+                                SV.push_back(S);
+                                for(size_t j=0;j!=CIDS.size();++idx){
+                                        if( j == idx)
+                                                continue;
+                                        if( CIDS[j].empty())
+                                                continue;
+                                        auto gen = std::move(SV);
+                                        SV.clear();
+                                        for(auto const& s : gen){
+                                                SV.push_back(s);
+                                                SV.back()[j][0][CIDS[j][0]] = 0;
+                                                SV.back()[j][1][CIDS[j][0]] = 1;
+                                                SV.push_back(s);
+                                                SV.back()[j][1][CIDS[j][0]] = 1;
+                                                SV.back()[j][0][CIDS[j][0]] = 0;
+                                        }
+                                }
+                                for(size_t pct=0;pct<=100;++pct){
+                                        for(auto& s : SV){
+                                                s[idx][0][CIDS[idx][0]] = pct;
+                                                s[idx][1][CIDS[idx][0]] = 1.0 - pct;
+
+                                                consume_candidate(s);
+                                        }
+                                }
+                        }
+
+                        std::cout << "cand_vec.size() = " << cand_vec.size() << "\n";
+                        for(auto& Q : cand_vec){
+                                computation_kernel::InplaceClamp(Q, ClampEpsilon);
+                                auto candidate = Solution::MakeWithDeps(gt, AG, Q);
+                                #if 0
+                                std::cout << "detail::to_string(candidate.Gamma) = " << detail::to_string(candidate.Gamma) << "\n";
+                                std::cout << "candidate.Norm = " << std::fixed << std::setprecision(30) << candidate.Norm << "\n";
+                                #endif
+
+                                if( candidate.Gamma != std::vector<size_t>{1,1} &&
+                                    candidate.Gamma != std::vector<size_t>{0,1} &&
+                                    candidate.Gamma != std::vector<size_t>{0,0} &&
+                                    candidate.Gamma != std::vector<size_t>{1,0} ){
+                                        continue;
+                                }
+                                if( ! best ){
+                                        best = std::move(candidate);
+                                        continue;
+                                }
+                                if( candidate.Norm < best->Norm ){
+                                        std::cout << "candidate.Norm = " << candidate.Norm << "\n";
+                                        best = std::move(candidate);
+                                        continue;
+                                }
+                        }
+
+
+                        #if 0
+                        auto try_solution = [&](double a, double b){
+                                auto Q = S;
+                                Q[0][0][CIDS[0][0]] = a;
+                                Q[0][1][CIDS[0][0]] = 1.0 - Q[0][0][CIDS[0][0]];
+                                Q[1][0][CIDS[1][0]] = b;
+                                Q[1][1][CIDS[1][0]] = 1.0 - Q[1][0][CIDS[1][0]];
+                                computation_kernel::InplaceClamp(Q, in->ClampEpsilon);
+                                auto candidate = Solution::MakeWithDeps(in->gt, in->AG, Q);
+                                #if 0
+                                std::cout << "detail::to_string(candidate.Gamma) = " << detail::to_string(candidate.Gamma) << "\n";
+                                std::cout << "candidate.Norm = " << std::fixed << std::setprecision(30) << candidate.Norm << "\n";
+                                #endif
+                                if( candidate.Gamma != std::vector<size_t>{1,1} &&
+                                    candidate.Gamma != std::vector<size_t>{0,1} &&
+                                    candidate.Gamma != std::vector<size_t>{1,0} ){
+                                        return;
+                                }
+                                if( ! best ){
+                                        best = std::move(candidate);
+                                        return;
+                                }
+                                if( candidate.Norm < best->Norm ){
+                                        std::cout << "candidate.Norm = " << candidate.Norm << "\n";
+                                        best = std::move(candidate);
+                                        return;
+                                }
+                        };
+
+                        
+                        // \foreach val \in [0,100]
+                        for(size_t val=0;val<=100;++val){
+                                //          ^ including
+                                try_solution( val /100.0, 0 );
+                                try_solution( val /100.0, 1 );
+                                try_solution( 0, val /100.0);
+                                try_solution( 1, val /100.0);
+                        }
+                        #endif
+
+
+                        if( best ){
+                                ctx.EmitSolution(best.get().S);
+                        }
+                }
+        };
+
 
         #if 0
         struct SolutionBase{
@@ -182,63 +471,6 @@ namespace ps{
 
 
 
-        /*
-         * This is a wrapper around StateType. This solves the problem
-         * of computing the counter strategy and EV in observer functions.
-         */
-        struct Solution{
-                /*
-                 * This represents the strategy
-                 */
-                StateType S;
-                Eigen::VectorXd EV;
-                
-                /*
-                 * Because it's expensive for calculate
-                 * the Counter strategy, we keep it here on
-                 * the object rather than do the calculation
-                 * multiple times
-                 */
-                StateType Counter;
-                Eigen::VectorXd Counter_EV;
-
-                double Norm;
-
-                /*
-                 * This is one of the classifications of the
-                 * soltion, which represents how many cid's 
-                 * are mixed soltions (not 0 or 1).
-                 */
-                std::vector<size_t> Mixed;
-                /*
-                 * This represents how many cid's are different
-                 * from the counter strategy. This would never be
-                 * all zero, but ideally all 1's, which is the manifestation
-                 * of the optional solution being mixed in one card
-                 */
-                std::vector<size_t> Gamma;
-
-
-                static Solution MakeWithDeps(std::shared_ptr<GameTree> gt,
-                                             GraphColouring<AggregateComputer>& AG,
-                                             StateType const& S)
-                {
-                        auto root = gt->Root();
-                        auto ev = AG.Color(root).ExpectedValue(S);
-
-                        auto S_counter = computation_kernel::CounterStrategy(gt, AG, S, 0.0);
-                        auto counter_ev = AG.Color(root).ExpectedValue(S_counter);
-
-                        auto d = ev - counter_ev;
-
-                        auto norm = d.lpNorm<Eigen::Infinity>();
-
-                        auto mv = computation_kernel::MixedVector( gt, S );
-                        auto gv = computation_kernel::GammaVector( gt, AG, S );
-
-                        return {S, ev, S_counter, counter_ev, norm, mv, gv};
-                }
-        };
 
         
 
@@ -294,6 +526,7 @@ namespace ps{
 
 
 
+        #ifdef NOT_DEFINED
         struct Context{
                 std::shared_ptr<GameTree> gt;
                 GraphColouring<AggregateComputer>& AG;
@@ -614,6 +847,7 @@ namespace ps{
                 }
         };
         
+        #endif
 
         struct Driver{
                 // enable this for debugging
@@ -650,7 +884,7 @@ namespace ps{
 
                         GraphColouring<AggregateComputer> AG = MakeComputer(gt);
                         //auto sol = AlgebraicSolver(ledger, gt, AG);
-                        auto solver = std::make_shared<CTNumericalSolver>();
+                        //auto solver = std::make_shared<CTNumericalSolver>();
 
 
 
@@ -690,7 +924,9 @@ namespace ps{
                                 }
                         };
                         Context ctx{gt, AG};
-                        SimpleNumericalSolver{}.Execute(ctx);
+                        //SimpleNumericalSolver{}.Execute(ctx);
+
+                        MinimalMixedSolutionSolver{}.Execute(ctx);
                         return ctx.S_;
 
                 }

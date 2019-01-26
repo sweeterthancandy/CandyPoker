@@ -262,7 +262,9 @@ namespace ps{
                         auto root = gt->Root();
 
                         
+                        #if 0
                         for(size_t Outer=0;Outer!=3;++Outer){
+                        #endif
                                 for(;Count!=MaxLoop;++Count){
                                         for(size_t n=0;n!=LoopCount;++n){
                                                 auto S_counter = computation_kernel::CounterStrategy(gt, AG, S, Delta);
@@ -292,10 +294,14 @@ namespace ps{
                                                 return FoundGamma;
                                         }
                                 }
+                                #if 0
                                 Count = 0;
                                 Delta += 0.005;
                         }
-                        return LoopOverFlow;
+                                #endif
+                        std::cout << "detail::to_string(ledger.back().Gamma) => " << detail::to_string(ledger.back().Gamma) << "\n"; // __CandyPrint__(cxx-print-scalar,detail::to_string(sol.Gamma))
+                        //return LoopOverFlow;
+                        return FoundGamma;
                 }
                 struct MixedSolutionDescription{
                         MixedSolutionDescription(size_t player_index_, std::vector<size_t> const& mixed_)
@@ -317,7 +323,7 @@ namespace ps{
                         size_t player_index;
                         std::vector<size_t> mixed;
                 };
-                void BruteForcePart_(SolverContext& ctx, std::vector<Solution> const& ledger){
+                void BruteForcePart_(SolverContext& ctx, std::vector<Solution>& ledger){
                         double ClampEpsilon{1e-6};
 
                         auto gt = ctx.ArgGameTree();
@@ -328,6 +334,7 @@ namespace ps{
                         ctx.Message("Doing brute force search...");
                         
                         // pick any
+                        #if 0
                         std::vector<Solution const*> candidates;
                         for(auto const& S : ledger){
                                 if( computation_kernel::IsMinMixedSolution( S.Mixed ) ){
@@ -352,13 +359,18 @@ namespace ps{
                         );
                         
                         auto const& Sol = *candidates.front();
+                        #endif
+                        std::sort(ledger.begin(), ledger.end());
+                        auto const& Sol = ledger.front();
                         auto const& S = Sol.S;
+                        #if 0
                         for(auto _ : Sol.Gamma ){
                                 if( 1 < _ ){
                                         std::cerr << "No ij9 gamma vector " << detail::to_string(Sol.Gamma) << "\n";
                                         return;
                                 }
                         }
+                        #endif
 
                         auto const& Counter = Sol.Counter;
 
@@ -714,7 +726,7 @@ namespace ps{
                                 }
                                 virtual void UpdateCandidateSolution(StateType const& S){
                                         enum{ Dp = 10};
-                                        DisplayStrategy(S, Dp);
+                                        //DisplayStrategy(S, Dp);
                                 }
                                 virtual boost::optional<StateType> RetreiveCandidateSolution(){ return {}; }
 
@@ -795,7 +807,6 @@ namespace ps{
                                         }
                                 }
                                 Pretty::RenderTablePretty(std::cout, conv_tb);
-                                std::exit(0);
                         }
                         for( auto const& _ : *any_gt){
                                 std::cout << "\n            " << _.PrettyAction() << "\n\n";

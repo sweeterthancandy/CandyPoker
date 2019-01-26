@@ -188,6 +188,15 @@ namespace ps{
                          */
                         std::vector<size_t> Gamma;
 
+                        size_t Level;
+
+
+                        friend bool operator<(Solution const& l, Solution const& r){ 
+                                if( l.Level != r.Level ){
+                                        return l.Level < r.Level;
+                                } 
+                                return l.Norm < r.Norm;
+                        }
 
                         static Solution MakeWithDeps(std::shared_ptr<GameTree> gt,
                                                      GraphColouring<AggregateComputer>& AG,
@@ -206,7 +215,9 @@ namespace ps{
                                 auto mv = computation_kernel::MixedVector( gt, S );
                                 auto gv = computation_kernel::GammaVector( gt, AG, S );
 
-                                return {S, ev, S_counter, counter_ev, norm, mv, gv};
+                                auto level = std::accumulate(gv.begin(), gv.end(), static_cast<size_t>(0) );
+
+                                return {S, ev, S_counter, counter_ev, norm, mv, gv, level};
                         }
                 };
                 virtual void Execute(SolverContext& ctx)override{
@@ -544,205 +555,48 @@ namespace ps{
 
                         ctx.Message("Doing last bit");
 
+                        std::vector<Solution> solution_candidates;
+
                         std::cout << "SV_family.size() => " << SV_family.size() << "\n"; // __CandyPrint__(cxx-print-scalar,SV_family.size())
                         boost::optional<Solution> best;
 
-                        std::vector<Pretty::LineItem> dbg;
-                        dbg.push_back(std::vector<std::string>{"n", "|.|", "Gamma", "Mixed"});
-                        dbg.push_back(Pretty::LineBreak);
                         for(size_t idx=0;idx!=SV_family.size();++idx){
                                 std::cout << "idx => " << idx << "\n"; // __CandyPrint__(cxx-print-scalar,idx)
                                 auto Q = SV_family[idx];
                                 computation_kernel::InplaceClamp(Q, ClampEpsilon);
                                 auto candidate = Solution::MakeWithDeps(gt, AG, Q);
-                                #if 0
-                                std::cout << "detail::to_string(candidate.Gamma) = " << detail::to_string(candidate.Gamma) << "\n";
-                                std::cout << "candidate.Norm = " << std::fixed << std::setprecision(30) << candidate.Norm << "\n";
-                                #endif
-
-                                std::vector<std::string> dbg_line;
-                                dbg_line.push_back(boost::lexical_cast<std::string>(idx));
-                                dbg_line.push_back(boost::lexical_cast<std::string>(candidate.Norm));
-                                dbg_line.push_back(detail::to_string(candidate.Gamma));
-                                dbg_line.push_back(detail::to_string(candidate.Mixed));
-                                dbg.push_back(std::move(dbg_line));
-
-                                if( candidate.Gamma != std::vector<size_t>{1,1} &&
-                                    candidate.Gamma != std::vector<size_t>{0,1} &&
-                                    candidate.Gamma != std::vector<size_t>{0,0} &&
-                                    candidate.Gamma != std::vector<size_t>{1,0} ){
-                                        continue;
-                                }
-                                if( ! best ){
-                                        best = std::move(candidate);
-                                        continue;
-                                }
-                                if( candidate.Norm < best->Norm ){
-                                        std::cout << "candidate.Norm = " << candidate.Norm << "\n";
-                                        best = std::move(candidate);
-                                        continue;
-                                }
+                                solution_candidates.push_back(candidate);
                         }
 
+                        std::vector<Pretty::LineItem> dbg;
+                        dbg.push_back(std::vector<std::string>{"n", "|.|", "Gamma", "Mixed"});
+                        dbg.push_back(Pretty::LineBreak);
+
+                        std::sort(solution_candidates.begin(), solution_candidates.end());
+
+                        for(auto const& sol : solution_candidates){
+
+                                std::vector<std::string> dbg_line;
+                                dbg_line.push_back(boost::lexical_cast<std::string>(sol.Level));
+                                dbg_line.push_back(boost::lexical_cast<std::string>(sol.Norm));
+                                dbg_line.push_back(detail::to_string(sol.Gamma));
+                                dbg_line.push_back(detail::to_string(sol.Mixed));
+                                dbg.push_back(std::move(dbg_line));
+                        }
+
+
                         Pretty::RenderTablePretty(std::cout, dbg);
-                        if( best ){
-                                std::cout << "detail::to_string(best.get().Gamma) => " << detail::to_string(best.get().Gamma) << "\n"; // __CandyPrint__(cxx-print-scalar,detail::to_string(best.get().Gamma))
-                                ctx.EmitSolution(best.get().S);
+
+                        if( solution_candidates.size() && solution_candidates.front().Level <= 1 ){
+                                auto const& best = solution_candidates.front();
+                                std::cout << "detail::to_string(best.Gamma) => " << detail::to_string(best.Gamma) << "\n"; // __CandyPrint__(cxx-print-scalar,detail::to_string(best.Gamma))
+                                ctx.EmitSolution(best.S);
                         } else {
                                 ctx.Message("no best :(");
                         }
-
-
-                        
-
-
-#if 0
-
-
-                        std::vector<StateType> cand_vec;
-                        auto consume_candidate = [&](auto Q){
-                                cand_vec.push_back(Q);
-                        };
-
-                        /*
-                                ((a,b),(c,d)) -> {((a),(c,d)), ((b),(c,d))} 
-                                              -> {((a),(c)), ((b),(c)), ((a),(d)), ((b),(d))}
-                         */
-
-                
-                        ctx.Message("Doing brute force bit");
-                        for(size_t idx=0;idx!=CIDS.size();++idx){
-                                if( CIDS[idx].empty())
-                                        continue;
-                                std::vector<StateType> SV;
-                                SV.push_back(S);
-                                for(size_t j=0;j!=CIDS.size();++j){
-                                        if( j == idx)
-                                                continue;
-                                        if( CIDS[j].empty())
-                                                continue;
-                                        auto gen = std::move(SV);
-                                        SV.clear();
-                                        for(auto const& s : gen){
-                                                SV.push_back(s);
-                                                SV.back()[j][0][CIDS[j][0]] = 0;
-                                                SV.back()[j][1][CIDS[j][0]] = 1;
-                                                SV.push_back(s);
-                                                SV.back()[j][1][CIDS[j][0]] = 1;
-                                                SV.back()[j][0][CIDS[j][0]] = 0;
-                                        }
-                                }
-                                enum{ GridSteps = 10 };
-                                for(size_t k=0;k<=GridSteps;++k){
-                                        double pct = 1.0 / GridSteps * k;
-                                        std::cout << "pct => " << pct << "\n"; // __CandyPrint__(cxx-print-scalar,pct)
-                                        for(auto& s : SV){
-                                                s[idx][0][CIDS[idx][0]] = pct;
-                                                s[idx][1][CIDS[idx][0]] = 1.0 - pct;
-
-                                                consume_candidate(s);
-                                        }
-                                }
-                        }
-
-
-
-                        #if 0
-                        auto try_solution = [&](double a, double b){
-                                auto Q = S;
-                                Q[0][0][CIDS[0][0]] = a;
-                                Q[0][1][CIDS[0][0]] = 1.0 - Q[0][0][CIDS[0][0]];
-                                Q[1][0][CIDS[1][0]] = b;
-                                Q[1][1][CIDS[1][0]] = 1.0 - Q[1][0][CIDS[1][0]];
-                                computation_kernel::InplaceClamp(Q, in->ClampEpsilon);
-                                auto candidate = Solution::MakeWithDeps(in->gt, in->AG, Q);
-                                #if 0
-                                std::cout << "detail::to_string(candidate.Gamma) = " << detail::to_string(candidate.Gamma) << "\n";
-                                std::cout << "candidate.Norm = " << std::fixed << std::setprecision(30) << candidate.Norm << "\n";
-                                #endif
-                                if( candidate.Gamma != std::vector<size_t>{1,1} &&
-                                    candidate.Gamma != std::vector<size_t>{0,1} &&
-                                    candidate.Gamma != std::vector<size_t>{1,0} ){
-                                        return;
-                                }
-                                if( ! best ){
-                                        best = std::move(candidate);
-                                        return;
-                                }
-                                if( candidate.Norm < best->Norm ){
-                                        std::cout << "candidate.Norm = " << candidate.Norm << "\n";
-                                        best = std::move(candidate);
-                                        return;
-                                }
-                        };
-
-                        
-                        // \foreach val \in [0,100]
-                        for(size_t val=0;val<=100;++val){
-                                //          ^ including
-                                try_solution( val /100.0, 0 );
-                                try_solution( val /100.0, 1 );
-                                try_solution( 0, val /100.0);
-                                try_solution( 1, val /100.0);
-                        }
-                        #endif
-
-
-                        for(auto& Q : cand_vec){
-                                computation_kernel::InplaceClamp(Q, ClampEpsilon);
-                                auto candidate = Solution::MakeWithDeps(gt, AG, Q);
-
-
-                                std::cout << "detail::to_string(candidate.Gamma) => " << detail::to_string(candidate.Gamma) << "\n"; // __CandyPrint__(cxx-print-scalar,detail::to_string(candidate.Gamma))
-                        }
-                        #endif
                         
                 }
         };
-
-
-        #if 0
-        struct SolutionBase{
-                SolutionBase(std::shared_ptr<GameTree> gt, GraphColouring<AggregateComputer>& AG, StateType const& S)
-                        : gt_{gt}
-                        , AG_{&AG}
-                        , S_{S}
-                }
-        protected:
-                std::shared_ptr<GameTree> gt_;
-                GraphColouring<AggregateComputer>* AG_;
-                StateType const& S_;
-        };
-
-        template<class... Attrs>
-        struct GeneralizedSolution
-                : SolutionBase
-                , Attrs::template Build<GeneralizedSolution<Attrs...> >...
-        {
-                GeneralizedSolution(std::shared_ptr<GameTree> gt, GraphColouring<AggregateComputer>& AG, StateType const& S)
-                        : SolutionBase{gt, AG, S}
-                {}
-        };
-
-        struct GammaAttribute{
-                template<class Self>
-                struct Build{
-                        std::vector<size_t> const& GammaVector()const{
-                                auto* self = dynamic_cast<Self const*>(this);
-                                if( vec_.empty() ){
-                                        vec_ = computation_kernel::GammaVector( self->gt_, *(self->AG_), self->S_ );
-                                }
-                        }
-                private:
-                        mutable std::vector<size_t> vec_;
-                };
-        };
-        #endif
-
-
-
-
-        
 
 
 

@@ -101,8 +101,8 @@ namespace ps{
                 // A large part of the solution is being able to run it for 6 hours,
                 // then turn off the computer, and come back to it at a later date
                 virtual void Message(std::string const& msg)=0;
-                virtual void UpdateCandidateSolution(StateType const& S)=0;
-                virtual boost::optional<StateType> RetreiveCandidateSolution()=0;
+                virtual void UpdateCandidateSolution(std::string const& uniq_key, StateType const& S)=0;
+                virtual boost::optional<StateType> RetreiveCandidateSolution(std::string const& uniq_key)=0;
 
                 virtual void EmitSolution(StateType const& S)=0;
 
@@ -120,7 +120,16 @@ namespace ps{
                         enum{ Stride = 10 };
                         auto gt = ctx.ArgGameTree();
                         auto root   = gt->Root();
-                        auto state0 = gt->MakeDefaultState();
+                        
+                        std::string uniq_key = gt->StringDescription() + "::SimpleNumericalSolver";
+
+                        StateType state0;
+                        if(boost::optional<StateType> opt_state = ctx.RetreiveCandidateSolution(uniq_key)){
+                                state0 = opt_state.get();
+                        } else {
+                                state0 = gt->MakeDefaultState();
+                        }
+
 
                         auto AG   = ctx.ArgComputer();
                         
@@ -137,7 +146,7 @@ namespace ps{
                                 auto d = ev - counter_ev;
                                 auto norm = d.lpNorm<Eigen::Infinity>();
                                 std::cout << "norm = " << norm << "\n";
-                                ctx.UpdateCandidateSolution(S);
+                                ctx.UpdateCandidateSolution(uniq_key, S);
                                 if( norm < epsilon ){
                                         ctx.EmitSolution(S);
                                         return;
@@ -222,10 +231,19 @@ namespace ps{
                 };
                 virtual void Execute(SolverContext& ctx)override{
 
-                        auto S = ctx.ArgGameTree()->MakeDefaultState();
+                        std::string uniq_key = ctx.ArgGameTree()->StringDescription() + "::MinimalMixedSolutionSolver";
+
+                        StateType state0;
+                        if(boost::optional<StateType> opt_state = ctx.RetreiveCandidateSolution(uniq_key)){
+                                state0 = opt_state.get();
+                        } else {
+                                state0 = ctx.ArgGameTree()->MakeDefaultState();
+                        }
+
+                        auto S = state0;
 
                         std::vector<Solution> ledger;
-                        auto ret = NumericalPart_(ctx, ledger, S);
+                        auto ret = NumericalPart_(ctx, uniq_key, ledger, S);
                         switch(ret)
                         {
                                 case LoopOverFlow:
@@ -239,14 +257,14 @@ namespace ps{
                                 }
                                 case FoundGamma:
                                 {
-                                        ctx.UpdateCandidateSolution(S);
+                                        ctx.UpdateCandidateSolution(uniq_key, S);
                                         BruteForcePart_(ctx, ledger);
                                         return;
                                 }
                         }
                 }
         private:
-                ResultType NumericalPart_(SolverContext& ctx, std::vector<Solution>& ledger, StateType& S){
+                ResultType NumericalPart_(SolverContext& ctx, std::string const& uniq_key, std::vector<Solution>& ledger, StateType& S){
                         size_t LoopCount{10};
                         double Factor{0.05};
                         enum{ MaxLoop = 100 };
@@ -262,43 +280,35 @@ namespace ps{
                         auto root = gt->Root();
 
                         
-                        #if 0
-                        for(size_t Outer=0;Outer!=3;++Outer){
-                        #endif
-                                for(;Count!=MaxLoop;++Count){
-                                        for(size_t n=0;n!=LoopCount;++n){
-                                                auto S_counter = computation_kernel::CounterStrategy(gt, AG, S, Delta);
-                                                computation_kernel::InplaceLinearCombination(S, S_counter, 1 - Factor );
-                                        }
-                                        computation_kernel::InplaceClamp(S, ClampEpsilon);
-                                        ledger.push_back(Solution::MakeWithDeps(gt, AG, S));
-                                        ctx.UpdateCandidateSolution(S);
-
-                                        auto& sol = ledger.back();
-
-                                        if( sol.Norm < Epsilon ){
-                                                Epsilon /= 2.0;
-                                                Count = 0;
-                                        }
-                                        
-                                        if( sol.Gamma == std::vector<size_t>{0,0} ){
-                                                std::cout << "detail::to_string(sol.Gamma) => " << detail::to_string(sol.Gamma) << "\n"; // __CandyPrint__(cxx-print-scalar,detail::to_string(sol.Gamma))
-                                                return FoundPerfect;
-                                        }
-                                        
-                                        if( sol.Gamma == std::vector<size_t>{1,1} ||
-                                            sol.Gamma == std::vector<size_t>{1,0} ||
-                                            sol.Gamma == std::vector<size_t>{0,1} )
-                                        {
-                                                std::cout << "detail::to_string(sol.Gamma) => " << detail::to_string(sol.Gamma) << "\n"; // __CandyPrint__(cxx-print-scalar,detail::to_string(sol.Gamma))
-                                                return FoundGamma;
-                                        }
+                        for(;Count!=MaxLoop;++Count){
+                                for(size_t n=0;n!=LoopCount;++n){
+                                        auto S_counter = computation_kernel::CounterStrategy(gt, AG, S, Delta);
+                                        computation_kernel::InplaceLinearCombination(S, S_counter, 1 - Factor );
                                 }
-                                #if 0
-                                Count = 0;
-                                Delta += 0.005;
+                                computation_kernel::InplaceClamp(S, ClampEpsilon);
+                                ledger.push_back(Solution::MakeWithDeps(gt, AG, S));
+                                ctx.UpdateCandidateSolution(uniq_key, S);
+
+                                auto& sol = ledger.back();
+
+                                if( sol.Norm < Epsilon ){
+                                        Epsilon /= 2.0;
+                                        Count = 0;
+                                }
+                                
+                                if( sol.Gamma == std::vector<size_t>{0,0} ){
+                                        std::cout << "detail::to_string(sol.Gamma) => " << detail::to_string(sol.Gamma) << "\n"; // __CandyPrint__(cxx-print-scalar,detail::to_string(sol.Gamma))
+                                        return FoundPerfect;
+                                }
+                                
+                                if( sol.Gamma == std::vector<size_t>{1,1} ||
+                                    sol.Gamma == std::vector<size_t>{1,0} ||
+                                    sol.Gamma == std::vector<size_t>{0,1} )
+                                {
+                                        std::cout << "detail::to_string(sol.Gamma) => " << detail::to_string(sol.Gamma) << "\n"; // __CandyPrint__(cxx-print-scalar,detail::to_string(sol.Gamma))
+                                        return FoundGamma;
+                                }
                         }
-                                #endif
                         std::cout << "detail::to_string(ledger.back().Gamma) => " << detail::to_string(ledger.back().Gamma) << "\n"; // __CandyPrint__(cxx-print-scalar,detail::to_string(sol.Gamma))
                         //return LoopOverFlow;
                         return FoundGamma;
@@ -710,10 +720,9 @@ namespace ps{
                                 Context(std::shared_ptr<GameTree> gt, GraphColouring<AggregateComputer> AG)
                                         :gt_(gt),
                                         AG_(AG)
-                                {}
-                                std::shared_ptr<GameTree> gt_;
-                                GraphColouring<AggregateComputer> AG_;
-                                boost::optional<StateType> S_;
+                                {
+                                        ss_.try_load_or_default(".ps.context.ss");
+                                }
 
                                 virtual std::shared_ptr<GameTree>         ArgGameTree()override{ return gt_; }
                                 virtual GraphColouring<AggregateComputer> ArgComputer()override{ return AG_; }
@@ -724,22 +733,38 @@ namespace ps{
                                 virtual void Message(std::string const& msg){
                                         std::cerr << msg << "\n";
                                 }
-                                virtual void UpdateCandidateSolution(StateType const& S){
+                                virtual void UpdateCandidateSolution(std::string const& uniq_key, StateType const& S){
                                         enum{ Dp = 10};
-                                        //DisplayStrategy(S, Dp);
+                                        DisplayStrategy(S, Dp);
+
+                                        ss_.add_solution(uniq_key, S);
+                                        ss_.save_();
+
                                 }
-                                virtual boost::optional<StateType> RetreiveCandidateSolution(){ return {}; }
+                                virtual boost::optional<StateType> RetreiveCandidateSolution(std::string const& uniq_key){
+                                        auto iter = ss_.find(uniq_key);
+                                        if( iter != ss_.end()){
+                                                return iter->second.to_eigen_vv();
+                                        }
+                                        return {};
+                                }
 
                                 virtual void EmitSolution(StateType const& S){
                                         BOOST_ASSERT( ! S_ );
                                         S_ = S;
                                 }
+                                auto const& Get()const{ return S_.get(); }
+                        private:
+                                std::shared_ptr<GameTree> gt_;
+                                GraphColouring<AggregateComputer> AG_;
+                                boost::optional<StateType> S_;
+                                holdem_binary_solution_set_s ss_;
                         };
                         Context ctx{gt, AG};
                         //SimpleNumericalSolver{}.Execute(ctx);
 
                         MinimalMixedSolutionSolver{}.Execute(ctx);
-                        return ctx.S_;
+                        return ctx.Get();
 
                 }
                 void Display()const{
@@ -771,8 +796,8 @@ namespace ps{
                         conv_tb.push_back(std::vector<std::string>{"Desc", "?"});
                         conv_tb.push_back(Pretty::LineBreak);
 
-                        for(double eff = 5.0;eff - 1e-4 < 20.0; eff += 1.0 ){
-                        //for(double eff = 10.0;eff - 1e-4 < 10.0; eff += 0.5 ){
+                        //for(double eff = 2.0;eff - 1e-4 < 20.0; eff += 0.1 ){
+                        for(double eff = 10.0;eff - 1e-4 < 10.0; eff += 0.5 ){
                                 std::cout << "eff => " << eff << "\n"; // __CandyPrint__(cxx-print-scalar,eff)
 
                                 std::shared_ptr<GameTree> gt;

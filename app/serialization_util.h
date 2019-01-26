@@ -134,7 +134,7 @@ namespace ps{
         struct holdem_binary_solution_set_s : serialization_base_s<holdem_binary_solution_set_s>{
                 void add_solution(std::string const& key, holdem_binary_strategy_s solution){
                         std::lock_guard<std::mutex> lock(mtx_);
-                        solutions_.emplace(key, std::move(solution));
+                        solutions_[key] = std::move(solution);
                 }
                 // there are no thread safe
                 auto begin()const{ return solutions_.begin(); }

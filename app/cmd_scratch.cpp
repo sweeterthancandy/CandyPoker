@@ -374,7 +374,7 @@ namespace ps{
                                 }
                                 if( mixed.empty() )
                                         continue;
-                                #if 1
+                                #if 0
                                 if( mixed.size() == 1 ){
                                         mixed.push_back(mixed[0]-1);
                                         mixed.push_back(mixed[0]-1);
@@ -397,7 +397,7 @@ namespace ps{
                         
                         for(auto const& mi : mixed_info){
                                 
-                                factor_vector_type proto(mi.mixed.size(),2);
+                                factor_vector_type proto(mi.mixed.size(),1);
 
                                 factor_family family;
 
@@ -501,7 +501,6 @@ namespace ps{
                                                         p.push_back(item);
                                                         sub.push_back(p);
                                                 }
-                                                //sub.push_back(std::move(next));
                                         }
                                 }
                                 std::copy(sub.begin(), sub.end(), std::back_inserter(realizations));
@@ -512,12 +511,80 @@ namespace ps{
                                 print_realizations();
                         }
 
+
+                       std::vector<StateType> SV_family; 
+                        for(auto const& realization : realizations){
+                                std::vector<StateType> SV;
+                                SV.push_back(S);
+                                // for each player
+                                for(size_t idx=0;idx!=mixed_info.size();++idx){
+                                        auto const& mi = mixed_info[idx];
+                                        size_t pid = mi.player_index;
+                                        // for each mixed card
+                                        for(size_t j=0;j!=mi.mixed.size();++j){
+
+
+                                                // now N states increase N * (num_steps+1) states
+
+                                                size_t cid = mi.mixed[j];
+                                                size_t num_steps = realization[idx][j];
+                                                auto proto = std::move(SV);
+                                                for(size_t k=0;k<=num_steps;++k){
+                                                        double pct = 1.0 / num_steps * k;
+                                                        for(auto Q : proto ){
+                                                                Q[pid][0][cid] =       pct;
+                                                                Q[pid][1][cid] = 1.0 - pct;
+                                                                SV.push_back(Q);
+                                                        }
+                                                }
+                                        }
+                                }
+                                std::copy(SV.begin(), SV.end(), std::back_inserter(SV_family));
+                        }
+
+                        ctx.Message("Doing last bit");
+
+                        std::cout << "SV_family.size() => " << SV_family.size() << "\n"; // __CandyPrint__(cxx-print-scalar,SV_family.size())
+                        boost::optional<Solution> best;
+                        for(size_t idx=0;idx!=SV_family.size();++idx){
+                                std::cout << "idx => " << idx << "\n"; // __CandyPrint__(cxx-print-scalar,idx)
+                                auto Q = SV_family[idx];
+                                computation_kernel::InplaceClamp(Q, ClampEpsilon);
+                                auto candidate = Solution::MakeWithDeps(gt, AG, Q);
+                                #if 0
+                                std::cout << "detail::to_string(candidate.Gamma) = " << detail::to_string(candidate.Gamma) << "\n";
+                                std::cout << "candidate.Norm = " << std::fixed << std::setprecision(30) << candidate.Norm << "\n";
+                                #endif
+
+                                if( candidate.Gamma != std::vector<size_t>{1,1} &&
+                                    candidate.Gamma != std::vector<size_t>{0,1} &&
+                                    candidate.Gamma != std::vector<size_t>{0,0} &&
+                                    candidate.Gamma != std::vector<size_t>{1,0} ){
+                                        continue;
+                                }
+                                if( ! best ){
+                                        best = std::move(candidate);
+                                        continue;
+                                }
+                                if( candidate.Norm < best->Norm ){
+                                        std::cout << "candidate.Norm = " << candidate.Norm << "\n";
+                                        best = std::move(candidate);
+                                        continue;
+                                }
+                        }
+                        if( best ){
+                                std::cout << "detail::to_string(best.get().Gamma) => " << detail::to_string(best.get().Gamma) << "\n"; // __CandyPrint__(cxx-print-scalar,detail::to_string(best.get().Gamma))
+                                ctx.EmitSolution(best.get().S);
+                        } else {
+                                ctx.Message("no best :(");
+                        }
+
+
                         
 
 
 #if 0
 
-                        boost::optional<Solution> best;
 
                         std::vector<StateType> cand_vec;
                         auto consume_candidate = [&](auto Q){
@@ -565,32 +632,6 @@ namespace ps{
                                 }
                         }
 
-                        ctx.Message("Doing last bit");
-                        std::cout << "cand_vec.size() = " << cand_vec.size() << "\n";
-                        for(auto& Q : cand_vec){
-                                computation_kernel::InplaceClamp(Q, ClampEpsilon);
-                                auto candidate = Solution::MakeWithDeps(gt, AG, Q);
-                                #if 0
-                                std::cout << "detail::to_string(candidate.Gamma) = " << detail::to_string(candidate.Gamma) << "\n";
-                                std::cout << "candidate.Norm = " << std::fixed << std::setprecision(30) << candidate.Norm << "\n";
-                                #endif
-
-                                if( candidate.Gamma != std::vector<size_t>{1,1} &&
-                                    candidate.Gamma != std::vector<size_t>{0,1} &&
-                                    candidate.Gamma != std::vector<size_t>{0,0} &&
-                                    candidate.Gamma != std::vector<size_t>{1,0} ){
-                                        continue;
-                                }
-                                if( ! best ){
-                                        best = std::move(candidate);
-                                        continue;
-                                }
-                                if( candidate.Norm < best->Norm ){
-                                        std::cout << "candidate.Norm = " << candidate.Norm << "\n";
-                                        best = std::move(candidate);
-                                        continue;
-                                }
-                        }
 
 
                         #if 0
@@ -634,12 +675,6 @@ namespace ps{
                         #endif
 
 
-                        if( best ){
-                                std::cout << "detail::to_string(best.get().Gamma) => " << detail::to_string(best.get().Gamma) << "\n"; // __CandyPrint__(cxx-print-scalar,detail::to_string(best.get().Gamma))
-                                ctx.EmitSolution(best.get().S);
-                        } else {
-                                ctx.Message("no best :(");
-                        }
                         for(auto& Q : cand_vec){
                                 computation_kernel::InplaceClamp(Q, ClampEpsilon);
                                 auto candidate = Solution::MakeWithDeps(gt, AG, Q);
@@ -648,6 +683,7 @@ namespace ps{
                                 std::cout << "detail::to_string(candidate.Gamma) => " << detail::to_string(candidate.Gamma) << "\n"; // __CandyPrint__(cxx-print-scalar,detail::to_string(candidate.Gamma))
                         }
                         #endif
+                        
                 }
         };
 

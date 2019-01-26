@@ -286,6 +286,26 @@ namespace ps{
                         }
                         return LoopOverFlow;
                 }
+                struct MixedSolutionDescription{
+                        MixedSolutionDescription(size_t player_index_, std::vector<size_t> const& mixed_)
+                                :player_index(player_index_),
+                                mixed(mixed_)
+                        {}
+                        friend std::ostream& operator<<(std::ostream& ostr, MixedSolutionDescription const& self){
+                                ostr << "player_index = " << self.player_index;
+                                typedef std::vector<size_t>::const_iterator CI0;
+                                const char* comma = "";
+                                ostr << "mixed" << " = {";
+                                for(CI0 iter= self.mixed.begin(), end=self.mixed.end();iter!=end;++iter){
+                                        ostr << comma << *iter;
+                                        comma = ", ";
+                                }
+                                ostr << "}\n";
+                                return ostr;
+                        }
+                        size_t player_index;
+                        std::vector<size_t> mixed;
+                };
                 void BruteForcePart_(SolverContext& ctx, std::vector<Solution> const& ledger){
                         double ClampEpsilon{1e-6};
 
@@ -330,6 +350,7 @@ namespace ps{
                         }
 
                         auto const& Counter = Sol.Counter;
+
                         
                         /*
                                 Here we want to construct a vector which indicate all the mixed strategis.
@@ -337,10 +358,11 @@ namespace ps{
                                 67o and 79o for villian, we would have
                                                 ({A2o}, {67o, 79o}).
                          */
-                        std::vector<std::vector<size_t> > CIDS(S.size());
+                        std::vector<MixedSolutionDescription> mixed_info;
                         for(size_t idx=0;idx!=S.size();++idx){
                                 auto const& c = Counter[idx][0];
                                 auto const& t = S[idx][0];
+                                std::vector<size_t> mixed;
                                 for(size_t cid=0;cid!=169;++cid){
                                         #if 0
                                         if( t[cid] == 0.0 || t[cid] == 1.0 )
@@ -348,12 +370,152 @@ namespace ps{
                                         #endif
                                         if( t[cid] == c[cid] )
                                                 continue;
-                                        CIDS[idx].push_back(cid);
+                                        mixed.push_back(cid);
+                                }
+                                if( mixed.empty() )
+                                        continue;
+                                #if 1
+                                if( mixed.size() == 1 ){
+                                        mixed.push_back(mixed[0]-1);
+                                        mixed.push_back(mixed[0]-1);
+                                }
+                                #endif
+                                mixed_info.emplace_back(idx, std::move(mixed));
+                        }
+                        
+                        for(auto const& mi : mixed_info){
+                                std::cout << mi << "\n";
+                        }
+
+                        using factor_vector_type = std::vector<size_t>;
+                        using factor_set_type = std::vector<factor_vector_type>;
+                        using factor_family = std::vector<factor_set_type>;
+
+                        std::vector<factor_family> family_vec;
+
+                        enum{ GridSize = 10 };
+                        
+                        for(auto const& mi : mixed_info){
+                                
+                                factor_vector_type proto(mi.mixed.size(),2);
+
+                                factor_family family;
+
+                                family.push_back(factor_set_type{proto});
+
+                                factor_set_type s;
+                                for(size_t idx=0;idx!=mi.mixed.size();++idx){
+                                        auto next = proto;
+                                        next[idx] = GridSize;
+                                        s.push_back(next);
+                                }
+                                family.push_back(s);
+
+                                family_vec.push_back(std::move(family));
+
+                        }
+
+                        enum{ Debug = 1 };
+                        if( Debug ){
+                                std::stringstream sstr;
+                                for(size_t idx=0;idx!=family_vec.size();++idx){
+                                        if(idx != 0 )
+                                                sstr << " x ";
+                                        sstr << "{";
+                                        for(size_t j=0;j!=family_vec[idx].size();++j){
+                                                if(j != 0 )
+                                                        sstr << ", ";
+                                                sstr << "{";
+                                                for(size_t k=0;k!=family_vec[idx][j].size();++k){
+                                                        if(k != 0 )
+                                                                sstr << ", ";
+                                                        sstr << detail::to_string(family_vec[idx][j][k]);
+                                                }
+                                                sstr << "}";
+
+                                        }
+                                        sstr << "}";
+                                }
+                                std::cout << "sstr.str() => " << sstr.str() << "\n"; // __CandyPrint__(cxx-print-scalar,sstr.str())
+                        }
+
+                        size_t upper_bound = ( static_cast<size_t>(1) << mixed_info.size() );
+
+                        std::vector<std::vector<factor_set_type> > cross_products;
+
+                        enum{ MaxLevel = 1 };
+                        for(size_t level = 0; level <= MaxLevel; ++level ){
+                                for(size_t mask = 0; mask != upper_bound; ++mask ){
+                                        if( __builtin_popcount(mask) != level )
+                                                continue;
+                                        cross_products.emplace_back();
+                                        for(size_t idx=0;idx!=mixed_info.size();++idx){
+                                                size_t cond = !! ( mask & static_cast<size_t>(1) << idx );
+                                                cross_products.back().push_back( family_vec[idx][cond] );
+                                        }
                                 }
                         }
 
-                        std::cout << "detail::to_string(CIDS[0]) = " << detail::to_string(CIDS[0]) << "\n";
-                        std::cout << "detail::to_string(CIDS[1]) = " << detail::to_string(CIDS[1]) << "\n";
+
+                        if( Debug ){
+                                std::cout << "-------------------------------------\n";
+                                for(auto const& cp : cross_products ){
+                                        std::stringstream sstr;
+                                        for(size_t idx=0;idx!=cp.size();++idx){
+                                                if( idx != 0 ) sstr << " x ";
+                                                sstr << "{";
+                                                for(size_t k=0;k!=cp[idx].size();++k){
+                                                        if(k != 0 )
+                                                                sstr << ", ";
+                                                        sstr << detail::to_string(cp[idx][k]);
+                                                }
+                                                sstr << "}";
+                                        }
+                                        std::cout << "sstr.str() => " << sstr.str() << "\n"; // __CandyPrint__(cxx-print-scalar,sstr.str())
+                                }
+                        }
+                        
+                        using realization_type = std::vector<factor_vector_type>;
+                        using realizations_type = std::vector<realization_type>;
+                        realizations_type realizations;
+                        auto print_realizations = [&](){
+                                std::cout << "-------------------------------------\n";
+                                for(auto const& realization : realizations){
+                                        std::stringstream sstr;
+                                        for(size_t idx=0;idx!=realization.size();++idx){
+                                                if( idx != 0 ) sstr << ", ";
+                                                sstr << detail::to_string(realization[idx]);
+                                        }
+                                        std::cout << "sstr.str() => " << sstr.str() << "\n"; // __CandyPrint__(cxx-print-scalar,sstr.str())
+                                }
+                        };
+                        print_realizations();
+                        for(std::vector<factor_set_type> const& cp : cross_products){
+                                realizations_type sub;
+                                sub.emplace_back();
+                                for(std::vector<factor_vector_type> const & group : cp ){
+                                        auto proto = std::move(sub);
+                                        for(factor_vector_type const& item : group ){
+                                                auto next = proto;
+                                                for(auto p : next){
+                                                        p.push_back(item);
+                                                        sub.push_back(p);
+                                                }
+                                                //sub.push_back(std::move(next));
+                                        }
+                                }
+                                std::copy(sub.begin(), sub.end(), std::back_inserter(realizations));
+                                print_realizations();
+                        }
+
+                        if( Debug ){
+                                print_realizations();
+                        }
+
+                        
+
+
+#if 0
 
                         boost::optional<Solution> best;
 
@@ -361,6 +523,11 @@ namespace ps{
                         auto consume_candidate = [&](auto Q){
                                 cand_vec.push_back(Q);
                         };
+
+                        /*
+                                ((a,b),(c,d)) -> {((a),(c,d)), ((b),(c,d))} 
+                                              -> {((a),(c)), ((b),(c)), ((a),(d)), ((b),(d))}
+                         */
 
                 
                         ctx.Message("Doing brute force bit");
@@ -480,6 +647,7 @@ namespace ps{
 
                                 std::cout << "detail::to_string(candidate.Gamma) => " << detail::to_string(candidate.Gamma) << "\n"; // __CandyPrint__(cxx-print-scalar,detail::to_string(candidate.Gamma))
                         }
+                        #endif
                 }
         };
 

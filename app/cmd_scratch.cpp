@@ -546,6 +546,10 @@ namespace ps{
 
                         std::cout << "SV_family.size() => " << SV_family.size() << "\n"; // __CandyPrint__(cxx-print-scalar,SV_family.size())
                         boost::optional<Solution> best;
+
+                        std::vector<Pretty::LineItem> dbg;
+                        dbg.push_back(std::vector<std::string>{"n", "|.|", "Gamma", "Mixed"});
+                        dbg.push_back(Pretty::LineBreak);
                         for(size_t idx=0;idx!=SV_family.size();++idx){
                                 std::cout << "idx => " << idx << "\n"; // __CandyPrint__(cxx-print-scalar,idx)
                                 auto Q = SV_family[idx];
@@ -555,6 +559,13 @@ namespace ps{
                                 std::cout << "detail::to_string(candidate.Gamma) = " << detail::to_string(candidate.Gamma) << "\n";
                                 std::cout << "candidate.Norm = " << std::fixed << std::setprecision(30) << candidate.Norm << "\n";
                                 #endif
+
+                                std::vector<std::string> dbg_line;
+                                dbg_line.push_back(boost::lexical_cast<std::string>(idx));
+                                dbg_line.push_back(boost::lexical_cast<std::string>(candidate.Norm));
+                                dbg_line.push_back(detail::to_string(candidate.Gamma));
+                                dbg_line.push_back(detail::to_string(candidate.Mixed));
+                                dbg.push_back(std::move(dbg_line));
 
                                 if( candidate.Gamma != std::vector<size_t>{1,1} &&
                                     candidate.Gamma != std::vector<size_t>{0,1} &&
@@ -572,6 +583,8 @@ namespace ps{
                                         continue;
                                 }
                         }
+
+                        Pretty::RenderTablePretty(std::cout, dbg);
                         if( best ){
                                 std::cout << "detail::to_string(best.get().Gamma) => " << detail::to_string(best.get().Gamma) << "\n"; // __CandyPrint__(cxx-print-scalar,detail::to_string(best.get().Gamma))
                                 ctx.EmitSolution(best.get().S);

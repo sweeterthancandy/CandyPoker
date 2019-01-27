@@ -304,6 +304,140 @@ namespace sim{
                 }
                 #endif
         } // end namespace computation_kernel
+
+        // Hmm don't like this. Need to figure out how make these less coupled
+        struct Solution{
+                /*
+                 * This represents the strategy
+                 */
+                StateType S;
+                Eigen::VectorXd EV;
+                
+                /*
+                 * Because it's expensive for calculate
+                 * the Counter strategy, we keep it here on
+                 * the object rather than do the calculation
+                 * multiple times
+                 */
+                StateType Counter;
+                Eigen::VectorXd Counter_EV;
+
+                double Norm;
+
+                /*
+                 * This is one of the classifications of the
+                 * soltion, which represents how many cid's 
+                 * are mixed soltions (not 0 or 1).
+                 */
+                std::vector<size_t> Mixed;
+                /*
+                 * This represents how many cid's are different
+                 * from the counter strategy. This would never be
+                 * all zero, but ideally all 1's, which is the manifestation
+                 * of the optional solution being mixed in one card
+                 */
+                std::vector<size_t> Gamma;
+
+                size_t Level;
+                size_t Total;
+
+
+                friend bool operator<(Solution const& l, Solution const& r){ 
+                        if( l.Level != r.Level ){
+                                return l.Level < r.Level;
+                        } 
+                        if( l.Total != r.Total ){
+                                return l.Total < r.Total;
+                        }
+                        return l.Norm < r.Norm;
+                }
+
+                static Solution MakeWithDeps(std::shared_ptr<GameTree> gt,
+                                             GraphColouring<AggregateComputer>& AG,
+                                             StateType const& S)
+                {
+                        auto root = gt->Root();
+                        auto ev = AG.Color(root).ExpectedValue(S);
+
+                        auto S_counter = computation_kernel::CounterStrategy(gt, AG, S, 0.0);
+                        auto counter_ev = AG.Color(root).ExpectedValue(S_counter);
+
+                        auto d = ev - counter_ev;
+
+                        auto norm = d.lpNorm<Eigen::Infinity>();
+
+                        auto mv = computation_kernel::MixedVector( gt, S );
+                        auto gv = computation_kernel::GammaVector( gt, AG, S );
+
+                        auto level = *std::max_element(gv.begin(), gv.end());
+                        auto Total = std::accumulate(gv.begin(), gv.end(), static_cast<size_t>(0));
+
+                        return {S, ev, S_counter, counter_ev, norm, mv, gv, level, Total};
+                }
+        };
+        
+        
+        struct SequenceConsumer{
+                enum Control{
+                        Ctrl_Rejected,
+                        Ctrl_Accepted,
+                        Ctrl_Perfect,
+                };
+                Control Consume(Solution&& sol){
+
+                        if( seq_.size() ){
+                                if( ! ( sol < seq_.back() ) ){
+                                        return Ctrl_Rejected;
+                                }
+                        }
+                        seq_.push_back(sol);
+                        Display();
+                        if( sol.Level == 0 )
+                                return Ctrl_Perfect;
+                        return Ctrl_Accepted;
+                }
+                operator boost::optional<Solution>()const{
+                        if( seq_.empty()) 
+                                return {};
+
+                        // minimal requirements
+                        if( seq_.back().Level > 2 )
+                                return {};
+
+                        return seq_.back();
+                }
+                operator boost::optional<StateType>()const{
+                        if( seq_.empty()) 
+                                return {};
+                        // minimal requirements
+                        if( seq_.back().Level > 2 )
+                                return {};
+                        return seq_.back().S;
+                }
+
+                void Display()const{
+                        std::vector<Pretty::LineItem> dbg;
+                        dbg.push_back(std::vector<std::string>{"Level", "Total", "|.|", "Gamma", "Mixed"});
+                        dbg.push_back(Pretty::LineBreak);
+
+                        for(auto const& sol : seq_){
+
+                                std::vector<std::string> dbg_line;
+                                dbg_line.push_back(boost::lexical_cast<std::string>(sol.Level));
+                                dbg_line.push_back(boost::lexical_cast<std::string>(sol.Total));
+                                dbg_line.push_back(boost::lexical_cast<std::string>(sol.Norm));
+                                dbg_line.push_back(detail::to_string(sol.Gamma));
+                                dbg_line.push_back(detail::to_string(sol.Mixed));
+                                dbg.push_back(std::move(dbg_line));
+                        }
+
+
+                        Pretty::RenderTablePretty(std::cout, dbg);
+                }
+        private:
+                std::vector<Solution> seq_;
+        };
+
 } // end namespace sim
 } // end namespace ps
 

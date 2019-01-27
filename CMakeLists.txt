@@ -60,9 +60,10 @@ set(base_sources
         
         lib/support/singleton_factory.cpp
 
-        #lib/sim/alpha_solver.cpp
+        lib/sim/alpha_solver.cpp
         lib/sim/simple_numeric.cpp
-        #lib/sim/delta_sequence.cpp
+        lib/sim/delta_sequence.cpp
+        lib/sim/pipeline.cpp
 )
 add_library(ps_lib SHARED ${base_sources}) 
 target_link_libraries(ps_lib ${Boost_LIBRARIES})

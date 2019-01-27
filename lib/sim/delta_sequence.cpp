@@ -27,49 +27,52 @@ namespace bpt = boost::property_tree;
 namespace ps{
 namespace sim{
         struct DeltaSequence : Solver{
-                DeltaSequence(double factor_, double epsilon_, size_t stride_)
-                        :factor(factor_),
+                DeltaSequence(std::shared_ptr<GameTree> gt_, GraphColouring<AggregateComputer> AG_, StateType state0_, double factor_, double epsilon_, size_t stride_)
+                        :gt(gt_),
+                        AG(AG_),
+                        state0(state0_),
+                        factor(factor_),
                         epsilon(epsilon_),
                         stride(stride_)
                 {}
-                virtual void Execute(SolverContext& ctx)override
+                virtual boost::optional<StateType> Execute(SolverContext& ctx)override
                 {
-                        auto gt = ctx.ArgGameTree();
                         auto root   = gt->Root();
                         
                         std::string uniq_key = gt->StringDescription() + "::DeltaSequence";
-
                         ctx.DeclUniqeKey(uniq_key);
-
-                        StateType state0;
-                        if(boost::optional<StateType> opt_state = ctx.RetreiveCandidateSolution()){
-                                state0 = opt_state.get();
-                        } else {
-                                state0 = gt->MakeDefaultState();
-                        }
-
-
-                        auto AG   = ctx.ArgComputer();
                         
-                        double delta = 0.01;
+                        double delta = 0.1;
                         
                         auto S = state0;
 
+
+                        SequenceConsumer sc;
+
                         std::vector<StateType> ledger;
-                        for(size_t fails=0;fails!=3;){
+                        enum{ MaxFails = 1 };
+                        for(size_t fails=0;fails!=MaxFails;){
                                 PS_LOG(trace) << "delta => " << delta;
                                 size_t counter = 0;
                                 size_t max_counter = 1000;
                                 for(;counter<max_counter;++counter){
                                         auto S_counter = computation_kernel::CounterStrategy(gt, AG, S, delta);
                                         computation_kernel::InplaceLinearCombination(S, S_counter, 1 - factor );
-                                        if( S_counter == S )
+                                        if( S_counter == S ){
                                                 break;
+                                        }
                                         if( counter % stride == 0 ){
                                                 computation_kernel::InplaceClamp(S, ClampEpsilon);
                                         }
                                 }
                                 if( counter != max_counter ){
+                                        if( ledger.size() > 4 ){
+                                                if( ledger[ledger.size()-1] == S &&
+                                                    ledger[ledger.size()-2] == S &&
+                                                    ledger[ledger.size()-3] == S ){
+                                                        return S;
+                                                }
+                                        }
                                         ledger.push_back(S);
                                         delta /= 2.0;
                                         continue;
@@ -79,15 +82,17 @@ namespace sim{
                                 delta /= 2.0;
 
                         }
+                        return S;
                         if( ledger.size() ){
-                                ctx.EmitSolution(ledger.back());
-                                return;
-                        } else {
-                                ctx.Message("Failed to converge :(889yh");
-                                return;
+                                return ledger.back();
                         }
+                        ctx.Message("Failed to converge :(889yh");
+                        return {};
                 }
         private:
+                std::shared_ptr<GameTree> gt;
+                GraphColouring<AggregateComputer> AG;
+                StateType state0;
                 double factor;
                 double epsilon;
                 size_t stride;
@@ -105,12 +110,16 @@ namespace sim{
                         V.DeclArgument("stride" , default_stride,
                                        "used for how many iterations before checking stoppage condition");
                 }
-                virtual std::shared_ptr<Solver> Make(bpt::ptree const& params)const override{
-                        double factor  = params.get<double>("factor");
-                        double epsilon = params.get<double>("epsilon");
-                        size_t stride  = params.get<size_t>("stride");
+                virtual std::shared_ptr<Solver> Make( std::shared_ptr<GameTree> gt,
+                                                      GraphColouring<AggregateComputer> AG,
+                                                      StateType const& inital_state,
+                                                      bpt::ptree const& args)const override
+                {
+                        double factor  = args.get<double>("factor");
+                        double epsilon = args.get<double>("epsilon");
+                        size_t stride  = args.get<size_t>("stride");
 
-                        return std::make_shared<DeltaSequence>(factor, epsilon, stride);
+                        return std::make_shared<DeltaSequence>(gt, AG, inital_state, factor, epsilon, stride);
                 }
         };
 

@@ -18,8 +18,6 @@ namespace sim{
                 virtual void UpdateCandidateSolution(StateType const& S)=0;
                 virtual boost::optional<StateType> RetreiveCandidateSolution()=0;
 
-                virtual void EmitSolution(StateType const& S)=0;
-
                 std::string const& UniqeKey()const{
                         BOOST_ASSERT( uniqe_key_.size() );
                         return uniqe_key_;
@@ -34,7 +32,7 @@ namespace sim{
 
         struct Solver{
                 virtual ~Solver()=default;
-                virtual void Execute(SolverContext& ctx)=0;
+                virtual boost::optional<StateType> Execute(SolverContext& ctx)=0;
         };
         
 
@@ -124,6 +122,9 @@ namespace sim{
                         SolverDecl::Memory()[name] = std::make_shared<T>();
                 }
         };
+
+
+        
 
 } // end namespace sim
 } // end namespace ps

@@ -20,12 +20,13 @@
 namespace bpt = boost::property_tree;
 
 #include <numeric>
-
-
 #include <boost/timer/timer.hpp>
+
 
 namespace ps{
 namespace sim{
+        
+
         struct SimpleNumeric : Solver{
                 SimpleNumeric(std::shared_ptr<GameTree> gt_, GraphColouring<AggregateComputer> AG_, StateType state0_, double factor_, double epsilon_, size_t stride_)
                         :gt(gt_),
@@ -35,32 +36,51 @@ namespace sim{
                         epsilon(epsilon_),
                         stride(stride_)
                 {}
-                virtual void Execute(SolverContext& ctx)override
+                virtual boost::optional<StateType> Execute(SolverContext& ctx)override
                 {
                         auto root   = gt->Root();
                         
                         std::string uniq_key = gt->StringDescription() + "::SimpleNumeric";
                         ctx.DeclUniqeKey(uniq_key);
 
-                        auto S = state0;
-                        for(size_t counter=0;counter!=400;){
-                                for(size_t inner=0;inner!=stride;++inner, ++counter){
-                                        auto S_counter = computation_kernel::CounterStrategy(gt, AG, S, 0.0);
-                                        computation_kernel::InplaceLinearCombination(S, S_counter, 1 - factor );
-                                }
-                                auto S_counter = computation_kernel::CounterStrategy(gt, AG, S, 0.0);
+                        SequenceConsumer sc;
 
-                                auto ev = AG.Color(root).ExpectedValue(S);
-                                auto counter_ev = AG.Color(root).ExpectedValue(S_counter);
-                                auto d = ev - counter_ev;
-                                auto norm = d.lpNorm<Eigen::Infinity>();
-                                std::cout << "norm = " << norm << "\n";
-                                ctx.UpdateCandidateSolution(S);
-                                if( norm < epsilon ){
-                                        ctx.EmitSolution(S);
-                                        return;
+                        auto S = state0;
+
+                        double delta = 0.00001;
+
+                        for(size_t fails=0;;++fails){
+                                std::cout << "delta => " << delta << "\n"; // __CandyPrint__(cxx-print-scalar,delta)
+                                for(size_t counter=0;counter<1000;){
+                                        for(size_t inner=0;inner!=stride;++inner, ++counter){
+                                                auto S_counter = computation_kernel::CounterStrategy(gt, AG, S, delta);
+                                                computation_kernel::InplaceLinearCombination(S, S_counter, 1 - factor );
+                                        }
+                                        computation_kernel::InplaceClamp(S, ClampEpsilon);
+
+                                        auto Sol = Solution::MakeWithDeps(gt, AG, S);
+
+                                        switch( sc.Consume(std::move(Sol)) ){
+                                        case SequenceConsumer::Ctrl_Rejected:
+                                                break;
+                                        case SequenceConsumer::Ctrl_Accepted:
+                                                counter = 0;
+                                                break;
+                                        case SequenceConsumer::Ctrl_Perfect:
+                                                sc.Display();
+                                                return sc;
+                                        }
+                                        
+
                                 }
+                                delta *= 2;
+                                if( delta > 0.05 )
+                                        break;
                         }
+
+                        sc.Display();
+
+                        return sc;
                 }
         private:
                 std::shared_ptr<GameTree> gt;
@@ -69,6 +89,7 @@ namespace sim{
                 double factor;
                 double epsilon;
                 size_t stride;
+                double ClampEpsilon{1e-6};
         };
 
         struct SimpleNumericDecl : SolverDecl{

@@ -111,12 +111,14 @@ namespace ps{
                         return {};
                 }
 
+                #if 0
                 virtual void EmitSolution(StateType const& S){
                         BOOST_ASSERT( ! S_ );
                         S_ = S;
                         ss_.remove_solution(UniqeKey());
                         ss_.save_();
                 }
+                #endif
                 auto const& Get()const{ return S_; }
 
         private:
@@ -219,21 +221,9 @@ namespace ps{
                                 GraphColouring<AggregateComputer> AG = MakeComputer(gt);
 
 
-                                #if 0
-                                Solver* solver = Solver::Get(solver_s);
-                                if( ! solver ){
-                                        BOOST_THROW_EXCEPTION(std::domain_error("solver doesn't exist " + solver_s));
-                                }
-
-                                ContextImpl ctx{gt, AG};
-                                if( extra.size())
-                                        ctx.AddArg(extra);
-                                #endif
-
                                 auto solver = SolverDecl::MakeSolver(solver_s, gt, AG, gt->MakeDefaultState(), extra);
                                 ContextImpl ctx;
-                                solver->Execute(ctx);
-                                auto opt = ctx.Get();
+                                auto opt = solver->Execute(ctx);
 
 
                                 auto root   = gt->Root();

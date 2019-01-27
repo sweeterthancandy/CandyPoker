@@ -139,14 +139,14 @@ namespace sim{
                 }
         private:
                 ResultType NumericalPart_(SolverContext& ctx, std::vector<Solution>& ledger, StateType& S){
-                        size_t LoopCount{10};
+                        size_t LoopCount{100};
                         double Factor{0.05};
                         enum{ MaxLoop = 100 };
                         size_t Count=0;
                         double Epsilon{1e-4};
                         double ClampEpsilon{1e-6};
 
-                        double Delta = 0.0;
+                        double Delta = 0.01;
 
                         auto gt = ctx.ArgGameTree();
                         auto AG = ctx.ArgComputer();
@@ -154,36 +154,56 @@ namespace sim{
                         auto root = gt->Root();
 
                         
-                        for(;Count!=MaxLoop;++Count){
-                                for(size_t n=0;n!=LoopCount;++n){
-                                        auto S_counter = computation_kernel::CounterStrategy(gt, AG, S, Delta);
-                                        computation_kernel::InplaceLinearCombination(S, S_counter, 1 - Factor );
-                                }
-                                computation_kernel::InplaceClamp(S, ClampEpsilon);
-                                ledger.push_back(Solution::MakeWithDeps(gt, AG, S));
-                                ctx.UpdateCandidateSolution(S);
+                        for(;;){
+                                for(;Count!=MaxLoop;++Count){
+                                        bool converged = false;
+                                        for(size_t n=0;n!=LoopCount;++n){
+                                                auto S_counter = computation_kernel::CounterStrategy(gt, AG, S, Delta);
+                                                computation_kernel::InplaceLinearCombination(S, S_counter, 1 - Factor );
+                                                if( S_counter == S ){
+                                                        convergence = true;
+                                                        break;
+                                                }
+                                        }
 
-                                auto& sol = ledger.back();
 
-                                if( sol.Norm < Epsilon ){
-                                        Epsilon /= 2.0;
-                                        Count = 0;
+                                        computation_kernel::InplaceClamp(S, ClampEpsilon);
+                                        ledger.push_back(Solution::MakeWithDeps(gt, AG, S));
+                                        ctx.UpdateCandidateSolution(S);
+
+                                        DisplayStrategy(S, 8);
+
+                                        auto& sol = ledger.back();
+
+                                        std::cout << "sol.Norm => " << sol.Norm << "\n"; // __CandyPrint__(cxx-print-scalar,sol.Norm)
+                                        if( sol.Norm < Epsilon ){
+                                                Epsilon /= 2.0;
+                                                Count = 0;
+                                        }
+                                        
+                                        #if 0
+                                        if( sol.Gamma == std::vector<size_t>{0,0} ){
+                                                std::cout << "detail::to_string(sol.Gamma) => " << detail::to_string(sol.Gamma) << "\n"; // __CandyPrint__(cxx-print-scalar,detail::to_string(sol.Gamma))
+                                                return FoundPerfect;
+                                        }
+                                        
+                                        if( sol.Gamma == std::vector<size_t>{1,1} ||
+                                            sol.Gamma == std::vector<size_t>{1,0} ||
+                                            sol.Gamma == std::vector<size_t>{0,1} )
+                                        {
+                                                std::cout << "detail::to_string(sol.Gamma) => " << detail::to_string(sol.Gamma) << "\n"; // __CandyPrint__(cxx-print-scalar,detail::to_string(sol.Gamma))
+                                                return FoundGamma;
+                                        }
+                                        #endif
                                 }
-                                
-                                if( sol.Gamma == std::vector<size_t>{0,0} ){
-                                        std::cout << "detail::to_string(sol.Gamma) => " << detail::to_string(sol.Gamma) << "\n"; // __CandyPrint__(cxx-print-scalar,detail::to_string(sol.Gamma))
-                                        return FoundPerfect;
+                                if( Count == MaxLoop){
+                                        BOOST_THROW_EXCEPTION(std::domain_error("not convergence"));
                                 }
-                                
-                                if( sol.Gamma == std::vector<size_t>{1,1} ||
-                                    sol.Gamma == std::vector<size_t>{1,0} ||
-                                    sol.Gamma == std::vector<size_t>{0,1} )
-                                {
-                                        std::cout << "detail::to_string(sol.Gamma) => " << detail::to_string(sol.Gamma) << "\n"; // __CandyPrint__(cxx-print-scalar,detail::to_string(sol.Gamma))
-                                        return FoundGamma;
-                                }
+                                std::cout << "detail::to_string(ledger.back().Gamma) => " << detail::to_string(ledger.back().Gamma) << "\n"; // __CandyPrint__(cxx-print-scalar,detail::to_string(sol.Gamma))
+                                Delta /= 2;
+                                Count = 0;
                         }
-                        std::cout << "detail::to_string(ledger.back().Gamma) => " << detail::to_string(ledger.back().Gamma) << "\n"; // __CandyPrint__(cxx-print-scalar,detail::to_string(sol.Gamma))
+                        std::exit(0);
                         //return LoopOverFlow;
                         return FoundGamma;
                 }

@@ -84,11 +84,6 @@ namespace bpo = boost::program_options;
 namespace ps{
         using namespace sim;
         
-        void DisplayStrategy(StateType const& S, size_t dp = 4){
-                for(size_t idx=0;idx!=S.size();++idx){
-                        pretty_print_strat(S[idx][0], dp);
-                }
-        }
 
 
         struct ContextImpl : SolverContext{
@@ -96,7 +91,7 @@ namespace ps{
                         :gt_(gt),
                         AG_(AG)
                 {
-                        ss_.try_load_or_default(".ps.context.ss");
+                        //ss_.try_load_or_default(".ps.context.ss");
                 }
 
 
@@ -113,7 +108,7 @@ namespace ps{
                 }
                 virtual void UpdateCandidateSolution(StateType const& S){
                         enum{ Dp = 10};
-                        DisplayStrategy(S, Dp);
+                        //DisplayStrategy(S, Dp);
 
                         ss_.add_solution(UniqeKey(), S);
                         ss_.save_();

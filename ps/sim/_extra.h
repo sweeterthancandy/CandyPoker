@@ -4,6 +4,12 @@
 
 namespace ps{
 namespace sim{
+        inline
+        void DisplayStrategy(StateType const& S, size_t dp = 4){
+                for(size_t idx=0;idx!=S.size();++idx){
+                        pretty_print_strat(S[idx][0], dp);
+                }
+        }
         struct evaluate_saver{
                 evaluate_saver(std::ostream& ostr):ostr_{&ostr}{
                         std::stringstream sstr;

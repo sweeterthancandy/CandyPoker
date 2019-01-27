@@ -49,7 +49,7 @@ namespace sim{
 
                         double delta = 0.00001;
 
-                        for(size_t fails=0;;++fails){
+                        for(;;){
                                 std::cout << "delta => " << delta << "\n"; // __CandyPrint__(cxx-print-scalar,delta)
                                 for(size_t counter=0;counter<1000;){
                                         for(size_t inner=0;inner!=stride;++inner, ++counter){
@@ -67,20 +67,19 @@ namespace sim{
                                                 counter = 0;
                                                 break;
                                         case SequenceConsumer::Ctrl_Perfect:
-                                                sc.Display();
-                                                return sc;
+                                                return sc.AsState();
                                         }
                                         
 
                                 }
+                                if( sc && sc.AsSolution()->Level == 1 ){
+                                        return sc.AsState();
+                                }
                                 delta *= 2;
-                                if( delta > 0.05 )
-                                        break;
+                                if( delta > 0.05 ){
+                                        return sc.AsState();
+                                }
                         }
-
-                        sc.Display();
-
-                        return sc;
                 }
         private:
                 std::shared_ptr<GameTree> gt;

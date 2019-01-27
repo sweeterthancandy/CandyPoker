@@ -396,21 +396,25 @@ namespace sim{
                                 return Ctrl_Perfect;
                         return Ctrl_Accepted;
                 }
-                operator boost::optional<Solution>()const{
-                        if( seq_.empty()) 
-                                return {};
 
+                operator bool()const{
+                        return Condition();
+                }
+                bool Condition()const{
+                        if( seq_.empty()) 
+                                return false;
                         // minimal requirements
                         if( seq_.back().Level > 2 )
+                                return false;
+                        return true;
+                }
+                boost::optional<Solution> AsSolution(){
+                        if( ! Condition() )
                                 return {};
-
                         return seq_.back();
                 }
-                operator boost::optional<StateType>()const{
-                        if( seq_.empty()) 
-                                return {};
-                        // minimal requirements
-                        if( seq_.back().Level > 2 )
+                boost::optional<StateType> AsState(){
+                        if( ! Condition() )
                                 return {};
                         return seq_.back().S;
                 }

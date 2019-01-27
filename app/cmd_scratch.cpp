@@ -199,7 +199,10 @@ namespace ps{
                         std::shared_ptr<GameTree> any_gt;
 
                         std::vector<Pretty::LineItem> conv_tb;
-                        conv_tb.push_back(std::vector<std::string>{"Desc", "?"});
+                        conv_tb.push_back(std::vector<std::string>{
+                                "Desc", "?", "Level", "Total", "Gamma",
+                                "Mixed", "|.|"});
+
                         conv_tb.push_back(Pretty::LineBreak);
 
                         for(double eff = eff_lower;eff - 1e-4 < eff_upper; eff += eff_inc ){
@@ -226,10 +229,24 @@ namespace ps{
                                 auto opt = solver->Execute(ctx);
 
 
-                                auto root   = gt->Root();
-                                auto opt_s = ( opt ? "yes" : "no" );
-                                conv_tb.push_back(std::vector<std::string>{gt->StringDescription(), opt_s});
-                                if( opt ){
+                                auto root = gt->Root();
+                                if( ! opt ){
+                                        conv_tb.push_back(std::vector<std::string>{gt->StringDescription(), "no"});
+                                } else {
+                                        auto sol = sim::Solution::MakeWithDeps(gt, AG, *opt);
+
+                                        std::vector<std::string> line;
+                                        line.push_back(gt->StringDescription());
+                                        line.push_back("yes");
+                                        line.push_back(boost::lexical_cast<std::string>(sol.Level));
+                                        line.push_back(boost::lexical_cast<std::string>(sol.Total));
+                                        line.push_back(detail::to_string(sol.Gamma));
+
+                                        line.push_back(detail::to_string(sol.Mixed));
+                                        line.push_back(boost::lexical_cast<std::string>(sol.Norm));
+
+                                        conv_tb.push_back(std::move(line));
+
                                         pretty_print_strat(opt.get()[0][0], sub_dp);
                                         pretty_print_strat(opt.get()[1][0], sub_dp);
                                         for(; S.size() < opt->size();){

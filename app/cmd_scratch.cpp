@@ -128,6 +128,48 @@ namespace ps{
 
 
 
+        struct RequestHandlerResult{
+                bool handled;
+                boost::optional<StateType> S;
+        };
+        struct RequestHandler{
+                virtual ~RequestHandler()=default;
+                virtual RequestHandlerResult HandleRequest(std::string const& solver,
+                                                           std::shared_ptr<GameTree> gt,
+                                                           GraphColouring<AggregateComputer> AG,
+                                                           StateType const& inital_state,
+                                                           std::string const& solver_extra)=0;
+        };
+        struct UnderlyingRequestHandler : RequestHandler{
+                virtual RequestHandlerResult HandleRequest(std::string const& solver_name,
+                                                           std::shared_ptr<GameTree> gt,
+                                                           GraphColouring<AggregateComputer> AG,
+                                                           StateType const& inital_state,
+                                                           std::string const& solver_extra)override
+                {
+                        auto solver = SolverDecl::MakeSolver(solver_name, gt, AG, inital_state, solver_extra);
+                        ContextImpl ctx;
+                        auto opt = solver->Execute(ctx);
+                        return {true, std::move(opt)};
+                }
+        };
+        struct CacheRequestHandler : RequestHandler{
+                CacheRequestHandler(std::string const& cache_name,
+                                    std::shared_ptr<RequestHandler> handler)
+                        : handler_{handler}
+                {
+                        ss_.
+                }
+                virtual RequestHandlerResult HandleRequest(std::string const& solver_name,
+                                                           std::shared_ptr<GameTree> gt,
+                                                           GraphColouring<AggregateComputer> AG,
+                                                           StateType const& inital_state,
+                                                           std::string const& solver_extra)override
+                {
+                }
+        private:
+                holdem_binary_solution_set_s ss_;
+        };
 
         
         struct ScratchCmd : Command{
@@ -149,6 +191,7 @@ namespace ps{
                         bool help{false};
                         bool memory{false};
                         size_t sub_dp = 1;
+                        std::string req_handler_name = "underlying";
 
 
                         bpo::options_description desc("Scratch command");
@@ -194,6 +237,8 @@ namespace ps{
                         
                         enum { Dp = 1 };
 
+                private:
+                        std::string 
                         std::vector<Eigen::VectorXd> S;
 
                         std::shared_ptr<GameTree> any_gt;
@@ -204,6 +249,9 @@ namespace ps{
                                 "Mixed", "|.|"});
 
                         conv_tb.push_back(Pretty::LineBreak);
+
+                        auto undlying_req_handler = std::make_shared<UnderlyingRequestHandler>();
+                        auto req_handler = std::make_shared<CacheRequestHandler>(".ps.request_cache", undlying_req_handler);
 
                         for(double eff = eff_lower;eff - 1e-4 < eff_upper; eff += eff_inc ){
 
@@ -221,12 +269,17 @@ namespace ps{
                                 auto opt = dvr.FindOrBuildSolution(gt, solver, extra);
                                 #endif
 
+                                auto result = req_handler->HandleRequest(solver_s, gt, AG, gt->MakeDefaultState(), extra);
+                                auto& opt = result.S;
+
                                 GraphColouring<AggregateComputer> AG = MakeComputer(gt);
 
 
+                                #if 0
                                 auto solver = SolverDecl::MakeSolver(solver_s, gt, AG, gt->MakeDefaultState(), extra);
                                 ContextImpl ctx;
                                 auto opt = solver->Execute(ctx);
+                                #endif
 
 
                                 auto root = gt->Root();

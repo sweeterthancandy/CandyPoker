@@ -27,30 +27,21 @@ namespace bpt = boost::property_tree;
 namespace ps{
 namespace sim{
         struct SimpleNumeric : Solver{
-                SimpleNumeric(double factor_, double epsilon_, size_t stride_)
-                        :factor(factor_),
+                SimpleNumeric(std::shared_ptr<GameTree> gt_, GraphColouring<AggregateComputer> AG_, StateType state0_, double factor_, double epsilon_, size_t stride_)
+                        :gt(gt_),
+                        AG(AG_),
+                        state0(state0_),
+                        factor(factor_),
                         epsilon(epsilon_),
                         stride(stride_)
                 {}
                 virtual void Execute(SolverContext& ctx)override
                 {
-                        auto gt = ctx.ArgGameTree();
                         auto root   = gt->Root();
                         
                         std::string uniq_key = gt->StringDescription() + "::SimpleNumeric";
-
                         ctx.DeclUniqeKey(uniq_key);
 
-                        StateType state0;
-                        if(boost::optional<StateType> opt_state = ctx.RetreiveCandidateSolution()){
-                                state0 = opt_state.get();
-                        } else {
-                                state0 = gt->MakeDefaultState();
-                        }
-
-
-                        auto AG   = ctx.ArgComputer();
-                        
                         auto S = state0;
                         for(size_t counter=0;counter!=400;){
                                 for(size_t inner=0;inner!=stride;++inner, ++counter){
@@ -72,6 +63,9 @@ namespace sim{
                         }
                 }
         private:
+                std::shared_ptr<GameTree> gt;
+                GraphColouring<AggregateComputer> AG;
+                StateType state0;
                 double factor;
                 double epsilon;
                 size_t stride;
@@ -88,12 +82,16 @@ namespace sim{
                         V.DeclArgument("stride" , default_stride,
                                        "used for how many iterations before checking stoppage condition");
                 }
-                virtual std::shared_ptr<Solver> Make(bpt::ptree const& params)const override{
-                        double factor  = params.get<double>("factor");
-                        double epsilon = params.get<double>("epsilon");
-                        size_t stride  = params.get<size_t>("stride");
+                virtual std::shared_ptr<Solver> Make( std::shared_ptr<GameTree> gt,
+                                                      GraphColouring<AggregateComputer> AG,
+                                                      StateType const& inital_state,
+                                                      bpt::ptree const& args)const override
+                {
+                        double factor  = args.get<double>("factor");
+                        double epsilon = args.get<double>("epsilon");
+                        size_t stride  = args.get<size_t>("stride");
 
-                        return std::make_shared<SimpleNumeric>(factor, epsilon, stride);
+                        return std::make_shared<SimpleNumeric>(gt, AG, inital_state, factor, epsilon, stride);
                 }
         };
 

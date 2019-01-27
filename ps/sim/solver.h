@@ -12,16 +12,6 @@ namespace sim{
         struct SolverContext{
                 virtual ~SolverContext()=default;
 
-                // ultimatley the input
-                virtual std::shared_ptr<GameTree>         ArgGameTree()=0;
-                virtual GraphColouring<AggregateComputer>& ArgComputer()=0;
-                /*
-                        Along with the problem, its also expect to 
-                        pass in extra string argument, most probaly
-                        just a single JSON is appropirate.
-                 */
-                virtual std::vector<std::string>           ArgExtra()=0;
-
                 // A large part of the solution is being able to run it for 6 hours,
                 // then turn off the computer, and come back to it at a later date
                 virtual void Message(std::string const& msg)=0;
@@ -60,7 +50,13 @@ namespace sim{
                 };
                 virtual void Accept(ArgumentVisitor&)const{}
 
-                virtual std::shared_ptr<Solver> Make(bpt::ptree const& args)const=0;
+                virtual std::shared_ptr<Solver> Make( std::shared_ptr<GameTree> gt,
+                                                      GraphColouring<AggregateComputer> AG,
+                                                      StateType const& inital_state,
+                                                      bpt::ptree const& args)const=0;
+                
+
+                ////////////////////////// This is the static sutff //////////////////////////////////
                 static SolverDecl* Get(std::string const& name){
                         auto ptr = Memory().find(name);
                         if( ptr == Memory().end() )
@@ -69,7 +65,11 @@ namespace sim{
                 }
 
 
-                static std::shared_ptr<Solver> MakeSolver(std::string const& name, std::string const& extra){
+                static std::shared_ptr<Solver> MakeSolver(std::string const& name,
+                                                          std::shared_ptr<GameTree> gt,
+                                                          GraphColouring<AggregateComputer> AG,
+                                                          StateType const& inital_state,
+                                                          std::string const& extra){
                         auto decl = Get(name);
                         if( ! decl )
                                 BOOST_THROW_EXCEPTION(std::domain_error("solver doesn't exist " + name));
@@ -108,7 +108,7 @@ namespace sim{
 
                         PS_LOG(trace) << "Creating " << name << " with " << sstr.str();
 
-                        return decl->Make(impl.args);
+                        return decl->Make(gt, AG, inital_state, impl.args);
                 }
         private:
                 template<class T>

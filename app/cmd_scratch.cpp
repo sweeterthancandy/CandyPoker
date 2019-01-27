@@ -87,19 +87,8 @@ namespace ps{
 
 
         struct ContextImpl : SolverContext{
-                ContextImpl(std::shared_ptr<GameTree> gt, GraphColouring<AggregateComputer> AG)
-                        :gt_(gt),
-                        AG_(AG)
-                {
-                        //ss_.try_load_or_default(".ps.context.ss");
-                }
 
 
-                virtual std::shared_ptr<GameTree>         ArgGameTree()override{ return gt_; }
-                virtual GraphColouring<AggregateComputer>& ArgComputer()override{ return AG_; }
-                virtual std::vector<std::string>           ArgExtra()override{
-                        return args_;
-                }
 
                 // A large part of the solution is being able to run it for 6 hours,
                 // then turn off the computer, and come back to it at a later date
@@ -130,15 +119,9 @@ namespace ps{
                 }
                 auto const& Get()const{ return S_; }
 
-                void AddArg(std::string const& s){
-                        args_.push_back(s);
-                }
         private:
-                std::shared_ptr<GameTree> gt_;
-                GraphColouring<AggregateComputer> AG_;
                 boost::optional<StateType> S_;
                 holdem_binary_solution_set_s ss_;
-                std::vector<std::string> args_;
         };
 
 
@@ -247,8 +230,8 @@ namespace ps{
                                         ctx.AddArg(extra);
                                 #endif
 
-                                auto solver = SolverDecl::MakeSolver(solver_s, extra);
-                                ContextImpl ctx{gt, AG};
+                                auto solver = SolverDecl::MakeSolver(solver_s, gt, AG, gt->MakeDefaultState(), extra);
+                                ContextImpl ctx;
                                 solver->Execute(ctx);
                                 auto opt = ctx.Get();
 

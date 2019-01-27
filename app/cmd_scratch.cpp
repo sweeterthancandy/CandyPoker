@@ -163,6 +163,7 @@ namespace ps{
                         std::string extra;
                         bool help{false};
                         bool memory{false};
+                        size_t sub_dp = 1;
 
 
                         bpo::options_description desc("Scratch command");
@@ -176,6 +177,7 @@ namespace ps{
                                 ("game-tree" , bpo::value(&game_tree), "game tree")
                                 ("extra"     , bpo::value(&extra), "extra options for the specigfic solver")
                                 ("memory"    , bpo::value(&memory)->implicit_value(true), "cache results")
+                                ("sub-dp"    , bpo::value(&sub_dp) , "")
                         ;
 
 
@@ -234,6 +236,7 @@ namespace ps{
                                 GraphColouring<AggregateComputer> AG = MakeComputer(gt);
 
 
+                                #if 0
                                 Solver* solver = Solver::Get(solver_s);
                                 if( ! solver ){
                                         BOOST_THROW_EXCEPTION(std::domain_error("solver doesn't exist " + solver_s));
@@ -242,6 +245,10 @@ namespace ps{
                                 ContextImpl ctx{gt, AG};
                                 if( extra.size())
                                         ctx.AddArg(extra);
+                                #endif
+
+                                auto solver = SolverDecl::MakeSolver(solver_s, extra);
+                                ContextImpl ctx{gt, AG};
                                 solver->Execute(ctx);
                                 auto opt = ctx.Get();
 
@@ -250,8 +257,8 @@ namespace ps{
                                 auto opt_s = ( opt ? "yes" : "no" );
                                 conv_tb.push_back(std::vector<std::string>{gt->StringDescription(), opt_s});
                                 if( opt ){
-                                        pretty_print_strat(opt.get()[0][0], 1);
-                                        pretty_print_strat(opt.get()[1][0], 1);
+                                        pretty_print_strat(opt.get()[0][0], sub_dp);
+                                        pretty_print_strat(opt.get()[1][0], sub_dp);
                                         for(; S.size() < opt->size();){
                                                 S.emplace_back();
                                                 S.back().resize(169);

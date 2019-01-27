@@ -146,7 +146,7 @@ namespace sim{
                         double Epsilon{1e-4};
                         double ClampEpsilon{1e-6};
 
-                        double Delta = 0.01;
+                        double Delta = 0.00;
 
                         auto gt = ctx.ArgGameTree();
                         auto AG = ctx.ArgComputer();
@@ -160,10 +160,6 @@ namespace sim{
                                         for(size_t n=0;n!=LoopCount;++n){
                                                 auto S_counter = computation_kernel::CounterStrategy(gt, AG, S, Delta);
                                                 computation_kernel::InplaceLinearCombination(S, S_counter, 1 - Factor );
-                                                if( S_counter == S ){
-                                                        convergence = true;
-                                                        break;
-                                                }
                                         }
 
 
@@ -513,8 +509,16 @@ namespace sim{
                         
                 }
         };
+        
+        struct AlphaSolverDecl : SolverDecl{
+                virtual void Accept(ArgumentVisitor& V)const override{
+                }
+                virtual std::shared_ptr<Solver> Make(bpt::ptree const& params)const override{
+                        return std::make_shared<AlphaSolver>();
+                }
+        };
 
-        static SolverRegister<AlphaSolver> AlphaSolverReg("alpha");
+        static SolverRegister<AlphaSolverDecl> AlphaSolverReg("alpha");
 
 } // end namespace sim
 } // end namespace ps

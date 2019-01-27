@@ -26,47 +26,18 @@ namespace bpt = boost::property_tree;
 
 namespace ps{
 namespace sim{
-        struct SimpleNumericalSolver : Solver{
+        struct SimpleNumeric : Solver{
+                SimpleNumeric(double factor_, double epsilon_, size_t stride_)
+                        :factor(factor_),
+                        epsilon(epsilon_),
+                        stride(stride_)
+                {}
                 virtual void Execute(SolverContext& ctx)override
                 {
-                        // All this to parse the arguments
-
-
-                        double const default_factor  = 0.05;
-                        double const default_epsilon = 0.00001;
-                        size_t const default_stride  = 10;
-                        
-                        bpt::ptree params;
-                        params.put("factor",default_factor);
-                        params.put("epsilon", default_epsilon);
-                        params.put("stride", default_stride);
-
-                        if( ctx.ArgExtra().size() ){
-                                bpt::ptree args;
-
-                                std::stringstream sstr;
-                                sstr << ctx.ArgExtra().front();
-                                bpt::read_json(sstr, args);
-
-                                params.put("factor", args.get<double>("factor", default_factor));
-                                params.put("epsilon", args.get<double>("epsilon", default_epsilon));
-                                params.put("stride", args.get<size_t>("stride", default_stride));
-                        }
-
-                        std::stringstream sstr;
-                        bpt::write_json(sstr, params, false);
-
-                        PS_LOG(trace) << "Using params " << sstr.str();
-
-                        double factor  = params.get<double>("factor");
-                        double epsilon = params.get<double>("epsilon");
-                        size_t stride  = params.get<size_t>("stride");
-                        
-                        
                         auto gt = ctx.ArgGameTree();
                         auto root   = gt->Root();
                         
-                        std::string uniq_key = gt->StringDescription() + "::SimpleNumericalSolver";
+                        std::string uniq_key = gt->StringDescription() + "::SimpleNumeric";
 
                         ctx.DeclUniqeKey(uniq_key);
 
@@ -100,9 +71,33 @@ namespace sim{
                                 }
                         }
                 }
+        private:
+                double factor;
+                double epsilon;
+                size_t stride;
         };
 
-        static SolverRegister<SimpleNumericalSolver> SimpleNumericalSolverReg("simple-numeric");
+        struct SimpleNumericDecl : SolverDecl{
+                virtual void Accept(ArgumentVisitor& V)const override{
+                        double const default_factor  = 0.05;
+                        double const default_epsilon = 0.00001;
+                        size_t const default_stride  = 10;
+
+                        V.DeclArgument("factor" , default_factor, "used for taking linear product");
+                        V.DeclArgument("epsilon", default_epsilon, "used for stoppage condition");
+                        V.DeclArgument("stride" , default_stride,
+                                       "used for how many iterations before checking stoppage condition");
+                }
+                virtual std::shared_ptr<Solver> Make(bpt::ptree const& params)const override{
+                        double factor  = params.get<double>("factor");
+                        double epsilon = params.get<double>("epsilon");
+                        size_t stride  = params.get<size_t>("stride");
+
+                        return std::make_shared<SimpleNumeric>(factor, epsilon, stride);
+                }
+        };
+
+        static SolverRegister<SimpleNumericDecl> SimpleNumericReg("simple-numeric");
 
 } // end namespace sim
 } // end namespace ps

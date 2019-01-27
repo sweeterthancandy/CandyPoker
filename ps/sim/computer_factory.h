@@ -136,6 +136,7 @@ namespace sim{
         };
 
 
+        inline
         GraphColouring<AggregateComputer> MakeComputer(std::shared_ptr<GameTree> gt){
                 auto root   = gt->Root();
                 auto state0 = gt->InitialState();

@@ -118,6 +118,7 @@ namespace sim{
         }
 
         namespace computation_kernel{
+                inline
                 StateType& InplaceLinearCombination(StateType& x,
                                                     StateType const& y,
                                                     double alpha)
@@ -130,6 +131,7 @@ namespace sim{
                         }
                         return x;
                 }
+                inline
                 StateType& InplaceClamp(StateType& x, double epsilon)
                 {
                         for(size_t i=0;i!=x.size();++i){
@@ -146,6 +148,7 @@ namespace sim{
                         }
                         return x;
                 }
+                inline
                 StateType CounterStrategy(std::shared_ptr<GameTree> gt, 
                                           GraphColouring<AggregateComputer> const& AG,
                                           StateType const& S,
@@ -224,6 +227,7 @@ namespace sim{
                  * such that vi is the number of cid's for which strategy si
                  * has mixed solutions. 
                  */
+                inline
                 std::vector<size_t> MixedVector(std::shared_ptr<GameTree>,
                                                 StateType const& S ){
                         std::vector<size_t> v(S.size(), 0);
@@ -247,6 +251,7 @@ namespace sim{
                 * counter strategy. Of coure it's not really this simple, but 
                 * as a measure of convergenct
                 */
+                inline
                 std::vector<size_t> GammaVector( std::shared_ptr<GameTree> gt,
                                                  GraphColouring<AggregateComputer> const& AG,
                                                  StateType const& S)
@@ -265,6 +270,7 @@ namespace sim{
                         }
                         return gamma_vec;
                 }
+                inline
                 bool IsMinMixedSolution(std::vector<size_t> const& gamma_vec){
                         enum{
                                 T_Zero        = 0,

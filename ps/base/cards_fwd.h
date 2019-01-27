@@ -6,6 +6,9 @@
 
 #include <Eigen/Dense>
 
+#include <boost/log/trivial.hpp>
+#define PS_LOG(level) BOOST_LOG_TRIVIAL(level) << "[" << BOOST_CURRENT_FUNCTION << "] "
+
 namespace ps{
 
         using id_type         = std::uint_fast16_t;

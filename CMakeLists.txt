@@ -35,7 +35,7 @@ endif()
 
 
 
-find_package(Boost REQUIRED COMPONENTS log system timer serialization)
+find_package(Boost REQUIRED COMPONENTS log system timer serialization program_options)
 
 include_directories(${Boost_INCLUDE_DIRS})
 
@@ -59,6 +59,9 @@ set(base_sources
         lib/eval/binary_strategy_description.cpp
         
         lib/support/singleton_factory.cpp
+
+        lib/sim/alpha_solver.cpp
+        lib/sim/simple_numeric.cpp
 )
 add_library(ps_lib SHARED ${base_sources}) 
 target_link_libraries(ps_lib ${Boost_LIBRARIES})

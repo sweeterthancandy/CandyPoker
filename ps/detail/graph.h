@@ -79,6 +79,7 @@ namespace detail{
                 std::vector<GEdge*> out_;
         };
 
+        inline
         std::ostream& operator<<(std::ostream& ostr, GEdge const& e){
                 return ostr << "{from=" << e.from_->Name() << ", to=" << e.to_->Name() << "}";
         }

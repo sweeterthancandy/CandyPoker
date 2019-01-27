@@ -59,8 +59,6 @@ namespace sim{
                 };
                 virtual boost::optional<StateType> Execute(SolverContext& ctx)override{
 
-                        std::string uniq_key = gt->StringDescription() + "::MinimalMixedSolutionSolver";
-                        ctx.DeclUniqeKey(uniq_key);
 
 
                         double ClampEpsilon{1e-6};

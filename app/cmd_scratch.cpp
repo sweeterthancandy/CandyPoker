@@ -87,43 +87,11 @@ namespace ps{
 
 
         struct ContextImpl : SolverContext{
-
-
-
                 // A large part of the solution is being able to run it for 6 hours,
                 // then turn off the computer, and come back to it at a later date
                 virtual void Message(std::string const& msg){
                         std::cerr << msg << "\n";
                 }
-                virtual void UpdateCandidateSolution(StateType const& S){
-                        enum{ Dp = 10};
-                        //DisplayStrategy(S, Dp);
-
-                        ss_.add_solution(UniqeKey(), S);
-                        ss_.save_();
-
-                }
-                virtual boost::optional<StateType> RetreiveCandidateSolution(){
-                        auto iter = ss_.find(UniqeKey());
-                        if( iter != ss_.end()){
-                                return iter->second.to_eigen_vv();
-                        }
-                        return {};
-                }
-
-                #if 0
-                virtual void EmitSolution(StateType const& S){
-                        BOOST_ASSERT( ! S_ );
-                        S_ = S;
-                        ss_.remove_solution(UniqeKey());
-                        ss_.save_();
-                }
-                #endif
-                auto const& Get()const{ return S_; }
-
-        private:
-                boost::optional<StateType> S_;
-                holdem_binary_solution_set_s ss_;
         };
 
 
@@ -158,7 +126,7 @@ namespace ps{
                                     std::shared_ptr<RequestHandler> handler)
                         : handler_{handler}
                 {
-                        ss_.
+                        ss_.try_load_or_default(cache_name);
                 }
                 virtual RequestHandlerResult HandleRequest(std::string const& solver_name,
                                                            std::shared_ptr<GameTree> gt,
@@ -166,9 +134,35 @@ namespace ps{
                                                            StateType const& inital_state,
                                                            std::string const& solver_extra)override
                 {
+                        std::stringstream encoding;
+                        encoding << gt->StringDescription() << "@"
+                                 << solver_name 
+                                 << solver_extra;
+                        auto key = encoding.str();
+                        auto iter = ss_.find(key);
+                        if( iter != ss_.end()){
+                                auto S = iter->second.to_eigen_vv();
+                                if( S == StateType{} )
+                                        return { true, {} };
+                                return { true, std::move(S) };
+                        }
+
+                        auto result = handler_->HandleRequest(solver_name, gt, AG, inital_state, solver_extra);
+
+                        if( ! result.S ){
+                                // even without a solution, we have to failure 
+                                // so that we don't waste time 
+                                ss_.add_solution(key, StateType{});
+                        } else {
+                                ss_.add_solution(key, result.S.get());
+                        }
+                        ss_.save_();
+
+                        return {true, result.S};
                 }
         private:
                 holdem_binary_solution_set_s ss_;
+                std::shared_ptr<RequestHandler> handler_;
         };
 
         
@@ -237,8 +231,6 @@ namespace ps{
                         
                         enum { Dp = 1 };
 
-                private:
-                        std::string 
                         std::vector<Eigen::VectorXd> S;
 
                         std::shared_ptr<GameTree> any_gt;
@@ -265,22 +257,11 @@ namespace ps{
                                         BOOST_THROW_EXCEPTION(std::domain_error("no game tree called " + game_tree));
                                 }
                                 any_gt = gt;
-                                #if 0
-                                auto opt = dvr.FindOrBuildSolution(gt, solver, extra);
-                                #endif
-
-                                auto result = req_handler->HandleRequest(solver_s, gt, AG, gt->MakeDefaultState(), extra);
-                                auto& opt = result.S;
 
                                 GraphColouring<AggregateComputer> AG = MakeComputer(gt);
-
-
-                                #if 0
-                                auto solver = SolverDecl::MakeSolver(solver_s, gt, AG, gt->MakeDefaultState(), extra);
-                                ContextImpl ctx;
-                                auto opt = solver->Execute(ctx);
-                                #endif
-
+                                
+                                auto result = req_handler->HandleRequest(solver_s, gt, AG, gt->MakeDefaultState(), extra);
+                                auto& opt = result.S;
 
                                 auto root = gt->Root();
                                 if( ! opt ){

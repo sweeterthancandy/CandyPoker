@@ -39,9 +39,6 @@ namespace sim{
                 {
                         auto root   = gt->Root();
                         
-                        std::string uniq_key = gt->StringDescription() + "::DeltaSequence";
-                        ctx.DeclUniqeKey(uniq_key);
-                        
                         double delta = 0.1;
                         
                         auto S = state0;

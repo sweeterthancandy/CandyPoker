@@ -15,18 +15,6 @@ namespace sim{
                 // A large part of the solution is being able to run it for 6 hours,
                 // then turn off the computer, and come back to it at a later date
                 virtual void Message(std::string const& msg)=0;
-                virtual void UpdateCandidateSolution(StateType const& S)=0;
-                virtual boost::optional<StateType> RetreiveCandidateSolution()=0;
-
-                std::string const& UniqeKey()const{
-                        BOOST_ASSERT( uniqe_key_.size() );
-                        return uniqe_key_;
-                }
-                void DeclUniqeKey(std::string const& uniqe_key){
-                        uniqe_key_ = uniqe_key;
-                }
-        private:
-                std::string uniqe_key_;
         };
 
 

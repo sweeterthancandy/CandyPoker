@@ -40,8 +40,6 @@ namespace sim{
                 {
                         auto root   = gt->Root();
                         
-                        std::string uniq_key = gt->StringDescription() + "::SimpleNumeric";
-                        ctx.DeclUniqeKey(uniq_key);
 
                         SequenceConsumer sc;
 

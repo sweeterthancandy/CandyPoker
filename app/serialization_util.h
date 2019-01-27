@@ -136,6 +136,14 @@ namespace ps{
                         std::lock_guard<std::mutex> lock(mtx_);
                         solutions_[key] = std::move(solution);
                 }
+                bool remove_solution(std::string const& key){
+                        std::lock_guard<std::mutex> lock(mtx_);
+                        auto iter = solutions_.find(key);
+                        if( iter == solutions_.end())
+                                return false;
+                        solutions_.erase(iter);
+                        return true;
+                }
                 // there are no thread safe
                 auto begin()const{ return solutions_.begin(); }
                 auto end()const{ return solutions_.end(); }

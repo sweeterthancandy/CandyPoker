@@ -100,8 +100,10 @@ namespace sim{
 
                         std::string uniq_key = ctx.ArgGameTree()->StringDescription() + "::MinimalMixedSolutionSolver";
 
+                        ctx.DeclUniqeKey(uniq_key);
+
                         StateType state0;
-                        if(boost::optional<StateType> opt_state = ctx.RetreiveCandidateSolution(uniq_key)){
+                        if(boost::optional<StateType> opt_state = ctx.RetreiveCandidateSolution()){
                                 state0 = opt_state.get();
                         } else {
                                 state0 = ctx.ArgGameTree()->MakeDefaultState();
@@ -110,8 +112,8 @@ namespace sim{
                         auto S = state0;
 
                         std::vector<Solution> ledger;
-                        #if 0
-                        auto ret = NumericalPart_(ctx, uniq_key, ledger, S);
+                        #if 1
+                        auto ret = NumericalPart_(ctx, ledger, S);
                         #else
                         ledger.push_back(Solution::MakeWithDeps(ctx.ArgGameTree(), ctx.ArgComputer(), S));
                         auto ret = FoundGamma;
@@ -129,14 +131,14 @@ namespace sim{
                                 }
                                 case FoundGamma:
                                 {
-                                        ctx.UpdateCandidateSolution(uniq_key, S);
+                                        ctx.UpdateCandidateSolution(S);
                                         BruteForcePart_(ctx, ledger);
                                         return;
                                 }
                         }
                 }
         private:
-                ResultType NumericalPart_(SolverContext& ctx, std::string const& uniq_key, std::vector<Solution>& ledger, StateType& S){
+                ResultType NumericalPart_(SolverContext& ctx, std::vector<Solution>& ledger, StateType& S){
                         size_t LoopCount{10};
                         double Factor{0.05};
                         enum{ MaxLoop = 100 };
@@ -159,7 +161,7 @@ namespace sim{
                                 }
                                 computation_kernel::InplaceClamp(S, ClampEpsilon);
                                 ledger.push_back(Solution::MakeWithDeps(gt, AG, S));
-                                ctx.UpdateCandidateSolution(uniq_key, S);
+                                ctx.UpdateCandidateSolution(S);
 
                                 auto& sol = ledger.back();
 

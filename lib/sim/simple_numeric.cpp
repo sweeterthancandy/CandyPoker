@@ -68,8 +68,10 @@ namespace sim{
                         
                         std::string uniq_key = gt->StringDescription() + "::SimpleNumericalSolver";
 
+                        ctx.DeclUniqeKey(uniq_key);
+
                         StateType state0;
-                        if(boost::optional<StateType> opt_state = ctx.RetreiveCandidateSolution(uniq_key)){
+                        if(boost::optional<StateType> opt_state = ctx.RetreiveCandidateSolution()){
                                 state0 = opt_state.get();
                         } else {
                                 state0 = gt->MakeDefaultState();
@@ -91,7 +93,7 @@ namespace sim{
                                 auto d = ev - counter_ev;
                                 auto norm = d.lpNorm<Eigen::Infinity>();
                                 std::cout << "norm = " << norm << "\n";
-                                ctx.UpdateCandidateSolution(uniq_key, S);
+                                ctx.UpdateCandidateSolution(S);
                                 if( norm < epsilon ){
                                         ctx.EmitSolution(S);
                                         return;

@@ -111,16 +111,16 @@ namespace ps{
                 virtual void Message(std::string const& msg){
                         std::cerr << msg << "\n";
                 }
-                virtual void UpdateCandidateSolution(std::string const& uniq_key, StateType const& S){
+                virtual void UpdateCandidateSolution(StateType const& S){
                         enum{ Dp = 10};
                         DisplayStrategy(S, Dp);
 
-                        ss_.add_solution(uniq_key, S);
+                        ss_.add_solution(UniqeKey(), S);
                         ss_.save_();
 
                 }
-                virtual boost::optional<StateType> RetreiveCandidateSolution(std::string const& uniq_key){
-                        auto iter = ss_.find(uniq_key);
+                virtual boost::optional<StateType> RetreiveCandidateSolution(){
+                        auto iter = ss_.find(UniqeKey());
                         if( iter != ss_.end()){
                                 return iter->second.to_eigen_vv();
                         }
@@ -130,8 +130,10 @@ namespace ps{
                 virtual void EmitSolution(StateType const& S){
                         BOOST_ASSERT( ! S_ );
                         S_ = S;
+                        ss_.remove_solution(UniqeKey());
+                        ss_.save_();
                 }
-                auto const& Get()const{ return S_.get(); }
+                auto const& Get()const{ return S_; }
 
                 void AddArg(std::string const& s){
                         args_.push_back(s);
@@ -147,83 +149,6 @@ namespace ps{
 
 
 
-        struct Driver{
-                // enable this for debugging
-                enum{ NoPersistent = true };
-                Driver(){
-                        if( ! NoPersistent ){
-                                ss_.try_load_or_default(".ss.bin");
-                        }
-                }
-                ~Driver(){
-                        // will do nothing when no save
-                        ss_.save_();
-                }
-                boost::optional<std::vector<std::vector<Eigen::VectorXd> >> FindOrBuildSolution(std::shared_ptr<GameTree> gt,
-                                                                                                std::string const& solver_name,
-                                                                                                std::string const& solver_extra)
-                {
-                        auto key = gt->StringDescription();
-
-                        if( ! NoPersistent ){
-                                auto iter = ss_.find(key);
-                                if( iter != ss_.end()){
-                                        if( iter->second.good() ){
-                                                return iter->second.to_eigen_vv();
-                                        } else {
-                                                return {};
-                                        }
-                                }
-                        }
-
-                        auto ledger_key = ".ledger/" + key;
-                        holdem_binary_strategy_ledger_s ledger;
-                        if( ! NoPersistent ){
-                                ledger.try_load_or_default(ledger_key);
-                        }
-
-
-                        GraphColouring<AggregateComputer> AG = MakeComputer(gt);
-                        //auto sol = AlgebraicSolver(ledger, gt, AG);
-                        //auto solver = std::make_shared<CTNumericalSolver>();
-
-
-
-                        #if 0
-                        auto sol = solver->ComputeSolution(gt, AG);
-                        if( sol ){
-                                ss_.add_solution(key, *sol);
-                        } else {
-                                // indicate bad solution
-                                ss_.add_solution(key, holdem_binary_strategy_s{});
-                        }
-
-                        return sol; // might be nothing
-                        #endif
-                        ContextImpl ctx{gt, AG};
-                        if( solver_extra.size())
-                                ctx.AddArg(solver_extra);
-                        //SimpleNumericalSolver{}.Execute(ctx);
-                        //
-
-                        Solver* solver = Solver::Get(solver_name);
-                        if( ! solver ){
-                                BOOST_THROW_EXCEPTION(std::domain_error("solver doesn't exist " + solver_name));
-                        }
-
-                        solver->Execute(ctx);
-
-                        return ctx.Get();
-
-                }
-                void Display()const{
-                        for(auto const& _ : ss_){
-                                std::cout << "_.first => " << _.first << "\n"; // __CandyPrint__(cxx-print-scalar,_.first)
-                        }
-                }
-        private:
-                holdem_binary_solution_set_s ss_;
-        };
         
         struct ScratchCmd : Command{
                 enum{ Debug = 1};
@@ -239,20 +164,25 @@ namespace ps{
                         double eff_upper = 10;
                         double eff_inc = 1.0;
                         std::string game_tree = "two-player-push-fold";
-                        std::string solver = "simple-numeric";
+                        std::string solver_s = "simple-numeric";
                         std::string extra;
+                        bool help{false};
+                        bool memory{false};
 
 
-                        bpo::options_description desc("Allowed options");
+                        bpo::options_description desc("Scratch command");
                         desc.add_options()
                                 ("debug"     , bpo::value(&debug)->implicit_value(true), "debug flag")
+                                ("help"      , bpo::value(&help)->implicit_value(true), "this message")
                                 ("eff-lower" , bpo::value(&eff_lower), "lower limit for range")
                                 ("eff-upper" , bpo::value(&eff_upper), "upper limit for range")
                                 ("eff-inc"   , bpo::value(&eff_inc), "incremnt for eff stack")
-                                ("solver"    , bpo::value(&solver), "specigic solver")
+                                ("solver"    , bpo::value(&solver_s), "specigic solver")
                                 ("game-tree" , bpo::value(&game_tree), "game tree")
                                 ("extra"     , bpo::value(&extra), "extra options for the specigfic solver")
+                                ("memory"    , bpo::value(&memory)->implicit_value(true), "cache results")
                         ;
+
 
 
                         std::vector<const char*> aux;
@@ -266,11 +196,22 @@ namespace ps{
                         bpo::variables_map vm;
                         bpo::store(parse_command_line(aux.size()-1, &aux[0], desc), vm);
                         bpo::notify(vm);    
+
+
+
+                        if( help ){
+                                std::cout << desc << "\n";
+                                return EXIT_FAILURE;
+                        }
+
+                
+                        holdem_binary_solution_set_s ss;
+                        if( memory ){
+                                ss.try_load_or_default(".ss.bin");
+                        }
                         
                         enum { Dp = 1 };
 
-                        Driver dvr;
-                        dvr.Display();
                         std::vector<Eigen::VectorXd> S;
 
                         std::shared_ptr<GameTree> any_gt;
@@ -291,7 +232,25 @@ namespace ps{
                                         BOOST_THROW_EXCEPTION(std::domain_error("no game tree called " + game_tree));
                                 }
                                 any_gt = gt;
+                                #if 0
                                 auto opt = dvr.FindOrBuildSolution(gt, solver, extra);
+                                #endif
+
+                                GraphColouring<AggregateComputer> AG = MakeComputer(gt);
+
+
+                                Solver* solver = Solver::Get(solver_s);
+                                if( ! solver ){
+                                        BOOST_THROW_EXCEPTION(std::domain_error("solver doesn't exist " + solver_s));
+                                }
+
+                                ContextImpl ctx{gt, AG};
+                                if( extra.size())
+                                        ctx.AddArg(extra);
+                                solver->Execute(ctx);
+                                auto opt = ctx.Get();
+
+
                                 auto root   = gt->Root();
                                 auto opt_s = ( opt ? "yes" : "no" );
                                 conv_tb.push_back(std::vector<std::string>{gt->StringDescription(), opt_s});

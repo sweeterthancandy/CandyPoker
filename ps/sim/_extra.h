@@ -233,19 +233,28 @@ namespace sim{
                  * such that vi is the number of cid's for which strategy si
                  * has mixed solutions. 
                  */
+                struct MixedVectorResult{
+                        std::vector<size_t>              mask;
+                        std::vector<holdem_class_vector> cards;
+                };
                 inline
-                std::vector<size_t> MixedVector(std::shared_ptr<GameTree>,
+                MixedVectorResult MixedVector(std::shared_ptr<GameTree>,
                                                 StateType const& S ){
-                        std::vector<size_t> v(S.size(), 0);
+                        //std::vector<size_t> v(S.size(), 0);
+                        MixedVectorResult result;
+                        result.mask.resize(S.size());
+                        result.cards.resize(S.size());
                         for(size_t idx=0;idx!=S.size();++idx){
                                 auto const& t = S[idx][0];
                                 for(size_t cid=0;cid!=169;++cid){
                                         if( t[cid] != 1.0 && t[cid] != 0.0 ){
-                                                ++v[idx];
+                                                //++v[idx];
+                                                ++result.mask[idx];
+                                                result.cards[idx].push_back(cid);
                                         }
                                 }
                         }
-                        return v;
+                        return result;
                 }
                 /*
                  * Returns a vector
@@ -257,24 +266,39 @@ namespace sim{
                 * counter strategy. Of coure it's not really this simple, but 
                 * as a measure of convergenct
                 */
+                struct GammaVectorResult{
+                        std::vector<size_t>              mask;
+                        std::vector<holdem_class_vector> cards;
+                        size_t                           level;
+                        size_t                           sigma;
+                };
                 inline
-                std::vector<size_t> GammaVector( std::shared_ptr<GameTree> gt,
+                GammaVectorResult GammaVector( std::shared_ptr<GameTree> gt,
                                                  GraphColouring<AggregateComputer> const& AG,
                                                  StateType const& S)
                 {
+                        GammaVectorResult result;
+                        result.mask.resize(S.size());
+                        result.cards.resize(S.size());
+
                         // we have a mixed solution where the counter strategy 
                         // has only one cid different from our solutuon.
                         auto counter_nf = CounterStrategy(gt, AG, S, 0.0);
-                        std::vector<size_t> gamma_vec(S.size(), 0);
                         for(size_t idx=0;idx!=S.size();++idx){
                                 auto A = S[idx][0] - counter_nf[idx][0];
                                 for(size_t cid=0;cid!=169;++cid){
                                         if( A[cid] != 0.0 ){
-                                                ++gamma_vec[idx];
+                                                ++result.mask[idx];
+                                                result.cards[idx].push_back(cid);
                                         }
                                 }
                         }
-                        return gamma_vec;
+                        for(size_t idx=0;idx!=S.size();++idx){
+                                result.mask[idx] = result.cards[idx].size();
+                        }
+                        result.level = *std::max_element(result.mask.begin(), result.mask.end());
+                        result.sigma = std::accumulate(result.mask.begin(), result.mask.end(), static_cast<size_t>(0));
+                        return result;
                 }
                 inline
                 bool IsMinMixedSolution(std::vector<size_t> const& gamma_vec){
@@ -330,6 +354,7 @@ namespace sim{
                  * are mixed soltions (not 0 or 1).
                  */
                 std::vector<size_t> Mixed;
+                std::vector<holdem_class_vector> MixedCards;
                 /*
                  * This represents how many cid's are different
                  * from the counter strategy. This would never be
@@ -337,6 +362,7 @@ namespace sim{
                  * of the optional solution being mixed in one card
                  */
                 std::vector<size_t> Gamma;
+                std::vector<holdem_class_vector> GammaCards;
 
                 size_t Level;
                 size_t Total;
@@ -366,13 +392,15 @@ namespace sim{
 
                         auto norm = d.lpNorm<Eigen::Infinity>();
 
-                        auto mv = computation_kernel::MixedVector( gt, S );
-                        auto gv = computation_kernel::GammaVector( gt, AG, S );
+                        auto mv_ret = computation_kernel::MixedVector( gt, S );
+                        auto gv_ret = computation_kernel::GammaVector( gt, AG, S );
 
+                        #if 0
                         auto level = *std::max_element(gv.begin(), gv.end());
                         auto Total = std::accumulate(gv.begin(), gv.end(), static_cast<size_t>(0));
+                        #endif
 
-                        return {S, ev, S_counter, counter_ev, norm, mv, gv, level, Total};
+                        return {S, ev, S_counter, counter_ev, norm, mv_ret.mask, mv_ret.cards, gv_ret.mask, gv_ret.cards, gv_ret.level, gv_ret.sigma};
                 }
         };
         

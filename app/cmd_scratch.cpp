@@ -190,8 +190,8 @@ namespace ps{
         struct TableSequenceObserver{
                 TableSequenceObserver(){
                         conv_tb.push_back(std::vector<std::string>{
-                                "Desc", "?", "Level", "Total", "Gamma",
-                                "Mixed", "|.|"});
+                                "Desc", "?", "Level", "Total", "Gamma", "GammaCards",
+                                "Mixed", "MixedCards", "|.|"});
 
                         conv_tb.push_back(Pretty::LineBreak);
                 }
@@ -210,8 +210,10 @@ namespace ps{
                                 line.push_back(boost::lexical_cast<std::string>(sol.Level));
                                 line.push_back(boost::lexical_cast<std::string>(sol.Total));
                                 line.push_back(detail::to_string(sol.Gamma));
+                                line.push_back(detail::to_string(sol.GammaCards));
 
                                 line.push_back(detail::to_string(sol.Mixed));
+                                line.push_back(detail::to_string(sol.MixedCards));
                                 line.push_back(boost::lexical_cast<std::string>(sol.Norm));
 
                                 conv_tb.push_back(std::move(line));
@@ -328,7 +330,7 @@ namespace ps{
                         std::vector<std::function<void(std::shared_ptr<GameTree>, LazyComputer const&, boost::optional<StateType> const&)> > obs;
 
                         obs.push_back(SolutionPrinter(sub_dp));
-                        //obs.push_back(TableSequenceObserver());
+                        obs.push_back(TableSequenceObserver());
                         obs.push_back(TableCollater());
 
 

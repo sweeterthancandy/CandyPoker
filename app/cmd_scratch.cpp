@@ -162,6 +162,7 @@ namespace ps{
                 }
                 void Display()const{
                         for(auto const& sol : ss_ ){
+                                std::cout << "sol.first => " << sol.first << "\n"; // __CandyPrint__(cxx-print-scalar,sol.first)
                                 auto vv = sol.second.to_eigen_vv();
                         }
                 }
@@ -178,6 +179,8 @@ namespace ps{
                                  LazyComputer const& AG,
                                  boost::optional<StateType> const& opt)
                 {
+                        if( ! opt )
+                                return;
                         pretty_print_strat(opt.get()[0][0], sub_dp_);
                         pretty_print_strat(opt.get()[1][0], sub_dp_);
                 }
@@ -233,6 +236,8 @@ namespace ps{
                                  LazyComputer const& AG,
                                  boost::optional<StateType> const& opt)
                 {
+                        if( ! opt )
+                                return;
                         for(; S.size() < opt->size();){
                                 S.emplace_back();
                                 S.back().resize(169);
@@ -294,7 +299,6 @@ namespace ps{
                         std::vector<const char*> aux;
                         aux.push_back("dummy");
                         for(auto const& _ : args_){
-                                std::cout << "_ => " << _ << "\n"; // __CandyPrint__(cxx-print-scalar,_)
                                 aux.push_back(_.c_str());
                         }
                         aux.push_back(nullptr);
@@ -311,25 +315,20 @@ namespace ps{
                         }
 
                 
-                        holdem_binary_solution_set_s ss;
-                        if( memory ){
-                                ss.try_load_or_default(".ss.bin");
-                        }
-                        
-
 
                         std::shared_ptr<GameTree> any_gt;
 
 
                         auto undlying_req_handler = std::make_shared<UnderlyingRequestHandler>();
                         auto req_handler = std::make_shared<CacheRequestHandler>(".ps.request_cache", undlying_req_handler);
+                        //req_handler->Display();
 
                         boost::optional<StateType> guess;
 
                         std::vector<std::function<void(std::shared_ptr<GameTree>, LazyComputer const&, boost::optional<StateType> const&)> > obs;
 
                         obs.push_back(SolutionPrinter(sub_dp));
-                        obs.push_back(TableSequenceObserver());
+                        //obs.push_back(TableSequenceObserver());
                         obs.push_back(TableCollater());
 
 

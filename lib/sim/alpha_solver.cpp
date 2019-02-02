@@ -115,7 +115,7 @@ namespace sim{
 
                         std::vector<factor_family> family_vec;
 
-                        enum{ GridSize = 10 };
+                        enum{ GridSize = 4 };
                         
                         for(auto const& mi : mixed_info){
                                 
@@ -274,8 +274,7 @@ namespace sim{
                         if( SV_family.size() > 1000 )
                                 return {};
 
-                        boost::optional<Solution> best;
-
+                        #if 0
                         for(size_t idx=0;idx!=SV_family.size();++idx){
                                 std::cout << "idx => " << idx << " out of " << SV_family.size() << "\n"; // __CandyPrint__(cxx-print-scalar,idx)
                                 auto Q = SV_family[idx];
@@ -283,6 +282,25 @@ namespace sim{
                                 auto candidate = Solution::MakeWithDeps(gt, AG, Q);
                                 solution_candidates.push_back(candidate);
                         }
+                        #else
+                        std::vector<std::function<Solution()> > tasks;
+                        for(size_t idx=0;idx!=SV_family.size();++idx){
+                                auto atom = [&,idx](){
+                                        auto Q = SV_family[idx];
+                                        computation_kernel::InplaceClamp(Q, ClampEpsilon);
+                                        auto candidate = Solution::MakeWithDeps(gt, AG, Q);
+                                        return candidate;
+                                };
+                                tasks.push_back(atom);
+                        }
+                        std::vector<std::future<Solution> > futs;
+                        for(auto& t : tasks ){
+                                futs.push_back( std::async(std::launch::async, t) );
+                        }
+                        for(auto& f : futs){
+                                solution_candidates.push_back(f.get());
+                        }
+                        #endif
 
                         std::vector<Pretty::LineItem> dbg;
                         dbg.push_back(std::vector<std::string>{"n", "|.|", "Gamma", "Mixed"});

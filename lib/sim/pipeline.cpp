@@ -139,8 +139,7 @@ namespace sim{
                                 pargs.Next("alpha");
                                 pargs.save_as(file);
                         } 
-                       PS_LOG(trace) << "Arguments are " << pargs;
-                        std::exit(0);
+                        PS_LOG(trace) << "Arguments are " << pargs;
                         auto ptr = std::make_shared<Pipeline>(gt, AG, pargs);
                         return ptr;
 

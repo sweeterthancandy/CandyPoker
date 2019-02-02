@@ -201,6 +201,30 @@ namespace sim{
 
                 return AG;
         }
+        /*
+                Perfect example of where something is a candidate to be
+                laxyilty initalixed. Creating the computer takes significant
+                time (several minutes), and we don't need it if the solution
+                already exists in the cache, but at the same time want the 
+                cache to be transparebnt.
+
+         */
+        struct LazyComputer{
+                using ImplType = GraphColouring<AggregateComputer>;
+                explicit LazyComputer(std::shared_ptr<GameTree> gt)
+                        :gt_(gt)
+                {}
+                // const we we have pass as const& 
+                GraphColouring<AggregateComputer>& Get()const{
+                        if( ! comp_ ){
+                                comp_ = std::make_shared<ImplType>(MakeComputer(gt_));
+                        }
+                        return *comp_;
+                }
+        private:
+                mutable std::shared_ptr<GameTree> gt_;
+                mutable std::shared_ptr<ImplType> comp_;
+        };
 
 } // end namespace sim
 } // end namespace ps

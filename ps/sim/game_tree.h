@@ -103,6 +103,7 @@ namespace sim{
         };
 
         struct GameTree{
+                virtual ~GameTree()=default;
                 /*
                  * We need to color each non-terminal node which which player's
                  * turn it is
@@ -160,6 +161,12 @@ namespace sim{
                                 std::cout << *d << "\n";
                         }
                 }
+
+
+                virtual double SmallBlind()const=0;
+                virtual double BigBlind()const=0;
+                // this is always helpfull
+                virtual double EffectiveStack()const=0;
         
         protected:
                 void BuildStrategy(){

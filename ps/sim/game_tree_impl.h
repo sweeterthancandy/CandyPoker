@@ -6,7 +6,11 @@ namespace ps{
 namespace sim{
 
         struct GameTreeTwoPlayer : GameTree{
-                GameTreeTwoPlayer(double sb, double bb, double eff){
+                GameTreeTwoPlayer(double sb, double bb, double eff)
+                        :sb_(sb),
+                        bb_(bb),
+                        eff_(eff)
+                {
                         // <0>
                         root = G.Node("*");
                                 // <1>
@@ -67,7 +71,14 @@ namespace sim{
                                 }
                         }
                 }
+                
+                virtual double SmallBlind()const override{ return sb_; }
+                virtual double BigBlind()const override{ return bb_; }
+                virtual double EffectiveStack()const override{ return eff_; }
         private:
+                double sb_;
+                double bb_;
+                double eff_;
                 Graph G;
                 GNode* root;
                 GNode* p;
@@ -86,7 +97,10 @@ namespace sim{
 
         struct GameTreeTwoPlayerRaiseFold : GameTree{
                 GameTreeTwoPlayerRaiseFold(double sb, double bb, double eff, double raise)
-                        : raise_{raise}
+                        :sb_(sb),
+                        bb_(bb),
+                        eff_(eff),
+                        raise_{raise}
                 {
                         // <0>
                         root = G.Node("*");
@@ -161,7 +175,13 @@ namespace sim{
                                 }
                         }
                 }
+                virtual double SmallBlind()const override{ return sb_; }
+                virtual double BigBlind()const override{ return bb_; }
+                virtual double EffectiveStack()const override{ return eff_; }
         private:
+                double sb_;
+                double bb_;
+                double eff_;
                 double raise_;
                 Graph G;
                 GNode* root;
@@ -187,7 +207,11 @@ namespace sim{
         
         
         struct GameTreeThreePlayer : GameTree{
-                GameTreeThreePlayer(double sb, double bb, double eff){
+                GameTreeThreePlayer(double sb, double bb, double eff)
+                        :sb_(sb),
+                        bb_(bb),
+                        eff_(eff)
+                {
                         // <0>
                         root = G.Node("*");
                                 // <1>
@@ -296,7 +320,13 @@ namespace sim{
                                 }
                         }
                 }
+                virtual double SmallBlind()const override{ return sb_; }
+                virtual double BigBlind()const override{ return bb_; }
+                virtual double EffectiveStack()const override{ return eff_; }
         private:
+                double sb_;
+                double bb_;
+                double eff_;
                 Graph G;
                 PushFoldState state0;
                 GNode* root;

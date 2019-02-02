@@ -104,18 +104,18 @@ namespace ps{
                 virtual ~RequestHandler()=default;
                 virtual RequestHandlerResult HandleRequest(std::string const& solver,
                                                            std::shared_ptr<GameTree> gt,
-                                                           GraphColouring<AggregateComputer> AG,
+                                                           LazyComputer AG,
                                                            StateType const& inital_state,
                                                            std::string const& solver_extra)=0;
         };
         struct UnderlyingRequestHandler : RequestHandler{
                 virtual RequestHandlerResult HandleRequest(std::string const& solver_name,
                                                            std::shared_ptr<GameTree> gt,
-                                                           GraphColouring<AggregateComputer> AG,
+                                                           LazyComputer AG,
                                                            StateType const& inital_state,
                                                            std::string const& solver_extra)override
                 {
-                        auto solver = SolverDecl::MakeSolver(solver_name, gt, AG, inital_state, solver_extra);
+                        auto solver = SolverDecl::MakeSolver(solver_name, gt, AG.Get(), inital_state, solver_extra);
                         ContextImpl ctx;
                         auto opt = solver->Execute(ctx);
                         return {true, std::move(opt)};
@@ -130,7 +130,7 @@ namespace ps{
                 }
                 virtual RequestHandlerResult HandleRequest(std::string const& solver_name,
                                                            std::shared_ptr<GameTree> gt,
-                                                           GraphColouring<AggregateComputer> AG,
+                                                           LazyComputer AG,
                                                            StateType const& inital_state,
                                                            std::string const& solver_extra)override
                 {
@@ -160,9 +160,96 @@ namespace ps{
 
                         return {true, result.S};
                 }
+                void Display()const{
+                        for(auto const& sol : ss_ ){
+                                auto vv = sol.second.to_eigen_vv();
+                        }
+                }
         private:
                 holdem_binary_solution_set_s ss_;
                 std::shared_ptr<RequestHandler> handler_;
+        };
+
+        struct SolutionPrinter{
+                explicit SolutionPrinter(size_t sub_dp = 2)
+                        :sub_dp_(sub_dp)
+                {}
+                void operator()( std::shared_ptr<GameTree> gt,
+                                 LazyComputer const& AG,
+                                 boost::optional<StateType> const& opt)
+                {
+                        pretty_print_strat(opt.get()[0][0], sub_dp_);
+                        pretty_print_strat(opt.get()[1][0], sub_dp_);
+                }
+        private:
+                size_t sub_dp_;
+        };
+        struct TableSequenceObserver{
+                TableSequenceObserver(){
+                        conv_tb.push_back(std::vector<std::string>{
+                                "Desc", "?", "Level", "Total", "Gamma",
+                                "Mixed", "|.|"});
+
+                        conv_tb.push_back(Pretty::LineBreak);
+                }
+                void operator()( std::shared_ptr<GameTree> gt,
+                                 LazyComputer const& AG,
+                                 boost::optional<StateType> const& opt)
+                {
+                        if( ! opt ){
+                                conv_tb.push_back(std::vector<std::string>{gt->StringDescription(), "no"});
+                        } else {
+                                auto sol = sim::Solution::MakeWithDeps(gt, AG.Get(), *opt);
+
+                                std::vector<std::string> line;
+                                line.push_back(gt->StringDescription());
+                                line.push_back("yes");
+                                line.push_back(boost::lexical_cast<std::string>(sol.Level));
+                                line.push_back(boost::lexical_cast<std::string>(sol.Total));
+                                line.push_back(detail::to_string(sol.Gamma));
+
+                                line.push_back(detail::to_string(sol.Mixed));
+                                line.push_back(boost::lexical_cast<std::string>(sol.Norm));
+
+                                conv_tb.push_back(std::move(line));
+                        }
+                        Pretty::RenderTablePretty(std::cout, conv_tb);
+                }
+        private:
+                std::vector<Pretty::LineItem> conv_tb;
+        };
+        struct TableCollater{
+                enum { Dp = 1 };
+                ~TableCollater(){
+                        if( ! last_gt_ ) 
+                                return;
+                        for( auto const& _ : *last_gt_){
+                                std::cout << "\n            " << _.PrettyAction() << "\n\n";
+                                pretty_print_strat(S[_.GetIndex()], Dp);
+
+                        }
+                }
+                void operator()( std::shared_ptr<GameTree> gt,
+                                 LazyComputer const& AG,
+                                 boost::optional<StateType> const& opt)
+                {
+                        for(; S.size() < opt->size();){
+                                S.emplace_back();
+                                S.back().resize(169);
+                                S.back().fill(0.0);
+                        }
+                        for(size_t j=0;j!=opt->size();++j){
+                                for(size_t idx=0;idx!=169;++idx){
+                                        if( std::fabs(opt.get()[j][0][idx] - 1.0 ) < 1e-2 ){
+                                                S[j][idx] = gt->EffectiveStack();
+                                        }
+                                }
+                        }
+                        last_gt_ = gt;
+                }
+        private:
+                std::vector<Eigen::VectorXd> S;
+                std::shared_ptr<GameTree> last_gt_;
         };
 
         
@@ -229,23 +316,22 @@ namespace ps{
                                 ss.try_load_or_default(".ss.bin");
                         }
                         
-                        enum { Dp = 1 };
 
-                        std::vector<Eigen::VectorXd> S;
 
                         std::shared_ptr<GameTree> any_gt;
 
-                        std::vector<Pretty::LineItem> conv_tb;
-                        conv_tb.push_back(std::vector<std::string>{
-                                "Desc", "?", "Level", "Total", "Gamma",
-                                "Mixed", "|.|"});
-
-                        conv_tb.push_back(Pretty::LineBreak);
 
                         auto undlying_req_handler = std::make_shared<UnderlyingRequestHandler>();
                         auto req_handler = std::make_shared<CacheRequestHandler>(".ps.request_cache", undlying_req_handler);
 
                         boost::optional<StateType> guess;
+
+                        std::vector<std::function<void(std::shared_ptr<GameTree>, LazyComputer const&, boost::optional<StateType> const&)> > obs;
+
+                        obs.push_back(SolutionPrinter(sub_dp));
+                        obs.push_back(TableSequenceObserver());
+                        obs.push_back(TableCollater());
+
 
                         for(double eff = eff_lower;eff - 1e-4 < eff_upper; eff += eff_inc ){
 
@@ -255,12 +341,17 @@ namespace ps{
                                         gt = std::make_shared<GameTreeTwoPlayer>(sb, bb, eff);
                                 } else if ( game_tree == "three-player-push-fold" ){
                                         gt = std::make_shared<GameTreeThreePlayer>(sb, bb, eff);
+                                } else if ( game_tree == "two-player-raise-fold" ){
+                                        gt = std::make_shared<GameTreeTwoPlayerRaiseFold>(sb, bb, eff, 2.0);
                                 } else{
                                         BOOST_THROW_EXCEPTION(std::domain_error("no game tree called " + game_tree));
                                 }
                                 any_gt = gt;
 
-                                GraphColouring<AggregateComputer> AG = MakeComputer(gt);
+                                //GraphColouring<AggregateComputer> AG = MakeComputer(gt);
+                                
+                                LazyComputer AG{gt};
+
 
                                 StateType inital_state;
                                 if( guess ){
@@ -272,50 +363,17 @@ namespace ps{
                                 auto result = req_handler->HandleRequest(solver_s, gt, AG, inital_state, extra);
                                 auto& opt = result.S;
 
-                                auto root = gt->Root();
-                                if( ! opt ){
-                                        conv_tb.push_back(std::vector<std::string>{gt->StringDescription(), "no"});
-                                } else {
-                                        auto sol = sim::Solution::MakeWithDeps(gt, AG, *opt);
-
+                                if( opt ){
                                         guess = *opt;
-
-                                        std::vector<std::string> line;
-                                        line.push_back(gt->StringDescription());
-                                        line.push_back("yes");
-                                        line.push_back(boost::lexical_cast<std::string>(sol.Level));
-                                        line.push_back(boost::lexical_cast<std::string>(sol.Total));
-                                        line.push_back(detail::to_string(sol.Gamma));
-
-                                        line.push_back(detail::to_string(sol.Mixed));
-                                        line.push_back(boost::lexical_cast<std::string>(sol.Norm));
-
-                                        conv_tb.push_back(std::move(line));
-
-                                        pretty_print_strat(opt.get()[0][0], sub_dp);
-                                        pretty_print_strat(opt.get()[1][0], sub_dp);
-                                        for(; S.size() < opt->size();){
-                                                S.emplace_back();
-                                                S.back().resize(169);
-                                                S.back().fill(0.0);
-                                        }
-                                        for(size_t j=0;j!=opt->size();++j){
-                                                for(size_t idx=0;idx!=169;++idx){
-                                                        if( std::fabs(opt.get()[j][0][idx] - 1.0 ) < 1e-2 ){
-                                                                S[j][idx] = eff;
-                                                        }
-                                                }
-                                        }
                                 }
-                                Pretty::RenderTablePretty(std::cout, conv_tb);
-                        }
-                        for( auto const& _ : *any_gt){
-                                std::cout << "\n            " << _.PrettyAction() << "\n\n";
-                                pretty_print_strat(S[_.GetIndex()], Dp);
+                                for(auto& ob : obs ){
+                                        ob(gt, AG, opt);
+                                }
 
                         }
 
-                        Pretty::RenderTablePretty(std::cout, conv_tb);
+                        for(;obs.size();obs.pop_back());
+
                         return EXIT_SUCCESS;
                 }
         private:

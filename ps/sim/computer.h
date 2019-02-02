@@ -112,14 +112,13 @@ namespace sim{
                         Eigen::VectorXd V;
                         switch(S.size()){
                         case 2:
+                        default:
+                                // TODO
                                 V.resize(2);
                                 break;
                         case 6:
                                 V.resize(3);
                                 break;
-                        default:
-                                std::cerr << "not supports 8g9g9\n";
-                                std::abort();
                         }
                         V.fill(0);
                         EvaluateFiltered(V, S, [](auto&&){return true; });

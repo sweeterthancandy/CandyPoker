@@ -40,10 +40,10 @@ struct persistent_memory_base{
                         return ".persistent." + token;
                 }
                 virtual void begin_load(std::string const& path){
-                        std::cerr << "begin_load(" << path << ")\n";
+                        PS_LOG(trace) << "begin_load(" << path << ")\n";
                 }
                 virtual void end_load(std::string const& path){
-                        std::cerr << "end_load(" << path << ")\n";
+                        PS_LOG(trace) << "end_load(" << path << ")\n";
                 }
         };
 

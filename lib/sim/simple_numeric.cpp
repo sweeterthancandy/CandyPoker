@@ -125,6 +125,24 @@ namespace sim{
                         SequenceConsumer seq_;
                 };
                 
+                struct ProfileController : Controller{
+                        virtual void Init(
+                                std::shared_ptr<GameTree> gt, GraphColouring<AggregateComputer> AG,
+                                SimpleNumericArguments& args)override{
+                                timer_.start();
+                        }
+                        virtual ApplyReturnType Apply(
+                                std::shared_ptr<GameTree> gt, GraphColouring<AggregateComputer> AG,
+                                SimpleNumericArguments& args, Solution const& solution)override
+                        {
+                                PS_LOG(trace) << "Loop took " << timer_.format();
+                                timer_.start();
+                                return {};
+                        }
+                private:
+                        boost::timer::cpu_timer timer_;
+                };
+                
                 
                 /*
                         This is important. When we are running the numerical algorith,
@@ -307,6 +325,7 @@ namespace sim{
 
                         auto solver = std::make_shared<SimpleNumeric>(gt, AG, inital_state, sargs);
                         solver->AddController(std::make_shared<SimpleNumeric::SequencePrinterController>());
+                        solver->AddController(std::make_shared<SimpleNumeric::ProfileController>());
                         solver->AddController(std::make_shared<SimpleNumeric::TakeFirstController>([](auto const& sol){ return sol.Level < 10; }));
 
                         return solver;

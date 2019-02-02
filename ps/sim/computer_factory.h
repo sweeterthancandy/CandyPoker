@@ -1,6 +1,9 @@
 #ifndef PS_SIM_COMPUTER_FACTORY_H
 #define PS_SIM_COMPUTER_FACTORY_H
 
+#include <boost/scope_exit.hpp>
+#include <boost/timer/timer.hpp>
+
 
 namespace ps{
 namespace sim{
@@ -138,9 +141,15 @@ namespace sim{
 
         inline
         GraphColouring<AggregateComputer> MakeComputer(std::shared_ptr<GameTree> gt){
+                boost::timer::cpu_timer timer;
+                timer.start();
+                PS_LOG(trace) << "Making computer for " << gt->StringDescription() << "...";
                 auto root   = gt->Root();
                 auto state0 = gt->InitialState();
 
+                BOOST_SCOPE_EXIT_ALL(&){
+                        PS_LOG(trace) << "Making computer took " << timer.format();
+                };
 
 
                 

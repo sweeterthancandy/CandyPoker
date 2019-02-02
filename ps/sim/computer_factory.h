@@ -148,7 +148,7 @@ namespace sim{
                 auto state0 = gt->InitialState();
 
                 BOOST_SCOPE_EXIT_ALL(&){
-                        PS_LOG(trace) << "Making computer took " << timer.format("%w seconds");
+                        PS_LOG(trace) << "Making computer took " << timer.format(1, "%w seconds");
                 };
 
 

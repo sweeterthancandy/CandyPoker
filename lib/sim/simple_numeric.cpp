@@ -36,9 +36,27 @@ namespace sim{
                         return ostr;
                 }
                 double factor{0.05};
-                size_t stride{10};
+                size_t stride{20};
                 double clamp_epsilon{1e-6};
                 double delta{0.0};
+
+                void EmitDescriptions(SolverDecl::ArgumentVisitor& V)const{
+                        V.DeclArgument("factor" , factor,
+                                       "used for taking linear product, large faster, too large unstabe");
+                        V.DeclArgument("stride" , stride,
+                                       "used for how many iterations before checking stoppage condition, "
+                                       "larger faster, too large too slow");
+                        V.DeclArgument("clamp-epsilon" , clamp_epsilon,
+                                       "used for clamping close to mixed strategies to non-mixed, "
+                                       "too small slower convergence");
+                        V.DeclArgument("delta" , delta, "forcing parameter");
+                }
+                void Read(bpt::ptree const& args){
+                        factor        = args.get<double>("factor");
+                        stride        = args.get<size_t>("stride");
+                        clamp_epsilon = args.get<double>("clamp-epsilon");
+                        delta         = args.get<double>("delta");
+                }
         };
 
         struct SimpleNumeric : Solver{
@@ -59,34 +77,6 @@ namespace sim{
                                 SimpleNumericArguments& args, Solution const& solution)=0;
                 };
 
-                struct ConstantSequenceController : Controller{
-                        virtual ApplyReturnType Apply(
-                                std::shared_ptr<GameTree> gt, GraphColouring<AggregateComputer> AG,
-                                SimpleNumericArguments& args, Solution const& solution)override
-                        {
-
-                                switch( seq_.Consume(solution) ){
-                                case SequenceConsumer::Ctrl_Rejected:
-                                        ++count_;
-                                        break;
-                                case SequenceConsumer::Ctrl_Accepted:
-                                        count_ = 0;
-                                        break;
-                                case SequenceConsumer::Ctrl_Perfect:
-                                        return seq_.AsOptState();
-                                }
-
-                                if( count_ >= ttl_ ){
-                                        return seq_.AsOptState();
-                                }
-
-                                return {};
-                        }
-                private:
-                        SequenceConsumer seq_;
-                        size_t ttl_{10};
-                        size_t count_{0};
-                };
                 
                 // this just returns the first solution which satisified cond(.)
                 //
@@ -268,19 +258,67 @@ namespace sim{
                 std::vector<std::shared_ptr<Controller> > controllers_;
         };
 
-        struct SimpleNumericDecl : SolverDecl{
+        struct NumericSeqDecl : SolverDecl{
+
+                struct NumericSeqArguments : SimpleNumericArguments{
+                        using ImplType = SimpleNumericArguments;
+
+                        size_t      ttl{10};
+                        std::string sequence_type{"special"};
+
+                        void EmitDescriptions(SolverDecl::ArgumentVisitor& V)const{
+                                ImplType::EmitDescriptions(V);
+                                V.DeclArgument("sequence-type", sequence_type, "how a sequence of solutions is choosen");
+                                V.DeclArgument("ttl"          , ttl          , "time to live of sequence");
+                        }
+                        void Read(bpt::ptree const& args){
+                                ImplType::Read(args);
+                                ttl           = args.get<size_t>("ttl");
+                                sequence_type = args.get<std::string>("sequence-type");
+                        }
+                };
+                struct ConstantSequenceController : SimpleNumeric::Controller{
+
+                        ConstantSequenceController(SequenceConsumer const& seq, size_t ttl)
+                                : seq_{seq}
+                                , ttl_{ttl}
+                        {}
+
+                        virtual ApplyReturnType Apply(
+                                std::shared_ptr<GameTree> gt, GraphColouring<AggregateComputer> AG,
+                                SimpleNumericArguments& args, Solution const& solution)override
+                        {
+
+                                switch( seq_.Consume(solution) ){
+                                case SequenceConsumer::Ctrl_Rejected:
+                                        ++count_;
+                                        break;
+                                case SequenceConsumer::Ctrl_Accepted:
+                                        count_ = 0;
+                                        break;
+                                case SequenceConsumer::Ctrl_Perfect:
+                                        return seq_.AsOptState();
+                                }
+
+                                if( count_ >= ttl_ ){
+                                        return seq_.AsOptState();
+                                }
+
+                                return {};
+                        }
+                private:
+                        SequenceConsumer seq_;
+                        size_t ttl_;
+                        size_t count_{0};
+                };
+
                 virtual void Accept(ArgumentVisitor& V)const override{
                         using namespace std::string_literals;
 
-                        V.DeclArgument("factor" , 0.05,
-                                       "used for taking linear product, large faster, too large unstabe");
-                        V.DeclArgument("stride" , static_cast<size_t>(20),
-                                       "used for how many iterations before checking stoppage condition, "
-                                       "larger faster, too large too slow");
-                        V.DeclArgument("clamp-epsilon" , 1e-6,
-                                       "used for clamping close to mixed strategies to non-mixed, "
-                                       "too small slower convergence");
-                        V.DeclArgument("delta" , 0.0, "delta");
+                        NumericSeqArguments proto;
+                        proto.EmitDescriptions(V);
+
+
                 }
                 virtual std::shared_ptr<Solver> Make( std::shared_ptr<GameTree> gt,
                                                       GraphColouring<AggregateComputer> AG,
@@ -288,26 +326,55 @@ namespace sim{
                                                       bpt::ptree const& args)const override
                 {
 
-                        SimpleNumericArguments sargs;
-                        sargs.factor        = args.get<double>("factor");
-                        sargs.stride        = args.get<size_t>("stride");
-                        sargs.clamp_epsilon = args.get<double>("clamp-epsilon");
-                        sargs.delta         = args.get<size_t>("delta");
+                        NumericSeqArguments sargs;
+                        sargs.Read(args);
+
+                        auto level_sequence_f = [](auto const& head, auto const& candidate){ return head.Level < candidate.Level; };
+
+                        std::shared_ptr<SimpleNumeric::Controller> ctrl;
+                        if( sargs.sequence_type == "level-sequence"){
+                                ctrl = std::make_shared<ConstantSequenceController>( 
+                                        SequenceConsumer( level_sequence_f), sargs.ttl );
+                        } else {
+                                ctrl = std::make_shared<ConstantSequenceController>( 
+                                        SequenceConsumer{}, sargs.ttl );
+                        }
 
                         auto solver = std::make_shared<SimpleNumeric>(gt, AG, inital_state, sargs);
-                        solver->AddController(std::make_shared<SimpleNumeric::ConstantSequenceController>());
+                        solver->AddController(ctrl);
 
                         return solver;
                 }
         };
 
-        static SolverRegister<SimpleNumericDecl> SimpleNumericReg("simple-numeric");
+        static SolverRegister<NumericSeqDecl> NumericSeqRec("simple-numeric");
         
         
         
         struct TrailSolutionDecl : SolverDecl{
+                struct TrailSolutionArguments : SimpleNumericArguments{
+                        using ImplType = SimpleNumericArguments;
+
+                        size_t level{10};
+
+                        TrailSolutionArguments(){
+                                factor        = 0.2;
+                                clamp_epsilon = 1e-4;
+                        }
+
+                        void EmitDescriptions(SolverDecl::ArgumentVisitor& V)const{
+                                ImplType::EmitDescriptions(V);
+                                V.DeclArgument("level", level, "level to take first soltuin of");
+                        }
+                        void Read(bpt::ptree const& args){
+                                ImplType::Read(args);
+                                level = args.get<size_t>("level");
+                        }
+                };
                 virtual void Accept(ArgumentVisitor& V)const override{
-                        using namespace std::string_literals;
+                        
+                        TrailSolutionArguments proto;
+                        proto.EmitDescriptions(V);
                 }
                 virtual std::shared_ptr<Solver> Make( std::shared_ptr<GameTree> gt,
                                                       GraphColouring<AggregateComputer> AG,
@@ -315,17 +382,13 @@ namespace sim{
                                                       bpt::ptree const& args)const override
                 {
 
-                        SimpleNumericArguments sargs;
-                        sargs.factor        = 0.2;
-                        sargs.stride        = 30;
-                        sargs.clamp_epsilon = 1e-5;
-                        sargs.delta         = 0.0;
-
+                        TrailSolutionArguments sargs;
+                        sargs.Read(args);
 
                         auto solver = std::make_shared<SimpleNumeric>(gt, AG, inital_state, sargs);
                         solver->AddController(std::make_shared<SimpleNumeric::SequencePrinterController>());
                         solver->AddController(std::make_shared<SimpleNumeric::ProfileController>());
-                        solver->AddController(std::make_shared<SimpleNumeric::TakeFirstController>([](auto const& sol){ return sol.Level < 10; }));
+                        solver->AddController(std::make_shared<SimpleNumeric::TakeFirstController>([lvl=sargs.level](auto const& sol){ return sol.Level <= lvl; }));
 
                         return solver;
                 }

@@ -220,7 +220,7 @@ namespace ps{
 
                         if( help ){
                                 std::cout << desc << "\n";
-                                return EXIT_FAILURE;
+                                return EXIT_SUCCESS;
                         }
 
                 
@@ -245,6 +245,8 @@ namespace ps{
                         auto undlying_req_handler = std::make_shared<UnderlyingRequestHandler>();
                         auto req_handler = std::make_shared<CacheRequestHandler>(".ps.request_cache", undlying_req_handler);
 
+                        boost::optional<StateType> guess;
+
                         for(double eff = eff_lower;eff - 1e-4 < eff_upper; eff += eff_inc ){
 
                                 std::shared_ptr<GameTree> gt;
@@ -259,8 +261,15 @@ namespace ps{
                                 any_gt = gt;
 
                                 GraphColouring<AggregateComputer> AG = MakeComputer(gt);
+
+                                StateType inital_state;
+                                if( guess ){
+                                        inital_state = *guess;
+                                } else {
+                                        inital_state = gt->MakeDefaultState();
+                                }
                                 
-                                auto result = req_handler->HandleRequest(solver_s, gt, AG, gt->MakeDefaultState(), extra);
+                                auto result = req_handler->HandleRequest(solver_s, gt, AG, inital_state, extra);
                                 auto& opt = result.S;
 
                                 auto root = gt->Root();
@@ -268,6 +277,8 @@ namespace ps{
                                         conv_tb.push_back(std::vector<std::string>{gt->StringDescription(), "no"});
                                 } else {
                                         auto sol = sim::Solution::MakeWithDeps(gt, AG, *opt);
+
+                                        guess = *opt;
 
                                         std::vector<std::string> line;
                                         line.push_back(gt->StringDescription());

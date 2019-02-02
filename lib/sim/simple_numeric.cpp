@@ -48,13 +48,15 @@ namespace sim{
                         double delta = 0.00001;
 
                         for(;;){
-                                std::cout << "delta => " << delta << "\n"; // __CandyPrint__(cxx-print-scalar,delta)
+                                PS_LOG(trace) << "delta => " << delta;
                                 for(size_t counter=0;counter<1000;){
                                         for(size_t inner=0;inner!=stride;++inner, ++counter){
                                                 auto S_counter = computation_kernel::CounterStrategy(gt, AG, S, delta);
                                                 computation_kernel::InplaceLinearCombination(S, S_counter, 1 - factor );
                                         }
                                         computation_kernel::InplaceClamp(S, ClampEpsilon);
+
+                                        DisplayStrategy(S,6);
 
                                         auto Sol = Solution::MakeWithDeps(gt, AG, S);
 
@@ -67,8 +69,6 @@ namespace sim{
                                         case SequenceConsumer::Ctrl_Perfect:
                                                 return sc.AsState();
                                         }
-                                        
-
                                 }
                                 if( sc && sc.AsSolution()->Level == 1 ){
                                         return sc.AsState();

@@ -269,6 +269,11 @@ namespace sim{
                         std::vector<Solution> solution_candidates;
 
                         std::cout << "SV_family.size() => " << SV_family.size() << "\n"; // __CandyPrint__(cxx-print-scalar,SV_family.size())
+
+                        // do nothing rather than waste computation on something not tangible
+                        if( SV_family.size() > 1000 )
+                                return {};
+
                         boost::optional<Solution> best;
 
                         for(size_t idx=0;idx!=SV_family.size();++idx){

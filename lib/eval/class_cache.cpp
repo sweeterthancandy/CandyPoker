@@ -20,6 +20,9 @@
 #include "ps/eval/pass.h"
 #include "ps/eval/pass_mask_eval.h"
 	
+#include <boost/program_options.hpp>
+namespace bpo = boost::program_options;
+
 namespace ps{
 
 
@@ -39,7 +42,7 @@ void class_cache::load(std::string const& filename)
         cache_.clear();
         ia >> *this;
 }
-void class_cache::create(size_t n, class_cache* cache, std::string const& file_name){
+void class_cache::create(size_t n, class_cache* cache, std::string const& file_name, size_t num_threads){
         computation_pass_manager mgr;
         mgr.add_pass<pass_class2cards>();
         mgr.add_pass<pass_permutate>();
@@ -139,7 +142,6 @@ void class_cache::create(size_t n, class_cache* cache, std::string const& file_n
                         push(batch, batch_ret);
                 }
         };
-        size_t num_threads = 8;
         std::vector<std::thread> tg;
         for(size_t idx=0;idx!=num_threads;++idx){
                 tg.emplace_back(driver);
@@ -196,7 +198,35 @@ struct CreateCacheCmd : Command{
 
                 std::string cache_name = ".cc.bin";
                 size_t n = 2;
+                size_t num_threads = std::thread::hardware_concurrency();
+                bool help = false;
+                        
+                bpo::options_description desc("Scratch command");
+                desc.add_options()
+                        ("n"          , bpo::value(&n), "number of players")
+                        ("help"       , bpo::value(&help)->implicit_value(true), "this message")
+                        ("num-threads", bpo::value(&num_threads), "number of threads")
+                        ("cache"      , bpo::value(&cache_name), "name of cache to use")
+                ;
+                        
+                std::vector<const char*> aux;
+                aux.push_back("dummy");
+                for(auto const& _ : args_){
+                        std::cout << "_ => " << _ << "\n"; // __CandyPrint__(cxx-print-scalar,_)
+                        aux.push_back(_.c_str());
+                }
+                aux.push_back(nullptr);
 
+                bpo::variables_map vm;
+                bpo::store(parse_command_line(aux.size()-1, &aux[0], desc), vm);
+                bpo::notify(vm);    
+
+                if( help ){
+                        std::cout << desc << "\n";
+                        return EXIT_SUCCESS;
+                }
+
+                #if 0
                 int arg_ptr = 0;
                 for(;arg_ptr < args_.size();){
                         switch(args_.size()-arg_ptr){
@@ -216,18 +246,28 @@ struct CreateCacheCmd : Command{
                                         arg_ptr += 2;
                                         continue;
                                 }
+                                if( args_[arg_ptr] == "--num-threads" ){
+                                        n = boost::lexical_cast<size_t>(args_[arg_ptr+1]);
+                                        if( ! ( 2 <= n && n <= 9 ) ){
+                                                std::cerr << "bad number of players\n";
+                                                return EXIT_FAILURE;
+                                        }
+                                        arg_ptr += 2;
+                                        continue;
+                                }
                         case 1:
                                 std::cerr << "unknown option " << args_[arg_ptr] << "\n";
                                 return EXIT_FAILURE;
                         }
                 }
+                #endif
 
                 try{
                         cc.load(cache_name);
                 }catch(...){}
                 std::cout << "cc.size() => " << cc.size() << "\n"; // __CandyPrint__(cxx-print-scalar,cc.size())
                 boost::timer::auto_cpu_timer at;
-                class_cache::create(n, &cc, cache_name);
+                class_cache::create(n, &cc, cache_name, num_threads);
 
                 return EXIT_SUCCESS;
         }

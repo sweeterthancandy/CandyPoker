@@ -84,7 +84,7 @@ struct class_cache : boost::noncopyable{
 	void save(std::string const& filename);
 	void load(std::string const& filename);
 
-        static void create(size_t n, class_cache* cache, std::string const& file_name);
+        static void create(size_t n, class_cache* cache, std::string const& file_name, size_t num_threads);
 
         using implementation_type = std::map<std::vector<holdem_class_id>, std::vector<double> >;
         using iterator = implementation_type::const_iterator;

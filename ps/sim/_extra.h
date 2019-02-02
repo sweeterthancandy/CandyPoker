@@ -431,9 +431,11 @@ namespace sim{
                 bool Condition()const{
                         if( seq_.empty()) 
                                 return false;
+                        #if 0
                         // minimal requirements
                         if( seq_.back().Level > 2 )
                                 return false;
+                        #endif
                         return true;
                 }
                 boost::optional<Solution> AsOptSolution(){
@@ -469,6 +471,7 @@ namespace sim{
         private:
                 std::vector<Solution> seq_;
         };
+
 
 } // end namespace sim
 } // end namespace ps

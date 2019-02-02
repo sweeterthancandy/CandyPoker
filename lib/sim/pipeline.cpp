@@ -105,8 +105,9 @@ namespace sim{
                                                 if( continue_idx.get() > pargs.index ){
                                                         BOOST_THROW_EXCEPTION(std::domain_error("index to large"));
                                                 }
-                                                pargs.ledger.resize(continue_idx.get()+1);
-                                                pargs.index = continue_idx.get();
+                                                size_t new_size = continue_idx.get();
+                                                pargs.ledger.resize(new_size+1);
+                                                pargs.index = new_size;
                                         }
                                 } else {
                                         BOOST_THROW_EXCEPTION(std::domain_error("failed to continue"));

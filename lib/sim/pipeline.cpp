@@ -70,8 +70,8 @@ namespace sim{
 
         struct PipelineDecl : SolverDecl{
                 virtual void Accept(ArgumentVisitor& V)const override{
-                        V.DeclArgument("continue-at" , "no", "used for development, use --continue-at $ to continue at the end");
-                        V.DeclArgument("file" , ".ps.pipeline", "file to use for state");
+                        V.DeclArgument("continue-at" , "no"          , "used for development, use --continue-at $ to continue at the end");
+                        V.DeclArgument("file"        , ".ps.pipeline", "file to use for state");
                 }
                 virtual std::shared_ptr<Solver> Make( std::shared_ptr<GameTree> gt,
                                                       GraphColouring<AggregateComputer> AG,

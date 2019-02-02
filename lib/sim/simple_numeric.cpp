@@ -27,66 +27,154 @@ namespace ps{
 namespace sim{
         
 
+        struct SimpleNumericArguments{
+                friend std::ostream& operator<<(std::ostream& ostr, SimpleNumericArguments const& self){
+                        ostr << "factor = " << self.factor;
+                        ostr << ", stride = " << self.stride;
+                        ostr << ", clamp_epsilon = " << self.clamp_epsilon;
+                        ostr << ", delta = " << self.delta;
+                        return ostr;
+                }
+                double factor{0.05};
+                size_t stride{10};
+                double clamp_epsilon{1e-6};
+                double delta{0.0};
+        };
+
         struct SimpleNumeric : Solver{
+                        
+                struct Controller{
+                        virtual ~Controller(){}
+
+                        using ApplyReturnType = boost::optional<
+                                boost::optional<
+                                        StateType
+                                >
+                        >;
+                        virtual void Init(
+                                std::shared_ptr<GameTree> gt, GraphColouring<AggregateComputer> AG,
+                                SimpleNumericArguments& args){}
+                        virtual ApplyReturnType Apply(
+                                std::shared_ptr<GameTree> gt, GraphColouring<AggregateComputer> AG,
+                                SimpleNumericArguments& args, StateType const& S)=0;
+                };
+
+                struct ConstantController : Controller{
+                        virtual ApplyReturnType Apply(
+                                std::shared_ptr<GameTree> gt, GraphColouring<AggregateComputer> AG,
+                                SimpleNumericArguments& args, StateType const& S)override
+                        {
+                                auto Sol = Solution::MakeWithDeps(gt, AG, S);
+
+                                switch( seq_.Consume(std::move(Sol)) ){
+                                case SequenceConsumer::Ctrl_Rejected:
+                                        ++count_;
+                                        break;
+                                case SequenceConsumer::Ctrl_Accepted:
+                                        count_ = 0;
+                                        break;
+                                case SequenceConsumer::Ctrl_Perfect:
+                                        return seq_.AsOptState();
+                                }
+
+                                if( count_ >= ttl_ ){
+                                        return seq_.AsOptState();
+                                }
+                                std::cout << "count_ => " << count_ << "\n"; // __CandyPrint__(cxx-print-scalar,count_)
+
+                                return {};
+                        }
+                private:
+                        SequenceConsumer seq_;
+                        size_t ttl_{10};
+                        size_t count_{0};
+                };
+                
+                struct DeltaController : Controller{
+                        virtual void Init(
+                                std::shared_ptr<GameTree> gt, GraphColouring<AggregateComputer> AG,
+                                SimpleNumericArguments& args)override
+                        {
+                                args.delta = 0.00001;
+                                saved_factor_ = args.factor;
+                                args.factor = 0.2;
+                        }
+                        virtual ApplyReturnType Apply(
+                                std::shared_ptr<GameTree> gt, GraphColouring<AggregateComputer> AG,
+                                SimpleNumericArguments& args, StateType const& S)override
+                        {
+                                PS_LOG(trace) << "args = " << args;
+                                auto Sol = Solution::MakeWithDeps(gt, AG, S);
+                                size_t lvl = Sol.Level;
+
+                                switch( seq_.Consume(std::move(Sol)) ){
+                                case SequenceConsumer::Ctrl_Rejected:
+                                        ++count_;
+                                        break;
+                                case SequenceConsumer::Ctrl_Accepted:
+                                        count_ = 0;
+
+                                        if( lvl < 10 ){
+                                                args.factor = saved_factor_;
+                                        }
+                                        break;
+                                case SequenceConsumer::Ctrl_Perfect:
+                                        return seq_.AsOptState();
+                                }
+
+                                if( count_ >= ttl_ ){
+                                        count_ = 0;
+                                        args.delta *= 2.0;
+                                        if( args.delta > 0.05 ){
+                                                return seq_.AsOptState();
+                                        }
+                                        PS_LOG(trace) << "delta increase to " << args.delta;
+                                }
+
+                                return {};
+                        }
+                private:
+                        SequenceConsumer seq_;
+                        size_t ttl_{10};
+                        size_t count_{0};
+
+                        double saved_factor_;
+                };
+
                 SimpleNumeric(std::shared_ptr<GameTree> gt, GraphColouring<AggregateComputer> AG, StateType state0,
-                              double factor, size_t stride, double clamp_epsilon)
+                              SimpleNumericArguments const& args, std::shared_ptr<Controller> ctrl)
                         :gt_(gt),
                         AG_(AG),
                         state0_(state0),
-                        factor_(factor),
-                        stride_(stride),
-                        clamp_epsilon_(clamp_epsilon)
+                        args_{args},
+                        ctrl_{ctrl}
                 {}
                 virtual boost::optional<StateType> Execute(SolverContext& ctx)override
                 {
-                        auto root   = gt_->Root();
-                        
-
-                        SequenceConsumer sc;
-
                         auto S = state0_;
 
-                        double delta = 0.00001;
-
+                        ctrl_->Init(gt_, AG_, args_);
                         for(;;){
-                                PS_LOG(trace) << "delta => " << delta;
-                                for(size_t counter=0;counter<1000;){
-                                        for(size_t inner=0;inner!=stride_;++inner, ++counter){
-                                                auto S_counter = computation_kernel::CounterStrategy(gt_, AG_, S, delta);
-                                                computation_kernel::InplaceLinearCombination(S, S_counter, 1 - factor_ );
-                                        }
-                                        computation_kernel::InplaceClamp(S, clamp_epsilon_);
-
-                                        DisplayStrategy(S,6);
-
-                                        auto Sol = Solution::MakeWithDeps(gt_, AG_, S);
-
-                                        switch( sc.Consume(std::move(Sol)) ){
-                                        case SequenceConsumer::Ctrl_Rejected:
-                                                break;
-                                        case SequenceConsumer::Ctrl_Accepted:
-                                                counter = 0;
-                                                break;
-                                        case SequenceConsumer::Ctrl_Perfect:
-                                                return sc.AsState();
-                                        }
+                                for(size_t inner=0;inner!=args_.stride;++inner){
+                                        auto S_counter = computation_kernel::CounterStrategy(gt_, AG_, S, args_.delta);
+                                        computation_kernel::InplaceLinearCombination(S, S_counter, 1 - args_.factor );
                                 }
-                                if( sc && sc.AsSolution()->Level == 1 ){
-                                        return sc.AsState();
-                                }
-                                delta *= 2;
-                                if( delta > 0.05 ){
-                                        return sc.AsState();
-                                }
+                                computation_kernel::InplaceClamp(S, args_.clamp_epsilon);
+                                        
+                                DisplayStrategy(S,6);
+
+                                auto opt_opt = ctrl_->Apply(gt_, AG_, args_, S);
+                                if( opt_opt )
+                                        return *opt_opt;
+
                         }
                 }
         private:
                 std::shared_ptr<GameTree> gt_;
                 GraphColouring<AggregateComputer> AG_;
                 StateType state0_;
-                double factor_;
-                size_t stride_;
-                double clamp_epsilon_;
+                SimpleNumericArguments args_;
+                std::shared_ptr<Controller> ctrl_;
         };
 
         struct SimpleNumericDecl : SolverDecl{
@@ -101,17 +189,25 @@ namespace sim{
                         V.DeclArgument("clamp-epsilon" , 1e-6,
                                        "used for clamping close to mixed strategies to non-mixed, "
                                        "too small slower convergence");
+                        V.DeclArgument("delta" , 0.0, "delta");
                 }
                 virtual std::shared_ptr<Solver> Make( std::shared_ptr<GameTree> gt,
                                                       GraphColouring<AggregateComputer> AG,
                                                       StateType const& inital_state,
                                                       bpt::ptree const& args)const override
                 {
-                        auto factor        = args.get<double>("factor");
-                        auto stride        = args.get<size_t>("stride");
-                        auto clamp_epsilon = args.get<double>("clamp-epsilon");
 
-                        return std::make_shared<SimpleNumeric>(gt, AG, inital_state, factor, stride, clamp_epsilon);
+                        SimpleNumericArguments sargs;
+                        sargs.factor        = args.get<double>("factor");
+                        sargs.stride        = args.get<size_t>("stride");
+                        sargs.clamp_epsilon = args.get<double>("clamp-epsilon");
+                        sargs.delta         = args.get<size_t>("delta");
+
+                        auto ctrl = std::make_shared<SimpleNumeric::DeltaController>();
+
+                        auto solver = std::make_shared<SimpleNumeric>(gt, AG, inital_state, sargs, ctrl);
+
+                        return solver;
                 }
         };
 

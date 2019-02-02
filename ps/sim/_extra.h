@@ -436,12 +436,12 @@ namespace sim{
                                 return false;
                         return true;
                 }
-                boost::optional<Solution> AsSolution(){
+                boost::optional<Solution> AsOptSolution(){
                         if( ! Condition() )
                                 return {};
                         return seq_.back();
                 }
-                boost::optional<StateType> AsState(){
+                boost::optional<StateType> AsOptState(){
                         if( ! Condition() )
                                 return {};
                         return seq_.back().S;

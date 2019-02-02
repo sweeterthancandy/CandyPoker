@@ -411,7 +411,7 @@ namespace sim{
                         Ctrl_Accepted,
                         Ctrl_Perfect,
                 };
-                Control Consume(Solution&& sol){
+                Control Consume(Solution const& sol){
 
                         if( seq_.size() ){
                                 if( ! ( sol < seq_.back() ) ){

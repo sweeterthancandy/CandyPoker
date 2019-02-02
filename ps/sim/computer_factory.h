@@ -219,20 +219,26 @@ namespace sim{
 
          */
         struct LazyComputer{
-                using ImplType = GraphColouring<AggregateComputer>;
+                struct Impl{
+                        explicit Impl(std::shared_ptr<GameTree> game_tree_)
+                                :game_tree(game_tree_)
+                        {}
+                        std::shared_ptr<GameTree> game_tree;
+                        boost::optional<GraphColouring<AggregateComputer> > computer;
+                };
                 explicit LazyComputer(std::shared_ptr<GameTree> gt)
-                        :gt_(gt)
+                        :impl_{std::make_shared<Impl>(gt)}
                 {}
                 // const we we have pass as const& 
                 GraphColouring<AggregateComputer>& Get()const{
-                        if( ! comp_ ){
-                                comp_ = std::make_shared<ImplType>(MakeComputer(gt_));
+                        assert( impl_ && "precondition failed" );
+                        if( ! impl_->computer ){
+                                impl_->computer = MakeComputer(impl_->game_tree);
                         }
-                        return *comp_;
+                        return impl_->computer.get();
                 }
         private:
-                mutable std::shared_ptr<GameTree> gt_;
-                mutable std::shared_ptr<ImplType> comp_;
+                mutable std::shared_ptr<Impl> impl_;
         };
 
 } // end namespace sim

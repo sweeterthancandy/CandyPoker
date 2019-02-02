@@ -25,6 +25,20 @@ namespace sim{
                 holdem_binary_strategy_ledger_s ledger;
                 size_t index{0};
                 std::vector<std::pair<std::string, std::string> > ticker;
+                
+                friend std::ostream& operator<<(std::ostream& ostr,         PipelineArguments const& self){
+                        ostr << "ledger.size() = " << self.ledger.size();
+                        ostr << ", index = " << self.index;
+                        typedef std::vector<std::pair<std::string, std::string> >::const_iterator CI0;
+                        const char* comma = "";
+                        ostr << "ticker" << " = {";
+                        for(CI0 iter= self.ticker.begin(), end=self.ticker.end();iter!=end;++iter){
+                                ostr << comma << iter->first << ":" << iter->second;
+                                comma = ", ";
+                        }
+                        ostr << "}\n";
+                        return ostr;
+                }
 
                 void Next(std::string const& solver, std::string const& extra = std::string{}){
                         ticker.emplace_back(solver, extra);
@@ -101,6 +115,8 @@ namespace sim{
                         if( continue_idx || continue_at_end ){
                                 if( pargs.try_load_or_default(file) ){
                                         assert( pargs.ledger.size() == pargs.index +1 );
+                                        
+                                        PS_LOG(trace) << "pargs.ledger.size() => " << pargs.ledger.size();
                                         if( continue_idx ){
                                                 if( continue_idx.get() > pargs.index ){
                                                         BOOST_THROW_EXCEPTION(std::domain_error("index to large"));
@@ -108,6 +124,9 @@ namespace sim{
                                                 size_t new_size = continue_idx.get();
                                                 pargs.ledger.resize(new_size+1);
                                                 pargs.index = new_size;
+                                                PS_LOG(trace) << "Contining at " << new_size;
+                                        } else {
+                                                PS_LOG(trace) << "Contining at end";
                                         }
                                 } else {
                                         BOOST_THROW_EXCEPTION(std::domain_error("failed to continue"));
@@ -115,10 +134,13 @@ namespace sim{
                         } else {
                                 // else we create the args
                                 pargs.ledger.push_back(inital_state);
+                                pargs.Next("trail-solution");
                                 pargs.Next("simple-numeric", R"({"clamp-epsilon":1e-4})");
                                 pargs.Next("alpha");
                                 pargs.save_as(file);
                         } 
+                       PS_LOG(trace) << "Arguments are " << pargs;
+                        std::exit(0);
                         auto ptr = std::make_shared<Pipeline>(gt, AG, pargs);
                         return ptr;
 

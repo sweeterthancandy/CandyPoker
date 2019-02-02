@@ -295,7 +295,6 @@ namespace sim{
                         sargs.delta         = args.get<size_t>("delta");
 
                         auto solver = std::make_shared<SimpleNumeric>(gt, AG, inital_state, sargs);
-                        solver->AddController(std::make_shared<SimpleNumeric::FactorTweakController>());
                         solver->AddController(std::make_shared<SimpleNumeric::ConstantSequenceController>());
 
                         return solver;

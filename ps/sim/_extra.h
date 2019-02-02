@@ -501,16 +501,31 @@ namespace sim{
         };
         
         
+        // this basically consumes a sequence of Solutions
+        //      (S0,S1,S2,...),
+        // and produces a sequence of best solutiins of the form,
+        //      (B0,B1,B2,...).
+        //
+        // For example the sequence
+        //      (5,3,6,3,1,55,3,...),
+        // would correspond to 
+        //      (5,5,6,6,6,55,55,...)
+        //
         struct SequenceConsumer{
                 enum Control{
                         Ctrl_Rejected,
                         Ctrl_Accepted,
                         Ctrl_Perfect,
                 };
+                // is_better(head, candidate)
+                using te_is_better_type = std::function<bool(Solution const&, Solution const&)>;
+                explicit SequenceConsumer(te_is_better_type const &is_better = std::less<Solution>{})
+                        :is_better_{is_better}
+                {}
                 Control Consume(Solution const& sol){
 
                         if( seq_.size() ){
-                                if( ! ( sol < seq_.back() ) ){
+                                if( ! is_better_(sol, seq_.back() ) ){
                                         return Ctrl_Rejected;
                                 }
                         }
@@ -527,11 +542,6 @@ namespace sim{
                 bool Condition()const{
                         if( seq_.empty()) 
                                 return false;
-                        #if 0
-                        // minimal requirements
-                        if( seq_.back().Level > 2 )
-                                return false;
-                        #endif
                         return true;
                 }
                 boost::optional<Solution> AsOptSolution(){
@@ -566,6 +576,7 @@ namespace sim{
                 }
         private:
                 std::vector<Solution> seq_;
+                te_is_better_type is_better_;
         };
 
 

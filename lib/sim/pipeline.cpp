@@ -135,7 +135,8 @@ namespace sim{
                                 // else we create the args
                                 pargs.ledger.push_back(inital_state);
                                 pargs.Next("trail-solution");
-                                pargs.Next("simple-numeric", R"({"clamp-epsilon":1e-4})");
+                                pargs.Next("simple-numeric", R"({"clamp-epsilon":1e-4, "factor":0.05, "sequence-type":"level-sequence"})");
+                                //pargs.Next("simple-numeric", R"({"clamp-epsilon":1e-4})");
                                 pargs.Next("alpha");
                                 pargs.save_as(file);
                         } 

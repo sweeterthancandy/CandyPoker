@@ -277,7 +277,7 @@ namespace ps{
                         std::string solver_s = "simple-numeric";
                         std::string extra;
                         bool help{false};
-                        bool memory{false};
+                        bool memory{true};
                         size_t sub_dp = 1;
                         std::string req_handler_name = "underlying";
 
@@ -292,7 +292,7 @@ namespace ps{
                                 ("solver"    , bpo::value(&solver_s), "specigic solver")
                                 ("game-tree" , bpo::value(&game_tree), "game tree")
                                 ("extra"     , bpo::value(&extra), "extra options for the specigfic solver")
-                                ("memory"    , bpo::value(&memory)->implicit_value(true), "cache results")
+                                ("no-memory"    , bpo::value(&memory)->implicit_value(false), "cache results")
                                 ("sub-dp"    , bpo::value(&sub_dp) , "")
                         ;
 
@@ -322,7 +322,10 @@ namespace ps{
 
 
                         auto undlying_req_handler = std::make_shared<UnderlyingRequestHandler>();
-                        auto req_handler = std::make_shared<CacheRequestHandler>(".ps.request_cache", undlying_req_handler);
+                        std::shared_ptr<RequestHandler> req_handler = undlying_req_handler;
+                        if( memory ){
+                                req_handler = std::make_shared<CacheRequestHandler>(".ps.request_cache", undlying_req_handler);
+                        }
                         //req_handler->Display();
 
                         boost::optional<StateType> guess;

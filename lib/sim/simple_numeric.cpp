@@ -28,37 +28,38 @@ namespace sim{
         
 
         struct SimpleNumeric : Solver{
-                SimpleNumeric(std::shared_ptr<GameTree> gt_, GraphColouring<AggregateComputer> AG_, StateType state0_, double factor_, double epsilon_, size_t stride_)
-                        :gt(gt_),
-                        AG(AG_),
-                        state0(state0_),
-                        factor(factor_),
-                        epsilon(epsilon_),
-                        stride(stride_)
+                SimpleNumeric(std::shared_ptr<GameTree> gt, GraphColouring<AggregateComputer> AG, StateType state0,
+                              double factor, size_t stride, double clamp_epsilon)
+                        :gt_(gt),
+                        AG_(AG),
+                        state0_(state0),
+                        factor_(factor),
+                        stride_(stride),
+                        clamp_epsilon_(clamp_epsilon)
                 {}
                 virtual boost::optional<StateType> Execute(SolverContext& ctx)override
                 {
-                        auto root   = gt->Root();
+                        auto root   = gt_->Root();
                         
 
                         SequenceConsumer sc;
 
-                        auto S = state0;
+                        auto S = state0_;
 
                         double delta = 0.00001;
 
                         for(;;){
                                 PS_LOG(trace) << "delta => " << delta;
                                 for(size_t counter=0;counter<1000;){
-                                        for(size_t inner=0;inner!=stride;++inner, ++counter){
-                                                auto S_counter = computation_kernel::CounterStrategy(gt, AG, S, delta);
-                                                computation_kernel::InplaceLinearCombination(S, S_counter, 1 - factor );
+                                        for(size_t inner=0;inner!=stride_;++inner, ++counter){
+                                                auto S_counter = computation_kernel::CounterStrategy(gt_, AG_, S, delta);
+                                                computation_kernel::InplaceLinearCombination(S, S_counter, 1 - factor_ );
                                         }
-                                        computation_kernel::InplaceClamp(S, ClampEpsilon);
+                                        computation_kernel::InplaceClamp(S, clamp_epsilon_);
 
                                         DisplayStrategy(S,6);
 
-                                        auto Sol = Solution::MakeWithDeps(gt, AG, S);
+                                        auto Sol = Solution::MakeWithDeps(gt_, AG_, S);
 
                                         switch( sc.Consume(std::move(Sol)) ){
                                         case SequenceConsumer::Ctrl_Rejected:
@@ -80,36 +81,37 @@ namespace sim{
                         }
                 }
         private:
-                std::shared_ptr<GameTree> gt;
-                GraphColouring<AggregateComputer> AG;
-                StateType state0;
-                double factor;
-                double epsilon;
-                size_t stride;
-                double ClampEpsilon{1e-6};
+                std::shared_ptr<GameTree> gt_;
+                GraphColouring<AggregateComputer> AG_;
+                StateType state0_;
+                double factor_;
+                size_t stride_;
+                double clamp_epsilon_;
         };
 
         struct SimpleNumericDecl : SolverDecl{
                 virtual void Accept(ArgumentVisitor& V)const override{
-                        double const default_factor  = 0.05;
-                        double const default_epsilon = 0.00001;
-                        size_t const default_stride  = 10;
+                        using namespace std::string_literals;
 
-                        V.DeclArgument("factor" , default_factor, "used for taking linear product");
-                        V.DeclArgument("epsilon", default_epsilon, "used for stoppage condition");
-                        V.DeclArgument("stride" , default_stride,
-                                       "used for how many iterations before checking stoppage condition");
+                        V.DeclArgument("factor" , 0.05,
+                                       "used for taking linear product, large faster, too large unstabe");
+                        V.DeclArgument("stride" , static_cast<size_t>(20),
+                                       "used for how many iterations before checking stoppage condition, "
+                                       "larger faster, too large too slow");
+                        V.DeclArgument("clamp-epsilon" , 1e-6,
+                                       "used for clamping close to mixed strategies to non-mixed, "
+                                       "too small slower convergence");
                 }
                 virtual std::shared_ptr<Solver> Make( std::shared_ptr<GameTree> gt,
                                                       GraphColouring<AggregateComputer> AG,
                                                       StateType const& inital_state,
                                                       bpt::ptree const& args)const override
                 {
-                        double factor  = args.get<double>("factor");
-                        double epsilon = args.get<double>("epsilon");
-                        size_t stride  = args.get<size_t>("stride");
+                        auto factor        = args.get<double>("factor");
+                        auto stride        = args.get<size_t>("stride");
+                        auto clamp_epsilon = args.get<double>("clamp-epsilon");
 
-                        return std::make_shared<SimpleNumeric>(gt, AG, inital_state, factor, epsilon, stride);
+                        return std::make_shared<SimpleNumeric>(gt, AG, inital_state, factor, stride, clamp_epsilon);
                 }
         };
 

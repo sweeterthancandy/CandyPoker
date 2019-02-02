@@ -20,3 +20,4 @@ cachegrind.out*
 build.ninja
 callgrind.out*
 driver
+.*

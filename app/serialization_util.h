@@ -72,7 +72,7 @@ namespace ps{
         template<class ImplType>
         struct serialization_base_s{
                 void load(std::string const& path){
-                        std::lock_guard<std::mutex> lock(mtx_);
+                        //std::lock_guard<std::mutex> lock(mtx_);
                         using archive_type = boost::archive::text_iarchive;
                         std::ifstream ofs(path);
                         archive_type oa(ofs);
@@ -99,7 +99,7 @@ namespace ps{
                         }
                 }
                 void save_as(std::string const& path)const {
-                        std::lock_guard<std::mutex> lock(mtx_);
+                        //std::lock_guard<std::mutex> lock(mtx_);
                         using archive_type = boost::archive::text_oarchive;
                         std::ofstream ofs(path);
                         archive_type oa(ofs);
@@ -111,24 +111,23 @@ namespace ps{
                         }
                 }
         private:
-                mutable std::mutex mtx_;
+                //mutable std::mutex mtx_;
                 std::string path_;
         };
 
-        struct holdem_binary_strategy_ledger_s : serialization_base_s<holdem_binary_strategy_ledger_s>{
-                void push(holdem_binary_strategy_s s){
-                        ledger_.emplace_back(std::move(s));
-                }
-                size_t size()const{ return ledger_.size(); }
-                auto const& back()const{ return ledger_.back(); }
+        struct holdem_binary_strategy_ledger_s
+                : serialization_base_s<holdem_binary_strategy_ledger_s>
+                , std::vector<holdem_binary_strategy_s>
+        {
+                using vector_type = std::vector<holdem_binary_strategy_s>;
+
         private:
                 friend class boost::serialization::access;
                 template<class Archive>
                 void serialize(Archive & ar, const unsigned int version){
-                        ar & ledger_;
+                        auto ptr = static_cast<vector_type*>(this);
+                        ar & *ptr;
                 }
-        private:
-                std::vector<holdem_binary_strategy_s> ledger_;
         };
 
         struct holdem_binary_solution_set_s : serialization_base_s<holdem_binary_solution_set_s>{

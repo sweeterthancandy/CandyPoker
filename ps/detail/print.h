@@ -28,6 +28,17 @@ namespace ps{
                                 return ", ";
                         }
                 };
+                struct pretty_array_traits{
+                        const char* start()const{
+                                return "[";
+                        }
+                        const char* end()const{
+                                return "]";
+                        }
+                        const char* sep()const{
+                                return ", ";
+                        }
+                };
                 struct pretty_vs_traits{
                         const char* start()const{
                                 return "";

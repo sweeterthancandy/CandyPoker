@@ -79,6 +79,7 @@ set(
         app/cmd_flopzilla.cpp
         app/cmd_solver.cpp
         app/cmd_scratch.cpp
+        app/cmd_cache.cpp 
 )
 
 add_executable(driver ${driver_sources} )

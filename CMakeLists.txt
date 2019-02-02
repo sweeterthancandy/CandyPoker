@@ -82,7 +82,7 @@ set(
         app/cmd_cache.cpp 
 )
 
-add_executable(coker ${driver_sources} )
+add_executable(driver ${driver_sources} )
 target_link_libraries(driver pthread )
 target_link_libraries(driver ${Boost_LIBRARIES})
 target_link_libraries(driver ps_lib )

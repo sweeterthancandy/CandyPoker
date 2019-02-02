@@ -114,7 +114,7 @@ This is a simple situation. The SB has the option to push or fold, and the SB ha
 
 For a quick example, we can run the command
 
-        ./driver scratch --no-memory --game-tree two-player-push-fold --solver pipeline --eff-lower 2 --eff-upper 20 --eff-inc 1
+        ./driver scratch --no-memory --game-tree two-player-push-fold --solver pipeline --eff-lower 2 --eff-upper 20 --eff-inc 1 --cum-table
 
                     sb push/fold
 
@@ -152,6 +152,10 @@ For a quick example, we can run the command
         3 |16.4 8.6  5.8  4.4  3.6  3.1  2.9  2.9  2.9  3.1  3.0  20.0 3.3
         2 |15.6 8.1  5.6  4.2  3.5  3.0  2.8  2.6  2.7  2.8  2.7  2.6  15.0
 
+
+What is actually much more of a problem is finding a solution with the least number of mixed solutions. Taking BB of 10 for the example, it's not too difficul to implement a solver which finds a game-theoritic solution to the push fold solution
+        
+        ./driver scratch --no-memory --game-tree two-player-push-fold --solver  --eff-lower 2 --eff-upper 20 --eff-inc 1 --cum-table
 
 ### Pre-flop all in-EV
 

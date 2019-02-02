@@ -78,42 +78,7 @@ namespace sim{
                 };
 
                 
-                // this just returns the first solution which satisified cond(.)
-                //
-                // The idea is that we don't worry about non-convergence here
-                struct TakeFirstController : Controller{
-                        using te_cond_type = std::function<bool(Solution const&)>;
-                        explicit TakeFirstController(te_cond_type const& cond)
-                                : cond_{cond}
-                        {}
-                        virtual ApplyReturnType Apply(
-                                std::shared_ptr<GameTree> gt, GraphColouring<AggregateComputer> AG,
-                                SimpleNumericArguments& args, Solution const& solution)override
-                        {
-                                if( cond_(solution) ){
-                                        boost::optional<StateType> ret{solution.S};
-                                        return ret;
-                                }
-
-                                return {};
-                        }
-                private:
-                        te_cond_type cond_;
-                };
                 
-                // just for debugging, print the sequence, but is not used.
-                // The idea is to use this with TakeFirstController
-                struct SequencePrinterController : Controller{
-                        virtual ApplyReturnType Apply(
-                                std::shared_ptr<GameTree> gt, GraphColouring<AggregateComputer> AG,
-                                SimpleNumericArguments& args, Solution const& solution)override
-                        {
-                                seq_.Consume(solution);
-                                return {};
-                        }
-                private:
-                        SequenceConsumer seq_;
-                };
                 
                 struct ProfileController : Controller{
                         virtual void Init(
@@ -167,51 +132,6 @@ namespace sim{
                         bool done_{false};
                 };
 
-                
-                #if 0
-                struct DeltaController : Controller{
-                        virtual void Init(
-                                std::shared_ptr<GameTree> gt, GraphColouring<AggregateComputer> AG,
-                                SimpleNumericArguments& args)override
-                        {
-                                args.delta = 0.00001;
-                        }
-                        virtual ApplyReturnType Apply(
-                                std::shared_ptr<GameTree> gt, GraphColouring<AggregateComputer> AG,
-                                SimpleNumericArguments& args, Solution const& solution)override
-                        {
-                                PS_LOG(trace) << "args = " << args;
-
-                                switch( seq_.Consume(solution) ){
-                                case SequenceConsumer::Ctrl_Rejected:
-                                        ++count_;
-                                        break;
-                                case SequenceConsumer::Ctrl_Accepted:
-                                        count_ = 0;
-                                        break;
-                                case SequenceConsumer::Ctrl_Perfect:
-                                        return seq_.AsOptState();
-                                }
-
-                                if( count_ >= ttl_ ){
-                                        count_ = 0;
-                                        args.delta *= 2.0;
-                                        if( args.delta > 0.05 ){
-                                                return seq_.AsOptState();
-                                        }
-                                        PS_LOG(trace) << "delta increase to " << args.delta;
-                                }
-
-                                return {};
-                        }
-                private:
-                        SequenceConsumer seq_;
-                        size_t ttl_{10};
-                        size_t count_{0};
-
-                        double saved_factor_;
-                };
-                #endif
 
                 SimpleNumeric(std::shared_ptr<GameTree> gt, GraphColouring<AggregateComputer> AG, StateType state0,
                               SimpleNumericArguments const& args)
@@ -329,16 +249,22 @@ namespace sim{
                         NumericSeqArguments sargs;
                         sargs.Read(args);
 
-                        auto level_sequence_f = [](auto const& head, auto const& candidate){ return head.Level < candidate.Level; };
+                        static std::unordered_map<
+                                std::string, 
+                                std::function<bool(Solution const&, Solution const&)>
+                        > comps = {
+                                { "level-sequence", [](auto const& head, auto const& candidate){ return head.Level < candidate.Level; } },
+                                { "norm-sequence" , [](auto const& head, auto const& candidate){ return head.Norm < candidate.Norm; } } ,
+                                { "special"       , [](auto const& head, auto const& candidate){ return head < candidate; } } 
+                        };
 
-                        std::shared_ptr<SimpleNumeric::Controller> ctrl;
-                        if( sargs.sequence_type == "level-sequence"){
-                                ctrl = std::make_shared<ConstantSequenceController>( 
-                                        SequenceConsumer( level_sequence_f), sargs.ttl );
-                        } else {
-                                ctrl = std::make_shared<ConstantSequenceController>( 
-                                        SequenceConsumer{}, sargs.ttl );
+
+                        auto comp = comps.find(sargs.sequence_type);
+                        if( comp == comps.end() ){
+                                BOOST_THROW_EXCEPTION(std::domain_error("no such sequence type of " + sargs.sequence_type ));
                         }
+
+                        auto ctrl = std::make_shared<ConstantSequenceController>( SequenceConsumer( comp->second ), sargs.ttl );
 
                         auto solver = std::make_shared<SimpleNumeric>(gt, AG, inital_state, sargs);
                         solver->AddController(ctrl);
@@ -347,7 +273,7 @@ namespace sim{
                 }
         };
 
-        static SolverRegister<NumericSeqDecl> NumericSeqRec("simple-numeric");
+        static SolverRegister<NumericSeqDecl> NumericSeqRec("numeric-sequence");
         
         
         
@@ -371,6 +297,41 @@ namespace sim{
                                 level = args.get<size_t>("level");
                         }
                 };
+                // this just returns the first solution which satisified cond(.)
+                //
+                // The idea is that we don't worry about non-convergence here
+                struct TakeFirstController : SimpleNumeric::Controller{
+                        using te_cond_type = std::function<bool(Solution const&)>;
+                        explicit TakeFirstController(te_cond_type const& cond)
+                                : cond_{cond}
+                        {}
+                        virtual ApplyReturnType Apply(
+                                std::shared_ptr<GameTree> gt, GraphColouring<AggregateComputer> AG,
+                                SimpleNumericArguments& args, Solution const& solution)override
+                        {
+                                if( cond_(solution) ){
+                                        boost::optional<StateType> ret{solution.S};
+                                        return ret;
+                                }
+
+                                return {};
+                        }
+                private:
+                        te_cond_type cond_;
+                };
+                // just for debugging, print the sequence, but is not used.
+                // The idea is to use this with TakeFirstController
+                struct SequencePrinterController : SimpleNumeric::Controller{
+                        virtual ApplyReturnType Apply(
+                                std::shared_ptr<GameTree> gt, GraphColouring<AggregateComputer> AG,
+                                SimpleNumericArguments& args, Solution const& solution)override
+                        {
+                                seq_.Consume(solution);
+                                return {};
+                        }
+                private:
+                        SequenceConsumer seq_;
+                };
                 virtual void Accept(ArgumentVisitor& V)const override{
                         
                         TrailSolutionArguments proto;
@@ -386,9 +347,9 @@ namespace sim{
                         sargs.Read(args);
 
                         auto solver = std::make_shared<SimpleNumeric>(gt, AG, inital_state, sargs);
-                        solver->AddController(std::make_shared<SimpleNumeric::SequencePrinterController>());
+                        solver->AddController(std::make_shared<SequencePrinterController>());
                         solver->AddController(std::make_shared<SimpleNumeric::ProfileController>());
-                        solver->AddController(std::make_shared<SimpleNumeric::TakeFirstController>([lvl=sargs.level](auto const& sol){ return sol.Level <= lvl; }));
+                        solver->AddController(std::make_shared<TakeFirstController>([lvl=sargs.level](auto const& sol){ return sol.Level <= lvl; }));
 
                         return solver;
                 }

@@ -280,6 +280,7 @@ namespace ps{
                         bool memory{true};
                         size_t sub_dp = 1;
                         std::string req_handler_name = "underlying";
+                        bool cum_table{false};
 
 
                         bpo::options_description desc("Scratch command");
@@ -292,7 +293,8 @@ namespace ps{
                                 ("solver"    , bpo::value(&solver_s), "specigic solver")
                                 ("game-tree" , bpo::value(&game_tree), "game tree")
                                 ("extra"     , bpo::value(&extra), "extra options for the specigfic solver")
-                                ("no-memory"    , bpo::value(&memory)->implicit_value(false), "cache results")
+                                ("no-memory" , bpo::value(&memory)->implicit_value(false), "cache results")
+                                ("cum-table" , bpo::value(&cum_table)->implicit_value(false), "produce cumulative table")
                                 ("sub-dp"    , bpo::value(&sub_dp) , "")
                         ;
 
@@ -334,7 +336,9 @@ namespace ps{
 
                         obs.push_back(SolutionPrinter(sub_dp));
                         obs.push_back(TableSequenceObserver());
-                        obs.push_back(TableCollater());
+                        if( cum_table ){
+                                obs.push_back(TableCollater());
+                        }
 
 
                         for(double eff = eff_lower;eff - 1e-4 < eff_upper; eff += eff_inc ){

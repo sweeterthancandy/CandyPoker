@@ -135,9 +135,8 @@ namespace sim{
                                 // else we create the args
                                 pargs.ledger.push_back(inital_state);
                                 pargs.Next("trail-solution");
-                                pargs.Next("simple-numeric", R"({"clamp-epsilon":1e-4, "factor":0.05, "sequence-type":"level-sequence"})");
-                                //pargs.Next("simple-numeric", R"({"clamp-epsilon":1e-4})");
-                                pargs.Next("alpha");
+                                pargs.Next("numeric-sequence", R"({"clamp-epsilon":1e-4, "factor":0.05, "sequence-type":"level-sequence"})");
+                                pargs.Next("permutation"     , R"({"grid-size":10, "max-evaluations":1000, "max-popcount":2})");
                                 pargs.save_as(file);
                         } 
                         PS_LOG(trace) << "Arguments are " << pargs;

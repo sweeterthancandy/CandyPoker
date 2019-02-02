@@ -1,4 +1,3 @@
-
 #include "ps/base/cards.h"
 #include "ps/support/command.h"
 #include "ps/detail/print.h"
@@ -15,24 +14,37 @@
 #include "ps/sim/solver.h"
 
 #include <boost/any.hpp>
-
 #include <numeric>
-
-
 #include <boost/timer/timer.hpp>
+
 namespace ps{
 namespace sim{
-        struct AlphaSolver : Solver{
-                enum ResultType{
-                        FoundGamma,
-                        FoundPerfect,
-                        LoopOverFlow,
-                };
-                AlphaSolver(std::shared_ptr<GameTree> gt_, GraphColouring<AggregateComputer> AG_, StateType state0_)
-                        :gt(gt_),
-                        AG(AG_),
-                        state0(state0_)
-                {}
+        struct PermutationSolverArguments{
+                double clamp_epsilon{1e-6};
+                size_t grid_size    {11};
+                size_t max_popcount {1};
+                size_t dbg_use_threads{true};
+                // this is stop wasting CPU time
+                size_t max_evaluations{1000};
+
+
+                void EmitDescriptions(SolverDecl::ArgumentVisitor& V)const{
+                        V.DeclArgument("clamp-epsilon" , clamp_epsilon,
+                                       "used for clamping close to mixed strategies to non-mixed, "
+                                       "too small slower convergence");
+                        V.DeclArgument("grid-size" , grid_size, "the size of each grid");
+                        V.DeclArgument("max-popcount" , max_popcount, "number of freedoms, O(n!)");
+                        V.DeclArgument("dbg-use-threads" , dbg_use_threads, "development aid");
+                        V.DeclArgument("max-evaluations", max_evaluations, "upper limit of where to fail");
+                }
+                void Read(bpt::ptree const& args){
+                        grid_size      = args.get<double>("grid-size");
+                        max_popcount   = args.get<size_t>("max-popcount");
+                        clamp_epsilon  = args.get<double>("clamp-epsilon");
+                        dbg_use_threads = args.get<size_t>("dbg-use-threads");
+                }
+        };
+        struct PermutationSolver : Solver{
                 /*
                  * This is a wrapper around StateType. This solves the problem
                  * of computing the counter strategy and EV in observer functions.
@@ -57,16 +69,18 @@ namespace sim{
                         size_t player_index;
                         std::vector<size_t> mixed;
                 };
+                PermutationSolver(std::shared_ptr<GameTree> gt_, GraphColouring<AggregateComputer> AG_, StateType state0_,
+                                  PermutationSolverArguments const& args)
+                        :gt(gt_),
+                        AG(AG_),
+                        state0(state0_),
+                        args_{args}
+                {}
                 virtual boost::optional<StateType> Execute(SolverContext& ctx)override{
 
+                        PS_LOG(trace) << "----------------- PermutationSolver ---------------";
 
-
-                        double ClampEpsilon{1e-6};
-
-
-                        // find best one from the ledger
-                                        
-                        ctx.Message("Doing brute force search...");
+                        assert( args_.grid_size != 1 );
                         
                         Solution Sol = Solution::MakeWithDeps(gt, AG, state0);
                         auto const& S = Sol.S;
@@ -86,22 +100,12 @@ namespace sim{
                                 auto const& t = S[idx][0];
                                 std::vector<size_t> mixed;
                                 for(size_t cid=0;cid!=169;++cid){
-                                        #if 0
-                                        if( t[cid] == 0.0 || t[cid] == 1.0 )
-                                                continue;
-                                        #endif
                                         if( t[cid] == c[cid] )
                                                 continue;
                                         mixed.push_back(cid);
                                 }
                                 if( mixed.empty() )
                                         continue;
-                                #if 0
-                                if( mixed.size() == 1 ){
-                                        mixed.push_back(mixed[0]-1);
-                                        mixed.push_back(mixed[0]-1);
-                                }
-                                #endif
                                 mixed_info.emplace_back(idx, std::move(mixed));
                         }
                         
@@ -115,8 +119,6 @@ namespace sim{
 
                         std::vector<factor_family> family_vec;
 
-                        enum{ GridSize = 4 };
-                        
                         for(auto const& mi : mixed_info){
                                 
                                 factor_vector_type proto(mi.mixed.size(),1);
@@ -128,7 +130,7 @@ namespace sim{
                                 factor_set_type s;
                                 for(size_t idx=0;idx!=mi.mixed.size();++idx){
                                         auto next = proto;
-                                        next[idx] = GridSize;
+                                        next[idx] = args_.grid_size;
                                         s.push_back(next);
                                 }
                                 family.push_back(s);
@@ -165,8 +167,7 @@ namespace sim{
 
                         std::vector<std::vector<factor_set_type> > cross_products;
 
-                        enum{ MaxLevel = 1 };
-                        for(size_t level = 0; level <= MaxLevel; ++level ){
+                        for(size_t level = 0; level <= args_.max_popcount; ++level ){
                                 for(size_t mask = 0; mask != upper_bound; ++mask ){
                                         if( __builtin_popcount(mask) != level )
                                                 continue;
@@ -264,21 +265,22 @@ namespace sim{
                                 std::copy(SV.begin(), SV.end(), std::back_inserter(SV_family));
                         }
 
-                        ctx.Message("Doing last bit");
 
                         std::vector<Solution> solution_candidates;
 
-                        std::cout << "SV_family.size() => " << SV_family.size() << "\n"; // __CandyPrint__(cxx-print-scalar,SV_family.size())
+                        PS_LOG(trace) << "SV_family.size() => " << SV_family.size();
 
                         // do nothing rather than waste computation on something not tangible
-                        if( SV_family.size() > 1000 )
+                        if( SV_family.size() > args_.max_evaluations ){
+                                PS_LOG(warning) << "Failing as we have " << SV_family.size() << " evaluations to perfom";
                                 return {};
+                        }
 
                         #if 0
                         for(size_t idx=0;idx!=SV_family.size();++idx){
                                 std::cout << "idx => " << idx << " out of " << SV_family.size() << "\n"; // __CandyPrint__(cxx-print-scalar,idx)
                                 auto Q = SV_family[idx];
-                                computation_kernel::InplaceClamp(Q, ClampEpsilon);
+                                computation_kernel::InplaceClamp(Q, args_.clamp_epsilon);
                                 auto candidate = Solution::MakeWithDeps(gt, AG, Q);
                                 solution_candidates.push_back(candidate);
                         }
@@ -287,18 +289,24 @@ namespace sim{
                         for(size_t idx=0;idx!=SV_family.size();++idx){
                                 auto atom = [&,idx](){
                                         auto Q = SV_family[idx];
-                                        computation_kernel::InplaceClamp(Q, ClampEpsilon);
+                                        computation_kernel::InplaceClamp(Q, args_.clamp_epsilon);
                                         auto candidate = Solution::MakeWithDeps(gt, AG, Q);
                                         return candidate;
                                 };
                                 tasks.push_back(atom);
                         }
-                        std::vector<std::future<Solution> > futs;
-                        for(auto& t : tasks ){
-                                futs.push_back( std::async(std::launch::async, t) );
-                        }
-                        for(auto& f : futs){
-                                solution_candidates.push_back(f.get());
+                        if( args_.dbg_use_threads ){
+                                std::vector<std::future<Solution> > futs;
+                                for(auto& t : tasks ){
+                                        futs.push_back( std::async(std::launch::async, t) );
+                                }
+                                for(auto& f : futs){
+                                        solution_candidates.push_back(f.get());
+                                }
+                        } else {
+                                for(auto& t : tasks ){
+                                        solution_candidates.push_back(t());
+                                }
                         }
                         #endif
 
@@ -339,21 +347,26 @@ namespace sim{
                 std::shared_ptr<GameTree> gt;
                 GraphColouring<AggregateComputer> AG;
                 StateType state0;
+                PermutationSolverArguments args_;
         };
         
-        struct AlphaSolverDecl : SolverDecl{
+        struct PermutationSolverDecl : SolverDecl{
                 virtual void Accept(ArgumentVisitor& V)const override{
+                        PermutationSolverArguments proto;
+                        proto.EmitDescriptions(V);
                 }
                 virtual std::shared_ptr<Solver> Make( std::shared_ptr<GameTree> gt,
                                                       GraphColouring<AggregateComputer> AG,
                                                       StateType const& inital_state,
                                                       bpt::ptree const& args)const override
                 {
-                        return std::make_shared<AlphaSolver>(gt, AG, inital_state);
+                        PermutationSolverArguments bargs;
+                        bargs.Read(args);
+                        return std::make_shared<PermutationSolver>(gt, AG, inital_state, bargs);
                 }
         };
 
-        static SolverRegister<AlphaSolverDecl> AlphaSolverReg("alpha");
+        static SolverRegister<PermutationSolverDecl> PermutationSolverReg("permutation");
 
 } // end namespace sim
 } // end namespace ps

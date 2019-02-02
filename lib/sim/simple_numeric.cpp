@@ -88,6 +88,13 @@ namespace sim{
                         size_t count_{0};
                 };
                 
+                /*
+                        This is important. When we are running the numerical algorith,
+                        we can't have the factor too large otherwise we potentially 
+                        have an unstable solution, however at the start we can have a
+                        very large factor. Of course things like this complicate the
+                        algorithm so best have static conditions
+                 */
                 struct FactorTweakController : Controller{
                         virtual void Init(
                                 std::shared_ptr<GameTree> gt, GraphColouring<AggregateComputer> AG,
@@ -233,7 +240,7 @@ namespace sim{
 
                         auto solver = std::make_shared<SimpleNumeric>(gt, AG, inital_state, sargs);
                         solver->AddController(std::make_shared<SimpleNumeric::FactorTweakController>());
-                        solver->AddController(ctrl);
+                        solver->AddController(std::make_shared<SimpleNumeric::ConstantController>());
 
                         return solver;
                 }

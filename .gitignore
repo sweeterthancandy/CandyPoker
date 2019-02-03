@@ -21,3 +21,4 @@ build.ninja
 callgrind.out*
 driver
 .*
+candy-poker

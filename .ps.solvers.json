@@ -1,0 +1,34 @@
+{
+        "solver_0":[
+                { "solver":"numeric-sequence", "args": { "min-level":50, "factor":0.5 } }
+        ],
+        "solver_1":[
+                { "solver":"numeric-sequence", "args": { "min-level":20, "factor":0.2 } },
+                { "solver":"numeric-sequence", "args": { "min-level":10, "factor":0.1 } },
+                { "solver":"numeric-sequence", "args": { "min-level":5 , "factor":0.05} },
+                { "solver":"numeric-sequence", "args": { "factor":0.01 } }
+        ],
+        "solver_2":[
+                { "solver":"numeric-sequence", "args": { "sequence-type":"level-sequence", "factor":0.4, "ttl":1, "stride":20 } },
+                { "solver":"numeric-sequence", "args": { "sequence-type":"level-sequence", "factor":0.2, "ttl":1, "stride":40 } },
+                { "solver":"numeric-sequence", "args": { "sequence-type":"level-sequence", "factor":0.1, "ttl":1, "stride":80 } }
+        ],
+        "solver_3":[
+                { "solver":"numeric-sequence", "args": { "clamp-epsilon":1e-3, "sequence-type":"level-sequence", "factor":0.4 , "ttl":1, "stride":20  } },
+                { "solver":"numeric-sequence", "args": { "clamp-epsilon":1e-3, "sequence-type":"level-sequence", "factor":0.2 , "ttl":1, "stride":40  } },
+                { "solver":"numeric-sequence", "args": { "clamp-epsilon":1e-3, "sequence-type":"level-sequence", "factor":0.1 , "ttl":1, "stride":80  } },
+                { "solver":"numeric-sequence", "args": { "clamp-epsilon":1e-3, "sequence-type":"special"       , "factor":0.01, "ttl":10, "stride":100, "min-level":2 } }
+        ],
+        "solver_4":[
+                { "solver":"numeric-sequence", "args": { "clamp-epsilon":1e-3, "sequence-type":"total-sequence", "factor":0.4 , "ttl":1, "stride":20  } },
+                { "solver":"numeric-sequence", "args": { "clamp-epsilon":1e-3, "sequence-type":"total-sequence", "factor":0.2 , "ttl":1, "stride":40  } },
+                { "solver":"numeric-sequence", "args": { "clamp-epsilon":1e-3, "sequence-type":"total-sequence", "factor":0.1 , "ttl":1, "stride":80  } },
+                { "solver":"numeric-sequence", "args": { "clamp-epsilon":1e-3, "sequence-type":"total-sequence", "factor":0.05, "ttl":1, "stride":80, "min-level":3  } }
+        ],
+        "solver_5":[
+                { "solver":"numeric-sequence", "args": { "clamp-epsilon":1e-3, "sequence-type":"total-sequence", "factor":0.4 , "ttl":1, "stride":20  } },
+                { "solver":"numeric-sequence", "args": { "clamp-epsilon":1e-3, "sequence-type":"total-sequence", "factor":0.2 , "ttl":1, "stride":40  } },
+                { "solver":"numeric-sequence", "args": { "clamp-epsilon":1e-3, "sequence-type":"total-sequence", "factor":0.1 , "ttl":1, "stride":80  } },
+                { "solver":"numeric-sequence", "args": { "clamp-epsilon":5e-4, "sequence-type":"norm-sequence", "factor":0.005,"ttl":1, "stride":100 } }
+        ]
+}

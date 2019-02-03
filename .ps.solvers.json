@@ -22,5 +22,9 @@
                 { "solver":"numeric-sequence", "args": { "clamp-epsilon":1e-3, "sequence-type":"total-sequence", "factor":0.1 , "ttl":1, "stride":80  } },
                 { "solver":"single-permutation" },
                 { "solver":"permutation", "args":{ "grid-size":1 } }
+        ],
+        "D":[
+                { "solver":"numeric-sequence", "args": { "clamp-epsilon":1e-3, "sequence-type":"total-sequence", "factor":0.4 , "ttl":1, "stride":20  } },
+                { "solver":"single-permutation" }
         ]
 }

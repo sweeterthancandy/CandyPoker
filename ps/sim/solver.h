@@ -27,7 +27,7 @@ namespace sim{
                                                            GraphColouring<AggregateComputer> const& AG,
                                                            StateType const& S0)=0;
                 // for debugging
-                virtual std::string StringDescription()const{ return "unknown"; }
+                virtual std::string StringDescription()const=0;
         };
 
         struct AggregateSolver : Solver{

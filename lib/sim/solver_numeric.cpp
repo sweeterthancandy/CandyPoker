@@ -137,6 +137,11 @@ namespace sim{
                 void AddController(std::shared_ptr<Controller> ctrl){
                         controllers_.push_back(ctrl);
                 }
+                virtual std::string StringDescription()const override{
+                        std::stringstream sstr;
+                        sstr << "SimpleNumeric{" << args_ << "}";
+                        return sstr.str();
+                }
         private:
                 SimpleNumericArguments args_;
                 std::vector<std::shared_ptr<Controller> > controllers_;

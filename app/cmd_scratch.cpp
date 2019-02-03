@@ -281,6 +281,7 @@ namespace ps{
                         size_t sub_dp = 1;
                         std::string req_handler_name = "underlying";
                         bool cum_table{false};
+                        bool print_seq{false};
 
 
                         bpo::options_description desc("Scratch command");
@@ -296,6 +297,7 @@ namespace ps{
                                 ("memory" , bpo::value(&memory)->implicit_value(true), "cache results")
                                 ("cum-table" , bpo::value(&cum_table)->implicit_value(true), "produce cumulative table")
                                 ("sub-dp"    , bpo::value(&sub_dp) , "")
+                                ("print-seq" , bpo::value(&print_seq)->implicit_value(true), "print table with solution information")
                         ;
 
 
@@ -335,7 +337,9 @@ namespace ps{
                         std::vector<std::function<void(std::shared_ptr<GameTree>, LazyComputer const&, boost::optional<StateType> const&)> > obs;
 
                         obs.push_back(SolutionPrinter(sub_dp));
-                        obs.push_back(TableSequenceObserver());
+                        if( print_seq ){
+                                obs.push_back(TableSequenceObserver());
+                        }
                         if( cum_table ){
                                 obs.push_back(TableCollater());
                         }

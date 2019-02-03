@@ -374,6 +374,11 @@ namespace sim{
                         return {};
                         #endif
                 }
+                virtual std::string StringDescription()const override{
+                        std::stringstream sstr;
+                        sstr << "PermutationSolver{}";
+                        return sstr.str();
+                }
         private:
                 PermutationSolverArguments args_;
         };
@@ -496,6 +501,11 @@ namespace sim{
                                 }
                         }
                         return seq.AsOptState();
+                }
+                virtual std::string StringDescription()const override{
+                        std::stringstream sstr;
+                        sstr << "SinglePermutationSolver{}";
+                        return sstr.str();
                 }
         };
         

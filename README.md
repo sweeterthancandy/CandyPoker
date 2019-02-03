@@ -163,7 +163,35 @@ For a quick example, we can run the command
 
 What is actually much more of a problem is finding a solution with the least number of mixed solutions. Taking BB of 10 for the example, it's not too difficul to implement a solver which finds a game-theoritic solution to the push fold solution
         
-        ./driver scratch --no-memory --game-tree two-player-push-fold --solver  --eff-lower 2 --eff-upper 20 --eff-inc 1 --cum-table
+        ./driver scratch --solver D --eff-lower 1.0 --eff-upper 20.0 --cum-table --print-seq
+
+
+#### --print-seq
+
+        The print-seq option shows a table with metrics for each solution. Below we can see that each solution only has one card different in the Gamma vector.
+
+        |           Desc           | ? |Level|Total|Gamma |  GammaCards  |Mixed |MixedCards |         |.|          |
+        +--------------------------+---+-----+-----+------+--------------+------+-----------+----------------------+
+        |GameTreeTwoPlayer:0.5:1:1 |yes|  0  |  0  |{0, 0}|   {{}, {}}   |{0, 0}| {{}, {}}  |          0           |
+        |GameTreeTwoPlayer:0.5:1:2 |yes|  0  |  0  |{0, 0}|   {{}, {}}   |{0, 0}| {{}, {}}  |          0           |
+        |GameTreeTwoPlayer:0.5:1:3 |yes|  1  |  1  |{0, 1}| {{}, {63o}}  |{0, 1}|{{}, {63o}}|2.7882113404584241e-05|
+        |GameTreeTwoPlayer:0.5:1:4 |yes|  0  |  0  |{0, 0}|   {{}, {}}   |{0, 0}| {{}, {}}  |          0           |
+        |GameTreeTwoPlayer:0.5:1:5 |yes|  1  |  1  |{0, 1}| {{}, {97o}}  |{0, 1}|{{}, {97o}}|1.8804630453818361e-05|
+        |GameTreeTwoPlayer:0.5:1:6 |yes|  1  |  1  |{0, 1}| {{}, {98o}}  |{0, 1}|{{}, {98o}}|1.7960296257168995e-08|
+        |GameTreeTwoPlayer:0.5:1:7 |yes|  1  |  1  |{0, 1}| {{}, {97s}}  |{0, 1}|{{}, {97s}}|1.1004535174736346e-05|
+        |GameTreeTwoPlayer:0.5:1:8 |yes|  1  |  1  |{0, 1}| {{}, {Q7o}}  |{0, 1}|{{}, {Q7o}}|0.00025938863366876778|
+        |GameTreeTwoPlayer:0.5:1:9 |yes|  0  |  0  |{0, 0}|   {{}, {}}   |{0, 0}| {{}, {}}  |          0           |
+        |GameTreeTwoPlayer:0.5:1:10|yes|  1  |  1  |{0, 1}| {{}, {Q6s}}  |{0, 0}| {{}, {}}  |5.8276293633093001e-05|
+        |GameTreeTwoPlayer:0.5:1:11|yes|  1  |  1  |{0, 1}| {{}, {K6o}}  |{0, 0}| {{}, {}}  |1.8685953474206762e-05|
+        |GameTreeTwoPlayer:0.5:1:12|yes|  0  |  0  |{0, 0}|   {{}, {}}   |{0, 0}| {{}, {}}  |          0           |
+        |GameTreeTwoPlayer:0.5:1:13|yes|  1  |  1  |{0, 1}| {{}, {JTo}}  |{0, 0}| {{}, {}}  |8.3942868595962561e-05|
+        |GameTreeTwoPlayer:0.5:1:14|yes|  1  |  1  |{1, 0}| {{J8o}, {}}  |{0, 0}| {{}, {}}  |9.9252283580320011e-05|
+        |GameTreeTwoPlayer:0.5:1:15|yes|  1  |  1  |{0, 1}| {{}, {QTo}}  |{0, 1}|{{}, {QTo}}|6.5683741556160635e-05|
+        |GameTreeTwoPlayer:0.5:1:16|yes|  1  |  1  |{0, 1}| {{}, {A2o}}  |{0, 0}| {{}, {}}  |0.00010373800344154471|
+        |GameTreeTwoPlayer:0.5:1:17|yes|  1  |  2  |{1, 1}|{{J5s}, {K9o}}|{0, 0}| {{}, {}}  |0.00018949470911927557|
+        |GameTreeTwoPlayer:0.5:1:18|yes|  1  |  1  |{1, 0}| {{J6s}, {}}  |{0, 0}| {{}, {}}  |1.2054322645116411e-05|
+        |GameTreeTwoPlayer:0.5:1:19|yes|  0  |  0  |{0, 0}|   {{}, {}}   |{0, 0}| {{}, {}}  |          0           |
+        |GameTreeTwoPlayer:0.5:1:20|yes|  1  |  1  |{0, 1}| {{}, {QJo}}  |{0, 0}| {{}, {}}  |2.1377144644924018e-05|
 
 ### Three player Pre-flop all in-EV
 

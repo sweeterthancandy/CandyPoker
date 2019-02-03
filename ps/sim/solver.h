@@ -81,11 +81,13 @@ namespace sim{
                                 bpt::read_json(sstr, args);
 
                                 for(auto const& _ : args){
-                                        if( _.second.data().empty() )
-                                                continue;
-                                        std::string k = _.first.data();
-                                        std::string v = _.second.data();
-                                        impl.args.put( k, v);
+                                        if( _.second.empty() ){
+                                                std::string k = _.first.data();
+                                                std::string v = _.second.data();
+                                                impl.args.put( k, v);
+                                        } else {
+                                                impl.args.put_child(_.first.data(), _.second);
+                                        }
                                 }
                         }
 

@@ -16,6 +16,7 @@
 #include "ps/sim/solver.h"
 
 
+
 namespace ps{
 namespace sim{
 
@@ -92,6 +93,9 @@ namespace sim{
                                                       StateType const& inital_state,
                                                       bpt::ptree const& args)const override
                 {
+
+                        PS_LOG(trace) << "Making pipline";
+
                         auto continue_at = args.get<std::string>("continue-at");
                         auto file        = args.get<std::string>("file");
 
@@ -113,6 +117,7 @@ namespace sim{
                         PipelineArguments pargs;
 
                         if( continue_idx || continue_at_end ){
+                                PS_LOG(trace) << "Doing continue";
                                 if( pargs.try_load_or_default(file) ){
                                         assert( pargs.ledger.size() == pargs.index +1 );
                                         
@@ -132,15 +137,34 @@ namespace sim{
                                         BOOST_THROW_EXCEPTION(std::domain_error("failed to continue"));
                                 }
                         } else {
+                                PS_LOG(trace) << "Making...";
 
-
-                                // else we create the args
+                                bpt::write_json(std::cout, args);
                                 pargs.ledger.push_back(inital_state);
-                                pargs.Next("trail-solution"  , R"({"level": 20, "factor":0.2})");
-                                pargs.Next("trail-solution"  , R"({"level": 10, "factor":0.1})");
-                                pargs.Next("trail-solution"  , R"({"level":  5, "factor":0.05})");
+                                for(auto const& p : args.get_child("pipeline") ){
+                                        bpt::ptree const& t = p.second;
+                                        auto solver = t.get_optional<std::string>("solver");
+                                        if( ! solver )
+                                                BOOST_THROW_EXCEPTION(std::domain_error("need solver"));
+                                        std::string args;
+                                        auto opt = p.second.get_child_optional("args");
+                                        if( opt ){
+                                                std::stringstream sstr;
+                                                bpt::write_json(sstr, opt.get(),false);
+                                                args  = sstr.str();
+                                        }
+                                        std::cout << "solver.get() => " << solver.get() << "\n"; // __CandyPrint__(cxx-print-scalar,solver.get())
+                                        std::cout << "args => " << args << "\n"; // __CandyPrint__(cxx-print-scalar,args)
+                                        pargs.Next(solver.get(), args);
+                                }
+
+                                #if 0
+                                // else we create the args
+                                pargs.Next("trail-solution"  , R"({"clamp-epsilon":1e-4, "level": 10, "factor":0.1})");
+                                pargs.Next("trail-solution"  , R"({"clamp-epsilon":1e-4, "level":  5, "factor":0.05})");
                                 pargs.Next("numeric-sequence", R"({"clamp-epsilon":1e-4, "factor":0.01, "sequence-type":"level-sequence", "ttl":100})");
                                 //pargs.Next("permutation"     , R"({"grid-size":4, "max-evaluations":1000, "max-popcount":1})");
+                                #endif
                                 pargs.save_as(file);
                         } 
                         PS_LOG(trace) << "Arguments are " << pargs;

@@ -165,7 +165,22 @@ What is actually much more of a problem is finding a solution with the least num
         
         ./driver scratch --no-memory --game-tree two-player-push-fold --solver  --eff-lower 2 --eff-upper 20 --eff-inc 1 --cum-table
 
-### Pre-flop all in-EV
+### Three player Pre-flop all in-EV
+
+This was the original goal of the project. First consider the game tree in the below table. We have 7 terminal states.
+
+        |   Path   | Impl | Active  |    Pot    |
+        +----------+------+---------+-----------+
+        |  *,f,ff  |Static|   {2}   | [0,0.5,1] |
+        |*,f,fp,fpf|Static|   {1}   | [0,10,1]  |
+        |*,f,fp,fpp| Eval | {1, 2}  | [0,10,10] |
+        |*,p,pf,pff|Static|   {0}   |[10,0.5,1] |
+        |*,p,pf,pfp| Eval | {0, 2}  |[10,0.5,10]|
+        |*,p,pp,ppf| Eval | {0, 1}  | [10,10,1] |
+        |*,p,pp,ppp| Eval |{0, 1, 2}|[10,10,10] |
+
+This tree is represented by a 6-vector
+        (BTN P/F, SB P/F Given BTN P, SB P/F Given BTN F, SB C Given BTN P, SB P, SB C Given BTN P, SB F, SB C Given BTN F, SB P)
 
 
 ## FlopZilla

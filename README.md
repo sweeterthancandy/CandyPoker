@@ -69,6 +69,7 @@ This is an algebraic solver, each takes the trail solution S, and creates a set 
 This is another algebraic solver, which tries to replace take the Gamma vector, and replace all but 1 card per decision with a mixed solution, and discretized the mixed solution with a grid. 
 
 For eaxmple with a Gamma vector of {{Q5s}, {64o,QJo}}, we would have gamma vectors of 
+
                 (m)(ff)
                 (m)(pf)
                 (m)(fp)
@@ -81,6 +82,7 @@ For eaxmple with a Gamma vector of {{Q5s}, {64o,QJo}}, we would have gamma vecto
                 (p)(fm)
                 (f)(pm)
                 (p)(pm),
+
 where in the above, we replace each m with one of (0,1/n,2/m,..,(n-1)/n,n). We then take the best solution
 
 

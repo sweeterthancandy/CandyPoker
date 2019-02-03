@@ -284,7 +284,7 @@ namespace sim{
                         size_t level{10};
 
                         TrailSolutionArguments(){
-                                factor        = 0.2;
+                                factor        = 0.1;
                                 clamp_epsilon = 1e-4;
                         }
 

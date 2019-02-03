@@ -356,8 +356,6 @@ namespace ps{
                                 }
                                 any_gt = gt;
 
-                                //GraphColouring<AggregateComputer> AG = MakeComputer(gt);
-                                
                                 LazyComputer AG{gt};
 
 

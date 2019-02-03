@@ -132,11 +132,15 @@ namespace sim{
                                         BOOST_THROW_EXCEPTION(std::domain_error("failed to continue"));
                                 }
                         } else {
+
+
                                 // else we create the args
                                 pargs.ledger.push_back(inital_state);
-                                pargs.Next("trail-solution");
-                                pargs.Next("numeric-sequence", R"({"clamp-epsilon":1e-4, "factor":0.05, "sequence-type":"level-sequence"})");
-                                pargs.Next("permutation"     , R"({"grid-size":10, "max-evaluations":1000, "max-popcount":2})");
+                                pargs.Next("trail-solution"  , R"({"level": 20, "factor":0.2})");
+                                pargs.Next("trail-solution"  , R"({"level": 10, "factor":0.1})");
+                                pargs.Next("trail-solution"  , R"({"level":  5, "factor":0.05})");
+                                pargs.Next("numeric-sequence", R"({"clamp-epsilon":1e-4, "factor":0.01, "sequence-type":"level-sequence", "ttl":100})");
+                                //pargs.Next("permutation"     , R"({"grid-size":4, "max-evaluations":1000, "max-popcount":1})");
                                 pargs.save_as(file);
                         } 
                         PS_LOG(trace) << "Arguments are " << pargs;

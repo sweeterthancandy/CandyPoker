@@ -9,5 +9,18 @@
                 { "solver":"numeric-sequence", "args": { "clamp-epsilon":1e-3, "sequence-type":"total-sequence", "factor":0.2 , "ttl":1, "stride":40  } },
                 { "solver":"numeric-sequence", "args": { "clamp-epsilon":1e-3, "sequence-type":"total-sequence", "factor":0.1 , "ttl":1, "stride":80  } },
                 { "solver":"numeric-sequence", "args": { "clamp-epsilon":1e-3, "sequence-type":"norm-sequence", "factor":0.001, "ttl":1, "stride":1000, "delta":0.0 , "min-level":2 } }
+        ],
+        "B":[
+                { "solver":"numeric-sequence", "args": { "clamp-epsilon":1e-3, "sequence-type":"total-sequence", "factor":0.4 , "ttl":1, "stride":20  } },
+                { "solver":"numeric-sequence", "args": { "clamp-epsilon":1e-3, "sequence-type":"total-sequence", "factor":0.2 , "ttl":1, "stride":40  } },
+                { "solver":"numeric-sequence", "args": { "clamp-epsilon":1e-3, "sequence-type":"total-sequence", "factor":0.1 , "ttl":1, "stride":80  } },
+                { "solver":"single-permutation" }
+        ],
+        "C":[
+                { "solver":"numeric-sequence", "args": { "clamp-epsilon":1e-3, "sequence-type":"total-sequence", "factor":0.4 , "ttl":1, "stride":20  } },
+                { "solver":"numeric-sequence", "args": { "clamp-epsilon":1e-3, "sequence-type":"total-sequence", "factor":0.2 , "ttl":1, "stride":40  } },
+                { "solver":"numeric-sequence", "args": { "clamp-epsilon":1e-3, "sequence-type":"total-sequence", "factor":0.1 , "ttl":1, "stride":80  } },
+                { "solver":"single-permutation" },
+                { "solver":"permutation", "args":{ "grid-size":1 } }
         ]
 }

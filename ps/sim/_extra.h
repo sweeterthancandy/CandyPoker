@@ -579,6 +579,17 @@ namespace sim{
                 te_is_better_type is_better_;
         };
 
+        struct TotalSequence : SequenceConsumer{
+                TotalSequence()
+                        : SequenceConsumer{ [](auto const& head, auto const& candidate){ return head.Total < candidate.Total; } }
+                {}
+        };
+        struct GammaSequence : SequenceConsumer{
+                GammaSequence()
+                        : SequenceConsumer{ [](auto const& head, auto const& candidate){ return head.Gamma < candidate.Gamma; } }
+                {}
+        };
+
 
 } // end namespace sim
 } // end namespace ps

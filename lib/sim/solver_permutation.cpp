@@ -45,31 +45,58 @@ namespace sim{
                         max_evaluations = args.get<size_t>("max-evaluations");
                 }
         };
-        struct PermutationSolver : Solver{
-                /*
-                 * This is a wrapper around StateType. This solves the problem
-                 * of computing the counter strategy and EV in observer functions.
-                 */
-                struct MixedSolutionDescription{
-                        MixedSolutionDescription(size_t player_index_, std::vector<size_t> const& mixed_)
-                                :player_index(player_index_),
-                                mixed(mixed_)
-                        {}
-                        friend std::ostream& operator<<(std::ostream& ostr, MixedSolutionDescription const& self){
-                                ostr << "player_index = " << self.player_index;
-                                typedef std::vector<size_t>::const_iterator CI0;
-                                const char* comma = "";
-                                ostr << "mixed" << " = {";
-                                for(CI0 iter= self.mixed.begin(), end=self.mixed.end();iter!=end;++iter){
-                                        ostr << comma << *iter;
-                                        comma = ", ";
-                                }
-                                ostr << "}\n";
-                                return ostr;
+        /*
+         * This is a wrapper around StateType. This solves the problem
+         * of computing the counter strategy and EV in observer functions.
+         */
+        struct MixedSolutionDescription{
+                MixedSolutionDescription(size_t player_index_, std::vector<size_t> const& mixed_)
+                        :player_index(player_index_),
+                        mixed(mixed_)
+                {}
+                friend std::ostream& operator<<(std::ostream& ostr, MixedSolutionDescription const& self){
+                        ostr << "player_index = " << self.player_index;
+                        typedef std::vector<size_t>::const_iterator CI0;
+                        const char* comma = "";
+                        ostr << "mixed" << " = {";
+                        for(CI0 iter= self.mixed.begin(), end=self.mixed.end();iter!=end;++iter){
+                                ostr << comma << *iter;
+                                comma = ", ";
                         }
-                        size_t player_index;
+                        ostr << "}\n";
+                        return ostr;
+                }
+                size_t player_index;
+                std::vector<size_t> mixed;
+        };
+
+        inline std::vector<MixedSolutionDescription> MakeMixedSolutionDescription(StateType const& S, StateType const& CS){
+                /*
+                        Here we want to construct a vector which indicate all the mixed strategis.
+                        For example if every was push/fold for hero/villian excep A2o for Hero, and 
+                        67o and 79o for villian, we would have
+                                        ({A2o}, {67o, 79o}).
+                 */
+                std::vector<MixedSolutionDescription> mixed_info;
+                for(size_t idx=0;idx!=S.size();++idx){
+                        auto const& c = CS[idx][0];
+                        auto const& t = S[idx][0];
                         std::vector<size_t> mixed;
-                };
+                        for(size_t cid=0;cid!=169;++cid){
+                                if( t[cid] == c[cid] )
+                                        continue;
+                                mixed.push_back(cid);
+                        }
+                        if( mixed.empty() )
+                                continue;
+                        mixed_info.emplace_back(idx, std::move(mixed));
+                }
+                return mixed_info;
+        }
+
+        struct PermutationSolver : Solver{
+
+
                 PermutationSolver( PermutationSolverArguments const& args)
                         : args_{args}
                 {}
@@ -89,13 +116,14 @@ namespace sim{
                         auto const& Counter = Sol.Counter;
 
                         
+                        std::vector<MixedSolutionDescription> mixed_info = MakeMixedSolutionDescription(S, Counter);
+                        #if 0
                         /*
                                 Here we want to construct a vector which indicate all the mixed strategis.
                                 For example if every was push/fold for hero/villian excep A2o for Hero, and 
                                 67o and 79o for villian, we would have
                                                 ({A2o}, {67o, 79o}).
                          */
-                        std::vector<MixedSolutionDescription> mixed_info;
                         for(size_t idx=0;idx!=S.size();++idx){
                                 auto const& c = Counter[idx][0];
                                 auto const& t = S[idx][0];
@@ -113,6 +141,7 @@ namespace sim{
                         for(auto const& mi : mixed_info){
                                 std::cout << mi << "\n";
                         }
+                        #endif
 
                         using factor_vector_type = std::vector<size_t>;
                         using factor_set_type = std::vector<factor_vector_type>;
@@ -363,6 +392,123 @@ namespace sim{
         };
 
         static SolverRegister<PermutationSolverDecl> PermutationSolverReg("permutation");
+        
+        
+        
+        struct SinglePermutationSolver : Solver{
+
+                virtual boost::optional<StateType> Execute(SolverContext& ctx,
+                                                           std::shared_ptr<GameTree> const& gt,
+                                                           GraphColouring<AggregateComputer> const& AG,
+                                                           StateType const& S0)override
+                {
+
+                        PS_LOG(trace) << "----------------- SinglePermutationSolver ---------------";
+
+                        SequenceConsumer seq;
+                        seq.Consume(Solution::MakeWithDeps(gt, AG, S0));
+                        for(size_t loop_count=0;;++loop_count){
+
+                                std::cout << "loop_count => " << loop_count << "\n"; // __CandyPrint__(cxx-print-scalar,loop_count)
+
+                                auto opt_sol = seq.AsOptSolution();
+                                BOOST_ASSERT( opt_sol );
+                                Solution const& Sol = opt_sol.get();
+
+                                auto const& S  = Sol.S;
+                                auto const& CS = Sol.Counter;
+
+                                std::vector<MixedSolutionDescription> mixed_info = MakeMixedSolutionDescription(S, CS);
+
+                                std::vector<StateType> candidates;
+
+                                for(auto const& mi : mixed_info ){
+                                        for(auto const& cid : mi.mixed ){
+                                                auto next = S;
+                                                next[mi.player_index][0][cid] = 1.0;
+                                                next[mi.player_index][1][cid] = 0.0;
+                                                candidates.push_back(next);
+                                                next[mi.player_index][0][cid] = 0.0;
+                                                next[mi.player_index][1][cid] = 1.0;
+                                                candidates.push_back(next);
+                                        }
+                                }
+                                std::cout << "mixed_info.size() => " << mixed_info.size() << "\n"; // __CandyPrint__(cxx-print-scalar,mixed_info.size())
+                                std::vector<std::function<Solution()> > tasks;
+                                for(auto const& cand : candidates){
+                                        auto atom = [&]()->Solution{
+                                                auto solution = Solution::MakeWithDeps(gt, AG, cand);
+                                                return solution;
+                                        };
+                                        tasks.emplace_back(atom);
+                                }
+                                std::cout << "tasks.size() => " << tasks.size() << "\n"; // __CandyPrint__(cxx-print-scalar,tasks.size())
+                                std::vector<std::future<Solution> > futs;
+                                for(auto& t : tasks ){
+                                        futs.push_back( std::async(std::launch::async, t) );
+                                }
+                                std::vector<Solution> solution_candidates;
+                                for(auto& f : futs){
+                                        solution_candidates.push_back(f.get());
+                                }
+                                #if 0
+                                std::mutex mtx;
+                                auto child = [&]()mutable{
+                                        for(;;){
+                                                
+                                                mtx.lock();
+                                                if( tasks.empty() ){
+                                                        mtx.unlock();
+                                                        return;
+                                                }
+                                                auto fut = std::move(tasks.back());
+                                                tasks.pop_back();
+                                                mtx.unlock();
+                                                fut();
+                                        }
+                                };
+                                std::vector<std::thread> tg;
+                                for(size_t idx=0;idx!=std::thread::hardware_concurrency();++idx){
+                                        tg.emplace_back(child);
+                                }
+                                for(auto& _ : tg){
+                                        _.join();
+                                }
+                                #endif
+                                
+                                bool do_break = true;
+                                std::cout << "HEAD " << Sol.Total << "\n"; // __CandyPrint__(cxx-print-scalar,Sol.Total)
+                                for(auto& _ : solution_candidates){
+                                        switch(seq.Consume(_)){
+                                        case SequenceConsumer::Ctrl_Rejected:
+                                                break;
+                                        case SequenceConsumer::Ctrl_Accepted:
+                                                std::cout << "Accepted\n";
+                                                do_break = false;
+                                                break;
+                                        case SequenceConsumer::Ctrl_Perfect:
+                                                return seq.AsOptState();
+                                        }
+                                }
+
+                                if( do_break ){
+                                        break;
+                                }
+                        }
+                        return seq.AsOptState();
+                }
+        };
+        
+        struct SinglePermutationSolverDecl : SolverDecl{
+                virtual void Accept(ArgumentVisitor& V)const override{
+                }
+                virtual std::shared_ptr<Solver> Make( bpt::ptree const& args)const override
+                {
+                        return std::make_shared<SinglePermutationSolver>();
+                }
+        };
+
+        static SolverRegister<SinglePermutationSolverDecl> SinglePermutationSolverReg("single-permutation");
 
 } // end namespace sim
 } // end namespace ps

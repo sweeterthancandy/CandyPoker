@@ -277,7 +277,7 @@ namespace ps{
                         std::string solver_s = "simple-numeric";
                         std::string extra;
                         bool help{false};
-                        bool memory{true};
+                        bool memory{false};
                         size_t sub_dp = 1;
                         std::string req_handler_name = "underlying";
                         bool cum_table{false};
@@ -293,8 +293,8 @@ namespace ps{
                                 ("solver"    , bpo::value(&solver_s), "specigic solver")
                                 ("game-tree" , bpo::value(&game_tree), "game tree")
                                 ("extra"     , bpo::value(&extra), "extra options for the specigfic solver")
-                                ("no-memory" , bpo::value(&memory)->implicit_value(false), "cache results")
-                                ("cum-table" , bpo::value(&cum_table)->implicit_value(false), "produce cumulative table")
+                                ("memory" , bpo::value(&memory)->implicit_value(true), "cache results")
+                                ("cum-table" , bpo::value(&cum_table)->implicit_value(true), "produce cumulative table")
                                 ("sub-dp"    , bpo::value(&sub_dp) , "")
                         ;
 

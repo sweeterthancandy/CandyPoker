@@ -1,192 +1,13 @@
-#include <iostream>
-#include <thread>
-#include <atomic>
+#include "ps/heads_up_solver.h"
+#include "ps/heads_up.h"
+
 #include <numeric>
-#include <future>
-#include <boost/format.hpp>
-#include "ps/base/cards.h"
-#include "ps/base/board_combination_iterator.h"
-#include "ps/eval/class_equity_evaluator.h"
-
-
 #include <boost/timer/timer.hpp>
+#include <thread>
+#include <future>
 
-using namespace ps;
+namespace ps{
 
-struct holdem_class_strategy{
-        holdem_class_strategy(double fill = 1.0){
-                for(size_t i{0};i!=169;++i){
-                        vec_[i] = fill;
-                }
-        }
-        auto begin()const{ return vec_.begin(); }
-        auto end()  const{ return vec_.end();   }
-        double&       operator[](size_t idx)     {return vec_[idx]; }
-        double const& operator[](size_t idx)const{return vec_[idx]; }
-        void check(){
-                for(size_t i{0};i!=169;++i){
-                        if ( !( 0 <= vec_[i] && vec_[i] <= 1.0 && "not a strat") ){
-                                std::cerr << "FAILED\n";
-                                return;
-                        }
-                }
-        }
-        holdem_class_strategy& operator*=(double val){
-                for(size_t i{0};i!=169;++i){
-                        vec_[i] *= val;
-                }
-                return *this;
-        }
-        holdem_class_strategy& operator+=(holdem_class_strategy const& that){
-                for(size_t i{0};i!=169;++i){
-                        vec_[i] += that.vec_[i];
-                }
-                return *this;
-        }
-        holdem_class_strategy& operator-=(holdem_class_strategy const& that){
-                for(size_t i{0};i!=169;++i){
-                        vec_[i] -= that.vec_[i];
-                }
-                return *this;
-        }
-
-        holdem_class_strategy operator*(double val){
-                holdem_class_strategy result{*this};
-                result *= val;
-                return std::move(result);
-        }
-        holdem_class_strategy operator+(holdem_class_strategy const& that){
-                holdem_class_strategy result{*this};
-                result += that;
-                return std::move(result);
-        }
-        holdem_class_strategy operator-(holdem_class_strategy const& that){
-                holdem_class_strategy result{*this};
-                result -= that;
-                return std::move(result);
-        }
-        double sigma(){
-                return std::accumulate(vec_.begin(), vec_.end(), 0.0);
-        }
-
-        double norm()const{
-                double result{0.0};
-                for(size_t i{0};i!=169;++i){
-                        result = std::max(result, std::fabs(vec_[i]));
-                }
-                return result;
-        }
-        friend std::ostream& operator<<(std::ostream& ostr, holdem_class_strategy const& strat){
-                return ostr << ps::detail::to_string(strat.vec_);
-        }
-        // print pretty table
-        //
-        //      AA  AKs ... A2s
-        //      AKo KK
-        //      ...     ...
-        //      A2o         22
-        //
-        //
-        void display(){
-                /*
-                        token_buffer[0][0] token_buffer[1][0]
-                        token_buffer[0][1]
-
-                        token_buffer[y][x]
-
-
-                 */
-                std::array<
-                        std::array<std::string, 13>, // x
-                        13                           // y
-                > token_buffer;
-                std::array<size_t, 13> widths;
-
-                for(size_t i{0};i!=169;++i){
-                        auto const& decl =  holdem_class_decl::get(i) ;
-                        size_t x{decl.first().id()};
-                        size_t y{decl.second().id()};
-                        // inverse
-                        x = 12 - x;
-                        y = 12 - y;
-                        if( decl.category() == holdem_class_type::offsuit ){
-                                std::swap(x,y);
-                        }
-
-                        #if 1
-                        //token_buffer[y][x] = boost::lexical_cast<std::string>(vec_[i]);
-                        if( vec_[i] == 1.0 ){
-                                token_buffer[y][x] = "1";
-                        } else if( vec_[i] == 0.0 ){
-                                token_buffer[y][x] = "0";
-                        } else {
-                                token_buffer[y][x] = str(boost::format("%.4f") % vec_[i]);
-                        }
-
-                        #else
-                        token_buffer[y][x] = boost::lexical_cast<std::string>(decl.to_string());
-                        #endif
-                }
-                for(size_t i{0};i!=13;++i){
-                        widths[i] = std::max_element( token_buffer[i].begin(),
-                                                      token_buffer[i].end(),
-                                                      [](auto const& l, auto const& r){
-                                                              return l.size() < r.size(); 
-                                                      })->size();
-                }
-
-                auto pad= [](auto const& s, size_t w){
-                        size_t padding{ w - s.size()};
-                        size_t left_pad{padding/2};
-                        size_t right_pad{padding - left_pad};
-                        std::string ret;
-                        if(left_pad)
-                               ret += std::string(left_pad,' ');
-                        ret += s;
-                        if(right_pad)
-                               ret += std::string(right_pad,' ');
-                        return std::move(ret);
-                };
-                
-                std::cout << "   ";
-                for(size_t i{0};i!=13;++i){
-                        std::cout << pad( rank_decl::get(12-i).to_string(), widths[i] ) << " ";
-                }
-                std::cout << "\n";
-                std::cout << "  +" << std::string( std::accumulate(widths.begin(), widths.end(), 0) + 13, '-') << "\n";
-
-                for(size_t i{0};i!=13;++i){
-                        std::cout << rank_decl::get(12-i).to_string() << " |";
-                        for(size_t j{0};j!=13;++j){
-                                if( j != 0){
-                                        std::cout << " ";
-                                }
-                                std::cout << pad(token_buffer[j][i], widths[j]);
-                        }
-                        std::cout << "\n";
-                }
-        }
-        void transform(std::function<double(size_t i, double)> const& t){
-                for(size_t i{0};i!=169;++i){
-                        vec_[i] = t(i, vec_[i]);
-                }
-        }
-        bool operator<(holdem_class_strategy const& that)const{
-                return vec_ < that.vec_;
-        }
-private:
-        std::array<double, 169> vec_;
-};
-
-struct calc_context{
-        holdem_class_strategy sb_push_strat;
-        holdem_class_strategy bb_call_strat;
-        double eff_stack;
-        double sb;
-        double bb;
-        holdem_class_id sb_id;
-        holdem_class_id bb_id;
-};
 
 /*
                 
@@ -210,33 +31,6 @@ struct calc_context{
 
  */
 
-
-struct hu_class_evaluator{
-        explicit hu_class_evaluator(std::string fn){
-                auto& eval = class_equity_evaluator_factory::get("cached");
-                auto& cache = holdem_class_eval_cache_factory::get("main");
-                cache.load("cache.bin");
-                eval.inject_cache( std::shared_ptr<holdem_class_eval_cache>(&cache, [](auto){}));
-                for(holdem_class_id hero{0};hero != holdem_class_decl::max_id; ++hero){
-                        for(holdem_class_id villian{0};villian != holdem_class_decl::max_id; ++villian){
-                                holdem_class_vector vec;
-                                vec.push_back(hero);
-                                vec.push_back(villian);
-                                auto ret = eval.evaluate(vec);
-                                cache_[ linear_map_(hero, villian) ] = ret;
-                        }
-                }
-        }
-        std::shared_ptr<equity_breakdown>  evaluate(holdem_class_id hero, holdem_class_id villian)const{
-                return cache_[ linear_map_(hero, villian) ];
-        }
-private:
-        size_t linear_map_(holdem_class_id hero, holdem_class_id villian)const{
-                return hero * 169 + villian;
-        }
-        std::array< std::shared_ptr<equity_breakdown>, 169 * 169 > cache_;
-};
-
 // given hands
 //    {sb_id, bb_id}
 double calc_detail(calc_context& ctx)
@@ -249,13 +43,13 @@ double calc_detail(calc_context& ctx)
                          ____/        \_____
                         /                   \
                <sb_push_bb_call>      <sb_push_bb_fold>
+               
 
          */
         struct sb_push{
                 struct sb_push__bb_call{
                         double operator()(calc_context& ctx)const{
-                                static hu_class_evaluator eval("cache.bin");
-                                auto equity = eval.evaluate(ctx.sb_id,ctx.bb_id )->player(0).equity();
+                                auto equity = ctx.cec->visit_boards(std::vector<ps::holdem_class_id>{ ctx.sb_id,ctx.bb_id }).equity();
                                 return ctx.eff_stack * ( 2 * equity - 1 );
                         }
                 };
@@ -296,7 +90,24 @@ double calc_detail(calc_context& ctx)
         static root root_;
         return root_(ctx);
 }
-double calc_impl(calc_context& ctx){
+double calc( class_equity_cacher& cec,
+                   hu_strategy const& sb_push_strat,
+                   hu_strategy const& bb_call_strat,
+                   double eff_stack, double sb, double bb)
+{
+        calc_context ctx = {
+                &cec,
+                sb_push_strat,
+                bb_call_strat,
+                eff_stack,
+                sb,
+                bb,
+                0,
+                0
+        };
+        return calc(ctx);
+}
+double calc(calc_context& ctx){
         double sigma{0.0};
         for(ctx.sb_id = 0; ctx.sb_id != 169;++ctx.sb_id){
                 for(ctx.bb_id = 0; ctx.bb_id != 169;++ctx.bb_id){
@@ -307,26 +118,23 @@ double calc_impl(calc_context& ctx){
         }
         return sigma;
 }
-double calc( holdem_class_strategy const& sb_push_strat,
-             holdem_class_strategy const& bb_call_strat,
-             double eff_stack, double sb, double bb)
+
+
+hu_strategy solve_hu_push_fold_bb_maximal_exploitable(ps::class_equity_cacher& cec,
+                                               hu_strategy const& sb_push_strat,
+                                               double eff_stack, double sb, double bb)
 {
-        calc_context ctx = {
-                sb_push_strat,
-                bb_call_strat,
-                eff_stack,
-                sb,
-                bb,
-                0,
-                0
+        struct context{
+                class_equity_cacher* cec;
+                hu_strategy sb_push_strat;
+                hu_strategy bb_call_strat;
+                double eff_stack;
+                double sb;
+                double bb;
+                holdem_class_id bb_id;
+                
+                hu_strategy debug;
         };
-        return calc_impl(ctx);
-}
-
-
-holdem_class_strategy solve_hu_push_fold_bb_maximal_exploitable( holdem_class_strategy const& sb_push_strat,
-                                                       double eff_stack, double sb, double bb)
-{
         /*
                                          <solver>
                                     ______/  \______
@@ -335,39 +143,39 @@ holdem_class_strategy solve_hu_push_fold_bb_maximal_exploitable( holdem_class_st
 
          */
         struct fold{
-                double operator()(calc_context& ctx)const{
+                double operator()(context& ctx)const{
                         return 0;
                         //return -ctx.bb;
                 }
         };
         struct call{
-                double operator()(calc_context& ctx)const{
-                        static auto const& eval = hu_class_evaluator("cache.bin");
-                        auto agg = std::make_shared<fequity_breakdown_matrix_aggregator>(2);
+                double operator()(context& ctx)const{
+                        hu_fresult_t res;
                         for(holdem_class_id sb_id{0}; sb_id != 169;++sb_id){
-                                auto eb = eval.evaluate(ctx.bb_id, sb_id );
+                                hu_fresult_t tmp{ctx.cec->visit_boards(std::vector<ps::holdem_class_id>{ ctx.bb_id, sb_id })};
                                 auto weight = ctx.sb_push_strat[sb_id];
-
-                                agg->append_scalar(*eb, weight);
+                                
+                                tmp.times(weight);
+                                res.append(tmp);
+                                
 
                         }
 
-                        auto equity = agg->player(0).equity();
-
                         // edge case, can return anything here probably
-                        if( equity == 0 )
+                        if( res.sigma() == 0 )
                                 return 0.0;
                         
                         //PRINT_SEQ((ctx.eff_stack)(ctx.sb)(ctx.bb));
 
-                        double ev{ ctx.eff_stack   *   2   * equity - ( ctx.eff_stack - ctx.bb ) };
+                        double ev{ ctx.eff_stack * 2 * res.equity() - ( ctx.eff_stack - ctx.bb ) };
                         //         \----equity of pot to win -----/   \------cost of bet-------/
 
+                        ctx.debug[ctx.bb_id] = ev;
                         return ev;
                 }
         };
         struct solver{
-                void operator()(calc_context& ctx)const{
+                void operator()(context& ctx)const{
                         //ctx.debug[ctx.bb_id] = ev_call;
                         if( call_(ctx) > fold_(ctx) ){
                                 ctx.bb_call_strat[ctx.bb_id] = 1.0;
@@ -378,9 +186,10 @@ holdem_class_strategy solve_hu_push_fold_bb_maximal_exploitable( holdem_class_st
                 fold fold_;
         };
 
-        calc_context ctx = {
+        context ctx = {
+                &cec,
                 sb_push_strat,
-                holdem_class_strategy{0.0},
+                hu_strategy{0.0},
                 eff_stack,
                 sb,
                 bb,
@@ -401,25 +210,36 @@ holdem_class_strategy solve_hu_push_fold_bb_maximal_exploitable( holdem_class_st
         #endif
         return std::move(ctx.bb_call_strat);
 } 
-holdem_class_strategy solve_hu_push_fold_sb_maximal_exploitable( holdem_class_strategy const& bb_call_strat,
-                                                                 double eff_stack, double sb, double bb)
+hu_strategy solve_hu_push_fold_sb_maximal_exploitable(ps::class_equity_cacher& cec,
+                                               hu_strategy const& bb_call_strat,
+                                               double eff_stack, double sb, double bb)
 {
+        struct context{
+                class_equity_cacher* cec;
+                hu_strategy sb_push_strat;
+                hu_strategy bb_call_strat;
+                double eff_stack;
+                double sb;
+                double bb;
+                holdem_class_id bb_id;
+                holdem_class_id sb_id;
+                hu_strategy debug;
+        };
         struct sb_push__bb_call{
-                double operator()(calc_context& ctx)const{
-                        static hu_class_evaluator eval("cache.bin");
-                        auto equity = eval.evaluate(  ctx.sb_id,ctx.bb_id  )->player(0).equity();
+                double operator()(context& ctx)const{
+                        auto equity = ctx.cec->visit_boards(std::vector<ps::holdem_class_id>{ ctx.sb_id, ctx.bb_id }).equity();
                         return ctx.eff_stack * 2 *  equity - ( ctx.eff_stack -  ctx.sb );
                         //     \- reuity of pot to win  -/   \--- cost of bet  --------/
                 }
         };
         struct sb_push__bb_fold{
-                double operator()(calc_context& ctx)const{
+                double operator()(context& ctx)const{
                         return ctx.sb + ctx.bb;
                 }
         };
         #if 0
         struct sb_push{
-                double operator()(calc_context& ctx)const{
+                double operator()(context& ctx)const{
 
                         hu_fresult_t agg;
                         for(ctx.bb_id = 0; ctx.bb_id != 169;++ctx.bb_id){
@@ -436,7 +256,7 @@ holdem_class_strategy solve_hu_push_fold_sb_maximal_exploitable( holdem_class_st
         };
         #else
         struct sb_push{
-                double operator()(calc_context& ctx)const{
+                double operator()(context& ctx)const{
                         double sigma{0.0};
                         double factor{0.0};
 
@@ -461,13 +281,13 @@ holdem_class_strategy solve_hu_push_fold_sb_maximal_exploitable( holdem_class_st
         };
         #endif
         struct sb_fold{
-               double operator()(calc_context& ctx)const{
+               double operator()(context& ctx)const{
                         //return ctx.sb;
                         return 0;
                 }
         };
         struct solver{
-                void operator()(calc_context& ctx)const{
+                void operator()(context& ctx)const{
                         auto ev_push =  sb_push_(ctx) ;
                         auto ev_fold =  sb_fold_(ctx) ;
                         //PRINT_SEQ((ev_push)(ev_fold));
@@ -478,8 +298,9 @@ holdem_class_strategy solve_hu_push_fold_sb_maximal_exploitable( holdem_class_st
                 sb_push sb_push_;
                 sb_fold sb_fold_;
         };
-        calc_context ctx = {
-                holdem_class_strategy{0.0},
+        context ctx = {
+                &cec,
+                hu_strategy{0.0},
                 bb_call_strat,
                 eff_stack,
                 sb,
@@ -493,27 +314,30 @@ holdem_class_strategy solve_hu_push_fold_sb_maximal_exploitable( holdem_class_st
                 solver_(ctx);
         }
         
+        //std::cout << "HERE is SB Push diff\n";
+        ctx.debug.display();
         return std::move(ctx.sb_push_strat);
 } 
 
-holdem_class_strategy solve_hu_push_fold_sb( double eff_stack, double sb, double bb){
+hu_strategy solve_hu_push_fold_sb(ps::class_equity_cacher& cec,
+                           double eff_stack, double sb, double bb){
         double alpha{0.3};
-        holdem_class_strategy sb_strat{1.0};
+        hu_strategy sb_strat{1.0};
 
-        std::set< holdem_class_strategy > circular_set;
+        std::set< hu_strategy > circular_set;
 
         for(size_t i=0;;++i){
                 boost::timer::auto_cpu_timer at;
 
-                auto bb_me = solve_hu_push_fold_bb_maximal_exploitable(
+                auto bb_me = solve_hu_push_fold_bb_maximal_exploitable(cec,
                                                                      sb_strat,
                                                                      eff_stack,
                                                                      sb,
                                                                      bb);
 
-                double ev = calc(sb_strat, bb_me, eff_stack, sb, bb);
+                double ev = calc(cec, sb_strat, bb_me, eff_stack, sb, bb);
 
-                auto sb_me = solve_hu_push_fold_sb_maximal_exploitable(
+                auto sb_me = solve_hu_push_fold_sb_maximal_exploitable(cec,
                                                                        bb_me,
                                                                        eff_stack,
                                                                        sb,
@@ -533,7 +357,7 @@ holdem_class_strategy solve_hu_push_fold_sb( double eff_stack, double sb, double
                 (sb_me - sb_me_alt).display();
                 #endif
                 
-                double ev_{calc(sb_me, bb_me, eff_stack, sb, bb)};
+                double ev_{calc(cec, sb_me, bb_me, eff_stack, sb, bb)};
 
                 std::cout << "BB COUNTER\n";
                 bb_me.display();
@@ -577,27 +401,31 @@ holdem_class_strategy solve_hu_push_fold_sb( double eff_stack, double sb, double
 void make_heads_up_table(){
         using namespace ps;
 
+        equity_cacher ec;
+        ec.load("cache.bin");
+        class_equity_cacher cec(ec);
+        cec.load("hc_cache.bin");
 
         double bb{1.0};
         double sb{0.5};
                 
-        holdem_class_strategy sb_table{0.0};
-        holdem_class_strategy bb_table{0.0};
+        hu_strategy sb_table{0.0};
+        hu_strategy bb_table{0.0};
 
         std::vector<
                 std::tuple<
                         double, // stack
-                        std::future<holdem_class_strategy>
+                        std::future<hu_strategy>
                 >
         > results;
 
         for( double eff_stack{4.0};eff_stack < 10;eff_stack += 1){
 
-                auto work = [eff_stack,sb,bb]()->holdem_class_strategy{
-                        auto sb_strat = solve_hu_push_fold_sb( eff_stack, sb, bb);
+                auto work = [&cec, eff_stack,sb,bb]()->hu_strategy{
+                        auto sb_strat = solve_hu_push_fold_sb(cec, eff_stack, sb, bb);
                         return std::move(sb_strat);
                 };
-                std::packaged_task<holdem_class_strategy()> pt(work);
+                std::packaged_task<hu_strategy()> pt(work);
                 results.emplace_back( eff_stack, pt.get_future());
                 std::thread{std::move(pt)}.detach();
 
@@ -608,10 +436,11 @@ void make_heads_up_table(){
                 std::get<1>(r).wait();
                 auto eff_stack =  std::get<0>(r) ;
                 auto sb_strat =  std::get<1>(r).get() ;
-                auto bb_strat = solve_hu_push_fold_bb_maximal_exploitable( sb_strat,
-                                                                           eff_stack,
-                                                                           sb,
-                                                                           bb);
+                auto bb_strat = solve_hu_push_fold_bb_maximal_exploitable(cec,
+                                                                          sb_strat,
+                                                                          eff_stack,
+                                                                          sb,
+                                                                          bb);
                 for(size_t i{0};i!=169;++i){
                         if( sb_strat[i] < 1e-3 )
                                 continue;
@@ -637,11 +466,13 @@ void make_heads_up_table(){
 
 
 
-int main(){
-        try{
-                make_heads_up_table();
-        } catch(std::exception const& e){
-                std::cerr << "Caught exception: " << e.what() << "\n";
-        }
-        return EXIT_FAILURE;
-}
+
+
+
+
+
+
+
+
+
+} // ps

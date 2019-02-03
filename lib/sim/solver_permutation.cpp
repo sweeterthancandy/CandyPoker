@@ -38,10 +38,11 @@ namespace sim{
                         V.DeclArgument("max-evaluations", max_evaluations, "upper limit of where to fail");
                 }
                 void Read(bpt::ptree const& args){
-                        grid_size      = args.get<double>("grid-size");
-                        max_popcount   = args.get<size_t>("max-popcount");
-                        clamp_epsilon  = args.get<double>("clamp-epsilon");
+                        grid_size       = args.get<double>("grid-size");
+                        max_popcount    = args.get<size_t>("max-popcount");
+                        clamp_epsilon   = args.get<double>("clamp-epsilon");
                         dbg_use_threads = args.get<size_t>("dbg-use-threads");
+                        max_evaluations = args.get<size_t>("max-evaluations");
                 }
         };
         struct PermutationSolver : Solver{

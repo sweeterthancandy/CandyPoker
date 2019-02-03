@@ -60,8 +60,8 @@ set(base_sources
         
         lib/support/singleton_factory.cpp
 
-        lib/sim/alpha_solver.cpp
-        lib/sim/simple_numeric.cpp
+        lib/sim/solver_numeric.cpp
+        lib/sim/solver_permutation.cpp
         #lib/sim/delta_sequence.cpp
         #lib/sim/pipeline.cpp
 )

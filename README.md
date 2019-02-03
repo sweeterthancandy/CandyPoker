@@ -108,7 +108,22 @@ The poker evaulation doesn't support any boards, as this is mostly noise in the 
         |High Card - 1 Over |3907620 |  15.035321821036106  |  69.929356357927787  |
         |High Card - Unders |7815240 |  30.070643642072213  |         100          |
         +-------------------+--------+----------------------+----------------------+
+
 ## Two Player Push Fold EV
+
+
+For solving push/fold games, a distinction has to be made between mixed solutions and minimally-mixed solutions. From a game theory perspective there should exist a GTO solution where each decision has only one holdem hand type mixed, meaning we can partition a strategy into {PUSH,FOLD,MIXED}, where MIXED has only one holdem hand type like 68s etc. What this means is that, it we are only looking for any solution, we can run a algorithm of
+
+        Stategry FindAnyGTO(Stategry S){
+                double factor = 0.05;
+                for(; SomeCondition(S); ){
+                        auto counter = CounterStrategy(S);
+                        S = S * ( 1- factor ) + counter * factor;
+                }
+                return S;
+        }
+
+The above will converge to a GTO solution, whichkkj
 
 This is a simple situation. The SB has the option to push or fold, and the SB has the option of call or fold. 
 

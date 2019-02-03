@@ -29,6 +29,6 @@
                 { "solver":"numeric-sequence", "args": { "clamp-epsilon":1e-3, "sequence-type":"total-sequence", "factor":0.4 , "ttl":1, "stride":20  } },
                 { "solver":"numeric-sequence", "args": { "clamp-epsilon":1e-3, "sequence-type":"total-sequence", "factor":0.2 , "ttl":1, "stride":40  } },
                 { "solver":"numeric-sequence", "args": { "clamp-epsilon":1e-3, "sequence-type":"total-sequence", "factor":0.1 , "ttl":1, "stride":80  } },
-                { "solver":"numeric-sequence", "args": { "clamp-epsilon":5e-4, "sequence-type":"norm-sequence", "factor":0.005,"ttl":1, "stride":100 } }
+                { "solver":"permutation"     , "args": { "max-evaluations":1000000, "grid-size":1 } }
         ]
 }

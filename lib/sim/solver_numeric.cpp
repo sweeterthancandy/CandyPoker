@@ -69,10 +69,8 @@ namespace sim{
                                         StateType
                                 >
                         >;
-                        virtual void Init(
-                                std::shared_ptr<GameTree> gt, GraphColouring<AggregateComputer> AG,
-                                SimpleNumericArguments& args){}
                         virtual ApplyReturnType Apply(
+                                size_t loop_count,
                                 std::shared_ptr<GameTree> gt, GraphColouring<AggregateComputer> AG,
                                 SimpleNumericArguments& args, Solution const& solution)=0;
                 };
@@ -81,16 +79,14 @@ namespace sim{
                 
                 
                 struct ProfileController : Controller{
-                        virtual void Init(
-                                std::shared_ptr<GameTree> gt, GraphColouring<AggregateComputer> AG,
-                                SimpleNumericArguments& args)override{
-                                timer_.start();
-                        }
                         virtual ApplyReturnType Apply(
+                                size_t loop_count,
                                 std::shared_ptr<GameTree> gt, GraphColouring<AggregateComputer> AG,
                                 SimpleNumericArguments& args, Solution const& solution)override
                         {
-                                PS_LOG(trace) << "Loop took " << timer_.format();
+                                if( loop_count != 0 ){
+                                        PS_LOG(trace) << "Loop took " << timer_.format();
+                                }
                                 timer_.start();
                                 return {};
                         }
@@ -110,23 +106,27 @@ namespace sim{
                                                            StateType const& S0)override
                 {
                         auto S = S0;
+                                
+                        auto solution0 = Solution::MakeWithDeps(gt, AG, S0);
 
                         for(auto& ctrl : controllers_ ){
-                                ctrl->Init(gt, AG, args_);
+                                auto opt_opt = ctrl->Apply(0, gt, AG, args_, solution0);
+                                if( opt_opt ){
+                                        PS_LOG(trace) << "skipping solver";
+                                        return *opt_opt;
+                                }
                         }
-                        for(;;){
+
+                        for(size_t loop_count{1};;++loop_count){
                                 for(size_t inner=0;inner!=args_.stride;++inner){
                                         auto S_counter = computation_kernel::CounterStrategy(gt, AG, S, args_.delta);
                                         computation_kernel::InplaceLinearCombination(S, S_counter, 1 - args_.factor );
                                 }
                                 computation_kernel::InplaceClamp(S, args_.clamp_epsilon);
                                         
-                                DisplayStrategy(S,6);
-                                
                                 auto solution = Solution::MakeWithDeps(gt, AG, S);
-
                                 for(auto& ctrl : controllers_ ){
-                                        auto opt_opt = ctrl->Apply(gt, AG, args_, solution);
+                                        auto opt_opt = ctrl->Apply(loop_count, gt, AG, args_, solution);
                                         if( opt_opt ){
                                                 return *opt_opt;
                                         }
@@ -173,6 +173,7 @@ namespace sim{
                         {}
 
                         virtual ApplyReturnType Apply(
+                                size_t loop_count,
                                 std::shared_ptr<GameTree> gt, GraphColouring<AggregateComputer> AG,
                                 SimpleNumericArguments& args, Solution const& solution)override
                         {
@@ -279,6 +280,7 @@ namespace sim{
                                 : cond_{cond}
                         {}
                         virtual ApplyReturnType Apply(
+                                size_t loop_count,
                                 std::shared_ptr<GameTree> gt, GraphColouring<AggregateComputer> AG,
                                 SimpleNumericArguments& args, Solution const& solution)override
                         {
@@ -296,6 +298,7 @@ namespace sim{
                 // The idea is to use this with TakeFirstController
                 struct SequencePrinterController : SimpleNumeric::Controller{
                         virtual ApplyReturnType Apply(
+                                size_t loop_count,
                                 std::shared_ptr<GameTree> gt, GraphColouring<AggregateComputer> AG,
                                 SimpleNumericArguments& args, Solution const& solution)override
                         {

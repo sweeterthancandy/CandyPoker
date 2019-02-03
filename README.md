@@ -123,7 +123,7 @@ For solving push/fold games, a distinction has to be made between mixed solution
                 return S;
         }
 
-The above will converge to a GTO solution, whichkkj
+The above will converge to a GTO solution, if you where to program a computer to play poker, however we want to find a minimally mixed solution.
 
 This is a simple situation. The SB has the option to push or fold, and the SB has the option of call or fold. 
 

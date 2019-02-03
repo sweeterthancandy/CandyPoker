@@ -236,8 +236,8 @@ namespace sim{
                         }
 
 
-                       std::vector<StateType> SV_family; 
-                        for(auto const& realization : realizations){
+                        std::vector<StateType> SV_family; 
+                        for(auto const& realization : boost::range::unique(boost::range::sort(realizations))){
                                 std::vector<StateType> SV;
                                 SV.push_back(S);
                                 // for each player
@@ -299,7 +299,8 @@ namespace sim{
                         if( args_.dbg_use_threads ){
                                 std::vector<std::future<Solution> > futs;
                                 for(auto& t : tasks ){
-                                        futs.push_back( std::async(std::launch::async, t) );
+                                        //futs.push_back( std::async(std::launch::async, t) );
+                                        futs.push_back( std::async(t) );
                                 }
                                 for(auto& f : futs){
                                         solution_candidates.push_back(f.get());

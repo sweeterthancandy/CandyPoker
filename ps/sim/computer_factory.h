@@ -194,7 +194,7 @@ namespace sim{
 
                 }
                 
-                std::string cache_name{".cc.bin.prod"};
+                std::string cache_name{".cc.bin"};
                 class_cache C;
                 C.load(cache_name);
                 IndexMaker im(*gt);

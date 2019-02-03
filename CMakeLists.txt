@@ -82,10 +82,10 @@ set(
         app/cmd_cache.cpp 
 )
 
-add_executable(driver ${driver_sources} )
-target_link_libraries(driver pthread )
-target_link_libraries(driver ${Boost_LIBRARIES})
-target_link_libraries(driver ps_lib )
-#target_link_libraries(driver Eigen3::Eigen)
+add_executable(candy-poker ${driver_sources} )
+target_link_libraries(candy-poker pthread )
+target_link_libraries(candy-poker ${Boost_LIBRARIES})
+target_link_libraries(candy-poker ps_lib )
+#target_link_libraries(candy-poker Eigen3::Eigen)
 
 

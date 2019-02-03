@@ -26,5 +26,9 @@
         "D":[
                 { "solver":"numeric-sequence", "args": { "clamp-epsilon":1e-3, "sequence-type":"total-sequence", "factor":0.4 , "ttl":1, "stride":20  } },
                 { "solver":"single-permutation" }
+        ],
+        "quick-solver":[
+                { "solver":"numeric-sequence", "args": { "clamp-epsilon":1e-3, "sequence-type":"total-sequence", "factor":0.4 , "ttl":1, "stride":20  } },
+                { "solver":"single-permutation" }
         ]
 }

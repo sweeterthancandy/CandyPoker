@@ -1,9 +1,37 @@
 # CandyPoker
 
-This is a C++ poker project authored by Gerry Candy, which aims to be the de-factor C++ poker library. This project was started in 2017 with the original goals
-* Be the fastest evaluation library
+This is a C++ poker project authored by Gerry Candy, which aims to be a general C++ poker library. This project was started in 2017 with the original goals of,
+* Be a fast evaluation library
 * Solve three-player push-fold
 * Provide an framework for other poker software
+
+The original goals have now been achived
+
+# Getting Started
+
+The requirements are boost, and Eigen. Although Eigen is just used for Vector/Matrix multiplication
+
+        git@github.com:sweeterthancandy/CandyPoker.git
+        cd CandyPoker
+        cmake -G Ninja -DCMAKE_BUILD_TYPE=Release .
+        ninja
+
+        # simple equity evaluation
+        ./candy-poker eval AA KK 
+        |range| equity |  wins  |draw_1|draw equity| sigma  |
+        +-----+--------+--------+------+-----------+--------+
+        | AA  |81.9461%|50371344|285228|142614.00% |61642944|
+        | KK  |18.0539%|10986372|285228|142614.00% |61642944|
+        # create binary all in equity cache
+        ./candy-poker read-cache --file Assets/PushFoldEquity.json
+
+        # now create the cache
+        ./candy-poker read-cache
+        mv .cc.bin.stage .cc.bin
+
+        # now create HU push-fold table
+
+
 
 ## Poker Evaluation
 
@@ -168,7 +196,7 @@ What is actually much more of a problem is finding a solution with the least num
 
 #### --print-seq
 
-        The print-seq option shows a table with metrics for each solution. Below we can see that each solution only has one card different in the Gamma vector.
+The print-seq option shows a table with metrics for each solution. Below we can see that each solution only has one card different in the Gamma vector.
 
         |           Desc           | ? |Level|Total|Gamma |  GammaCards  |Mixed |MixedCards |         |.|          |
         +--------------------------+---+-----+-----+------+--------------+------+-----------+----------------------+

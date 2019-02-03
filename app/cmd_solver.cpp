@@ -260,10 +260,10 @@ namespace ps{
         };
 
         
-        struct ScratchCmd : Command{
+        struct SolverCmd : Command{
                 enum{ Debug = 1};
                 explicit
-                ScratchCmd(std::vector<std::string> const& args):args_{args}{}
+                SolverCmd(std::vector<std::string> const& args):args_{args}{}
                 virtual int Execute()override{
 
 
@@ -284,7 +284,7 @@ namespace ps{
                         bool print_seq{false};
 
 
-                        bpo::options_description desc("Scratch command");
+                        bpo::options_description desc("Solver command");
                         desc.add_options()
                                 ("debug"     , bpo::value(&debug)->implicit_value(true), "debug flag")
                                 ("help"      , bpo::value(&help)->implicit_value(true), "this message")
@@ -389,5 +389,5 @@ namespace ps{
         private:
                 std::vector<std::string> const& args_;
         };
-        static TrivialCommandDecl<ScratchCmd> ScratchCmdDecl{"scratch"};
+        static TrivialCommandDecl<SolverCmd> SolverCmdDecl{"solver"};
 } // end namespace ps

@@ -115,9 +115,9 @@ namespace ps{
                                                            StateType const& inital_state,
                                                            std::string const& solver_extra)override
                 {
-                        auto solver = SolverDecl::MakeSolver(solver_name, gt, AG.Get(), inital_state, solver_extra);
+                        auto solver = SolverDecl::MakeSolver(solver_name, solver_extra);
                         ContextImpl ctx;
-                        auto opt = solver->Execute(ctx);
+                        auto opt = solver->Execute(ctx, gt, AG.Get(), inital_state);
                         return {true, std::move(opt)};
                 }
         };

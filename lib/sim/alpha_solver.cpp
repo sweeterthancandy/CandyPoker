@@ -69,20 +69,20 @@ namespace sim{
                         size_t player_index;
                         std::vector<size_t> mixed;
                 };
-                PermutationSolver(std::shared_ptr<GameTree> gt_, GraphColouring<AggregateComputer> AG_, StateType state0_,
-                                  PermutationSolverArguments const& args)
-                        :gt(gt_),
-                        AG(AG_),
-                        state0(state0_),
-                        args_{args}
+                PermutationSolver( PermutationSolverArguments const& args)
+                        : args_{args}
                 {}
-                virtual boost::optional<StateType> Execute(SolverContext& ctx)override{
+                virtual boost::optional<StateType> Execute(SolverContext& ctx,
+                                                           std::shared_ptr<GameTree> const& gt,
+                                                           GraphColouring<AggregateComputer> const& AG,
+                                                           StateType const& S0)override
+                {
 
                         PS_LOG(trace) << "----------------- PermutationSolver ---------------";
 
                         assert( args_.grid_size != 1 );
                         
-                        Solution Sol = Solution::MakeWithDeps(gt, AG, state0);
+                        Solution Sol = Solution::MakeWithDeps(gt, AG, S0);
                         auto const& S = Sol.S;
 
                         auto const& Counter = Sol.Counter;
@@ -344,9 +344,6 @@ namespace sim{
                         #endif
                 }
         private:
-                std::shared_ptr<GameTree> gt;
-                GraphColouring<AggregateComputer> AG;
-                StateType state0;
                 PermutationSolverArguments args_;
         };
         
@@ -355,14 +352,11 @@ namespace sim{
                         PermutationSolverArguments proto;
                         proto.EmitDescriptions(V);
                 }
-                virtual std::shared_ptr<Solver> Make( std::shared_ptr<GameTree> gt,
-                                                      GraphColouring<AggregateComputer> AG,
-                                                      StateType const& inital_state,
-                                                      bpt::ptree const& args)const override
+                virtual std::shared_ptr<Solver> Make( bpt::ptree const& args)const override
                 {
                         PermutationSolverArguments bargs;
                         bargs.Read(args);
-                        return std::make_shared<PermutationSolver>(gt, AG, inital_state, bargs);
+                        return std::make_shared<PermutationSolver>(bargs);
                 }
         };
 

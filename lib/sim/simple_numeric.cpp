@@ -133,33 +133,32 @@ namespace sim{
                 };
 
 
-                SimpleNumeric(std::shared_ptr<GameTree> gt, GraphColouring<AggregateComputer> AG, StateType state0,
-                              SimpleNumericArguments const& args)
-                        :gt_(gt),
-                        AG_(AG),
-                        state0_(state0),
-                        args_{args}
+                SimpleNumeric( SimpleNumericArguments const& args)
+                        : args_{args}
                 {}
-                virtual boost::optional<StateType> Execute(SolverContext& ctx)override
+                virtual boost::optional<StateType> Execute(SolverContext& ctx,
+                                                           std::shared_ptr<GameTree> const& gt,
+                                                           GraphColouring<AggregateComputer> const& AG,
+                                                           StateType const& S0)override
                 {
-                        auto S = state0_;
+                        auto S = S0;
 
                         for(auto& ctrl : controllers_ ){
-                                ctrl->Init(gt_, AG_, args_);
+                                ctrl->Init(gt, AG, args_);
                         }
                         for(;;){
                                 for(size_t inner=0;inner!=args_.stride;++inner){
-                                        auto S_counter = computation_kernel::CounterStrategy(gt_, AG_, S, args_.delta);
+                                        auto S_counter = computation_kernel::CounterStrategy(gt, AG, S, args_.delta);
                                         computation_kernel::InplaceLinearCombination(S, S_counter, 1 - args_.factor );
                                 }
                                 computation_kernel::InplaceClamp(S, args_.clamp_epsilon);
                                         
                                 DisplayStrategy(S,6);
                                 
-                                auto solution = Solution::MakeWithDeps(gt_, AG_, S);
+                                auto solution = Solution::MakeWithDeps(gt, AG, S);
 
                                 for(auto& ctrl : controllers_ ){
-                                        auto opt_opt = ctrl->Apply(gt_, AG_, args_, solution);
+                                        auto opt_opt = ctrl->Apply(gt, AG, args_, solution);
                                         if( opt_opt ){
                                                 return *opt_opt;
                                         }
@@ -171,9 +170,6 @@ namespace sim{
                         controllers_.push_back(ctrl);
                 }
         private:
-                std::shared_ptr<GameTree> gt_;
-                GraphColouring<AggregateComputer> AG_;
-                StateType state0_;
                 SimpleNumericArguments args_;
                 std::vector<std::shared_ptr<Controller> > controllers_;
         };
@@ -240,10 +236,7 @@ namespace sim{
 
 
                 }
-                virtual std::shared_ptr<Solver> Make( std::shared_ptr<GameTree> gt,
-                                                      GraphColouring<AggregateComputer> AG,
-                                                      StateType const& inital_state,
-                                                      bpt::ptree const& args)const override
+                virtual std::shared_ptr<Solver> Make( bpt::ptree const& args)const override
                 {
 
                         NumericSeqArguments sargs;
@@ -266,7 +259,7 @@ namespace sim{
 
                         auto ctrl = std::make_shared<ConstantSequenceController>( SequenceConsumer( comp->second ), sargs.ttl );
 
-                        auto solver = std::make_shared<SimpleNumeric>(gt, AG, inital_state, sargs);
+                        auto solver = std::make_shared<SimpleNumeric>(sargs);
                         solver->AddController(ctrl);
 
                         return solver;
@@ -337,16 +330,13 @@ namespace sim{
                         TrailSolutionArguments proto;
                         proto.EmitDescriptions(V);
                 }
-                virtual std::shared_ptr<Solver> Make( std::shared_ptr<GameTree> gt,
-                                                      GraphColouring<AggregateComputer> AG,
-                                                      StateType const& inital_state,
-                                                      bpt::ptree const& args)const override
+                virtual std::shared_ptr<Solver> Make(bpt::ptree const& args)const override
                 {
 
                         TrailSolutionArguments sargs;
                         sargs.Read(args);
 
-                        auto solver = std::make_shared<SimpleNumeric>(gt, AG, inital_state, sargs);
+                        auto solver = std::make_shared<SimpleNumeric>(sargs);
                         solver->AddController(std::make_shared<SequencePrinterController>());
                         solver->AddController(std::make_shared<SimpleNumeric::ProfileController>());
                         solver->AddController(std::make_shared<TakeFirstController>([lvl=sargs.level](auto const& sol){ return sol.Level <= lvl; }));

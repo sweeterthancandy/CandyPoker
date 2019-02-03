@@ -475,7 +475,7 @@ namespace sim{
                 }
 
                 static Solution MakeWithDeps(std::shared_ptr<GameTree> gt,
-                                             GraphColouring<AggregateComputer>& AG,
+                                             GraphColouring<AggregateComputer> const& AG,
                                              StateType const& S)
                 {
                         auto root = gt->Root();

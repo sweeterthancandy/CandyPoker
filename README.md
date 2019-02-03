@@ -1,9 +1,9 @@
 # CandyPoker
 
 This is a C++ poker project authored by Gerry Candy, which aims to be the de-factor C++ poker library. This project was started in 2017 with the original goals
-*** Be the fastest evaluation library
-*** Solve three-player push-fold
-*** Provide an framework for other poker software
+* Be the fastest evaluation library
+* Solve three-player push-fold
+* Provide an framework for other poker software
 
 ## Poker Evaluation
 
@@ -46,13 +46,44 @@ The Gamma for a solution is the number of hands, for which the counterstrategy i
 
 The Level of a solution is the maximum number of Gamma cards for each player. So a gamma vector of {{Q5s}, {64o,QJo}} would correspond to (1,2), so the level of the solution is 2, and the total is 3.
 
-# Solution Sequence
+### Solution Sequence
 
-Find GTO poker solutions is a stochastic process, as we are finding the find the best solution possible. This means that we are basically producitng a sequence 
-- <img src="https://latex.codecogs.com/gif.latex?O_t=\text { Onset event at time bin } t " />
+Find GTO poker solutions is a stochastic process, as we are finding the find the best solution possible. This means that we are basically producing a sequence of candidate solutions {A0,A1,A2,...}, and from this we create a best to date sequence {B0,B1,B2,...}. 
+
+We have three solvers
+* simple-numeric
+* single-permutation
+* permutation
+
+#### simple-numeric
+
+This is the most basic solver, and is the basic FindAnyGTO() function that has been discussed. As an implementation detail we create an infinite loop, keeping taking the linear product of the two solutions, with a time to live variable of say 10, then if we have 10 iterations with a new best-to-date solution, we return that solution. 
 
 
-This is a simple situation. The SB has the option to push or fold, and the SB has the option of call or fold. 
+### single-permutation
+
+This is an algebraic solver, each takes the trail solution S, and creates a set with each gamma cards (a particilar card for with S is different from CounterStrategy(S)), with the trail solutions card replaced with either PUSH or FOLD, with all other cards the same. This means that with a gamma vector of {{Q5s}, {64o,QJo}} we would have 2^3 candidate solutions { S with Q5s for player 1 FOLD,  S with Q5s for player 1 PUSH, S with 64o for player 2 PUSH, ...}. We then see if any of these new strategies is a "better" solution, if this is the case we restart the algorith. This algorithm would find the specific solution, depending on the path taken by the best-to-date sequence. 
+
+### permutation
+
+This is another algebraic solver, which tries to replace take the Gamma vector, and replace all but 1 card per decision with a mixed solution, and discretized the mixed solution with a grid. 
+
+For eaxmple with a Gamma vector of {{Q5s}, {64o,QJo}}, we would have gamma vectors of 
+                (m)(ff)
+                (m)(pf)
+                (m)(fp)
+                (m)(pp)
+                (f)(mf)
+                (p)(mf)
+                (f)(mp)
+                (p)(mp)
+                (f)(fm)
+                (p)(fm)
+                (f)(pm)
+                (p)(pm),
+where in the above, we replace each m with one of (0,1/n,2/m,..,(n-1)/n,n). We then take the best solution
+
+
 
 
 For a quick example, we can run the command

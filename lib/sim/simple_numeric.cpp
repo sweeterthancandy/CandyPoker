@@ -99,38 +99,6 @@ namespace sim{
                 };
                 
                 
-                /*
-                        This is important. When we are running the numerical algorith,
-                        we can't have the factor too large otherwise we potentially 
-                        have an unstable solution, however at the start we can have a
-                        very large factor. Of course things like this complicate the
-                        algorithm so best have static conditions
-                 */
-                struct FactorTweakController : Controller{
-                        virtual void Init(
-                                std::shared_ptr<GameTree> gt, GraphColouring<AggregateComputer> AG,
-                                SimpleNumericArguments& args)override
-                        {
-                                saved_factor_ = args.factor;
-                                args.factor = 0.2;
-                                done_ = false;
-                        }
-                        virtual ApplyReturnType Apply(
-                                std::shared_ptr<GameTree> gt, GraphColouring<AggregateComputer> AG,
-                                SimpleNumericArguments& args, Solution const& solution)override
-                        {
-                                if( ! done_ ) {
-                                        if( solution.Level < 10 ){
-                                                args.factor = saved_factor_;
-                                                done_ = true;
-                                        }
-                                }
-                                return {};
-                        }
-                private:
-                        double saved_factor_;
-                        bool done_{false};
-                };
 
 
                 SimpleNumeric( SimpleNumericArguments const& args)
@@ -181,23 +149,27 @@ namespace sim{
 
                         size_t      ttl{10};
                         std::string sequence_type{"special"};
+                        size_t      min_level{0};
 
                         void EmitDescriptions(SolverDecl::ArgumentVisitor& V)const{
                                 ImplType::EmitDescriptions(V);
                                 V.DeclArgument("sequence-type", sequence_type, "how a sequence of solutions is choosen");
                                 V.DeclArgument("ttl"          , ttl          , "time to live of sequence");
+                                V.DeclArgument("min-level" , min_level, "minoimum level, this can be used to have a large factor");
                         }
                         void Read(bpt::ptree const& args){
                                 ImplType::Read(args);
                                 ttl           = args.get<size_t>("ttl");
                                 sequence_type = args.get<std::string>("sequence-type");
+                                min_level     = args.get<size_t>("min-level");
                         }
                 };
                 struct ConstantSequenceController : SimpleNumeric::Controller{
 
-                        ConstantSequenceController(SequenceConsumer const& seq, size_t ttl)
+                        ConstantSequenceController(SequenceConsumer const& seq, size_t ttl, size_t min_level)
                                 : seq_{seq}
                                 , ttl_{ttl}
+                                , min_level_{min_level}
                         {}
 
                         virtual ApplyReturnType Apply(
@@ -216,8 +188,14 @@ namespace sim{
                                         return seq_.AsOptState();
                                 }
 
-                                if( count_ >= ttl_ ){
+                                if( count_ >= ttl_){
                                         return seq_.AsOptState();
+                                }
+
+                                if( auto sol = seq_.AsOptSolution() ){
+                                        if(sol->Level < min_level_ || sol->Level == 0){
+                                                return boost::optional<StateType>{sol->S};
+                                        }
                                 }
 
                                 return {};
@@ -225,6 +203,7 @@ namespace sim{
                 private:
                         SequenceConsumer seq_;
                         size_t ttl_;
+                        size_t min_level_;
                         size_t count_{0};
                 };
 
@@ -247,6 +226,7 @@ namespace sim{
                                 std::function<bool(Solution const&, Solution const&)>
                         > comps = {
                                 { "level-sequence", [](auto const& head, auto const& candidate){ return head.Level < candidate.Level; } },
+                                { "total-sequence", [](auto const& head, auto const& candidate){ return head.Total < candidate.Total; } },
                                 { "norm-sequence" , [](auto const& head, auto const& candidate){ return head.Norm < candidate.Norm; } } ,
                                 { "special"       , [](auto const& head, auto const& candidate){ return head < candidate; } } 
                         };
@@ -257,7 +237,7 @@ namespace sim{
                                 BOOST_THROW_EXCEPTION(std::domain_error("no such sequence type of " + sargs.sequence_type ));
                         }
 
-                        auto ctrl = std::make_shared<ConstantSequenceController>( SequenceConsumer( comp->second ), sargs.ttl );
+                        auto ctrl = std::make_shared<ConstantSequenceController>( SequenceConsumer( comp->second ), sargs.ttl, sargs.min_level );
 
                         auto solver = std::make_shared<SimpleNumeric>(sargs);
                         solver->AddController(ctrl);

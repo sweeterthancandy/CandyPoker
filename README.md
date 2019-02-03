@@ -180,6 +180,7 @@ This was the original goal of the project. First consider the game tree in the b
         |*,p,pp,ppp| Eval |{0, 1, 2}|[10,10,10] |
 
 This tree is represented by a 6-vector
+
         (BTN P/F, SB P/F Given BTN P, SB P/F Given BTN F, SB C Given BTN P, SB P, SB C Given BTN P, SB F, SB C Given BTN F, SB P)
 
 

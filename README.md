@@ -85,6 +85,38 @@ For eaxmple with a Gamma vector of {{Q5s}, {64o,QJo}}, we would have gamma vecto
 
 where in the above, we replace each m with one of (0,1/n,2/m,..,(n-1)/n,n). We then take the best solution
 
+### Aggregate solvers
+
+After much expreimentation I found that the best thing was a mix of different solvers, for which are described in a JSON file called .ps.solvers.json.
+Below is the description for the accurate-solver. Here we first apply the numeric solver with a factor of 0.4 (which means take 40% of the new solution),
+by considering a total-sequence best-to-date. With ttl ~ time-to-live of 1, and a stride of 20, this means that is 
+
+
+        "accurate-solver":[
+                { "solver":"numeric-sequence", "args": { "clamp-epsilon":1e-3, "sequence-type":"total-sequence", "factor":0.4 , "ttl":1, "stride":20  } },
+                { "solver":"numeric-sequence", "args": { "clamp-epsilon":1e-3, "sequence-type":"total-sequence", "factor":0.2 , "ttl":1, "stride":40  } },
+                { "solver":"numeric-sequence", "args": { "clamp-epsilon":1e-3, "sequence-type":"total-sequence", "factor":0.1 , "ttl":1, "stride":80  } },
+                { "solver":"single-permutation" },
+                { "solver":"permutation", "args":{ "grid-size":1 } }
+        ],
+
+
+        for(size_t loop_count{1};;++loop_count){
+                for(size_t inner=0;inner!=args_.stride;++inner){
+                        auto S_counter = computation_kernel::CounterStrategy(gt, AG, S, args_.delta);
+                        computation_kernel::InplaceLinearCombination(S, S_counter, 1 - args_.factor );
+                }
+                computation_kernel::InplaceClamp(S, args_.clamp_epsilon);
+                        
+                auto solution = Solution::MakeWithDeps(gt, AG, S);
+                for(auto& ctrl : controllers_ ){
+                        auto opt_opt = ctrl->Apply(loop_count, gt, AG, args_, solution);
+                        if( opt_opt ){
+                                return *opt_opt;
+                        }
+                }
+
+        }
 
 
 

@@ -1,2 +1,3 @@
-write serializer for class equity
-rewrite pokerstove
+
+./candy-poker solver --memory --solver quick-solver --eff-lower 1.0 --eff-upper 1000.0 --eff-inc 1.0 --cum-table --print-seq
+./candy-poker solver --memory --solver quick-solver --eff-lower 1.0 --eff-upper 50.0   --eff-inc 0.1 --cum-table --print-seq --game-tree three-player-push-fold

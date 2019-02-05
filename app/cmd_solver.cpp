@@ -256,11 +256,7 @@ namespace ps{
                 ~TableCollater(){
                         if( ! last_gt_ ) 
                                 return;
-                        for( auto const& _ : *last_gt_){
-                                std::cout << "\n            " << _.PrettyAction() << "\n\n";
-                                pretty_print_strat(S[_.GetIndex()], Dp);
-
-                        }
+                        Display();
                 }
                 void operator()( std::shared_ptr<GameTree> gt,
                                  LazyComputer const& AG,
@@ -281,6 +277,15 @@ namespace ps{
                                 }
                         }
                         last_gt_ = gt;
+
+                        Display();
+                }
+                void Display()const{
+                        for( auto const& _ : *last_gt_){
+                                std::cout << "\n            " << _.PrettyAction() << "\n\n";
+                                pretty_print_strat(S[_.GetIndex()], Dp);
+
+                        }
                 }
         private:
                 std::vector<Eigen::VectorXd> S;

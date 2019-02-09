@@ -299,24 +299,24 @@ namespace pass_eval_hand_instr_vec_detail{
                         evals_.resize(batch_size_);
                 }
 
-                void begin_eval(size_t mask, card_vector const& cv){
+                void begin_eval(size_t mask, card_vector const& cv)noexcept{
                         mask_ = mask;
                         cv_   = &cv;
                         out_  = 0;
                 }
                 void shedule(size_t index, suit_hasher::suit_hash_t suit_hash, rank_hasher::rank_hash_t rank_hash,
-                          card_id c0, card_id c1)
+                          card_id c0, card_id c1)noexcept
                 {
                         BOOST_ASSERT( index < batch_size_ );
                         evals_[index] = impl_->rank(*cv_, suit_hash, rank_hash, c0, c1);
                 }
-                void end_eval(){
+                void end_eval()noexcept{
                         BOOST_ASSERT( out_ == batch_size_ );
                         for(auto& _ : subs_){
                                 _->accept(mask_, evals_);
                         }
                 }
-                void regroup(){
+                void regroup()noexcept{
                         // nop
                 }
         private:
@@ -331,7 +331,7 @@ namespace pass_eval_hand_instr_vec_detail{
         
         template<class EvalType, class SubPtrType>
         struct eval_scheduler_reshed{
-                enum{ DefaultReshedSize = 10000 };
+                enum{ DefaultReshedSize = 100 };
 
                 struct atom{
                         size_t group_id;
@@ -528,8 +528,8 @@ struct pass_eval_hand_instr_vec : computation_pass{
                 boost::timer::cpu_timer tmr;
                 #if 1
                 
-                //using shed_type = pass_eval_hand_instr_vec_detail::eval_scheduler_simple<mask_computer_detail::rank_hash_eval, sub_ptr_type>;
-                using shed_type = pass_eval_hand_instr_vec_detail::eval_scheduler_reshed<mask_computer_detail::rank_hash_eval, sub_ptr_type>;
+                using shed_type = pass_eval_hand_instr_vec_detail::eval_scheduler_simple<mask_computer_detail::rank_hash_eval, sub_ptr_type>;
+                //using shed_type = pass_eval_hand_instr_vec_detail::eval_scheduler_reshed<mask_computer_detail::rank_hash_eval, sub_ptr_type>;
                 shed_type shed{&ev, rod.size(), subs};
                 for(auto const& b : w ){
 

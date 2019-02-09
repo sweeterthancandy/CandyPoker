@@ -47,6 +47,7 @@ SOFTWARE.
 #include "ps/eval/class_cache.h"
 #include "ps/eval/pass.h"
 #include "ps/eval/pass_eval_hand_instr_vec.h"
+#include "ps/base/rank_board_combination_iterator.h"
 
 #include <boost/timer/timer.hpp>
 
@@ -320,11 +321,19 @@ struct IteratorDbg : Command{
         IteratorDbg(std::vector<std::string> const& args):players_s_{args}{}
         virtual int Execute()override{
                 enum{ MaxIter = 200 };
+                size_t n = 0;
+                
+                std::cout << std::fixed;
+                n = 0;
+                std::cout << "rank_board_combination_iterator\n";
+                for(rank_board_combination_iterator iter(7),end;iter!=end && n < MaxIter;++iter,++n){
+                        std::cout << "    " <<  *iter << "\n";
+                }
+                return 0;
 
 
                 std::cout << "holdem_hand_iterator\n";
-                std::cout << std::fixed;
-                size_t n = 0;
+                n = 0;
                 for(holdem_hand_iterator iter(5),end;iter!=end && n < MaxIter;++iter,++n){
                         std::cout << "    " <<  *iter << "\n";
                 }

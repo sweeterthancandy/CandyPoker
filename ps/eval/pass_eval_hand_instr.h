@@ -36,6 +36,7 @@ SOFTWARE.
 #include "ps/base/rank_hasher.h"
 #include "ps/base/suit_hasher.h"
 #include "ps/base/holdem_board_decl.h"
+#include "ps/base/rank_board_combination_iterator.h"
 
 #include "ps/eval/evaluator_6_card_map.h"
 
@@ -51,28 +52,8 @@ struct rank_hash_eval
         rank_hash_eval(){
                 card_map_7_.resize(rank_hasher::max()+1);
 
-                using iter_t = basic_index_iterator<
-                        int, ordered_policy, rank_vector
-                >;
-
-                for(iter_t iter(7,13),end;iter!=end;++iter){
-                        //maybe_add_(*iter);
+                for(rank_board_combination_iterator iter(7),end;iter!=end;++iter){
                         auto const& b = *iter;
-                        // first check we don't have more than 4 of each card
-                        std::array<int, 13> aux = {0};
-                        for(size_t i=0;i!=7;++i){
-                                ++aux[b[i]];
-                        }
-                        bool is_possible = [&](){
-                                for(size_t i=0;i!=aux.size();++i){
-                                        if( aux[i] > 4 )
-                                                return true;
-                                }
-                                return false;
-                        }();
-                        if( is_possible )
-                                continue;
-
                         auto hash = rank_hasher::create( b[0], b[1], b[2], b[3], b[4], b[5], b[6] );
 
                         auto val = e6cm_->rank( card_decl::make_id(0,b[0]),

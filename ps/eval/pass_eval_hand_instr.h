@@ -105,7 +105,6 @@ struct rank_hash_hash_eval
                                                 card_decl::make_id(1,b[5]),
                                                 card_decl::make_id(1,b[6]) );
 
-                        PS_ASSERT( hash < card_map_7_.size(), "hash = " << hash << ", card_map_7_.size() = " << card_map_7_.size() );
                         card_map_7_[hash] = val;
                 }
         }

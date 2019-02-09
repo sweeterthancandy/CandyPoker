@@ -56,9 +56,10 @@ SOFTWARE.
 
 #include "ps/support/command.h"
 #include "ps/support/persistent.h"
-#include <boost/intrusive/list.hpp>
-//#include <boost/program_options.hpp>
 #include "ps/eval/holdem_class_vector_cache.h"
+
+#include <boost/program_options.hpp>
+namespace bpo = boost::program_options;
 
 using namespace ps;
 
@@ -234,13 +235,42 @@ struct MaskEval : Command{
         MaskEval(std::vector<std::string> const& args):args_{args}{}
         virtual int Execute()override{
 
+                namespace bpt = boost::program_options;
+
+                bool debug{false};
+                bool help{false};
+                std::vector<std::string> players_s;
+
+                bpo::options_description desc("Solver command");
+                desc.add_options()
+                        ("debug"     , bpo::value(&debug)->implicit_value(true), "debug flag")
+                        ("help"      , bpo::value(&help)->implicit_value(true), "this message")
+                        ("player"    , bpo::value(&players_s), "player ranges")
+                ;
+
+                bpo::positional_options_description pd;
+                pd.add("player", -1);
+
+                bpo::variables_map vm;
+                bpo::store(bpo::command_line_parser(args_)
+                           .options(desc)
+                           .positional(pd)
+                           .run(), vm);
+                bpo::notify(vm);    
+
+
+
+                if( help ){
+                        std::cout << desc << "\n";
+                        return EXIT_SUCCESS;
+                }
+
+                std::cout << "detail::to_string(players_s) => " << detail::to_string(players_s) << "\n"; // __CandyPrint__(cxx-print-scalar,detail::to_string(players_s))
+
                 std::vector<frontend::range> players;
-                for(auto const& s : args_ ){
+                for(auto const& s : players_s ){
                         players.push_back( frontend::parse(s) );
                 }
-                bool debug = false;
-                
-
 
                 computation_context comp_ctx{players.size()};
 

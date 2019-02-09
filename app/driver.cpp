@@ -304,7 +304,7 @@ struct MaskEval : Command{
                 mgr.execute_(&comp_ctx, &instr_list, &result);
 
                 if( result ){
-                        pretty_print_equity_breakdown_mat(std::cout, m, args_);
+                        pretty_print_equity_breakdown_mat(std::cout, m, players_s);
                 }
 
                 return EXIT_SUCCESS;

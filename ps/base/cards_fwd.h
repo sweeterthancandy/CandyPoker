@@ -39,7 +39,7 @@ SOFTWARE.
 
 #define PS_LOG(level) BOOST_LOG_TRIVIAL(level) << "[" << BOOST_CURRENT_FUNCTION << "] "
 
-#if BOOST_ASSERT_IS_VOID
+#ifndef BOOST_ASSERT_IS_VOID
         #define PS_ASSERT(expr, msg) (void)0
 #else
         #define PS_ASSERT(expr, msg)                                       \

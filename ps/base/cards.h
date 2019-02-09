@@ -32,6 +32,7 @@ SOFTWARE.
 #include <vector>
 #include <set>
 #include <map>
+#include <bitset>
 
 
 #include "ps/base/cards_fwd.h"
@@ -51,6 +52,11 @@ namespace ps{
                         for( auto id : *this ){
                                 m |= ( static_cast<size_t>(1) << id );
                         }
+                        PS_ASSERT( __builtin_popcountll(m) == size(),
+                                "__builtin_popcountll(m) = " << __builtin_popcountll(m) << 
+                                ", size() = " << size()  << 
+                                ", bits = {" << std::bitset<sizeof(size_t)*8>{static_cast<unsigned long long>(m)}.to_string() << "}"
+                        );
                         return m;
                 }
                 static inline card_vector from_bitmask(size_t mask);
@@ -205,7 +211,7 @@ namespace ps{
                 static bool disjoint(Args&&... args){
                         size_t mask{0};
                         int aux[] = {0, ( mask |= args.mask(), 0)...};
-                        return __builtin_popcount(mask)*2 == sizeof...(args);
+                        return __builtin_popcountll(mask)*2 == sizeof...(args);
                 }
                 template<class... Args,
                         class _ = detail::void_t<

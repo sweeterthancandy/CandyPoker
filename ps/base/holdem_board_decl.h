@@ -40,6 +40,7 @@ struct holdem_board_decl{
                 layout(card_vector vec)
                         :vec_{std::move(vec)}
                 {
+                        PS_ASSERT( vec_.size() == 5 , "false");
                                 
                         rank_hash_ = rank_hasher::create();
                         suit_hash_ = suit_hasher::create();
@@ -51,6 +52,7 @@ struct holdem_board_decl{
                                 suit_hash_ = suit_hasher::append(suit_hash_, hand.suit() );
                         }
                         mask_ = vec_.mask();
+                        PS_ASSERT( __builtin_popcountll(mask_) == 5, "__builtin_popcountll(mask_) = " <<__builtin_popcountll(mask_) ); 
                 }
                 size_t mask()const noexcept{ return mask_; }
                 size_t rank_hash()const noexcept{ return rank_hash_; }

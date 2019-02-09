@@ -92,7 +92,6 @@ private:
 struct rank_hash_hash_eval
 {
         rank_hash_hash_eval(){
-
                 for(rank_board_combination_iterator iter(7),end;iter!=end;++iter){
                         auto const& b = *iter;
                         auto hash = rank_hasher::create( b[0], b[1], b[2], b[3], b[4], b[5], b[6] );
@@ -107,26 +106,24 @@ struct rank_hash_hash_eval
 
                         card_map_7_[hash] = val;
                 }
+                size_t bc = card_map_7_.bucket_count();
+                std::cout << "bc => " << bc << "\n"; // __CandyPrint__(cxx-print-scalar,bc)
         }
         ranking_t rank(card_vector const& cv, size_t suit_hash, size_t rank_hash, long a, long b)const noexcept{
-
-
                 if( suit_hasher::has_flush_unsafe(suit_hash) ){
                         return e6cm_->rank(a,b,cv[0], cv[1], cv[2], cv[3], cv[4]);
                 }
-                auto ret = card_map_7_.find(rank_hash)->second;
-                return ret;
+                return card_map_7_.find(rank_hash)->second;
         }
         #if 0
-        ranking_t rank_flush(card_vector const& cv, long a, long b)const noexcept{
-                return e6cm_->rank(a,b,cv[0], cv[1], cv[2], cv[3], cv[4]);
-        }
-        ranking_t rank_no_flush(size_t rank_hash)const noexcept{
-                return card_map_7_[rank_hash];
+        ranking_t rank_mask(size_t mask)const noexcept{
+                auto iter = mask_map_.find(mask);
+                if( iter == mask_map_.end())
+                        return 0;
+                return iter->second;
         }
         #endif
 private:
-        //evaluator_5_card_map* e6cm_{evaluator_5_card_map::instance()};
         evaluator_6_card_map* e6cm_{evaluator_6_card_map::instance()};
         std::unordered_map<rank_hasher::rank_hash_t, ranking_t> card_map_7_;
 };

@@ -305,10 +305,20 @@ namespace pass_eval_hand_instr_vec_detail{
                         out_  = 0;
                 }
                 void shedule(size_t index, suit_hasher::suit_hash_t suit_hash, rank_hasher::rank_hash_t rank_hash,
-                          card_id c0, card_id c1)noexcept
+                          card_id c0, card_id c1, size_t mask)noexcept
                 {
                         BOOST_ASSERT( index < batch_size_ );
-                        evals_[index] = impl_->rank(*cv_, suit_hash, rank_hash, c0, c1);
+                        auto a = impl_->rank(*cv_, suit_hash, rank_hash, c0, c1);
+                        //auto b = impl_->rank_mask(mask);
+                        //evals_[index] = impl_->rank(*cv_, suit_hash, rank_hash, c0, c1);
+                        evals_[index] = a;
+                        #if 0
+                        if( a != b ){
+                                std::cout << "__builtin_popcount(mask) => " << __builtin_popcount(mask) << "\n"; // __CandyPrint__(cxx-print-scalar,__builtin_popcount(mask))
+                                std::cout << "a => " << a << "\n"; // __CandyPrint__(cxx-print-scalar,a)
+                                std::cout << "b => " << b << "\n"; // __CandyPrint__(cxx-print-scalar,b)
+                        }
+                        #endif
                 }
                 void end_eval()noexcept{
                         BOOST_ASSERT( out_ == batch_size_ );
@@ -488,6 +498,8 @@ struct rank_opt_device : std::vector<rank_opt_item>{
 
 struct pass_eval_hand_instr_vec : computation_pass{
 
+        using eval_type = mask_computer_detail::rank_hash_hash_eval;
+        //using eval_type = mask_computer_detail::rank_hash_eval;
 
         template<class Factory>
         void transfrom_impl(computation_context* ctx, instruction_list* instr_list, computation_result* result,
@@ -528,7 +540,7 @@ struct pass_eval_hand_instr_vec : computation_pass{
                 boost::timer::cpu_timer tmr;
                 #if 1
                 
-                using shed_type = pass_eval_hand_instr_vec_detail::eval_scheduler_simple<mask_computer_detail::rank_hash_hash_eval, sub_ptr_type>;
+                using shed_type = pass_eval_hand_instr_vec_detail::eval_scheduler_simple<eval_type, sub_ptr_type>;
                 //using shed_type = pass_eval_hand_instr_vec_detail::eval_scheduler_reshed<mask_computer_detail::rank_hash_eval, sub_ptr_type>;
                 shed_type shed{&ev, rod.size(), subs};
                 for(auto const& b : w ){
@@ -545,6 +557,14 @@ struct pass_eval_hand_instr_vec : computation_pass{
                                 auto const& _ = rod[idx];
                                 if( _.mask & mask )
                                         continue;
+
+                                auto aggregate_mask = _.mask | mask;
+                                #if 0
+                                std::cout << "__builtin_popcountll(mask)           => " << __builtin_popcountll(mask) << "\n"; // __CandyPrint__(cxx-print-scalar,__builtin_popcountll(mask))
+                                std::cout << "__builtin_popcountll(_.mask)         => " << __builtin_popcountll(_.mask) << "\n"; // __CandyPrint__(cxx-print-scalar,__builtin_popcountll(_.mask))
+                                std::cout << "__builtin_popcountll(aggregate_mask) => " << __builtin_popcountll(aggregate_mask) << "\n"; // __CandyPrint__(cxx-print-scalar,__builtin_popcountll(aggregate_mask))
+                                #endif
+
                                 auto rank_hash = rank_proto;
                                 auto suit_hash = suit_proto;
 
@@ -554,7 +574,7 @@ struct pass_eval_hand_instr_vec : computation_pass{
                                 suit_hash = suit_hasher::append(suit_hash, _.s0 );
                                 suit_hash = suit_hasher::append(suit_hash, _.s1 );
 
-                                shed.shedule(idx, suit_hash, rank_hash, _.c0, _.c1);
+                                shed.shedule(idx, suit_hash, rank_hash, _.c0, _.c1, aggregate_mask);
                         }
                         shed.end_eval();
                 }
@@ -629,7 +649,7 @@ struct pass_eval_hand_instr_vec : computation_pass{
                 }
         }
 private:
-        mask_computer_detail::rank_hash_hash_eval ev;
+        eval_type ev;
         holdem_board_decl w;
 };
 

@@ -227,7 +227,7 @@ namespace sim{
 
                         for(size_t level = 0; level <= args_.max_popcount; ++level ){
                                 for(size_t mask = 0; mask != upper_bound; ++mask ){
-                                        if( __builtin_popcount(mask) != level )
+                                        if( __builtin_popcountll(mask) != level )
                                                 continue;
                                         cross_products.emplace_back();
                                         for(size_t idx=0;idx!=mixed_info.size();++idx){

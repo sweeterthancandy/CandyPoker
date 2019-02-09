@@ -44,6 +44,8 @@ SOFTWARE.
 #include <unordered_set>
 #include <unordered_map>
 
+#include <boost/iterator/counting_iterator.hpp>
+
 namespace ps{
 
 
@@ -299,14 +301,14 @@ namespace pass_eval_hand_instr_vec_detail{
 
                 void begin_eval(size_t mask, card_vector const& cv){
                         mask_ = mask;
-                        cv_   = cv;
+                        cv_   = &cv;
                         out_  = 0;
                 }
                 void shedule(size_t index, suit_hasher::suit_hash_t suit_hash, rank_hasher::rank_hash_t rank_hash,
                           card_id c0, card_id c1)
                 {
                         BOOST_ASSERT( index < batch_size_ );
-                        evals_[index] = impl_->rank(cv_, suit_hash, rank_hash, c0, c1);
+                        evals_[index] = impl_->rank(*cv_, suit_hash, rank_hash, c0, c1);
                 }
                 void end_eval(){
                         BOOST_ASSERT( out_ == batch_size_ );
@@ -324,8 +326,130 @@ namespace pass_eval_hand_instr_vec_detail{
                 std::vector<SubPtrType>& subs_;
                 size_t mask_;
                 size_t out_{0};
-                //card_vector const* cv_;
-                card_vector cv_;
+                card_vector const* cv_;
+        };
+        
+        template<class EvalType, class SubPtrType>
+        struct eval_scheduler_reshed{
+                enum{ DefaultReshedSize = 10000 };
+
+                struct atom{
+                        size_t group_id;
+                        size_t index;
+                        suit_hasher::suit_hash_t suit_hash;
+                        rank_hasher::rank_hash_t rank_hash;
+                        card_id c0;
+                        card_id c1;
+                        bool flush_possible;
+                };
+
+                struct group{
+                        size_t mask;
+                        card_vector const* cv;
+                        std::vector<ranking_t> evals;
+                };
+
+                explicit eval_scheduler_reshed(EvalType* impl, size_t batch_size,
+                                               std::vector<SubPtrType>& subs,
+                                               size_t reshed_size = DefaultReshedSize)
+                        :impl_{impl}
+                        ,batch_size_{batch_size}
+                        ,subs_{subs}
+                        ,reshed_size_{DefaultReshedSize}
+                {
+                        size_t alloc_size = reshed_size_ + batch_size_;
+                        // we don't need this many gruops, but gyuarenees large enough 
+                        groups_.resize(alloc_size);
+                        for(auto& g : groups_ ){
+                                g.evals.resize(batch_size_);
+                        }
+                        atoms_.resize(alloc_size);
+                        view_proto_.resize(alloc_size);
+                        for(size_t idx=0;idx!=alloc_size;++idx){
+                                view_proto_[idx] = &atoms_[idx];
+                        }
+                        view_.reserve(alloc_size);
+
+                }
+
+                void begin_eval(size_t mask, card_vector const& cv){
+                        groups_[group_iter_].mask = mask;
+                        groups_[group_iter_].cv   = &cv;
+                }
+                void shedule(size_t index, suit_hasher::suit_hash_t suit_hash, rank_hasher::rank_hash_t rank_hash,
+                          card_id c0, card_id c1)
+                {
+                        auto& a = atoms_[atom_iter_];
+                        a.group_id  = group_iter_;
+                        a.index     = index;
+                        a.suit_hash = suit_hash;
+                        a.rank_hash = rank_hash;
+                        a.c0        = c0;
+                        a.c1        = c1;
+                        a.flush_possible = suit_hasher::has_flush_unsafe(a.suit_hash); 
+                        ++atom_iter_;
+                }
+                void end_eval(){
+                        ++group_iter_;
+                        if( atom_iter_ >= reshed_size_ ){
+                                regroup();
+                        }
+                }
+                void regroup(){
+                        static size_t counter{0};
+
+
+
+                        // this is the point of this class, rather than execute each atom in series 
+                        // nativly, I can reorder them to take advantage of CPU cache
+                        //
+                        // execute every atom
+                        //
+
+                        view_ = view_proto_;
+                        view_.resize(atom_iter_);
+
+                        boost::sort(view_, [](auto const& l, auto const& r){
+                                if( l->flush_possible != r->flush_possible ){
+                                        return  l->flush_possible < r->flush_possible;
+                                }
+                                if( l->flush_possible )
+                                        return false;
+                                return l->rank_hash < r->rank_hash;
+                        });
+
+                        for(auto ptr : view_){
+                                auto const& a = *ptr;
+                                auto& g = groups_[a.group_id];
+                                g.evals[a.index] = impl_->rank(*g.cv, a.suit_hash, a.rank_hash, a.c0, a.c1);
+                        }
+                        
+                        for(size_t idx=0;idx<group_iter_;++idx){
+                                auto const& g = groups_[idx];
+                                for(auto& _ : subs_){
+                                        _->accept(g.mask, g.evals);
+                                }
+                        }
+                        atom_iter_ = 0;
+                        group_iter_ = 0;
+
+                        ++counter;
+                        //std::cout << "counter => " << counter << "\n"; // __CandyPrint__(cxx-print-scalar,counter)
+                                 
+                }
+        private:
+                EvalType* impl_;
+                size_t batch_size_;
+                std::vector<SubPtrType>& subs_;
+                size_t reshed_size_;
+
+                std::vector<group> groups_;
+                std::vector<atom> atoms_;
+
+                size_t atom_iter_{0};
+                size_t group_iter_{0};
+                std::vector<atom*> view_proto_;
+                std::vector<atom*> view_;
         };
 
 }  // end namespace pass_eval_hand_instr_vec_detail
@@ -410,7 +534,8 @@ struct pass_eval_hand_instr_vec : computation_pass{
                 boost::timer::cpu_timer tmr;
                 #if 1
                 
-                using shed_type = pass_eval_hand_instr_vec_detail::eval_scheduler_simple<mask_computer_detail::rank_hash_eval, sub_ptr_type>;
+                //using shed_type = pass_eval_hand_instr_vec_detail::eval_scheduler_simple<mask_computer_detail::rank_hash_eval, sub_ptr_type>;
+                using shed_type = pass_eval_hand_instr_vec_detail::eval_scheduler_reshed<mask_computer_detail::rank_hash_eval, sub_ptr_type>;
                 shed_type shed{&ev, rod.size(), subs};
                 for(auto const& b : w ){
 

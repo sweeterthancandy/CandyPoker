@@ -96,6 +96,12 @@ struct rank_hash_eval
                 auto ret = card_map_7_[rank_hash];
                 return ret;
         }
+        ranking_t rank_flush(card_vector const& cv, long a, long b)const noexcept{
+                return e6cm_->rank(a,b,cv[0], cv[1], cv[2], cv[3], cv[4]);
+        }
+        ranking_t rank_no_flush(size_t rank_hash)const noexcept{
+                return card_map_7_[rank_hash];
+        }
 private:
         //evaluator_5_card_map* e6cm_{evaluator_5_card_map::instance()};
         evaluator_6_card_map* e6cm_{evaluator_6_card_map::instance()};

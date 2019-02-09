@@ -336,11 +336,7 @@ namespace pass_eval_hand_instr_vec_detail{
                 struct atom{
                         size_t group_id;
                         size_t index;
-                        suit_hasher::suit_hash_t suit_hash;
                         rank_hasher::rank_hash_t rank_hash;
-                        card_id c0;
-                        card_id c1;
-                        bool flush_possible;
                 };
 
                 struct group{
@@ -372,30 +368,33 @@ namespace pass_eval_hand_instr_vec_detail{
 
                 }
 
-                void begin_eval(size_t mask, card_vector const& cv){
+                void begin_eval(size_t mask, card_vector const& cv)noexcept{
                         groups_[group_iter_].mask = mask;
                         groups_[group_iter_].cv   = &cv;
                 }
                 void shedule(size_t index, suit_hasher::suit_hash_t suit_hash, rank_hasher::rank_hash_t rank_hash,
-                          card_id c0, card_id c1)
+                          card_id c0, card_id c1)noexcept
                 {
-                        auto& a = atoms_[atom_iter_];
-                        a.group_id  = group_iter_;
-                        a.index     = index;
-                        a.suit_hash = suit_hash;
-                        a.rank_hash = rank_hash;
-                        a.c0        = c0;
-                        a.c1        = c1;
-                        a.flush_possible = suit_hasher::has_flush_unsafe(a.suit_hash); 
-                        ++atom_iter_;
+                        bool hash_possible = suit_hasher::has_flush_unsafe(suit_hash); 
+
+                        if( hash_possible ){
+                                auto& g = groups_[group_iter_];
+                                g.evals[index] = impl_->rank_flush(*g.cv, c0, c1);
+                        } else {
+                                auto& a = atoms_[atom_iter_];
+                                a.group_id  = group_iter_;
+                                a.index     = index;
+                                a.rank_hash = rank_hash;
+                                ++atom_iter_;
+                        }
                 }
-                void end_eval(){
+                void end_eval()noexcept{
                         ++group_iter_;
                         if( atom_iter_ >= reshed_size_ ){
                                 regroup();
                         }
                 }
-                void regroup(){
+                void regroup()noexcept{
                         static size_t counter{0};
 
 
@@ -410,18 +409,13 @@ namespace pass_eval_hand_instr_vec_detail{
                         view_.resize(atom_iter_);
 
                         boost::sort(view_, [](auto const& l, auto const& r){
-                                if( l->flush_possible != r->flush_possible ){
-                                        return  l->flush_possible < r->flush_possible;
-                                }
-                                if( l->flush_possible )
-                                        return false;
                                 return l->rank_hash < r->rank_hash;
                         });
 
                         for(auto ptr : view_){
                                 auto const& a = *ptr;
                                 auto& g = groups_[a.group_id];
-                                g.evals[a.index] = impl_->rank(*g.cv, a.suit_hash, a.rank_hash, a.c0, a.c1);
+                                g.evals[a.index] = impl_->rank_no_flush(a.rank_hash);
                         }
                         
                         for(size_t idx=0;idx<group_iter_;++idx){

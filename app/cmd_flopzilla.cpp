@@ -49,7 +49,6 @@ SOFTWARE.
 #include "ps/eval/class_cache.h"
 #include "ps/eval/evaluator_6_card_map.h"
 #include "ps/eval/instruction.h"
-#include "ps/eval/pass_mask_eval.h"
 #include "ps/support/config.h"
 #include "ps/support/index_sequence.h"
 

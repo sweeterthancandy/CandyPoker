@@ -44,8 +44,9 @@ SOFTWARE.
 #include "ps/base/rank_hasher.h"
 #include "ps/base/suit_hasher.h"
 #include "ps/base/holdem_board_decl.h"
-#include "ps/eval/pass_mask_eval.h"
 #include "ps/eval/class_cache.h"
+#include "ps/eval/pass.h"
+#include "ps/eval/pass_eval_hand_instr_vec.h"
 
 #include <boost/timer/timer.hpp>
 
@@ -264,8 +265,6 @@ struct MaskEval : Command{
                         std::cout << desc << "\n";
                         return EXIT_SUCCESS;
                 }
-
-                std::cout << "detail::to_string(players_s) => " << detail::to_string(players_s) << "\n"; // __CandyPrint__(cxx-print-scalar,detail::to_string(players_s))
 
                 std::vector<frontend::range> players;
                 for(auto const& s : players_s ){

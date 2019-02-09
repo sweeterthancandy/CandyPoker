@@ -46,7 +46,7 @@ SOFTWARE.
 
 #include "ps/eval/instruction.h"
 #include "ps/eval/pass.h"
-#include "ps/eval/pass_mask_eval.h"
+#include "ps/eval/pass_eval_hand_instr_vec.h"
 	
 #include <boost/program_options.hpp>
 namespace bpo = boost::program_options;

@@ -19,7 +19,7 @@ if( WIN32 )
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MT")
 else()
   add_definitions(-DBOOST_LOG_DYN_LINK)
-  set(CMAKE_CXX_FLAGS "-std=c++14 -frtti -Wno-switch")
+  set(CMAKE_CXX_FLAGS "-std=c++14 -frtti -fno-omit-frame-pointer -Wno-switch")
 
   set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -ggdb3")
   set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")

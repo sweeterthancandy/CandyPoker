@@ -35,7 +35,21 @@ SOFTWARE.
 #include <Eigen/Dense>
 
 #include <boost/log/trivial.hpp>
+#include <boost/assert.hpp>
+
 #define PS_LOG(level) BOOST_LOG_TRIVIAL(level) << "[" << BOOST_CURRENT_FUNCTION << "] "
+
+#if BOOST_ASSERT_IS_VOID
+        #define PS_ASSERT(expr, msg) (void)0
+#else
+        #define PS_ASSERT(expr, msg)                                       \
+                do{                                                        \
+                        if( ! ( expr ) ){                                  \
+                                PS_LOG(error) << "{Assert Failed}" << msg; \
+                        }                                                  \
+                        BOOST_ASSERT( expr);                               \
+                }while(0)
+#endif
 
 namespace ps{
 

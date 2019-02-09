@@ -49,7 +49,7 @@ namespace mask_computer_detail{
 struct rank_hash_eval
 {
         rank_hash_eval(){
-                card_map_7_.resize(rank_hasher::max());
+                card_map_7_.resize(rank_hasher::max()+1);
 
                 using iter_t = basic_index_iterator<
                         int, ordered_policy, rank_vector
@@ -83,6 +83,7 @@ struct rank_hash_eval
                                                 card_decl::make_id(1,b[5]),
                                                 card_decl::make_id(1,b[6]) );
 
+                        PS_ASSERT( hash < card_map_7_.size(), "hash = " << hash << ", card_map_7_.size() = " << card_map_7_.size() );
                         card_map_7_[hash] = val;
                 }
         }

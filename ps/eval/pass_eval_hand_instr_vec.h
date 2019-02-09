@@ -528,7 +528,7 @@ struct pass_eval_hand_instr_vec : computation_pass{
                 boost::timer::cpu_timer tmr;
                 #if 1
                 
-                using shed_type = pass_eval_hand_instr_vec_detail::eval_scheduler_simple<mask_computer_detail::rank_hash_eval, sub_ptr_type>;
+                using shed_type = pass_eval_hand_instr_vec_detail::eval_scheduler_simple<mask_computer_detail::rank_hash_hash_eval, sub_ptr_type>;
                 //using shed_type = pass_eval_hand_instr_vec_detail::eval_scheduler_reshed<mask_computer_detail::rank_hash_eval, sub_ptr_type>;
                 shed_type shed{&ev, rod.size(), subs};
                 for(auto const& b : w ){
@@ -629,7 +629,7 @@ struct pass_eval_hand_instr_vec : computation_pass{
                 }
         }
 private:
-        mask_computer_detail::rank_hash_eval ev;
+        mask_computer_detail::rank_hash_hash_eval ev;
         holdem_board_decl w;
 };
 

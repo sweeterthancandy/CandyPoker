@@ -89,6 +89,49 @@ private:
         std::vector<ranking_t> card_map_7_;
 };
 
+struct rank_hash_hash_eval
+{
+        rank_hash_hash_eval(){
+
+                for(rank_board_combination_iterator iter(7),end;iter!=end;++iter){
+                        auto const& b = *iter;
+                        auto hash = rank_hasher::create( b[0], b[1], b[2], b[3], b[4], b[5], b[6] );
+
+                        auto val = e6cm_->rank( card_decl::make_id(0,b[0]),
+                                                card_decl::make_id(0,b[1]),
+                                                card_decl::make_id(0,b[2]),
+                                                card_decl::make_id(0,b[3]),
+                                                card_decl::make_id(1,b[4]),
+                                                card_decl::make_id(1,b[5]),
+                                                card_decl::make_id(1,b[6]) );
+
+                        PS_ASSERT( hash < card_map_7_.size(), "hash = " << hash << ", card_map_7_.size() = " << card_map_7_.size() );
+                        card_map_7_[hash] = val;
+                }
+        }
+        ranking_t rank(card_vector const& cv, size_t suit_hash, size_t rank_hash, long a, long b)const noexcept{
+
+
+                if( suit_hasher::has_flush_unsafe(suit_hash) ){
+                        return e6cm_->rank(a,b,cv[0], cv[1], cv[2], cv[3], cv[4]);
+                }
+                auto ret = card_map_7_.find(rank_hash)->second;
+                return ret;
+        }
+        #if 0
+        ranking_t rank_flush(card_vector const& cv, long a, long b)const noexcept{
+                return e6cm_->rank(a,b,cv[0], cv[1], cv[2], cv[3], cv[4]);
+        }
+        ranking_t rank_no_flush(size_t rank_hash)const noexcept{
+                return card_map_7_[rank_hash];
+        }
+        #endif
+private:
+        //evaluator_5_card_map* e6cm_{evaluator_5_card_map::instance()};
+        evaluator_6_card_map* e6cm_{evaluator_6_card_map::instance()};
+        std::unordered_map<rank_hasher::rank_hash_t, ranking_t> card_map_7_;
+};
+
 
 } // mask_computer_detail
 

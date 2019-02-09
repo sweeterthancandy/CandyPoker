@@ -284,6 +284,50 @@ namespace pass_eval_hand_instr_vec_detail{
                         return std::make_shared<T>(iter, instr);
                 }
         };
+
+
+        template<class EvalType, class SubPtrType>
+        struct eval_scheduler_simple{
+                explicit eval_scheduler_simple(EvalType* impl, size_t batch_size,
+                                               std::vector<SubPtrType>& subs)
+                        :impl_{impl}
+                        ,batch_size_{batch_size}
+                        ,subs_{subs}
+                {
+                        evals_.resize(batch_size_);
+                }
+
+                void begin_eval(size_t mask, card_vector const& cv){
+                        mask_ = mask;
+                        cv_   = cv;
+                        out_  = 0;
+                }
+                void shedule(size_t index, suit_hasher::suit_hash_t suit_hash, rank_hasher::rank_hash_t rank_hash,
+                          card_id c0, card_id c1)
+                {
+                        BOOST_ASSERT( index < batch_size_ );
+                        evals_[index] = impl_->rank(cv_, suit_hash, rank_hash, c0, c1);
+                }
+                void end_eval(){
+                        BOOST_ASSERT( out_ == batch_size_ );
+                        for(auto& _ : subs_){
+                                _->accept(mask_, evals_);
+                        }
+                }
+                void regroup(){
+                        // nop
+                }
+        private:
+                EvalType* impl_;
+                size_t batch_size_;
+                std::vector<ranking_t> evals_;
+                std::vector<SubPtrType>& subs_;
+                size_t mask_;
+                size_t out_{0};
+                //card_vector const* cv_;
+                card_vector cv_;
+        };
+
 }  // end namespace pass_eval_hand_instr_vec_detail
 
 struct rank_opt_item{
@@ -323,6 +367,7 @@ struct rank_opt_device : std::vector<rank_opt_item>{
 };
 
 
+
 struct pass_eval_hand_instr_vec : computation_pass{
 
 
@@ -359,8 +404,43 @@ struct pass_eval_hand_instr_vec : computation_pass{
 
                 std::vector<ranking_t> R;
                 R.resize(rod.size());
+
+                                     
                 
                 boost::timer::cpu_timer tmr;
+                #if 1
+                
+                using shed_type = pass_eval_hand_instr_vec_detail::eval_scheduler_simple<mask_computer_detail::rank_hash_eval, sub_ptr_type>;
+                shed_type shed{&ev, rod.size(), subs};
+                for(auto const& b : w ){
+
+
+                        auto mask             = b.mask();
+                        auto rank_proto       = b.rank_hash();
+                        auto suit_proto       = b.suit_hash();
+                        card_vector const& cv = b.board();
+
+                        shed.begin_eval(mask, cv);
+
+                        for(size_t idx=0;idx!=rod.size();++idx){
+                                auto const& _ = rod[idx];
+                                if( _.mask & mask )
+                                        continue;
+                                auto rank_hash = rank_proto;
+                                auto suit_hash = suit_proto;
+
+                                rank_hash = rank_hasher::append(rank_hash, _.r0);
+                                rank_hash = rank_hasher::append(rank_hash, _.r1);
+
+                                suit_hash = suit_hasher::append(suit_hash, _.s0 );
+                                suit_hash = suit_hasher::append(suit_hash, _.s1 );
+
+                                shed.shedule(idx, suit_hash, rank_hash, _.c0, _.c1);
+                        }
+                        shed.end_eval();
+                }
+                shed.regroup();
+                #else
                 for(auto const& b : w ){
 
 
@@ -391,6 +471,8 @@ struct pass_eval_hand_instr_vec : computation_pass{
                                 _->accept(mask, R);
                         }
                 }
+                #endif
+                
                 PS_LOG(trace) << "Took " << tmr.format(2, "%w seconds") << " to do main loop";
                 for(auto& _ : subs){
                         _->finish();

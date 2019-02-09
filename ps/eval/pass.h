@@ -91,6 +91,9 @@ private:
         size_t num_players_;
 };
 
+/*
+        The idea here, is that we have
+ */
 struct computation_result
         : std::unordered_map<std::string, matrix_t>
 {
@@ -99,11 +102,11 @@ struct computation_result
                 proto_.resize(ctx.NumPlayers(), ctx.NumPlayers());
                 proto_.fill(0.0);
         }
-        matrix_t& allocate(std::string const& key){
+        matrix_t& allocate_tag(std::string const& key){
                 auto iter = find(key);
                 if( iter == end()){
                         emplace(key, proto_);
-                        return allocate(key);
+                        return allocate_tag(key);
                 }
                 return iter->second;
         }
@@ -128,25 +131,9 @@ struct computation_pass_manager : std::vector<std::shared_ptr<computation_pass> 
                 this->push_back(std::make_shared<PassType>());
         }
 
-        boost::optional<matrix_t> execute_old(computation_context* ctx, instruction_list* instr_list){
-                for(size_t idx=0;idx!=size();++idx){
-                        at(idx)->transform(ctx, instr_list);
-                }
-                matrix_t mat(ctx->NumPlayers(), ctx->NumPlayers());
-                mat.fill(0);
-                for(; instr_list->size() && instr_list->back()->get_type() ==  instruction::T_Matrix;){
-                        auto mi = reinterpret_cast<matrix_instruction*>(instr_list->back().get());
-                        mat += mi->get_matrix();
-                        instr_list->pop_back();
-                }
-                if( ! instr_list->empty()){
-                        return boost::optional<matrix_t>{};
-                }
-                return mat;
-        }
-        
         void execute_(computation_context* ctx, instruction_list* instr_list, computation_result* result){
-                for(size_t idx=0;idx!=size();++idx){ at(idx)->transform(ctx, instr_list, result);
+                for(size_t idx=0;idx!=size();++idx){
+                        at(idx)->transform(ctx, instr_list, result);
                 }
         }
 };
@@ -276,7 +263,7 @@ struct pass_write : computation_pass{
                 }
                 for(auto instr_ : *instr_list ){
                         auto instr = reinterpret_cast<matrix_instruction*>(instr_.get());
-                        result->allocate(instr->group()) += instr->get_matrix();
+                        result->allocate_tag(instr->group()) += instr->get_matrix();
                 }
         }
 };

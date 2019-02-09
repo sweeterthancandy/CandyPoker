@@ -269,7 +269,7 @@ struct MaskEval : Command{
                 #endif
                 computation_result result{comp_ctx};
                 std::string tag = "B";
-                auto const& m = result.allocate(tag);
+                auto const& m = result.allocate_tag(tag);
                 instruction_list instr_list = frontend_to_instruction_list(tag, players);
                 mgr.execute_(&comp_ctx, &instr_list, &result);
 

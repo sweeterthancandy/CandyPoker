@@ -30,6 +30,8 @@ SOFTWARE.
 #define PS_BASE_RANK_HASHER_H
 
 #include "ps/support/config.h"
+#include "ps/base/rank_board_combination_iterator.h"
+
 
 namespace ps{
 
@@ -119,6 +121,23 @@ namespace rank_hasher{
         inline
         const rank_hash_t max()noexcept{
                 return create(12,12,12,12,11,11,11);
+        }
+
+        /*
+                Array is assumed to be at least of size rank_hasher::max()+1
+                eval is assumed to evaluate n-cards, such that no flush's are
+                possible
+         */
+        template<class Array, class Eval>
+        void create_rank_hash_lookup_inplace(Array& array, Eval const& eval){
+                for(rank_board_combination_iterator iter(7),end;iter!=end;++iter){
+                        auto const& b = *iter;
+                        auto hash = rank_hasher::create( b[0], b[1], b[2], b[3], b[4], b[5], b[6] );
+
+                        auto val = eval( b[0], b[1], b[2], b[3], b[4], b[5], b[6]);
+
+                        array[hash] = val;
+                }
         }
 } // end namespace rank_hasher
 

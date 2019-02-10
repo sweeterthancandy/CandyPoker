@@ -51,123 +51,24 @@ namespace mask_computer_detail{
 
 struct rank_hash_eval
 {
-        //                      AKQJT98765432
-        enum{ RankMaskUpper = 0b1111111000000 };
         rank_hash_eval(){
+                evaluator_6_card_map* e6cm_{evaluator_6_card_map::instance()};
                 card_map_7_.resize(rank_hasher::max()+1);
-
-                for(rank_board_combination_iterator iter(7),end;iter!=end;++iter){
-                        auto const& b = *iter;
-                        auto hash = rank_hasher::create( b[0], b[1], b[2], b[3], b[4], b[5], b[6] );
-
-                        auto val = e6cm_->rank( card_decl::make_id(0,b[0]),
-                                                card_decl::make_id(0,b[1]),
-                                                card_decl::make_id(0,b[2]),
-                                                card_decl::make_id(0,b[3]),
-                                                card_decl::make_id(1,b[4]),
-                                                card_decl::make_id(1,b[5]),
-                                                card_decl::make_id(1,b[6]) );
-
-                        PS_ASSERT( hash < card_map_7_.size(), "hash = " << hash << ", card_map_7_.size() = " << card_map_7_.size() );
-                        card_map_7_[hash] = val;
-                }
+                auto rank_wrap = [&](auto c0, auto c1, auto c2, auto c4, auto... c_rest){
+                        return e6cm_->rank( card_decl::make_id(0,c0),
+                                            card_decl::make_id(0,c1),
+                                            card_decl::make_id(0,c2),
+                                            card_decl::make_id(0,c4),
+                                            card_decl::make_id(1,c_rest)...);
+                };
+                rank_hasher::create_rank_hash_lookup_inplace(card_map_7_, rank_wrap);
 
                 suit_map_.fill(static_cast<ranking_t>(-1));
-                auto wrap = [&](auto... c){ return e6cm_->rank(c...); };
-                flush_mask_eval::create_flush_mask_eval_inplace(suit_map_, wrap);
-                #if 0
-                for(size_t mask = 0; mask <= RankMaskUpper ; ++mask ){
-                        auto pc = __builtin_popcountll(mask);
-                        switch(pc){
-                        case 5:
-                        case 6:
-                        case 7:
-                                break;
-                        default:
-                                continue;
-                        }
-
-                        std::array<size_t, 7> ids;
-                        size_t iter = 0;
-                        for(size_t rank=0;rank!=13;++rank){
-                                if( mask & (1ull << rank) ){
-                                        ids[iter] = rank;
-                                        ++iter;
-                                }
-                        }
-                        PS_ASSERT( iter == pc, "iter = " << iter );
-
-                        static auto one = 1ull;
-
-                        switch(pc){
-                                case 5:
-                                {
-                                        auto val = e6cm_->rank( card_decl::make_id(0,ids[0]),
-                                                                card_decl::make_id(0,ids[1]),
-                                                                card_decl::make_id(0,ids[2]),
-                                                                card_decl::make_id(0,ids[3]),
-                                                                card_decl::make_id(0,ids[4]) );
-                                        auto mask = ( one << ids[0] | 
-                                                      one << ids[1] |
-                                                      one << ids[2] |
-                                                      one << ids[3] |
-                                                      one << ids[4] );
-                                        suit_map_[mask] = val;
-                                        break;
-                                }
-                                case 6:
-                                {
-                                        auto val = e6cm_->rank( card_decl::make_id(0,ids[0]),
-                                                                card_decl::make_id(0,ids[1]),
-                                                                card_decl::make_id(0,ids[2]),
-                                                                card_decl::make_id(0,ids[3]),
-                                                                card_decl::make_id(0,ids[4]),
-                                                                card_decl::make_id(0,ids[5]) );
-                                        auto mask = ( one << ids[0] | 
-                                                      one << ids[1] |
-                                                      one << ids[2] |
-                                                      one << ids[3] |
-                                                      one << ids[4] |
-                                                      one << ids[5] );
-                                        suit_map_[mask] = val;
-                                        break;
-                                }
-                                case 7:
-                                {
-                                        auto val = e6cm_->rank( card_decl::make_id(0,ids[0]),
-                                                                card_decl::make_id(0,ids[1]),
-                                                                card_decl::make_id(0,ids[2]),
-                                                                card_decl::make_id(0,ids[3]),
-                                                                card_decl::make_id(0,ids[4]),
-                                                                card_decl::make_id(0,ids[5]),
-                                                                card_decl::make_id(0,ids[6]) );
-                                        auto mask = ( one << ids[0] | 
-                                                      one << ids[1] |
-                                                      one << ids[2] |
-                                                      one << ids[3] |
-                                                      one << ids[4] |
-                                                      one << ids[5] |
-                                                      one << ids[6] );
-                                        suit_map_[mask] = val;
-                                        break;
-                                }
-                        }
-                }
-                #endif
+                auto flush_wrap = [&](auto... c){
+                        return e6cm_->rank(card_decl::make_id(0,c)...);
+                };
+                flush_mask_eval::create_flush_mask_eval_inplace(suit_map_, flush_wrap);
         }
-        #if 0
-        ranking_t rank(card_vector const& cv, size_t suit_hash, size_t rank_hash, long a, long b)const noexcept{
-
-
-                #if 1
-                if( suit_hasher::has_flush_unsafe(suit_hash) ){
-                        return e6cm_->rank(a,b,cv[0], cv[1], cv[2], cv[3], cv[4]);
-                }
-                #endif
-                auto ret = card_map_7_[rank_hash];
-                return ret;
-        }
-        #endif
         ranking_t rank(size_t rank_hash)const noexcept{
                 return card_map_7_[rank_hash];
         }
@@ -176,26 +77,9 @@ struct rank_hash_eval
                 auto fr = suit_map_[flush_mask];
                 return std::min<ranking_t>(rr, fr);
         }
-        ranking_t rank_legacy(card_vector const& cv, size_t suit_hash, size_t rank_hash, long a, long b)const noexcept{
-                if( suit_hasher::has_flush_unsafe(suit_hash) ){
-                        return e6cm_->rank(a,b,cv[0], cv[1], cv[2], cv[3], cv[4]);
-                }
-                auto ret = card_map_7_[rank_hash];
-                return ret;
-        }
-        #if 0
-        ranking_t rank_flush(card_vector const& cv, long a, long b)const noexcept{
-                return e6cm_->rank(a,b,cv[0], cv[1], cv[2], cv[3], cv[4]);
-        }
-        ranking_t rank_no_flush(size_t rank_hash)const noexcept{
-                return card_map_7_[rank_hash];
-        }
-        #endif
 private:
-        //evaluator_5_card_map* e6cm_{evaluator_5_card_map::instance()};
-        evaluator_6_card_map* e6cm_{evaluator_6_card_map::instance()};
         std::vector<ranking_t> card_map_7_;
-        std::array<ranking_t, RankMaskUpper + 1> suit_map_;
+        std::array<ranking_t, flush_mask_eval::RankMaskUpper + 1> suit_map_;
 };
 
 struct rank_hash_hash_eval

@@ -121,6 +121,52 @@ namespace pass_eval_hand_instr_vec_detail{
                 size_t n;
                 std::array<size_t, 9> allocation_;
         };
+        
+        template<size_t N>
+        struct sub_eval_static{
+                using iter_t = instruction_list::iterator;
+                sub_eval_static(iter_t iter, card_eval_instruction* instr)
+                        :iter_{iter}, instr_{instr}
+                {
+                        hv   = instr->get_vector();
+                        hv_mask = hv.mask();
+                        mat.resize(N, N);
+                        mat.fill(0);
+                }
+                void accept(size_t mask, std::vector<ranking_t> const& R)noexcept
+                {
+                        bool cond = (mask & hv_mask ) == 0;
+                        if(!cond){
+                                return;
+                        }
+                        for(size_t i=0;i!=N;++i){
+                                ranked[i] = R[allocation_[i]];
+                        }
+                        detail::dispatch_ranked_vector_mat(mat, ranked, N);
+                }
+                void finish(){
+                        *iter_ = std::make_shared<matrix_instruction>(instr_->group(), mat * instr_->get_matrix());
+                }
+                void declare(std::unordered_set<holdem_id>& S){
+                        for(auto _ : hv){
+                                S.insert(_);
+                        }
+                }
+                template<class Alloc>
+                void allocate(Alloc const& alloc){
+                        for(size_t idx=0;idx!=N;++idx){
+                                allocation_[idx] = alloc(hv[idx]);
+                        }
+                }
+        private:
+                iter_t iter_;
+                card_eval_instruction* instr_;
+                std::array<ranking_t, 9> ranked;
+                holdem_hand_vector hv;
+                size_t hv_mask;
+                matrix_t mat;
+                std::array<size_t, 9> allocation_;
+        };
 
         
         struct sub_eval_two{
@@ -652,6 +698,10 @@ struct pass_eval_hand_instr_vec : computation_pass{
                 #if 0
                 else if( n_dist.size() == 1 && *n_dist.begin() == 3 ){
                         transfrom_impl( ctx, instr_list, result, to_map, basic_sub_eval_factory<sub_eval_three>{});
+                } 
+                #else
+                else if( n_dist.size() == 1 && *n_dist.begin() == 3 ){
+                        transfrom_impl( ctx, instr_list, result, to_map, basic_sub_eval_factory<sub_eval_static<3> >{});
                 } 
                 #endif
                 else {

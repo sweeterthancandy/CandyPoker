@@ -445,9 +445,8 @@ namespace pass_eval_hand_instr_vec_detail{
                         evals_.resize(batch_size_);
                 }
 
-                void begin_eval(mask_set const& ms, card_vector const& cv)noexcept{
+                void begin_eval(mask_set const& ms)noexcept{
                         ms_   = &ms;
-                        cv_   = &cv;
                         out_  = 0;
                 }
                 void shedule(size_t index, rank_hasher::rank_hash_t rank_hash)noexcept
@@ -476,7 +475,6 @@ namespace pass_eval_hand_instr_vec_detail{
                 std::vector<SubPtrType>& subs_;
                 mask_set const* ms_;
                 size_t out_{0};
-                card_vector const* cv_;
         };
         
         template<class EvalType, class SubPtrType>
@@ -657,12 +655,16 @@ struct pass_eval_hand_instr_vec : computation_pass{
                         subs.push_back( factory(target, instr) );
                 }
 
-                
-
+                // Here we create a list of all the evaluations that need to be done.
+                // Because each evalution is done card wise, doing multiple evaluations
+                // are the same time, some of the cards are shared
+                // 
                 std::unordered_set<holdem_id> S;
                 for(auto& _ : subs){
                         _->declare(S);
                 }
+
+                // this is the maximually speed up the compution, by preocompyting some stuff
                 rank_opt_device rod = rank_opt_device::create(S);
                 std::unordered_map<holdem_id, size_t> allocation_table;
                 for(size_t idx=0;idx!=rod.size();++idx){
@@ -676,50 +678,38 @@ struct pass_eval_hand_instr_vec : computation_pass{
 
                 std::vector<ranking_t> R;
                 R.resize(rod.size());
-
-                                     
                 
                 boost::timer::cpu_timer tmr;
-                #if 1
                 
                 using shed_type = pass_eval_hand_instr_vec_detail::eval_scheduler_simple<eval_type, sub_ptr_type>;
                 //using shed_type = pass_eval_hand_instr_vec_detail::eval_scheduler_reshed<mask_computer_detail::rank_hash_eval, sub_ptr_type>;
                 shed_type shed{&ev, rod.size(), subs};
+
+
+
                 for(auto const& weighted_pair : w.weighted_rng() ){
-                //for(auto const& b : w ){
 
                         auto const& b = *weighted_pair.board;
 
-                        auto mask             = b.mask();
                         auto rank_proto       = b.rank_hash();
-                        auto suit_proto       = b.suit_hash();
-                        card_vector const& cv = b.board();
 
-                        auto flush_possible   = b.flush_possible();
                         suit_id flush_suit    = b.flush_suit();
                         auto const& flush_suit_board = b.flush_suit_board();
                         size_t fsbsz = flush_suit_board.size();
                         auto flush_mask = b.flush_mask();
 
 
-                        shed.begin_eval(weighted_pair.masks, cv);
+                        shed.begin_eval(weighted_pair.masks);
 
                         for(size_t idx=0;idx!=rod.size();++idx){
                                 auto const& _ = rod[idx];
-
-                                // this is slower
-                                #if 0
-                                bool cond = ( weighted_pair.masks.count_disjoint(_.mask) != 0 );
-                                if( ! cond )
-                                        continue;
-                                #endif
-
 
                                 auto rank_hash = rank_proto;
 
                                 rank_hash = rank_hasher::append(rank_hash, _.r0);
                                 rank_hash = rank_hasher::append(rank_hash, _.r1);
 
+                                
                                 if( fsbsz == 0 ){
                                         shed.shedule(idx, rank_hash);
                                 } else {
@@ -729,10 +719,12 @@ struct pass_eval_hand_instr_vec : computation_pass{
                                         bool s0m = ( _.s0 == flush_suit );
                                         bool s1m = ( _.s1 == flush_suit );
 
-                                        if( s0m )
+                                        if( s0m ){
                                                 fm |= 1ull << _.r0;
-                                        if( s1m )
+                                        }
+                                        if( s1m ){
                                                 fm |= 1ull << _.r1;
+                                        }
 
                                         shed.shedule_flush(idx, rank_hash, fm);
                                 }
@@ -742,38 +734,6 @@ struct pass_eval_hand_instr_vec : computation_pass{
                 }
                 shed.regroup();
 
-                #else
-                for(auto const& b : w ){
-
-
-                        auto mask             = b.mask();
-                        auto rank_proto       = b.rank_hash();
-                        auto suit_proto       = b.suit_hash();
-                        card_vector const& cv = b.board();
-
-
-                        for(size_t idx=0;idx!=rod.size();++idx){
-                                auto const& _ = rod[idx];
-                                if( _.mask & mask )
-                                        continue;
-                                auto rank_hash = rank_proto;
-                                auto suit_hash = suit_proto;
-
-                                rank_hash = rank_hasher::append(rank_hash, _.r0);
-                                rank_hash = rank_hasher::append(rank_hash, _.r1);
-
-                                suit_hash = suit_hasher::append(suit_hash, _.s0 );
-                                suit_hash = suit_hasher::append(suit_hash, _.s1 );
-
-                                ranking_t r = ev.rank(cv, suit_hash, rank_hash, _.c0, _.c1);
-                                R[idx] = r;
-                        }
-
-                        for(auto& _ : subs){
-                                _->accept(mask, R);
-                        }
-                }
-                #endif
                 
                 PS_LOG(trace) << "Took " << tmr.format(2, "%w seconds") << " to do main loop";
                 for(auto& _ : subs){
@@ -806,9 +766,11 @@ struct pass_eval_hand_instr_vec : computation_pass{
                         transfrom_impl( ctx, instr_list, result, to_map, basic_sub_eval_factory<sub_eval_two>{});
                 }
                 #endif
+                #if 1
                 else if( n_dist.size() == 1 && *n_dist.begin() == 3 ){
                         transfrom_impl( ctx, instr_list, result, to_map, basic_sub_eval_factory<sub_eval_three>{});
                 } 
+                #endif
                 #if 0
                 else if( n_dist.size() == 1 && *n_dist.begin() == 4 ){
                         transfrom_impl( ctx, instr_list, result, to_map, basic_sub_eval_factory<sub_eval_four>{});

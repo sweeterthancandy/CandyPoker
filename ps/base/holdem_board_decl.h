@@ -31,6 +31,7 @@ SOFTWARE.
 
 #include "ps/base/rank_hasher.h"
 #include "ps/base/suit_hasher.h"
+#include "ps/base/mask_set.h"
 #include "ps/base/board_combination_iterator.h"
 
 namespace ps{
@@ -53,24 +54,12 @@ namespace ps{
                         
 
  */
-struct mask_set{
-        void add(size_t mask){
-                masks_.push_back(mask);
-        }
-        size_t count_disjoint(size_t that)const noexcept{
-                size_t count = 0;
-                for(auto mask : masks_ ){
-                        if( ( mask & that ) == 0 ){
-                                ++count;
-                        }
-                }
-                return count;
-        }
-        size_t size()const{ return masks_.size(); }
-private:
-        std::vector<size_t> masks_;
-};
+
+
+
+
 struct holdem_board_decl{
+        enum{ Debug = false };
         struct layout{
                 layout(card_vector vec)
                         :vec_{std::move(vec)}
@@ -159,14 +148,32 @@ struct holdem_board_decl{
                         }
                 }
 
-                size_t sigma = 0;
-                for(auto const& _ : weighted_ ){
-                        sigma += _.masks.size();
+                if( Debug ){
+
+                        std::map<mask_set, size_t> hist;
+                        size_t masks_sigma = 0;
+                        for(auto const& p : weighted_ ){
+                                ++hist[p.masks];
+                                ++masks_sigma;
+                        }
+                        std::cout << "hist.size() => " << hist.size() << "\n"; // __CandyPrint__(cxx-print-scalar,hist.size())
+                        std::cout << "masks_sigma => " << masks_sigma << "\n"; // __CandyPrint__(cxx-print-scalar,masks_sigma)
+
+                        // reorder them, so it's possible for branch prediction
+                        boost::sort(  weighted_, [](auto const& l, auto const& r){
+                                return l.masks.size() < r.masks.size();
+                        });
+
+                        size_t sigma = 0;
+                        for(auto const& _ : weighted_ ){
+                                sigma += _.masks.size();
+                        }
+
+                        std::cout << "world_.size() => " << world_.size() << ", "; // __CandyPrint__(cxx-print-scalar,world_.size())
+                        std::cout << "weighted_.size() => " << weighted_.size() << "\n"; // __CandyPrint__(cxx-print-scalar,weighted_.size())
+                        std::cout << "sigma => " << sigma << "\n"; // __CandyPrint__(cxx-print-scalar,sigma)
                 }
 
-                std::cout << "world_.size() => " << world_.size() << ", "; // __CandyPrint__(cxx-print-scalar,world_.size())
-                std::cout << "weighted_.size() => " << weighted_.size() << "\n"; // __CandyPrint__(cxx-print-scalar,weighted_.size())
-                std::cout << "sigma => " << sigma << "\n"; // __CandyPrint__(cxx-print-scalar,sigma)
         }
         auto begin()const noexcept{ return world_.begin(); }
         auto end()const noexcept{ return world_.end(); }

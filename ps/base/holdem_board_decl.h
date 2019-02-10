@@ -56,8 +56,12 @@ namespace ps{
 struct mask_set{
         void add(size_t mask){
                 masks_.push_back(mask);
+                union_ |= mask;
+                ++sz_;
         }
         size_t count_disjoint(size_t that)const noexcept{
+                if( ( that & union_ ) == 0 )
+                        return sz_;
                 size_t count = 0;
                 for(auto mask : masks_ ){
                         if( ( mask & that ) == 0 ){
@@ -66,9 +70,11 @@ struct mask_set{
                 }
                 return count;
         }
-        size_t size()const{ return masks_.size(); }
+        size_t size()const{ return sz_; }
 private:
         std::vector<size_t> masks_;
+        size_t union_{0};
+        size_t sz_;
 };
 struct holdem_board_decl{
         struct layout{

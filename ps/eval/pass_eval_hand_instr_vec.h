@@ -40,6 +40,7 @@ SOFTWARE.
 
 #include "ps/eval/evaluator_6_card_map.h"
 #include "ps/eval/pass_eval_hand_instr.h"
+#include "ps/eval/rank_hash_eval.h"
 
 #include <unordered_set>
 #include <unordered_map>
@@ -636,9 +637,7 @@ struct rank_opt_device : std::vector<rank_opt_item>{
 
 struct pass_eval_hand_instr_vec : computation_pass{
 
-        //using eval_type = mask_computer_detail::rank_hash_hash_eval;
-        using eval_type = mask_computer_detail::rank_hash_eval;
-        //using eval_type =   mask_computer_detail::SKPokerEvalWrap;
+        using eval_type = rank_hash_eval;
 
 
         template<class Factory>
@@ -686,6 +685,7 @@ struct pass_eval_hand_instr_vec : computation_pass{
                 shed_type shed{&ev, rod.size(), subs};
 
 
+                std::cout << "boost::distance(w.weighted_rng()) => " << boost::distance(w.weighted_rng()) << "\n"; // __CandyPrint__(cxx-print-scalar,boost::distance(w.weighted_rng()))
 
                 for(auto const& weighted_pair : w.weighted_rng() ){
 

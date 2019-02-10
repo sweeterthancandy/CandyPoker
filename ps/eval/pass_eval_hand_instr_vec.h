@@ -649,9 +649,11 @@ struct pass_eval_hand_instr_vec : computation_pass{
                 else if( n_dist.size() == 1 && *n_dist.begin() == 2 ){
                         transfrom_impl( ctx, instr_list, result, to_map, basic_sub_eval_factory<sub_eval_two>{});
                 }
+                #if 0
                 else if( n_dist.size() == 1 && *n_dist.begin() == 3 ){
                         transfrom_impl( ctx, instr_list, result, to_map, basic_sub_eval_factory<sub_eval_three>{});
                 } 
+                #endif
                 else {
                         transfrom_impl( ctx, instr_list, result, to_map, basic_sub_eval_factory<sub_eval>{});
                 }

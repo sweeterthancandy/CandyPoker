@@ -39,7 +39,7 @@ SOFTWARE.
 #include "ps/base/rank_board_combination_iterator.h"
 
 #include "ps/eval/evaluator_6_card_map.h"
-#include "SevenEval.h"
+#include "ps/eval/flush_mask_eval.h"
 
 #include <unordered_set>
 #include <unordered_map>
@@ -47,6 +47,7 @@ SOFTWARE.
 namespace ps{
 
 namespace mask_computer_detail{
+
 
 struct rank_hash_eval
 {
@@ -72,6 +73,9 @@ struct rank_hash_eval
                 }
 
                 suit_map_.fill(static_cast<ranking_t>(-1));
+                auto wrap = [&](auto... c){ return e6cm_->rank(c...); };
+                flush_mask_eval::create_flush_mask_eval_inplace(suit_map_, wrap);
+                #if 0
                 for(size_t mask = 0; mask <= RankMaskUpper ; ++mask ){
                         auto pc = __builtin_popcountll(mask);
                         switch(pc){
@@ -149,6 +153,7 @@ struct rank_hash_eval
                                 }
                         }
                 }
+                #endif
         }
         #if 0
         ranking_t rank(card_vector const& cv, size_t suit_hash, size_t rank_hash, long a, long b)const noexcept{

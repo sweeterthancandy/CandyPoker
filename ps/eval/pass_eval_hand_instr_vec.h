@@ -296,12 +296,12 @@ namespace pass_eval_hand_instr_vec_detail{
                         draw3_.fill(0);
                         draw4_.fill(0);
                 }
-                void accept(size_t mask, size_t weight, std::vector<ranking_t> const& R)noexcept
+                void accept(mask_set const& ms, std::vector<ranking_t> const& R)noexcept
                 {
-                        bool cond = (mask & hv_mask ) == 0;
-                        if(!cond){
+                        size_t weight = ms.count_disjoint(hv_mask);
+                        if( weight == 0 )
                                 return;
-                        }
+
                         auto rank_0 = R[allocation_[0]];
                         auto rank_1 = R[allocation_[1]];
                         auto rank_2 = R[allocation_[2]];
@@ -449,6 +449,9 @@ namespace pass_eval_hand_instr_vec_detail{
                 void begin_eval(mask_set const& ms)noexcept{
                         ms_   = &ms;
                         out_  = 0;
+                }
+                void put(size_t index, ranking_t rank)noexcept{
+                        evals_[index] = rank;
                 }
                 void shedule(size_t index, rank_hasher::rank_hash_t rank_hash)noexcept
                 {
@@ -697,8 +700,41 @@ struct pass_eval_hand_instr_vec : computation_pass{
                         auto const& flush_suit_board = b.flush_suit_board();
                         size_t fsbsz = flush_suit_board.size();
                         auto flush_mask = b.flush_mask();
+                        
+                        shed.begin_eval(weighted_pair.masks);
+                        
+                        for(size_t idx=0;idx!=rod.size();++idx){
+                                auto const& _ = rod[idx];
 
+                                ranking_t rr = b.no_flush_rank(_.r0, _.r1);
+                                
+                                if( fsbsz == 0 ){
+                                        shed.put(idx, rr);
+                                } else {
 
+                                        auto fm = flush_mask;
+
+                                        bool s0m = ( _.s0 == flush_suit );
+                                        bool s1m = ( _.s1 == flush_suit );
+
+                                        if( s0m ){
+                                                fm |= 1ull << _.r0;
+                                        }
+                                        if( s1m ){
+                                                fm |= 1ull << _.r1;
+                                        }
+
+                                        ranking_t sr = ev.rank_only_flush(fm);
+                                        ranking_t tr = std::min(sr, rr);
+
+                                        shed.put(idx, tr);
+                                }
+
+                        }
+
+                        shed.end_eval();
+
+                        #if 0
                         shed.begin_eval(weighted_pair.masks);
 
                         for(size_t idx=0;idx!=rod.size();++idx){
@@ -731,6 +767,7 @@ struct pass_eval_hand_instr_vec : computation_pass{
 
                         }
                         shed.end_eval();
+                        #endif
                 }
                 shed.regroup();
 
@@ -771,7 +808,7 @@ struct pass_eval_hand_instr_vec : computation_pass{
                         transfrom_impl( ctx, instr_list, result, to_map, basic_sub_eval_factory<sub_eval_three>{});
                 } 
                 #endif
-                #if 0
+                #if 1
                 else if( n_dist.size() == 1 && *n_dist.begin() == 4 ){
                         transfrom_impl( ctx, instr_list, result, to_map, basic_sub_eval_factory<sub_eval_four>{});
                 } 

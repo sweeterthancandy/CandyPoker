@@ -32,7 +32,7 @@ SOFTWARE.
 namespace ps{
 namespace detail{
         template<class MatrixType, class ArrayType>
-        void dispatch_ranked_vector_mat(MatrixType& result, ArrayType const& ranked, size_t n)noexcept{
+        void dispatch_ranked_vector_mat(MatrixType& result, ArrayType const& ranked, size_t n, size_t weight = 1)noexcept{
                 auto lowest = ranked[0] ;
                 size_t count{1};
                 for(size_t i=1;i<n;++i){
@@ -45,7 +45,7 @@ namespace detail{
                 }
                 for(size_t i=0;i!=n;++i){
                         if( ranked[i] == lowest ){
-                                ++result(count-1, i);
+                                result(count-1, i) += weight;
                         }
                 }
         }

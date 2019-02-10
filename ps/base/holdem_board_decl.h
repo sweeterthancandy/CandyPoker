@@ -91,6 +91,8 @@ struct holdem_board_decl{
                                 }
                         }
                         flush_possible_ = ( flush_suit_board_.size() != 0);
+
+
                 }
                 size_t mask()const noexcept{ return mask_; }
                 size_t rank_hash()const noexcept{ return rank_hash_; }
@@ -111,17 +113,43 @@ struct holdem_board_decl{
                 bool flush_possible_;
                 size_t flush_mask_{0};
         };
+        struct weighted_layout{
+                size_t        weight;
+                layout const* board;
+        };
 
         holdem_board_decl(){
                 for(board_combination_iterator iter(5),end;iter!=end;++iter){
                         world_.emplace_back( *iter );
                 }
+
+                // mask -> index
+                std::unordered_map<size_t, size_t> m;
+
+                for( auto const& l : world_ ){
+                        if( l.flush_possible() ){
+                                weighted_.emplace_back( weighted_layout{1, &l} );
+                        } else {
+                                auto iter = m.find( l.rank_hash() );
+                                if( iter == m.end()){
+                                        weighted_.emplace_back( weighted_layout{1, &l} );
+                                        m[l.rank_hash()] = weighted_.size() -1 ;
+                                } else {
+                                        ++weighted_[iter->second].weight;
+                                }
+                        }
+                }
+                std::cout << "world_.size() => " << world_.size() << ", "; // __CandyPrint__(cxx-print-scalar,world_.size())
+                std::cout << "weighted_.size() => " << weighted_.size() << "\n"; // __CandyPrint__(cxx-print-scalar,weighted_.size())
         }
         auto begin()const noexcept{ return world_.begin(); }
         auto end()const noexcept{ return world_.end(); }
 
+        auto const& weighted_rng()const{ return weighted_; }
 private:
         std::vector<layout> world_;
+        std::vector<weighted_layout> weighted_;
+        
 };
 
 } // ps

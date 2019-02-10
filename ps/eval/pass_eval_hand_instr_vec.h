@@ -86,7 +86,7 @@ namespace pass_eval_hand_instr_vec_detail{
                         mat.resize(n, n);
                         mat.fill(0);
                 }
-                void accept(size_t mask, std::vector<ranking_t> const& R)noexcept
+                void accept(size_t mask, size_t weight, std::vector<ranking_t> const& R)noexcept
                 {
                         bool cond = (mask & hv_mask ) == 0;
                         if(!cond){
@@ -95,7 +95,7 @@ namespace pass_eval_hand_instr_vec_detail{
                         for(size_t i=0;i!=n;++i){
                                 ranked[i] = R[allocation_[i]];
                         }
-                        detail::dispatch_ranked_vector_mat(mat, ranked, n);
+                        detail::dispatch_ranked_vector_mat(mat, ranked, n, weight);
                 }
                 void finish(){
                         *iter_ = std::make_shared<matrix_instruction>(instr_->group(), mat * instr_->get_matrix());
@@ -136,7 +136,7 @@ namespace pass_eval_hand_instr_vec_detail{
                         wins_.fill(0);
                         draw2_.fill(0);
                 }
-                void accept(size_t mask, std::vector<ranking_t> const& R)noexcept
+                void accept(size_t mask, size_t weight, std::vector<ranking_t> const& R)noexcept
                 {
                         bool cond = (mask & hv_mask ) == 0;
                         if(!cond){
@@ -146,12 +146,12 @@ namespace pass_eval_hand_instr_vec_detail{
                         auto r1 = R[allocation_[1]];
 
                         if( r0 < r1 ){
-                                ++wins_[0];
+                                wins_[0] += weight;
                         } else if( r1 < r0 ){
-                                ++wins_[1];
+                                wins_[1] += weight;
                         } else{
-                                ++draw2_[0];
-                                ++draw2_[1];
+                                draw2_[0] += weight;
+                                draw2_[1] += weight;
                         }
                 }
                 void finish(){
@@ -200,7 +200,7 @@ namespace pass_eval_hand_instr_vec_detail{
                         draw2_.fill(0);
                         draw3_.fill(0);
                 }
-                void accept(size_t mask, std::vector<ranking_t> const& R)noexcept
+                void accept(size_t mask, size_t weight, std::vector<ranking_t> const& R)noexcept
                 {
                         bool cond = (mask & hv_mask ) == 0;
                         if(!cond){
@@ -212,21 +212,21 @@ namespace pass_eval_hand_instr_vec_detail{
 
                         if( r0 < r1 ){
                                 if( r0 < r2 ){
-                                        ++wins_[0];
+                                        wins_[0] += weight;
                                 } else if( r2 < r0 ){
-                                        ++wins_[2];
+                                        wins_[2] += weight;
                                 } else {
-                                        ++draw2_[0];
-                                        ++draw2_[2];
+                                        draw2_[0] += weight;
+                                        draw2_[2] += weight;
                                 }
                         } else if( r1 < r0 ){
                                 if( r1 < r2 ){
-                                        ++wins_[1];
+                                        wins_[1] += weight;
                                 } else if( r2 < r1 ){
-                                        ++wins_[2];
+                                        wins_[2] += weight;
                                 } else {
-                                        ++draw2_[1];
-                                        ++draw2_[2];
+                                        draw2_[1] += weight;
+                                        draw2_[2] += weight;
                                 }
                         } else {
                                 // ok one of three casese
@@ -234,14 +234,14 @@ namespace pass_eval_hand_instr_vec_detail{
                                 //    2) r2 wins
                                 //    3) r0,r1,r2 draw with each other
                                 if( r0 < r2 ){
-                                        ++draw2_[0];
-                                        ++draw2_[1];
+                                        draw2_[0] += weight;
+                                        draw2_[1] += weight;
                                 } else if( r2 < r0 ){
-                                        ++wins_[2];
+                                        wins_[2] += weight;
                                 } else {
-                                        ++draw3_[0];
-                                        ++draw3_[1];
-                                        ++draw3_[2];
+                                        draw3_[0] += weight;
+                                        draw3_[1] += weight;
+                                        draw3_[2] += weight;
                                 }
                         }
                 }
@@ -295,7 +295,7 @@ namespace pass_eval_hand_instr_vec_detail{
                         draw3_.fill(0);
                         draw4_.fill(0);
                 }
-                void accept(size_t mask, std::vector<ranking_t> const& R)noexcept
+                void accept(size_t mask, size_t weight, std::vector<ranking_t> const& R)noexcept
                 {
                         bool cond = (mask & hv_mask ) == 0;
                         if(!cond){
@@ -324,62 +324,62 @@ namespace pass_eval_hand_instr_vec_detail{
 
                         if( l < r ){
                                 if( rank_0 == rank_1 ){
-                                        ++draw2_[0];
-                                        ++draw2_[1];
+                                        draw2_[0] += weight;
+                                        draw2_[1] += weight;
                                 } else{
-                                        ++wins_[li];
+                                        wins_[li] += weight;
                                 }
                         } else if( r < l ){
                                 if( rank_2 == rank_3 ){
-                                        ++draw2_[2];
-                                        ++draw2_[3];
+                                        draw2_[2] += weight;
+                                        draw2_[3] += weight;
                                 } else{
-                                        ++wins_[ri];
+                                        wins_[ri] += weight;
                                 }
                         } else {
                                 // maybe {0,1,2,3} draw
                                 if( rank_0 < rank_1 ){
                                         // {0}, maybe {2,3}
                                         if( rank_2 < rank_3 ){
-                                                ++draw2_[0];
-                                                ++draw2_[2];
+                                                draw2_[0] += weight;
+                                                draw2_[2] += weight;
                                         } else if ( rank_3 < rank_2 ){
-                                                ++draw2_[0];
-                                                ++draw2_[3];
+                                                draw2_[0] += weight;
+                                                draw2_[3] += weight;
                                         } else {
-                                                ++draw3_[0];
-                                                ++draw3_[2];
-                                                ++draw3_[3];
+                                                draw3_[0] += weight;
+                                                draw3_[2] += weight;
+                                                draw3_[3] += weight;
                                         }
                                 } else if (rank_1 < rank_0 ){
                                         // {1}, maybe {2,3}
                                         if( rank_2 < rank_3 ){
-                                                ++draw2_[1];
-                                                ++draw2_[2];
+                                                draw2_[1] += weight;
+                                                draw2_[2] += weight;
                                         } else if ( rank_3 < rank_2 ){
-                                                ++draw2_[1];
-                                                ++draw2_[3];
+                                                draw2_[1] += weight;
+                                                draw2_[3] += weight;
                                         } else {
-                                                ++draw3_[1];
-                                                ++draw3_[2];
-                                                ++draw3_[3];
+                                                draw3_[1] += weight;
+                                                draw3_[2] += weight;
+                                                draw3_[3] += weight;
                                         }
                                 }
                                 else {
                                         // {0,1}, maybe {2,3}
                                         if( rank_2 < rank_3 ){
-                                                ++draw3_[0];
-                                                ++draw3_[1];
-                                                ++draw3_[2];
+                                                draw3_[0] += weight;
+                                                draw3_[1] += weight;
+                                                draw3_[2] += weight;
                                         } else if ( rank_3 < rank_2 ){
-                                                ++draw3_[0];
-                                                ++draw3_[1];
-                                                ++draw3_[3];
+                                                draw3_[0] += weight;
+                                                draw3_[1] += weight;
+                                                draw3_[3] += weight;
                                         } else {
-                                                ++draw4_[0];
-                                                ++draw4_[1];
-                                                ++draw4_[2];
-                                                ++draw4_[3];
+                                                draw4_[0] += weight;
+                                                draw4_[1] += weight;
+                                                draw4_[2] += weight;
+                                                draw4_[3] += weight;
                                         }
                                 }
                         }
@@ -445,8 +445,9 @@ namespace pass_eval_hand_instr_vec_detail{
                         evals_.resize(batch_size_);
                 }
 
-                void begin_eval(size_t mask, card_vector const& cv)noexcept{
+                void begin_eval(size_t mask, size_t weight, card_vector const& cv)noexcept{
                         mask_ = mask;
+                        weight_ = weight;
                         cv_   = &cv;
                         out_  = 0;
                 }
@@ -463,7 +464,7 @@ namespace pass_eval_hand_instr_vec_detail{
                 void end_eval()noexcept{
                         BOOST_ASSERT( out_ == batch_size_ );
                         for(auto& _ : subs_){
-                                _->accept(mask_, evals_);
+                                _->accept(mask_, weight_, evals_);
                         }
                 }
                 void regroup()noexcept{
@@ -475,6 +476,7 @@ namespace pass_eval_hand_instr_vec_detail{
                 std::vector<ranking_t> evals_;
                 std::vector<SubPtrType>& subs_;
                 size_t mask_;
+                size_t weight_;
                 size_t out_{0};
                 card_vector const* cv_;
         };
@@ -685,6 +687,8 @@ struct pass_eval_hand_instr_vec : computation_pass{
                 using shed_type = pass_eval_hand_instr_vec_detail::eval_scheduler_simple<eval_type, sub_ptr_type>;
                 //using shed_type = pass_eval_hand_instr_vec_detail::eval_scheduler_reshed<mask_computer_detail::rank_hash_eval, sub_ptr_type>;
                 shed_type shed{&ev, rod.size(), subs};
+                size_t hit{0};
+                size_t total{0};
                 for(auto const& b : w ){
 
 
@@ -699,8 +703,12 @@ struct pass_eval_hand_instr_vec : computation_pass{
                         size_t fsbsz = flush_suit_board.size();
                         auto flush_mask = b.flush_mask();
 
+                        if( flush_possible ){
+                                ++hit;
+                        }
+                        ++total;
 
-                        shed.begin_eval(mask, cv);
+                        shed.begin_eval(mask, 1, cv);
 
                         for(size_t idx=0;idx!=rod.size();++idx){
                                 auto const& _ = rod[idx];
@@ -733,6 +741,9 @@ struct pass_eval_hand_instr_vec : computation_pass{
                         shed.end_eval();
                 }
                 shed.regroup();
+
+                std::cout << "hit => " << hit << "\n"; // __CandyPrint__(cxx-print-scalar,hit)
+                std::cout << "total => " << total << "\n"; // __CandyPrint__(cxx-print-scalar,total)
                 #else
                 for(auto const& b : w ){
 

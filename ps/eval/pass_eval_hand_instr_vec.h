@@ -278,6 +278,152 @@ namespace pass_eval_hand_instr_vec_detail{
                 std::array<size_t, 9> draw2_;
                 std::array<size_t, 9> draw3_;
         };
+
+
+        struct sub_eval_four{
+                using iter_t = instruction_list::iterator;
+                sub_eval_four(iter_t iter, card_eval_instruction* instr)
+                        :iter_{iter}, instr_{instr}
+                {
+                        hv   = instr->get_vector();
+                        hv_mask = hv.mask();
+                        mat.resize(n, n);
+                        mat.fill(0);
+
+                        wins_.fill(0);
+                        draw2_.fill(0);
+                        draw3_.fill(0);
+                        draw4_.fill(0);
+                }
+                void accept(size_t mask, std::vector<ranking_t> const& R)noexcept
+                {
+                        bool cond = (mask & hv_mask ) == 0;
+                        if(!cond){
+                                return;
+                        }
+                        auto rank_0 = R[allocation_[0]];
+                        auto rank_1 = R[allocation_[1]];
+                        auto rank_2 = R[allocation_[2]];
+                        auto rank_3 = R[allocation_[3]];
+
+                        // pick best out of 0,1
+                        auto l = rank_0;
+                        auto li = 0;
+                        if( rank_1 < rank_0 ){
+                                l = rank_1;
+                                li = 1;
+                        }
+
+                        // pick best out of 2,3
+                        auto r = rank_2;
+                        auto ri = 2;
+                        if( rank_3 < rank_2 ){
+                                r = rank_3;
+                                ri = 3;
+                        }
+
+                        if( l < r ){
+                                if( rank_0 == rank_1 ){
+                                        ++draw2_[0];
+                                        ++draw2_[1];
+                                } else{
+                                        ++wins_[li];
+                                }
+                        } else if( r < l ){
+                                if( rank_2 == rank_3 ){
+                                        ++draw2_[2];
+                                        ++draw2_[3];
+                                } else{
+                                        ++wins_[ri];
+                                }
+                        } else {
+                                // maybe {0,1,2,3} draw
+                                if( rank_0 < rank_1 ){
+                                        // {0}, maybe {2,3}
+                                        if( rank_2 < rank_3 ){
+                                                ++draw2_[0];
+                                                ++draw2_[2];
+                                        } else if ( rank_3 < rank_2 ){
+                                                ++draw2_[0];
+                                                ++draw2_[3];
+                                        } else {
+                                                ++draw3_[0];
+                                                ++draw3_[2];
+                                                ++draw3_[3];
+                                        }
+                                } else if (rank_1 < rank_0 ){
+                                        // {1}, maybe {2,3}
+                                        if( rank_2 < rank_3 ){
+                                                ++draw2_[1];
+                                                ++draw2_[2];
+                                        } else if ( rank_3 < rank_2 ){
+                                                ++draw2_[1];
+                                                ++draw2_[3];
+                                        } else {
+                                                ++draw3_[1];
+                                                ++draw3_[2];
+                                                ++draw3_[3];
+                                        }
+                                }
+                                else {
+                                        // {0,1}, maybe {2,3}
+                                        if( rank_2 < rank_3 ){
+                                                ++draw3_[0];
+                                                ++draw3_[1];
+                                                ++draw3_[2];
+                                        } else if ( rank_3 < rank_2 ){
+                                                ++draw3_[0];
+                                                ++draw3_[1];
+                                                ++draw3_[3];
+                                        } else {
+                                                ++draw4_[0];
+                                                ++draw4_[1];
+                                                ++draw4_[2];
+                                                ++draw4_[3];
+                                        }
+                                }
+                        }
+
+                }
+                void finish(){
+                        for(size_t idx=0;idx!=n;++idx){
+                                mat(0, idx) += wins_[idx];
+                                mat(1, idx) += draw2_[idx];
+                                mat(2, idx) += draw3_[idx];
+                                mat(3, idx) += draw4_[idx];
+                        }
+                        *iter_ = std::make_shared<matrix_instruction>(instr_->group(), mat * instr_->get_matrix());
+                }
+                void declare(std::unordered_set<holdem_id>& S){
+                        for(auto _ : hv){
+                                S.insert(_);
+                        }
+                }
+                template<class Alloc>
+                void allocate(Alloc const& alloc){
+                        for(size_t idx=0;idx!=n;++idx){
+                                allocation_[idx] = alloc(hv[idx]);
+                        }
+                }
+        private:
+                iter_t iter_;
+                card_eval_instruction* instr_;
+
+                holdem_hand_vector hv;
+                size_t hv_mask;
+                matrix_t mat;
+                size_t n{4};
+
+                std::array<size_t, 9> allocation_;
+                std::array<size_t, 9> wins_;
+                std::array<size_t, 9> draw2_;
+                std::array<size_t, 9> draw3_;
+                std::array<size_t, 9> draw4_;
+        };
+
+
+
+
         
         template<class T>
         struct basic_sub_eval_factory{
@@ -652,6 +798,11 @@ struct pass_eval_hand_instr_vec : computation_pass{
                 else if( n_dist.size() == 1 && *n_dist.begin() == 3 ){
                         transfrom_impl( ctx, instr_list, result, to_map, basic_sub_eval_factory<sub_eval_three>{});
                 } 
+                #if 1
+                else if( n_dist.size() == 1 && *n_dist.begin() == 4 ){
+                        transfrom_impl( ctx, instr_list, result, to_map, basic_sub_eval_factory<sub_eval_four>{});
+                } 
+                #endif
                 else {
                         transfrom_impl( ctx, instr_list, result, to_map, basic_sub_eval_factory<sub_eval>{});
                 }

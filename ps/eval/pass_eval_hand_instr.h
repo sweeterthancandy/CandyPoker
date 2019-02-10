@@ -163,10 +163,10 @@ struct rank_hash_eval
                 return ret;
         }
         #endif
-        ranking_t rank(card_vector const& cv, size_t suit_hash, size_t rank_hash, long a, long b)const noexcept{
+        ranking_t rank(size_t rank_hash)const noexcept{
                 return card_map_7_[rank_hash];
         }
-        ranking_t rank_flush(card_vector const& cv, size_t suit_hash, size_t rank_hash, long a, long b, size_t flush_mask)const noexcept{
+        ranking_t rank_flush(size_t rank_hash, size_t flush_mask)const noexcept{
                 auto rr = card_map_7_[rank_hash];
                 auto fr = suit_map_[flush_mask];
                 return std::min<ranking_t>(rr, fr);
@@ -325,7 +325,7 @@ struct pass_eval_hand_instr : instruction_map_pass{
 
                                 //ranked[i] = 0; continue; // XXX
 
-                                ranked[i] = ev.rank(b.board(), suit_hash, rank_hash, hv_first[i], hv_second[i]);
+                                ranked[i] = ev.rank_legacy(b.board(), suit_hash, rank_hash, hv_first[i], hv_second[i]);
                         }
                         detail::dispatch_ranked_vector_mat(mat, ranked, n);
                 }

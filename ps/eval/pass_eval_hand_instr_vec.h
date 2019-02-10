@@ -304,28 +304,15 @@ namespace pass_eval_hand_instr_vec_detail{
                         cv_   = &cv;
                         out_  = 0;
                 }
-                void shedule(size_t index, suit_hasher::suit_hash_t suit_hash, rank_hasher::rank_hash_t rank_hash,
-                          card_id c0, card_id c1, size_t mask)noexcept
+                void shedule(size_t index, rank_hasher::rank_hash_t rank_hash)noexcept
                 {
                         BOOST_ASSERT( index < batch_size_ );
-                        auto a = impl_->rank(*cv_, suit_hash, rank_hash, c0, c1);
-                        //auto b = impl_->rank_mask(mask);
-                        //evals_[index] = impl_->rank(*cv_, suit_hash, rank_hash, c0, c1);
-                        evals_[index] = a;
-                        #if 0
-                        if( a != b ){
-                                std::cout << "__builtin_popcount(mask) => " << __builtin_popcount(mask) << "\n"; // __CandyPrint__(cxx-print-scalar,__builtin_popcount(mask))
-                                std::cout << "a => " << a << "\n"; // __CandyPrint__(cxx-print-scalar,a)
-                                std::cout << "b => " << b << "\n"; // __CandyPrint__(cxx-print-scalar,b)
-                        }
-                        #endif
+                        evals_[index] = impl_->rank(rank_hash);
                 }
-                void shedule_flush(size_t index, suit_hasher::suit_hash_t suit_hash, rank_hasher::rank_hash_t rank_hash,
-                          card_id c0, card_id c1, size_t mask, size_t flush_mask)noexcept
+                void shedule_flush(size_t index, rank_hasher::rank_hash_t rank_hash, size_t flush_mask)noexcept
                 {
                         BOOST_ASSERT( index < batch_size_ );
-                        auto a = impl_->rank_flush(*cv_, suit_hash, rank_hash, c0, c1, flush_mask);
-                        evals_[index] = a;
+                        evals_[index] = impl_->rank_flush(rank_hash, flush_mask);
                 }
                 void end_eval()noexcept{
                         BOOST_ASSERT( out_ == batch_size_ );
@@ -574,24 +561,13 @@ struct pass_eval_hand_instr_vec : computation_pass{
                                 if( _.mask & mask )
                                         continue;
 
-                                auto aggregate_mask = _.mask | mask;
-                                #if 0
-                                std::cout << "__builtin_popcountll(mask)           => " << __builtin_popcountll(mask) << "\n"; // __CandyPrint__(cxx-print-scalar,__builtin_popcountll(mask))
-                                std::cout << "__builtin_popcountll(_.mask)         => " << __builtin_popcountll(_.mask) << "\n"; // __CandyPrint__(cxx-print-scalar,__builtin_popcountll(_.mask))
-                                std::cout << "__builtin_popcountll(aggregate_mask) => " << __builtin_popcountll(aggregate_mask) << "\n"; // __CandyPrint__(cxx-print-scalar,__builtin_popcountll(aggregate_mask))
-                                #endif
-
                                 auto rank_hash = rank_proto;
-                                auto suit_hash = suit_proto;
 
                                 rank_hash = rank_hasher::append(rank_hash, _.r0);
                                 rank_hash = rank_hasher::append(rank_hash, _.r1);
 
-                                suit_hash = suit_hasher::append(suit_hash, _.s0 );
-                                suit_hash = suit_hasher::append(suit_hash, _.s1 );
-
                                 if( fsbsz == 0 ){
-                                        shed.shedule(idx, suit_hash, rank_hash, _.c0, _.c1, aggregate_mask);
+                                        shed.shedule(idx, rank_hash);
                                 } else {
 
                                         auto fm = flush_mask;
@@ -604,7 +580,7 @@ struct pass_eval_hand_instr_vec : computation_pass{
                                         if( s1m )
                                                 fm |= 1ull << _.r1;
 
-                                        shed.shedule_flush(idx, suit_hash, rank_hash, _.c0, _.c1, aggregate_mask, fm);
+                                        shed.shedule_flush(idx, rank_hash, fm);
                                 }
 
                         }

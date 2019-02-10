@@ -34,7 +34,6 @@ SOFTWARE.
 #include <boost/noncopyable.hpp>
 
 #include "ps/support/singleton_factory.h"
-#include "ps/eval/rank_decl.h"
 
 namespace ps{
 

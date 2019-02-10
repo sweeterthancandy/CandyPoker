@@ -1,6 +1,8 @@
 #ifndef PS_EVAL_RANK_HASH_EVAL_H
 #define PS_EVAL_RANK_HASH_EVAL_H
 
+#include "ps/eval/flush_mask_eval.h"
+#include "ps/eval/evaluator_6_card_map.h"
 
 namespace ps{
 
@@ -24,8 +26,11 @@ struct rank_hash_eval
                 };
                 flush_mask_eval::create_flush_mask_eval_inplace(suit_map_, flush_wrap);
         }
-        ranking_t rank(size_t rank_hash)const noexcept{
+        ranking_t rank_no_flush(size_t rank_hash)const noexcept{
                 return card_map_7_[rank_hash];
+        }
+        ranking_t rank_only_flush(size_t flush_mask)const noexcept{
+                return suit_map_[flush_mask];
         }
         ranking_t rank_flush(size_t rank_hash, size_t flush_mask)const noexcept{
                 auto rr = card_map_7_[rank_hash];

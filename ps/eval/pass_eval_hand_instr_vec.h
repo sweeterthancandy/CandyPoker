@@ -453,7 +453,7 @@ namespace pass_eval_hand_instr_vec_detail{
                 void shedule(size_t index, rank_hasher::rank_hash_t rank_hash)noexcept
                 {
                         BOOST_ASSERT( index < batch_size_ );
-                        evals_[index] = impl_->rank(rank_hash);
+                        evals_[index] = impl_->rank_no_flush(rank_hash);
                 }
                 void shedule_flush(size_t index, rank_hasher::rank_hash_t rank_hash, size_t flush_mask)noexcept
                 {

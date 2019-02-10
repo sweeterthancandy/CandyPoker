@@ -33,6 +33,8 @@ SOFTWARE.
 #include "ps/base/suit_hasher.h"
 #include "ps/base/mask_set.h"
 #include "ps/base/board_combination_iterator.h"
+#include "ps/eval/rank_decl.h"
+#include "ps/eval/rank_hash_eval.h"
 
 namespace ps{
 
@@ -61,7 +63,7 @@ namespace ps{
 struct holdem_board_decl{
         enum{ Debug = false };
         struct layout{
-                layout(card_vector vec)
+                layout(rank_hash_eval const& eval, card_vector vec)
                         :vec_{std::move(vec)}
                 {
                         PS_ASSERT( vec_.size() == 5 , "false");
@@ -98,6 +100,17 @@ struct holdem_board_decl{
                         }
                         flush_possible_ = ( flush_suit_board_.size() != 0);
 
+                        local_eval_.fill(-1);
+                        for(size_t c0=0;c0!=13;++c0){
+                                for(size_t c1=0;c1!=13;++c1){
+
+                                        auto mask = rank_hash_;
+                                        mask = rank_hasher::append(mask, c0);
+                                        mask = rank_hasher::append(mask, c1);
+
+                                        local_eval_[c0 * 13 + c1 ] = eval.rank_no_flush(mask);
+                                }
+                        }
 
                 }
                 size_t mask()const noexcept{ return mask_; }
@@ -109,6 +122,10 @@ struct holdem_board_decl{
                 suit_id            flush_suit()const noexcept{ return flush_suit_; }
                 card_vector const& flush_suit_board()const noexcept{ return flush_suit_board_; }
                 size_t             flush_mask()const{ return flush_mask_; };
+
+                ranking_t          no_flush_rank(card_id c0, card_id c1)const noexcept{
+                        return local_eval_[ c0 * 13 + c1 ];
+                }
         private:
                 size_t mask_;
                 card_vector vec_;
@@ -118,6 +135,7 @@ struct holdem_board_decl{
                 suit_id flush_suit_{0};
                 bool flush_possible_;
                 size_t flush_mask_{0};
+                std::array<ranking_t, 13 * 13 + 13> local_eval_;
         };
         struct weighted_layout{
                 layout const* board;
@@ -125,8 +143,9 @@ struct holdem_board_decl{
         };
 
         holdem_board_decl(){
+                rank_hash_eval eval;
                 for(board_combination_iterator iter(5),end;iter!=end;++iter){
-                        world_.emplace_back( *iter );
+                        world_.emplace_back(eval, *iter );
                 }
 
                 // mask -> index

@@ -320,31 +320,12 @@ namespace pass_eval_hand_instr_vec_detail{
                         }
                         #endif
                 }
-                bool shedule_flush(size_t index, suit_hasher::suit_hash_t suit_hash, rank_hasher::rank_hash_t rank_hash,
+                void shedule_flush(size_t index, suit_hasher::suit_hash_t suit_hash, rank_hasher::rank_hash_t rank_hash,
                           card_id c0, card_id c1, size_t mask, size_t flush_mask)noexcept
                 {
                         BOOST_ASSERT( index < batch_size_ );
                         auto a = impl_->rank_flush(*cv_, suit_hash, rank_hash, c0, c1, flush_mask);
-                        //auto b = impl_->rank_mask(mask);
-                        //evals_[index] = impl_->rank(*cv_, suit_hash, rank_hash, c0, c1);
-
-                        auto b = impl_->rank_legacy(*cv_, suit_hash, rank_hash, c0, c1);
                         evals_[index] = a;
-                        
-                        static size_t miss = 0;
-                        static size_t total = 0;
-                        ++total;
-                        if( a != b ){
-                                ++miss;
-                        }
-                        if( total % 100'000 == 0 ){
-                                std::cout << "miss => " << miss << ", n"; // __CandyPrint__(cxx-print-scalar,miss)
-                                std::cout << "total => " << total << "\n"; // __CandyPrint__(cxx-print-scalar,total)
-                        }
-                        if( a != b ){
-                                impl_->rank_flush(*cv_, suit_hash, rank_hash, c0, c1, flush_mask, true);
-                        }
-                        return a == b;
                 }
                 void end_eval()noexcept{
                         BOOST_ASSERT( out_ == batch_size_ );
@@ -623,14 +604,7 @@ struct pass_eval_hand_instr_vec : computation_pass{
                                         if( s1m )
                                                 fm |= 1ull << _.r1;
 
-                                        bool c = shed.shedule_flush(idx, suit_hash, rank_hash, _.c0, _.c1, aggregate_mask, fm);
-                                        if( ! c ){
-                                                card_vector tmp = flush_suit_board;
-                                                tmp.push_back(_.c0);
-                                                tmp.push_back(_.c1);
-                                                std::cout << "tmp => " << tmp << "\n"; // __CandyPrint__(cxx-print-scalar,tmp)
-                                                std::cout << "std::bitset<13>(fm) => " << std::bitset<13>(fm) << "\n"; // __CandyPrint__(cxx-print-scalar,std::bitset<13>(fm))
-                                        }
+                                        shed.shedule_flush(idx, suit_hash, rank_hash, _.c0, _.c1, aggregate_mask, fm);
                                 }
 
                         }

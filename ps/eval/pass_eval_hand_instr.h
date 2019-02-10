@@ -108,8 +108,6 @@ struct rank_hash_eval
                                                       one << ids[2] |
                                                       one << ids[3] |
                                                       one << ids[4] );
-                                        std::cout << "std::bitset<13>(mask).to_string() => " << std::bitset<13>(mask).to_string() << ", "; // __CandyPrint__(cxx-print-scalar,std::bitset<13>(mask).to_string())
-                                        std::cout << "val => " << val << "\n"; // __CandyPrint__(cxx-print-scalar,val)
                                         suit_map_[mask] = val;
                                         break;
                                 }
@@ -168,26 +166,15 @@ struct rank_hash_eval
         ranking_t rank(card_vector const& cv, size_t suit_hash, size_t rank_hash, long a, long b)const noexcept{
                 return card_map_7_[rank_hash];
         }
-        ranking_t rank_flush(card_vector const& cv, size_t suit_hash, size_t rank_hash, long a, long b, size_t flush_mask, bool dbg = false)const noexcept{
+        ranking_t rank_flush(card_vector const& cv, size_t suit_hash, size_t rank_hash, long a, long b, size_t flush_mask)const noexcept{
                 auto rr = card_map_7_[rank_hash];
                 auto fr = suit_map_[flush_mask];
-                if( dbg ){
-                        auto lr = rank_legacy(cv, suit_hash, rank_hash, a, b);
-                        std::cout << "rr => " << rr << "\n"; // __CandyPrint__(cxx-print-scalar,rr)
-                        std::cout << "fr => " << fr << "\n"; // __CandyPrint__(cxx-print-scalar,fr)
-                        std::cout << "lr => " << lr << "\n"; // __CandyPrint__(cxx-print-scalar,lr)
-                }
-
                 return std::min<ranking_t>(rr, fr);
         }
         ranking_t rank_legacy(card_vector const& cv, size_t suit_hash, size_t rank_hash, long a, long b)const noexcept{
-
-
-                #if 1
                 if( suit_hasher::has_flush_unsafe(suit_hash) ){
                         return e6cm_->rank(a,b,cv[0], cv[1], cv[2], cv[3], cv[4]);
                 }
-                #endif
                 auto ret = card_map_7_[rank_hash];
                 return ret;
         }
@@ -245,6 +232,7 @@ private:
         std::unordered_map<rank_hasher::rank_hash_t, ranking_t> card_map_7_;
 };
 
+#if 0
 struct SKPokerEvalWrap
 {
         ranking_t rank(card_vector const& cv, size_t suit_hash, size_t rank_hash, long a, long b)const noexcept{
@@ -272,6 +260,7 @@ struct SKPokerEvalWrap
                 #endif
         }
 };
+#endif
 } // end namespace  mask_computer_detail
 
 // this is the less complicated evaluation

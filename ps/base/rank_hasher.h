@@ -59,6 +59,12 @@ namespace rank_hasher{
                                    2 | 10
                                    3 | 11
                                    4 | 11
+
+
+                  We also want to remap the highest bits into the
+                  lower sections, which can be done though some 
+                  rules
+                
         */
         inline
         rank_hash_t append(rank_hash_t hash, rank_id rank)noexcept{

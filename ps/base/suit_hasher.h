@@ -33,12 +33,12 @@ namespace ps{
 
 namespace suit_hasher{
         
+        static constexpr const std::array<int,4> suit_map = { 2,3,5,7 };
 
         using suit_hash_t = size_t;
 
         inline
         suit_hash_t append(suit_hash_t hash, rank_id rank)noexcept{
-                static constexpr const std::array<int,4> suit_map = { 2,3,5,7 };
                 return hash * suit_map[rank];
         }
         inline
@@ -110,6 +110,30 @@ namespace suit_hasher{
         inline suit_hash_t five_card_max()noexcept{
                 return 37 * 37 * 37 * 37 * 31;
         }
+
+        #if 0
+        struct most_common_suit_result{
+                size_t p[4];
+                suit_id most_common;
+                size_t most_common_num;
+        };
+        inline
+        most_common_suit_result profile_hash(suit_hash_t hash){
+                most_common_suit_result result = {0};
+                for(size_t idx=0;idx!=4;++idx){
+                        for(; hash % suit_map[idx] == 0 ;){
+                                ++result.p[idx];
+                                hash /= suit_map[idx];
+                        }
+                }
+                for(size_t idx=1;idx!=4;++idx){
+                        if( result.p[idx] > result.p[result.most_common] )
+                                result.most_common = idx;
+                }
+                result.most_common_num = result.p[result.most_common];
+                return result;
+        }
+        #endif
 } // end namespace suit_hasher
 } // end namespace ps
 

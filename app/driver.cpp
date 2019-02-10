@@ -398,6 +398,27 @@ private:
 };
 static TrivialCommandDecl<PrintRanks> PrintRanksDecl{"print-ranks"};
 
+struct PrintBoard : Command{
+        explicit
+        PrintBoard(std::vector<std::string> const& args):args_{args}{}
+        virtual int Execute()override{
+
+                holdem_board_decl b;
+                for(auto const& _ : b ){
+                        std::cout << _.board() << ","
+                                  << _.flush_possible() << ","
+                                  << +_.flush_suit() << ","
+                                  << std::setw(10) << _.flush_suit_board() << ","
+                                  << std::bitset<13>(_.flush_mask()).to_string() << "\n";
+                }
+
+                return EXIT_SUCCESS;
+        }
+private:
+        std::vector<std::string> const& args_;
+};
+static TrivialCommandDecl<PrintBoard> PrintBoardDecl{"print-board"};
+
 } // end namespace anon
 
 

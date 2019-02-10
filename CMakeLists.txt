@@ -44,7 +44,7 @@ include_directories(${Boost_INCLUDE_DIRS})
 include_directories(.)
 include_directories( /usr/include/eigen3/ )
 include_directories( /usr/include/eigen3/Eigen/ )
-include_directories( deps/CandyTransform/include/ )
+include_directories( deps/SKPokerEval/src/ )
 
 
 #aux_source_directory(lib/base base_sources)

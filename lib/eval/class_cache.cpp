@@ -81,7 +81,7 @@ void class_cache::create(size_t n, class_cache* cache, std::string const& file_n
 
         size_t count = 0;
         enum{ MaxCount = 50 };
-        enum{ BatchSize = 1 * 169  };
+        enum{ BatchSize = 2 * 169  };
 
         auto save_impl = [&](){
                 std::cout << "Saving...\n";
@@ -174,7 +174,7 @@ void class_cache::create(size_t n, class_cache* cache, std::string const& file_n
                         double eval_per_game = seconds / batch.size();
                         double eval_per_100_games = eval_per_game * 100;
 
-                        PS_LOG(trace) << "Took " << seconds << " to do " << batch.size() << "games, or 100 per " << eval_per_100_games << " 100 games";
+                        PS_LOG(trace) << "Took " << seconds << " seconds to do " << batch.size() << " games, at a rate of " << eval_per_100_games << " seconds per 100 games";
                 }
         };
         std::vector<std::thread> tg;

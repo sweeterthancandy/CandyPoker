@@ -685,10 +685,10 @@ struct pass_eval_hand_instr_vec : computation_pass{
                 using shed_type = pass_eval_hand_instr_vec_detail::eval_scheduler_simple<eval_type, sub_ptr_type>;
                 //using shed_type = pass_eval_hand_instr_vec_detail::eval_scheduler_reshed<mask_computer_detail::rank_hash_eval, sub_ptr_type>;
                 shed_type shed{&ev, rod.size(), subs};
-                for(auto const& weighed_pair : w.weighted_rng() ){
+                for(auto const& weighted_pair : w.weighted_rng() ){
                 //for(auto const& b : w ){
 
-                        auto const& b = *weighed_pair.board;
+                        auto const& b = *weighted_pair.board;
 
                         auto mask             = b.mask();
                         auto rank_proto       = b.rank_hash();
@@ -702,16 +702,18 @@ struct pass_eval_hand_instr_vec : computation_pass{
                         auto flush_mask = b.flush_mask();
 
 
-                        shed.begin_eval(weighed_pair.masks, cv);
+                        shed.begin_eval(weighted_pair.masks, cv);
 
                         for(size_t idx=0;idx!=rod.size();++idx){
                                 auto const& _ = rod[idx];
 
-
+                                // this is slower
                                 #if 0
-                                if( _.mask & mask )
+                                bool cond = ( weighted_pair.masks.count_disjoint(_.mask) != 0 );
+                                if( ! cond )
                                         continue;
                                 #endif
+
 
                                 auto rank_hash = rank_proto;
 

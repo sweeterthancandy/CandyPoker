@@ -435,12 +435,11 @@ namespace pass_eval_hand_instr_vec_detail{
         };
 
 
-        template<class EvalType, class SubPtrType>
+        template<class SubPtrType>
         struct eval_scheduler_simple{
-                explicit eval_scheduler_simple(EvalType* impl, size_t batch_size,
+                explicit eval_scheduler_simple(size_t batch_size,
                                                std::vector<SubPtrType>& subs)
-                        :impl_{impl}
-                        ,batch_size_{batch_size}
+                        :batch_size_{batch_size}
                         ,subs_{subs}
                 {
                         evals_.resize(batch_size_);
@@ -453,16 +452,6 @@ namespace pass_eval_hand_instr_vec_detail{
                 void put(size_t index, ranking_t rank)noexcept{
                         evals_[index] = rank;
                 }
-                void shedule(size_t index, rank_hasher::rank_hash_t rank_hash)noexcept
-                {
-                        BOOST_ASSERT( index < batch_size_ );
-                        evals_[index] = impl_->rank_no_flush(rank_hash);
-                }
-                void shedule_flush(size_t index, rank_hasher::rank_hash_t rank_hash, size_t flush_mask)noexcept
-                {
-                        BOOST_ASSERT( index < batch_size_ );
-                        evals_[index] = impl_->rank_flush(rank_hash, flush_mask);
-                }
                 void end_eval()noexcept{
                         BOOST_ASSERT( out_ == batch_size_ );
                         for(auto& _ : subs_){
@@ -473,7 +462,6 @@ namespace pass_eval_hand_instr_vec_detail{
                         // nop
                 }
         private:
-                EvalType* impl_;
                 size_t batch_size_;
                 std::vector<ranking_t> evals_;
                 std::vector<SubPtrType>& subs_;
@@ -683,12 +671,10 @@ struct pass_eval_hand_instr_vec : computation_pass{
                 
                 boost::timer::cpu_timer tmr;
                 
-                using shed_type = pass_eval_hand_instr_vec_detail::eval_scheduler_simple<eval_type, sub_ptr_type>;
+                using shed_type = pass_eval_hand_instr_vec_detail::eval_scheduler_simple<sub_ptr_type>;
                 //using shed_type = pass_eval_hand_instr_vec_detail::eval_scheduler_reshed<mask_computer_detail::rank_hash_eval, sub_ptr_type>;
-                shed_type shed{&ev, rod.size(), subs};
+                shed_type shed{ rod.size(), subs};
 
-
-                std::cout << "boost::distance(w.weighted_rng()) => " << boost::distance(w.weighted_rng()) << "\n"; // __CandyPrint__(cxx-print-scalar,boost::distance(w.weighted_rng()))
 
                 for(auto const& weighted_pair : w.weighted_rng() ){
 
@@ -724,7 +710,7 @@ struct pass_eval_hand_instr_vec : computation_pass{
                                                 fm |= 1ull << _.r1;
                                         }
 
-                                        ranking_t sr = ev.rank_only_flush(fm);
+                                        ranking_t sr = fme(fm);
                                         ranking_t tr = std::min(sr, rr);
 
                                         shed.put(idx, tr);
@@ -819,7 +805,7 @@ struct pass_eval_hand_instr_vec : computation_pass{
                 }
         }
 private:
-        eval_type ev;
+        flush_mask_eval fme;
         holdem_board_decl w;
 };
 

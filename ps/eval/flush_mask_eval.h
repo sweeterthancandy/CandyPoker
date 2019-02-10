@@ -1,6 +1,8 @@
 #ifndef PS_EVAL_FLUSH_MASK_EVAL_H
 #define PS_EVAL_FLUSH_MASK_EVAL_H
 
+#include "ps/eval/evaluator_6_card_map.h"
+
 
 namespace ps{
 
@@ -99,6 +101,16 @@ struct flush_mask_eval{
                 create_flush_mask_eval_inplace(result->suit_map_, eval);
                 return result;
         }
+
+        flush_mask_eval(){
+                evaluator_6_card_map* e6cm_{evaluator_6_card_map::instance()};
+                suit_map_.fill(static_cast<ranking_t>(-1));
+                auto flush_wrap = [&](auto... c){
+                        return e6cm_->rank(card_decl::make_id(0,c)...);
+                };
+                flush_mask_eval::create_flush_mask_eval_inplace(suit_map_, flush_wrap);
+        }
+
         ranking_t operator()(size_t mask)const noexcept{
                 return suit_map_[mask];
         }

@@ -81,7 +81,7 @@ void class_cache::create(size_t n, class_cache* cache, std::string const& file_n
 
         size_t count = 0;
         enum{ MaxCount = 50 };
-        enum{ BatchSize = 169  };
+        enum{ BatchSize = 1 * 169  };
 
         auto save_impl = [&](){
                 std::cout << "Saving...\n";
@@ -147,6 +147,7 @@ void class_cache::create(size_t n, class_cache* cache, std::string const& file_n
 
         auto driver = [&](){
                 for(;;){
+                        boost::timer::cpu_timer tmr;
                         auto batch = pull();
                         if( batch.empty() )
                                 return;
@@ -168,6 +169,12 @@ void class_cache::create(size_t n, class_cache* cache, std::string const& file_n
                         }
 
                         push(batch, batch_ret);
+
+                        double seconds = tmr.elapsed().wall / 1e+9;
+                        double eval_per_game = seconds / batch.size();
+                        double eval_per_100_games = eval_per_game * 100;
+
+                        PS_LOG(trace) << "Took " << seconds << " to do " << batch.size() << "games, or 100 per " << eval_per_100_games << " 100 games";
                 }
         };
         std::vector<std::thread> tg;

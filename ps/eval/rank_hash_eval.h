@@ -47,6 +47,7 @@ private:
 
 
 
+
 struct rank_hash_hash_eval
 {
         rank_hash_hash_eval(){

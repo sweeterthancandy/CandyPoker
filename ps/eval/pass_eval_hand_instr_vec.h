@@ -86,12 +86,12 @@ namespace pass_eval_hand_instr_vec_detail{
                         mat.resize(n, n);
                         mat.fill(0);
                 }
-                void accept(size_t mask, size_t weight, std::vector<ranking_t> const& R)noexcept
+                void accept(mask_set const& ms, std::vector<ranking_t> const& R)noexcept
                 {
-                        bool cond = (mask & hv_mask ) == 0;
-                        if(!cond){
+                        size_t weight = ms.count_disjoint(hv_mask);
+                        if( weight == 0 )
                                 return;
-                        }
+
                         for(size_t i=0;i!=n;++i){
                                 ranked[i] = R[allocation_[i]];
                         }
@@ -200,12 +200,12 @@ namespace pass_eval_hand_instr_vec_detail{
                         draw2_.fill(0);
                         draw3_.fill(0);
                 }
-                void accept(size_t mask, size_t weight, std::vector<ranking_t> const& R)noexcept
+                void accept(mask_set const& ms, std::vector<ranking_t> const& R)noexcept
                 {
-                        bool cond = (mask & hv_mask ) == 0;
-                        if(!cond){
+                        size_t weight = ms.count_disjoint(hv_mask);
+                        if( weight == 0 )
                                 return;
-                        }
+
                         auto r0 = R[allocation_[0]];
                         auto r1 = R[allocation_[1]];
                         auto r2 = R[allocation_[2]];
@@ -445,9 +445,8 @@ namespace pass_eval_hand_instr_vec_detail{
                         evals_.resize(batch_size_);
                 }
 
-                void begin_eval(size_t mask, size_t weight, card_vector const& cv)noexcept{
-                        mask_ = mask;
-                        weight_ = weight;
+                void begin_eval(mask_set const& ms, card_vector const& cv)noexcept{
+                        ms_   = &ms;
                         cv_   = &cv;
                         out_  = 0;
                 }
@@ -464,7 +463,7 @@ namespace pass_eval_hand_instr_vec_detail{
                 void end_eval()noexcept{
                         BOOST_ASSERT( out_ == batch_size_ );
                         for(auto& _ : subs_){
-                                _->accept(mask_, weight_, evals_);
+                                _->accept(*ms_, evals_);
                         }
                 }
                 void regroup()noexcept{
@@ -475,8 +474,7 @@ namespace pass_eval_hand_instr_vec_detail{
                 size_t batch_size_;
                 std::vector<ranking_t> evals_;
                 std::vector<SubPtrType>& subs_;
-                size_t mask_;
-                size_t weight_;
+                mask_set const* ms_;
                 size_t out_{0};
                 card_vector const* cv_;
         };
@@ -687,10 +685,10 @@ struct pass_eval_hand_instr_vec : computation_pass{
                 using shed_type = pass_eval_hand_instr_vec_detail::eval_scheduler_simple<eval_type, sub_ptr_type>;
                 //using shed_type = pass_eval_hand_instr_vec_detail::eval_scheduler_reshed<mask_computer_detail::rank_hash_eval, sub_ptr_type>;
                 shed_type shed{&ev, rod.size(), subs};
-                size_t hit{0};
-                size_t total{0};
-                for(auto const& b : w ){
+                for(auto const& weighed_pair : w.weighted_rng() ){
+                //for(auto const& b : w ){
 
+                        auto const& b = *weighed_pair.board;
 
                         auto mask             = b.mask();
                         auto rank_proto       = b.rank_hash();
@@ -703,17 +701,17 @@ struct pass_eval_hand_instr_vec : computation_pass{
                         size_t fsbsz = flush_suit_board.size();
                         auto flush_mask = b.flush_mask();
 
-                        if( flush_possible ){
-                                ++hit;
-                        }
-                        ++total;
 
-                        shed.begin_eval(mask, 1, cv);
+                        shed.begin_eval(weighed_pair.masks, cv);
 
                         for(size_t idx=0;idx!=rod.size();++idx){
                                 auto const& _ = rod[idx];
+
+
+                                #if 0
                                 if( _.mask & mask )
                                         continue;
+                                #endif
 
                                 auto rank_hash = rank_proto;
 
@@ -742,8 +740,6 @@ struct pass_eval_hand_instr_vec : computation_pass{
                 }
                 shed.regroup();
 
-                std::cout << "hit => " << hit << "\n"; // __CandyPrint__(cxx-print-scalar,hit)
-                std::cout << "total => " << total << "\n"; // __CandyPrint__(cxx-print-scalar,total)
                 #else
                 for(auto const& b : w ){
 
@@ -803,18 +799,21 @@ struct pass_eval_hand_instr_vec : computation_pass{
                 }
 
                 if(0){}
+                #if 0
                 else if( n_dist.size() == 1 && *n_dist.begin() == 2 ){
                         transfrom_impl( ctx, instr_list, result, to_map, basic_sub_eval_factory<sub_eval_two>{});
                 }
+                #endif
                 else if( n_dist.size() == 1 && *n_dist.begin() == 3 ){
                         transfrom_impl( ctx, instr_list, result, to_map, basic_sub_eval_factory<sub_eval_three>{});
                 } 
-                #if 1
+                #if 0
                 else if( n_dist.size() == 1 && *n_dist.begin() == 4 ){
                         transfrom_impl( ctx, instr_list, result, to_map, basic_sub_eval_factory<sub_eval_four>{});
                 } 
                 #endif
-                else {
+                else
+                {
                         transfrom_impl( ctx, instr_list, result, to_map, basic_sub_eval_factory<sub_eval>{});
                 }
         }

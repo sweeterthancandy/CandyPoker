@@ -53,6 +53,23 @@ namespace ps{
                         
 
  */
+struct mask_set{
+        void add(size_t mask){
+                masks_.push_back(mask);
+        }
+        size_t count_disjoint(size_t that)const noexcept{
+                size_t count = 0;
+                for(auto mask : masks_ ){
+                        if( ( mask & that ) == 0 ){
+                                ++count;
+                        }
+                }
+                return count;
+        }
+        size_t size()const{ return masks_.size(); }
+private:
+        std::vector<size_t> masks_;
+};
 struct holdem_board_decl{
         struct layout{
                 layout(card_vector vec)
@@ -114,8 +131,8 @@ struct holdem_board_decl{
                 size_t flush_mask_{0};
         };
         struct weighted_layout{
-                size_t        weight;
                 layout const* board;
+                mask_set masks;
         };
 
         holdem_board_decl(){
@@ -128,19 +145,28 @@ struct holdem_board_decl{
 
                 for( auto const& l : world_ ){
                         if( l.flush_possible() ){
-                                weighted_.emplace_back( weighted_layout{1, &l} );
+                                weighted_.emplace_back( weighted_layout{&l} );
+                                weighted_.back().masks.add( l.mask() );
                         } else {
                                 auto iter = m.find( l.rank_hash() );
                                 if( iter == m.end()){
-                                        weighted_.emplace_back( weighted_layout{1, &l} );
+                                        weighted_.emplace_back( weighted_layout{&l} );
+                                        weighted_.back().masks.add( l.mask() );
                                         m[l.rank_hash()] = weighted_.size() -1 ;
                                 } else {
-                                        ++weighted_[iter->second].weight;
+                                        weighted_[iter->second].masks.add(l.mask());
                                 }
                         }
                 }
+
+                size_t sigma = 0;
+                for(auto const& _ : weighted_ ){
+                        sigma += _.masks.size();
+                }
+
                 std::cout << "world_.size() => " << world_.size() << ", "; // __CandyPrint__(cxx-print-scalar,world_.size())
                 std::cout << "weighted_.size() => " << weighted_.size() << "\n"; // __CandyPrint__(cxx-print-scalar,weighted_.size())
+                std::cout << "sigma => " << sigma << "\n"; // __CandyPrint__(cxx-print-scalar,sigma)
         }
         auto begin()const noexcept{ return world_.begin(); }
         auto end()const noexcept{ return world_.end(); }

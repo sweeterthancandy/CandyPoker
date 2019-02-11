@@ -80,8 +80,7 @@ void class_cache::create(size_t n, class_cache* cache, std::string const& file_n
         mgr.add_pass<pass_write>();
 
         size_t count = 0;
-        enum{ MaxCount = 50 };
-        enum{ BatchSize = 2 * 169  };
+        enum{ BatchSize = 169  };
 
         auto save_impl = [&](){
                 std::cout << "Saving...\n";
@@ -104,6 +103,9 @@ void class_cache::create(size_t n, class_cache* cache, std::string const& file_n
                 }
                 return batch;
         };
+
+        boost::timer::cpu_timer tmr;
+        size_t total_pushed = 0;
 
         auto push = [&](std::vector<holdem_class_vector> const& cvv,
                         std::vector<boost::optional<matrix_t> > const& matv)
@@ -133,6 +135,15 @@ void class_cache::create(size_t n, class_cache* cache, std::string const& file_n
                 if( count ){
                         save_impl();
                 }
+
+
+                total_pushed += count;
+                double seconds = tmr.elapsed().wall / 1e+9;
+                double eval_per_game = seconds / total_pushed; 
+                double eval_per_100_games = eval_per_game * 100;
+
+                PS_LOG(trace) << "Took " << seconds << " seconds to do " << total_pushed << " games, at a rate of " << eval_per_100_games << " seconds per 100 games";
+
         };
                 
         computation_context comp_ctx{n};

@@ -597,6 +597,8 @@ struct rank_opt_item{
         card_id c1;
         rank_id r1; 
         suit_id s1;
+        std::uint16_t r0_shifted;
+        std::uint16_t r1_shifted;
 };
 struct rank_opt_device : std::vector<rank_opt_item>{
         template<class Con>
@@ -614,7 +616,9 @@ struct rank_opt_device : std::vector<rank_opt_item>{
                                 hand.first().suit().id(),
                                 hand.second().id(),
                                 hand.second().rank().id(),
-                                hand.second().suit().id()
+                                hand.second().suit().id(),
+                                static_cast<std::uint16_t>(1) << hand.first().rank().id(),
+                                static_cast<std::uint16_t>(1) << hand.second().rank().id()
                         };
                         *out = item;
                         ++out;
@@ -675,16 +679,83 @@ struct pass_eval_hand_instr_vec : computation_pass{
                 //using shed_type = pass_eval_hand_instr_vec_detail::eval_scheduler_reshed<mask_computer_detail::rank_hash_eval, sub_ptr_type>;
                 shed_type shed{ rod.size(), subs};
 
+                for(auto const& subset : idea_ ){
+                        switch(subset.type()){
+                                case BOP_NoFlush:
+                                {
+                                        std::cout << "BOP_NoFlush => " << BOP_NoFlush << "\n"; // __CandyPrint__(cxx-print-scalar,BOP_NoFlush)
+                                        auto typed = reinterpret_cast<board_no_flush_subset const*>(&subset);
+                                        for(auto const& board : *typed){
+                                                shed.begin_eval(board.masks);
+                                                for(size_t idx=0;idx!=rod.size();++idx){
+                                                        auto const& _ = rod[idx];
 
+                                                        ranking_t rr = board.no_flush_rank(_.r0, _.r1);
+                                                        
+                                                        shed.put(idx, rr);
+
+                                                }
+                                                shed.end_eval();
+                                        }
+                                        break;
+                                }
+                                case BOP_ThreeFlush:
+                                case BOP_FourFlush:
+                                case BOP_FiveFlush:
+                                {
+                                        auto typed = reinterpret_cast<board_flush_subset const*>(&subset);
+                                        for(auto const& board : *typed){
+                                                shed.begin_eval(board.masks);
+                                                for(size_t idx=0;idx!=rod.size();++idx){
+                                                        auto const& _ = rod[idx];
+
+                                                        ranking_t rr = board.no_flush_rank(_.r0, _.r1);
+                                                        
+
+                                                        auto fm = board.flush_mask;
+
+                                                        bool s0m = ( _.s0 == board.flush_suit );
+                                                        bool s1m = ( _.s1 == board.flush_suit );
+                                                        
+                                                        if( s0m ){
+                                                                fm |= _.r0_shifted;
+                                                        }
+                                                        if( s1m ){
+                                                                fm |= _.r1_shifted;
+                                                        }
+
+                                                        #if 0
+                                                        if( s0m ){
+                                                                fm |= 1ull << _.r0;
+                                                        }
+                                                        if( s1m ){
+                                                                fm |= 1ull << _.r1;
+                                                        }
+                                                        #endif
+
+                                                        ranking_t sr = fme(fm);
+                                                        ranking_t tr = std::min(sr, rr);
+
+                                                        shed.put(idx, tr);
+
+                                                }
+                                                shed.end_eval();
+                                        }
+                                        break;
+                                }
+                        }
+                }
+
+                #if 0
                 for(auto const& weighted_pair : w.weighted_rng() ){
 
                         auto const& b = *weighted_pair.board;
 
                         auto rank_proto       = b.rank_hash();
 
-                        suit_id flush_suit    = b.flush_suit();
                         auto const& flush_suit_board = b.flush_suit_board();
                         size_t fsbsz = flush_suit_board.size();
+                        suit_id flush_suit    = b.flush_suit();
                         auto flush_mask = b.flush_mask();
                         
                         shed.begin_eval(weighted_pair.masks);
@@ -720,41 +791,8 @@ struct pass_eval_hand_instr_vec : computation_pass{
 
                         shed.end_eval();
 
-                        #if 0
-                        shed.begin_eval(weighted_pair.masks);
-
-                        for(size_t idx=0;idx!=rod.size();++idx){
-                                auto const& _ = rod[idx];
-
-                                auto rank_hash = rank_proto;
-
-                                rank_hash = rank_hasher::append(rank_hash, _.r0);
-                                rank_hash = rank_hasher::append(rank_hash, _.r1);
-
-                                
-                                if( fsbsz == 0 ){
-                                        shed.shedule(idx, rank_hash);
-                                } else {
-
-                                        auto fm = flush_mask;
-
-                                        bool s0m = ( _.s0 == flush_suit );
-                                        bool s1m = ( _.s1 == flush_suit );
-
-                                        if( s0m ){
-                                                fm |= 1ull << _.r0;
-                                        }
-                                        if( s1m ){
-                                                fm |= 1ull << _.r1;
-                                        }
-
-                                        shed.shedule_flush(idx, rank_hash, fm);
-                                }
-
-                        }
-                        shed.end_eval();
-                        #endif
                 }
+                #endif
                 shed.regroup();
 
                 
@@ -807,6 +845,7 @@ struct pass_eval_hand_instr_vec : computation_pass{
 private:
         flush_mask_eval fme;
         holdem_board_decl w;
+        super_duper_board_opt_idea idea_;
 };
 
 } // end namespace ps

@@ -36,6 +36,8 @@ SOFTWARE.
 #include "ps/eval/rank_decl.h"
 #include "ps/eval/rank_hash_eval.h"
 
+#include <boost/iterator/indirect_iterator.hpp>
+
 namespace ps{
 
 /*
@@ -135,6 +137,7 @@ struct holdem_board_decl{
                 suit_id flush_suit_{0};
                 bool flush_possible_;
                 size_t flush_mask_{0};
+                friend struct super_duper_board_opt_idea;
                 std::array<ranking_t, 13 * 13 + 13> local_eval_;
         };
         struct weighted_layout{
@@ -202,6 +205,112 @@ private:
         std::vector<layout> world_;
         std::vector<weighted_layout> weighted_;
         
+};
+
+enum board_type{
+        BOP_NoFlush,
+        BOP_ThreeFlush = 3,
+        BOP_FourFlush  = 4,
+        BOP_FiveFlush  = 5,
+};
+struct board_subset{
+        explicit board_subset(board_type type):type_{type}{}
+        virtual ~board_subset()=default;
+        board_type type()const{ return type_; }
+private:
+        board_type type_;
+};
+struct board_no_flush_subset : board_subset{
+        struct atom{
+                atom(mask_set masks_, std::array<ranking_t, 13 * 13 + 13> local_eval)
+                        :masks(masks_),
+                        local_eval_(local_eval)
+                {}
+                mask_set masks;
+                std::array<ranking_t, 13 * 13 + 13> local_eval_;
+
+                ranking_t          no_flush_rank(card_id c0, card_id c1)const noexcept{
+                        return local_eval_[ c0 * 13 + c1 ];
+                }
+        };
+        board_no_flush_subset():board_subset{BOP_NoFlush}{}
+        auto begin()const{ return atoms_.begin(); }
+        auto end()const{ return atoms_.end(); }
+private:
+        friend struct super_duper_board_opt_idea;
+        std::vector<atom> atoms_;
+};
+struct board_flush_subset : board_subset{
+        struct atom{
+                atom(mask_set masks_, std::array<ranking_t, 13 * 13 + 13> local_eval, size_t flush_mask_, suit_id flush_suit_)
+                        :masks(masks_),
+                        local_eval_(local_eval),
+                        flush_mask(flush_mask_),
+                        flush_suit(flush_suit_)
+                {}
+                mask_set masks;
+                std::array<ranking_t, 13 * 13 + 13> local_eval_;
+                std::uint16_t flush_mask{0};
+                suit_id flush_suit{0};
+                
+                ranking_t          no_flush_rank(card_id c0, card_id c1)const noexcept{
+                        return local_eval_[ c0 * 13 + c1 ];
+                }
+        };
+
+        explicit board_flush_subset(board_type type):board_subset{type}{}
+
+        auto begin()const{ return atoms_.begin(); }
+        auto end()const{ return atoms_.end(); }
+private:
+        friend struct super_duper_board_opt_idea;
+        std::vector<atom> atoms_;
+};
+
+
+struct super_duper_board_opt_idea{
+        super_duper_board_opt_idea(){
+                boost::timer::auto_cpu_timer at(2, "super_duper_board_opt_idea took %w seconds\n");
+                holdem_board_decl w;
+                auto _0 = std::make_shared<board_no_flush_subset>();
+                auto _3 = std::make_shared<board_flush_subset>(BOP_ThreeFlush);
+                auto _4 = std::make_shared<board_flush_subset>(BOP_FourFlush);
+                auto _5 = std::make_shared<board_flush_subset>(BOP_FiveFlush);
+                for(auto const& weighted_pair : w.weighted_rng() ){
+
+                        auto const& b = *weighted_pair.board;
+                        auto rank_proto       = b.rank_hash();
+                        auto const& flush_suit_board = b.flush_suit_board();
+                        size_t fsbsz = flush_suit_board.size();
+                        suit_id flush_suit    = b.flush_suit();
+                        auto flush_mask = b.flush_mask();
+
+                        switch(fsbsz){
+                        case 0:
+                                _0->atoms_.emplace_back(weighted_pair.masks, b.local_eval_);
+                                break;
+                        case 3:
+                                _3->atoms_.emplace_back(weighted_pair.masks, b.local_eval_, flush_mask, flush_suit);
+                                break;
+                        case 4:
+                                _4->atoms_.emplace_back(weighted_pair.masks, b.local_eval_, flush_mask, flush_suit);
+                                break;
+                        case 5:
+                                _5->atoms_.emplace_back(weighted_pair.masks, b.local_eval_, flush_mask, flush_suit);
+                                break;
+                        }
+                }
+                subsets_.push_back(_0);
+                subsets_.push_back(_3);
+                subsets_.push_back(_4);
+                subsets_.push_back(_5);
+        }
+        auto begin()const{ return boost::make_indirect_iterator(subsets_.begin()); }
+        auto end()const{ return boost::make_indirect_iterator(subsets_.end()); }
+private:
+        std::vector<
+                std::shared_ptr<board_subset>
+        > subsets_;
 };
 
 } // ps

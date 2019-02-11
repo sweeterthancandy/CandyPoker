@@ -258,7 +258,9 @@ struct board_flush_subset : board_subset{
                 }
         };
 
-        explicit board_flush_subset(board_type type):board_subset{type}{}
+        explicit board_flush_subset(suit_id suit_, board_type type):suit{suit_}, board_subset{type}{}
+
+        suit_id suit;
 
         auto begin()const{ return atoms_.begin(); }
         auto end()const{ return atoms_.end(); }
@@ -272,10 +274,28 @@ struct super_duper_board_opt_idea{
         super_duper_board_opt_idea(){
                 boost::timer::auto_cpu_timer at(2, "super_duper_board_opt_idea took %w seconds\n");
                 holdem_board_decl w;
+                
+
                 auto _0 = std::make_shared<board_no_flush_subset>();
-                auto _3 = std::make_shared<board_flush_subset>(BOP_ThreeFlush);
-                auto _4 = std::make_shared<board_flush_subset>(BOP_FourFlush);
-                auto _5 = std::make_shared<board_flush_subset>(BOP_FiveFlush);
+
+                std::array<std::shared_ptr<board_flush_subset>, 4> _3 = {
+                        std::make_shared<board_flush_subset>(0, BOP_ThreeFlush),
+                        std::make_shared<board_flush_subset>(1, BOP_ThreeFlush),
+                        std::make_shared<board_flush_subset>(2, BOP_ThreeFlush),
+                        std::make_shared<board_flush_subset>(3, BOP_ThreeFlush)
+                };
+                std::array<std::shared_ptr<board_flush_subset>, 4> _4 = {
+                        std::make_shared<board_flush_subset>(0, BOP_FourFlush),
+                        std::make_shared<board_flush_subset>(1, BOP_FourFlush),
+                        std::make_shared<board_flush_subset>(2, BOP_FourFlush),
+                        std::make_shared<board_flush_subset>(3, BOP_FourFlush)
+                };
+                std::array<std::shared_ptr<board_flush_subset>, 4> _5 = {
+                        std::make_shared<board_flush_subset>(0, BOP_FiveFlush),
+                        std::make_shared<board_flush_subset>(1, BOP_FiveFlush),
+                        std::make_shared<board_flush_subset>(2, BOP_FiveFlush),
+                        std::make_shared<board_flush_subset>(3, BOP_FiveFlush)
+                };
                 for(auto const& weighted_pair : w.weighted_rng() ){
 
                         auto const& b = *weighted_pair.board;
@@ -290,20 +310,34 @@ struct super_duper_board_opt_idea{
                                 _0->atoms_.emplace_back(weighted_pair.masks, b.local_eval_);
                                 break;
                         case 3:
-                                _3->atoms_.emplace_back(weighted_pair.masks, b.local_eval_, flush_mask, flush_suit);
+                                _3[flush_suit]->atoms_.emplace_back(weighted_pair.masks, b.local_eval_, flush_mask, flush_suit);
                                 break;
                         case 4:
-                                _4->atoms_.emplace_back(weighted_pair.masks, b.local_eval_, flush_mask, flush_suit);
+                                _4[flush_suit]->atoms_.emplace_back(weighted_pair.masks, b.local_eval_, flush_mask, flush_suit);
                                 break;
                         case 5:
-                                _5->atoms_.emplace_back(weighted_pair.masks, b.local_eval_, flush_mask, flush_suit);
+                                _5[flush_suit]->atoms_.emplace_back(weighted_pair.masks, b.local_eval_, flush_mask, flush_suit);
                                 break;
                         }
                 }
-                subsets_.push_back(_0);
-                subsets_.push_back(_3);
-                subsets_.push_back(_4);
-                subsets_.push_back(_5);
+                if( _0->atoms_.size() ){
+                        subsets_.push_back(_0);
+                }
+                for(auto& _ : _3 ){
+                        if( _->atoms_.size() ){
+                                subsets_.push_back(_);
+                        }
+                }
+                for(auto& _ : _4 ){
+                        if( _->atoms_.size() ){
+                                subsets_.push_back(_);
+                        }
+                }
+                for(auto& _ : _5 ){
+                        if( _->atoms_.size() ){
+                                subsets_.push_back(_);
+                        }
+                }
         }
         auto begin()const{ return boost::make_indirect_iterator(subsets_.begin()); }
         auto end()const{ return boost::make_indirect_iterator(subsets_.end()); }

@@ -207,6 +207,38 @@ namespace pass_eval_hand_instr_vec_detail{
                         if( weight == 0 )
                                 return;
                         
+                        Eigen::Vector3i V{
+                                R[allocation_[0]],
+                                R[allocation_[1]],
+                                R[allocation_[2]]};
+                        auto min = V.minCoeff();
+                        if( V(0) == min ){
+                                if( V(1) == min ){
+                                        if( V(2) == min ){
+                                                draw3_[0] += weight;
+                                                draw3_[1] += weight;
+                                                draw3_[2] += weight;
+                                        } else {
+                                                draw2_[0] += weight;
+                                                draw2_[1] += weight;
+                                        }
+                                } else if( V(2) == min ){
+                                        draw2_[0] += weight;
+                                        draw2_[2] += weight;
+                                } else {
+                                        wins_[0] += weight;
+                                }
+                        } else if( V(1) == min ){
+                                if( V(2) == min ){
+                                        draw2_[1] += weight;
+                                        draw2_[2] += weight;
+                                } else {
+                                        wins_[1] += weight;
+                                }
+                        } else {
+                                        wins_[2] += weight;
+                        }
+                        return;
 
                         auto r0 = R[allocation_[0]];
                         auto r1 = R[allocation_[1]];

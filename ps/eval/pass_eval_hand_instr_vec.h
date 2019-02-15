@@ -206,10 +206,12 @@ namespace pass_eval_hand_instr_vec_detail{
                         size_t weight = ms.count_disjoint(hv_mask);
                         if( weight == 0 )
                                 return;
+                        
 
                         auto r0 = R[allocation_[0]];
                         auto r1 = R[allocation_[1]];
                         auto r2 = R[allocation_[2]];
+                                        
 
                         if( r0 < r1 ){
                                 if( r0 < r2 ){
@@ -734,180 +736,6 @@ struct pass_eval_hand_instr_vec : computation_pass{
                 //using shed_type = pass_eval_hand_instr_vec_detail::eval_scheduler_reshed<mask_computer_detail::rank_hash_eval, sub_ptr_type>;
                 shed_type shed{ rod.size(), subs};
 
-                auto do_shedule_no_flush_ = [&](auto const& board, std::vector<rank_opt_item> const& v){
-                        //shed.begin_eval(board.masks);
-                        for(auto const& h : v){
-
-                                if( ( h.nfnp_mask & board.nfnp_mask )  == 0 ){
-                                        ranking_t B = nfnpm( h.nfnp_mask | board.nfnp_mask );
-                                        #if 0
-                                        ranking_t A = board.no_flush_rank(h.r0, h.r1);
-
-                                        PS_ASSERT(A == B, "A=" << A << ", B=" << B );
-                                        #endif
-                                        shed.put(h.index, B);
-
-                                } else {
-                                        ranking_t rr = board.no_flush_rank(h.r0, h.r1);
-                                        shed.put(h.index, rr);
-                                }
-
-
-                        }
-                        //shed.end_eval();
-                };
-                auto do_shedule_no_flush = [&](auto const& board, std::vector<rank_opt_item> const& v){
-                        //shed.begin_eval(board.masks);
-                        for(auto const& h : v){
-
-                                ranking_t rr = board.no_flush_rank(h.r0, h.r1);
-                                shed.put(h.index, rr);
-                        }
-                        //shed.end_eval();
-                };
-                auto do_shedule_flush_0 = [&](auto const& board, std::vector<rank_opt_item> const& v){
-                        //shed.begin_eval(board.masks);
-                        for(auto const& h : v){
-
-                                ranking_t rr = board.no_flush_rank(h.r0, h.r1);
-                                
-                                auto fm = board.flush_mask;
-
-                                ranking_t sr = fme(fm);
-                                ranking_t tr = std::min(sr, rr);
-
-                                shed.put(h.index, tr);
-
-                        }
-                        //shed.end_eval();
-                };
-                auto do_shedule_flush_1 = [&](auto const& board, std::vector<rank_opt_item> const& v){
-                        //shed.begin_eval(board.masks);
-                        for(auto const& h : v){
-
-                                ranking_t rr = board.no_flush_rank(h.r0, h.r1);
-                                
-                                auto fm = board.flush_mask;
-                                
-                                fm |= h.r0_shifted;
-
-                                ranking_t sr = fme(fm);
-                                ranking_t tr = std::min(sr, rr);
-
-                                shed.put(h.index, tr);
-
-                        }
-                        //shed.end_eval();
-                };
-                auto do_shedule_flush_2 = [&](auto const& board, std::vector<rank_opt_item> const& v){
-                        //shed.begin_eval(board.masks);
-                        for(auto const& h : v){
-
-                                ranking_t rr = board.no_flush_rank(h.r0, h.r1);
-
-                                auto fm = board.flush_mask;
-                                
-                                fm |= h.r0_shifted;
-                                fm |= h.r1_shifted;
-                                
-                                PS_ASSERT( h.s0 == board.flush_suit , "");
-                                PS_ASSERT( h.s1 == board.flush_suit , "");
-
-                                ranking_t sr = fme(fm);
-                                ranking_t tr = std::min(sr, rr);
-
-                                shed.put(h.index, tr);
-
-                        }
-                        //shed.end_eval();
-                };
-                auto do_shedule_flush_any = [&](auto const& board, std::vector<rank_opt_item> const& v){
-                        //shed.begin_eval(board.masks);
-                        for(auto const& h : v){
-
-                                ranking_t rr = board.no_flush_rank(h.r0, h.r1);
-                                
-
-                                auto fm = board.flush_mask;
-
-                                bool s0m = ( h.s0 == board.flush_suit );
-                                bool s1m = ( h.s1 == board.flush_suit );
-                                
-                                if( s0m ){
-                                        fm |= h.r0_shifted;
-                                }
-                                if( s1m ){
-                                        fm |= h.r1_shifted;
-                                }
-
-                                ranking_t sr = fme(fm);
-                                ranking_t tr = std::min(sr, rr);
-
-                                shed.put(h.index, tr);
-
-                        }
-                        //shed.end_eval();
-                };
-
-                for(auto const& subset : idea_ ){
-                        switch(subset.type()){
-                                case BOP_NoFlush:
-                                {
-                                        auto typed = reinterpret_cast<board_no_flush_subset const*>(&subset);
-                                        for(auto const& board : *typed){
-                                                shed.begin_eval(board.masks);
-                                                do_shedule_no_flush_(board, rod);
-                                                shed.end_eval();
-                                        }
-                                        break;
-                                }
-                                case BOP_ThreeFlush:
-                                {
-                                        auto typed = reinterpret_cast<board_flush_subset const*>(&subset);
-                                        auto const& seg = rod.segments[typed->suit];
-
-                                        for(auto const& board : *typed){
-                                                shed.begin_eval(board.masks);
-                                                //do_shedule_flush_any(board, rod);
-                                                do_shedule_no_flush(board, seg.segment_0);
-                                                do_shedule_no_flush(board, seg.segment_1);
-                                                do_shedule_flush_2(board, seg.segment_2);
-                                                shed.end_eval();
-                                        }
-                                        break;
-                                }
-                                case BOP_FourFlush:
-                                {
-                                        auto typed = reinterpret_cast<board_flush_subset const*>(&subset);
-                                        auto const& seg = rod.segments[typed->suit];
-
-                                        for(auto const& board : *typed){
-                                                shed.begin_eval(board.masks);
-                                                do_shedule_no_flush(board, seg.segment_0);
-                                                do_shedule_flush_1(board, seg.segment_1);
-                                                do_shedule_flush_2(board, seg.segment_2);
-                                                shed.end_eval();
-                                        }
-                                        break;
-                                }
-                                case BOP_FiveFlush:
-                                {
-                                        auto typed = reinterpret_cast<board_flush_subset const*>(&subset);
-                                        auto const& seg = rod.segments[typed->suit];
-
-                                        for(auto const& board : *typed){
-                                                shed.begin_eval(board.masks);
-                                                do_shedule_flush_0(board, seg.segment_0);
-                                                do_shedule_flush_1(board, seg.segment_1);
-                                                do_shedule_flush_2(board, seg.segment_2);
-                                                shed.end_eval();
-                                        }
-                                        break;
-                                }
-                        }
-                }
-
-                #if 0
                 for(auto const& weighted_pair : w.weighted_rng() ){
 
                         auto const& b = *weighted_pair.board;
@@ -926,34 +754,28 @@ struct pass_eval_hand_instr_vec : computation_pass{
 
                                 ranking_t rr = b.no_flush_rank(_.r0, _.r1);
                                 
-                                if( fsbsz == 0 ){
-                                        shed.put(idx, rr);
-                                } else {
+                                auto fm = flush_mask;
 
-                                        auto fm = flush_mask;
+                                bool s0m = ( _.s0 == flush_suit );
+                                bool s1m = ( _.s1 == flush_suit );
 
-                                        bool s0m = ( _.s0 == flush_suit );
-                                        bool s1m = ( _.s1 == flush_suit );
-
-                                        if( s0m ){
-                                                fm |= 1ull << _.r0;
-                                        }
-                                        if( s1m ){
-                                                fm |= 1ull << _.r1;
-                                        }
-
-                                        ranking_t sr = fme(fm);
-                                        ranking_t tr = std::min(sr, rr);
-
-                                        shed.put(idx, tr);
+                                if( s0m ){
+                                        fm |= 1ull << _.r0;
                                 }
+                                if( s1m ){
+                                        fm |= 1ull << _.r1;
+                                }
+
+                                ranking_t sr = fme(fm);
+                                ranking_t tr = std::min(sr, rr);
+
+                                shed.put(idx, tr);
 
                         }
 
                         shed.end_eval();
 
                 }
-                #endif
                 shed.regroup();
 
                 
@@ -1007,7 +829,6 @@ private:
         flush_mask_eval fme;
         no_flush_no_pair_mask nfnpm;
         holdem_board_decl w;
-        super_duper_board_opt_idea idea_;
 };
 
 } // end namespace ps

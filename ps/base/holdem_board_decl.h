@@ -222,12 +222,26 @@ private:
 };
 struct board_no_flush_subset : board_subset{
         struct atom{
-                atom(mask_set masks_, std::array<ranking_t, 13 * 13 + 13> local_eval)
+                atom(mask_set masks_, std::array<ranking_t, 13 * 13 + 13> local_eval,
+                     card_vector const& cv)
                         :masks(masks_),
                         local_eval_(local_eval)
-                {}
+                {
+                        for(auto id : cv){
+                                auto r = card_rank_from_id(id);
+                                auto m = static_cast<std::uint16_t>(1) << r;
+                                if( (nfnp_mask & m ) != 0 ){
+                                        nfnp_mask = ~static_cast<std::uint16_t>(0);
+                                        break;
+                                }
+                                nfnp_mask |= m;
+                        }
+                        PS_ASSERT( __builtin_popcount(nfnp_mask) >= 5, "");
+                }
+                
                 mask_set masks;
                 std::array<ranking_t, 13 * 13 + 13> local_eval_;
+                std::uint16_t nfnp_mask{0};
 
                 ranking_t          no_flush_rank(card_id c0, card_id c1)const noexcept{
                         return local_eval_[ c0 * 13 + c1 ];
@@ -258,7 +272,7 @@ struct board_flush_subset : board_subset{
                 }
         };
 
-        explicit board_flush_subset(suit_id suit_, board_type type):suit{suit_}, board_subset{type}{}
+        explicit board_flush_subset(suit_id suit_, board_type type):board_subset{type}, suit{suit_}{}
 
         suit_id suit;
 
@@ -307,7 +321,7 @@ struct super_duper_board_opt_idea{
 
                         switch(fsbsz){
                         case 0:
-                                _0->atoms_.emplace_back(weighted_pair.masks, b.local_eval_);
+                                _0->atoms_.emplace_back(weighted_pair.masks, b.local_eval_, b.board());
                                 break;
                         case 3:
                                 _3[flush_suit]->atoms_.emplace_back(weighted_pair.masks, b.local_eval_, flush_mask, flush_suit);

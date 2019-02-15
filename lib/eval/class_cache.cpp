@@ -80,7 +80,7 @@ void class_cache::create(size_t n, class_cache* cache, std::string const& file_n
         mgr.add_pass<pass_write>();
 
         size_t count = 0;
-        enum{ BatchSize = 169  };
+        enum{ BatchSize = 4 * 169  };
 
         auto save_impl = [&](){
                 std::cout << "Saving...\n";

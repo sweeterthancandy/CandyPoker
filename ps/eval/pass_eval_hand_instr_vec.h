@@ -600,6 +600,7 @@ struct rank_opt_item{
         suit_id s1;
         std::uint16_t r0_shifted;
         std::uint16_t r1_shifted;
+        std::uint16_t nfnp_mask{0};
 };
 struct rank_opt_device : std::vector<rank_opt_item>{
 
@@ -617,6 +618,13 @@ struct rank_opt_device : std::vector<rank_opt_item>{
                 size_t index = 0;
                 for(auto hid : con){
                         auto const& hand{holdem_hand_decl::get(hid)};
+
+                        std::uint16_t nfnp_mask = static_cast<std::uint16_t>(1) << hand.first().rank().id() |
+                                                  static_cast<std::uint16_t>(1) << hand.second().rank().id();
+                        if( __builtin_popcount(nfnp_mask) != 2 ){
+                                nfnp_mask = ~static_cast<std::uint16_t>(1);
+                        }
+
                         rank_opt_item item{
                                 index,
                                 hid,
@@ -628,7 +636,8 @@ struct rank_opt_device : std::vector<rank_opt_item>{
                                 hand.second().rank().id(),
                                 hand.second().suit().id(),
                                 static_cast<std::uint16_t>(1) << hand.first().rank().id(),
-                                static_cast<std::uint16_t>(1) << hand.second().rank().id()
+                                static_cast<std::uint16_t>(1) << hand.second().rank().id(),
+                                nfnp_mask
                         };
                         *out = item;
                         ++out;
@@ -725,14 +734,34 @@ struct pass_eval_hand_instr_vec : computation_pass{
                 //using shed_type = pass_eval_hand_instr_vec_detail::eval_scheduler_reshed<mask_computer_detail::rank_hash_eval, sub_ptr_type>;
                 shed_type shed{ rod.size(), subs};
 
+                auto do_shedule_no_flush_ = [&](auto const& board, std::vector<rank_opt_item> const& v){
+                        //shed.begin_eval(board.masks);
+                        for(auto const& h : v){
+
+                                if( ( h.nfnp_mask & board.nfnp_mask )  == 0 ){
+                                        ranking_t B = nfnpm( h.nfnp_mask | board.nfnp_mask );
+                                        #if 0
+                                        ranking_t A = board.no_flush_rank(h.r0, h.r1);
+
+                                        PS_ASSERT(A == B, "A=" << A << ", B=" << B );
+                                        #endif
+                                        shed.put(h.index, B);
+
+                                } else {
+                                        ranking_t rr = board.no_flush_rank(h.r0, h.r1);
+                                        shed.put(h.index, rr);
+                                }
+
+
+                        }
+                        //shed.end_eval();
+                };
                 auto do_shedule_no_flush = [&](auto const& board, std::vector<rank_opt_item> const& v){
                         //shed.begin_eval(board.masks);
                         for(auto const& h : v){
 
                                 ranking_t rr = board.no_flush_rank(h.r0, h.r1);
-
                                 shed.put(h.index, rr);
-
                         }
                         //shed.end_eval();
                 };
@@ -827,7 +856,7 @@ struct pass_eval_hand_instr_vec : computation_pass{
                                         auto typed = reinterpret_cast<board_no_flush_subset const*>(&subset);
                                         for(auto const& board : *typed){
                                                 shed.begin_eval(board.masks);
-                                                do_shedule_no_flush(board, rod);
+                                                do_shedule_no_flush_(board, rod);
                                                 shed.end_eval();
                                         }
                                         break;
@@ -976,6 +1005,7 @@ struct pass_eval_hand_instr_vec : computation_pass{
         }
 private:
         flush_mask_eval fme;
+        no_flush_no_pair_mask nfnpm;
         holdem_board_decl w;
         super_duper_board_opt_idea idea_;
 };

@@ -449,16 +449,16 @@ namespace pass_eval_hand_instr_vec_detail{
                 template<size_t Idx>
                 __attribute__((__always_inline__))
                 void prepare_intrinsic_3( std::vector<ranking_t> const& R,
-                                         __m128i* v0,
-                                         __m128i* v1,
-                                         __m128i* v2)noexcept{
+                                         __m128i v0,
+                                         __m128i v1,
+                                         __m128i v2)noexcept{
                         auto r0 = R[allocation_[0]];
                         auto r1 = R[allocation_[1]];
                         auto r2 = R[allocation_[2]];
                                 
-                        *v0 = _mm_insert_epi16(*v0, r0, Idx);
-                        *v1 = _mm_insert_epi16(*v1, r1, Idx);
-                        *v2 = _mm_insert_epi16(*v2, r2, Idx);
+                        v0 = _mm_insert_epi16(v0, r0, Idx);
+                        v1 = _mm_insert_epi16(v1, r1, Idx);
+                        v2 = _mm_insert_epi16(v2, r2, Idx);
 
                         #if 0
                         #define INSERT(X)                           \
@@ -874,14 +874,14 @@ namespace pass_eval_hand_instr_vec_detail{
                                         subs_[idx+j]->prepare_intrinsic_3(evals_, j, &v0, &v1, &v2);
                                 }
                                 #endif
-                                subs_[idx+0]->template prepare_intrinsic_3<0>(evals_,  &v0, &v1, &v2);
-                                subs_[idx+1]->template prepare_intrinsic_3<1>(evals_,  &v0, &v1, &v2);
-                                subs_[idx+2]->template prepare_intrinsic_3<2>(evals_,  &v0, &v1, &v2);
-                                subs_[idx+3]->template prepare_intrinsic_3<3>(evals_,  &v0, &v1, &v2);
-                                subs_[idx+4]->template prepare_intrinsic_3<4>(evals_,  &v0, &v1, &v2);
-                                subs_[idx+5]->template prepare_intrinsic_3<5>(evals_,  &v0, &v1, &v2);
-                                subs_[idx+6]->template prepare_intrinsic_3<6>(evals_,  &v0, &v1, &v2);
-                                subs_[idx+7]->template prepare_intrinsic_3<7>(evals_,  &v0, &v1, &v2);
+                                subs_[idx+0]->template prepare_intrinsic_3<0>(evals_,  v0, v1, v2);
+                                subs_[idx+1]->template prepare_intrinsic_3<1>(evals_,  v0, v1, v2);
+                                subs_[idx+2]->template prepare_intrinsic_3<2>(evals_,  v0, v1, v2);
+                                subs_[idx+3]->template prepare_intrinsic_3<3>(evals_,  v0, v1, v2);
+                                subs_[idx+4]->template prepare_intrinsic_3<4>(evals_,  v0, v1, v2);
+                                subs_[idx+5]->template prepare_intrinsic_3<5>(evals_,  v0, v1, v2);
+                                subs_[idx+6]->template prepare_intrinsic_3<6>(evals_,  v0, v1, v2);
+                                subs_[idx+7]->template prepare_intrinsic_3<7>(evals_,  v0, v1, v2);
 
 
                                 __m128i r_min = _mm_min_epi16(v0, _mm_min_epi16(v1, v2));

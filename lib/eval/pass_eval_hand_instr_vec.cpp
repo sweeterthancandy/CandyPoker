@@ -1,6 +1,9 @@
 #include "ps/eval/pass_eval_hand_instr_vec.h"
 #include "lib/eval/rank_opt_device.h"
 #include "lib/eval/dispatch_table.h"
+#include "lib/eval/generic_shed.h"
+#include "lib/eval/generic_sub_eval.h"
+#include "lib/eval/optimized_transform.h"
 
 namespace ps{
 
@@ -26,121 +29,7 @@ namespace ps{
 
 
 
-        /*
-                sub_eval represents a single hand vs hand evaluations.
-                The idea is that we have a set of evaluations to perform similtanously,
-                ie rather than do 
-                        for every eval
-                                for eval possible board,
-                we do
-                        for eval possible board
-                                for eval eval
 
-                This allows us to do optimizations where cards are shared, for 
-                example
-                                KcKs sv AhQh
-                                KcKs sv AhQd,
-                we implement this by three evalutions for each board
-                                {board \union KcKs,
-                                 board \union AhQh,
-                                 board \union AhQd},
-                and we save evalutions, we map map
-                        board \union KcKs -> integer.
-
-
-         */
-        struct sub_eval{
-                using iter_t = instruction_list::iterator;
-                sub_eval(iter_t iter, card_eval_instruction* instr)
-                        :iter_{iter}, instr_{instr}
-                {
-                        hv   = instr->get_vector();
-                        hv_mask = hv.mask();
-                        n = hv.size();
-                        mat.resize(n, n);
-                        mat.fill(0);
-                }
-                template<class ArrayType>
-                void accept_(mask_set const& ms, size_t n, ArrayType const& v){
-                        size_t weight = ms.count_disjoint(hv_mask);
-                        if( weight == 0 )
-                                return;
-                        for(size_t i=0;i!=n;++i){
-                                mat(n,i) += weight;
-                        }
-                }
-                void accept(mask_set const& ms, std::vector<ranking_t> const& R)noexcept
-                {
-                        size_t weight = ms.count_disjoint(hv_mask);
-
-                        for(size_t i=0;i!=n;++i){
-                                ranked[i] = R[allocation_[i]];
-                        }
-                        detail::dispatch_ranked_vector_mat(mat, ranked, n, weight);
-                }
-                void finish(){
-                        *iter_ = std::make_shared<matrix_instruction>(instr_->group(), mat * instr_->get_matrix());
-                }
-                void declare(std::unordered_set<holdem_id>& S){
-                        for(auto _ : hv){
-                                S.insert(_);
-                        }
-                }
-                void declare_allocation(std::unordered_set<size_t>& S){
-                        for(size_t idx=0;idx!=n;++idx){
-                                S.insert(allocation_[idx]);
-                        }
-                }
-                template<class Alloc>
-                void allocate(Alloc const& alloc){
-                        for(size_t idx=0;idx!=n;++idx){
-                                allocation_[idx] = alloc(hv[idx]);
-                        }
-                }
-        private:
-                iter_t iter_;
-                card_eval_instruction* instr_;
-                std::array<ranking_t, 9> ranked;
-                holdem_hand_vector hv;
-                size_t hv_mask;
-                matrix_t mat;
-                size_t n;
-                std::array<size_t, 9> allocation_;
-        };
-
-        struct eval_scheduler_simple{
-                template<class SubPtrType>
-                struct bind{
-                        explicit bind(size_t batch_size, std::vector<SubPtrType>& subs)
-                                :batch_size_{batch_size}
-                                ,subs_{subs}
-                        {
-                                evals_.resize(batch_size_);
-                        }
-                        void begin_eval(mask_set const& ms)noexcept{
-                                ms_   = &ms;
-                                out_  = 0;
-                        }
-                        void put(size_t index, ranking_t rank)noexcept{
-                                evals_[index] = rank;
-                        }
-                        void end_eval()noexcept{
-                                BOOST_ASSERT( out_ == batch_size_ );
-                                for(auto& _ : subs_){
-                                        _->accept(*ms_, evals_);
-                                }
-                        }
-                        void regroup()noexcept{
-                                // nop
-                        }
-                private:
-                        size_t batch_size_;
-                        std::vector<ranking_t> evals_;
-                        std::vector<SubPtrType>& subs_;
-                        mask_set const* ms_;
-                        size_t out_{0};
-                };
-        };
 
 
 
@@ -656,15 +545,6 @@ namespace ps{
         };
 
         
-        struct basic_sub_eval_factory{
-                template<class T>
-                struct bind{
-                        using sub_ptr_type = std::shared_ptr<T>;
-                        sub_ptr_type operator()(instruction_list::iterator iter, card_eval_instruction* instr)const{
-                                return std::make_shared<T>(iter, instr);
-                        }
-                };
-        };
 
 
 
@@ -1038,134 +918,15 @@ namespace ps{
 
 
 
-template<class Sub,
-         class Schedular,
-         class Factory,
-         class Eval>
-struct optimized_transform : optimized_transform_base
-{
-        using sub_ptr_type   = std::shared_ptr<Sub>;
-        using schedular_type = typename Schedular::template bind<sub_ptr_type>;
-        using factory_type   = typename Factory::template bind<Sub>;
-        using eval_type      = Eval;
-
-        virtual void apply(optimized_transform_context& otc, computation_context* ctx, instruction_list* instr_list, computation_result* result,
-                   std::vector<typename instruction_list::iterator> const& target_list)override
-        {
-
-                factory_type factory;
-
-                std::vector<sub_ptr_type> subs;
-
-                for(auto& target : target_list){
-                        auto instr = reinterpret_cast<card_eval_instruction*>((*target).get());
-                        subs.push_back( factory(target, instr) );
-                }
-
-                // Here we create a list of all the evaluations that need to be done.
-                // Because each evalution is done card wise, doing multiple evaluations
-                // are the same time, some of the cards are shared
-                // 
-                std::unordered_set<holdem_id> S;
-                for(auto& _ : subs){
-                        _->declare(S);
-                }
-
-                // this is the maximually speed up the compution, by preocompyting some stuff
-                rank_opt_device rod = rank_opt_device::create(S);
-                std::unordered_map<holdem_id, size_t> allocation_table;
-                for(size_t idx=0;idx!=rod.size();++idx){
-                        allocation_table[rod[idx].hid] = idx;
-                }
-                for(auto& _ : subs){
-                        _->allocate( [&](auto hid){ return allocation_table.find(hid)->second; });
-                }
-
-                PS_LOG(trace) << "Have " << subs.size() << " subs";
-
-                std::vector<ranking_t> R;
-                R.resize(rod.size());
-                
-                
-                schedular_type shed{ rod.size(), subs};
-
-                for(auto const& weighted_pair : otc.w.weighted_rng() ){
-
-                        auto const& b = *weighted_pair.board;
-
-                        auto rank_proto       = b.rank_hash();
-
-                        auto const& flush_suit_board = b.flush_suit_board();
-                        size_t fsbsz = flush_suit_board.size();
-                        suit_id flush_suit    = b.flush_suit();
-                        auto flush_mask = b.flush_mask();
-                        
-                        shed.begin_eval(weighted_pair.masks);
-                        
-                        for(size_t idx=0;idx!=rod.size();++idx){
-                                auto const& _ = rod[idx];
-
-                                ranking_t rr = b.no_flush_rank(_.r0, _.r1);
-                                
-                                auto fm = flush_mask;
-
-                                bool s0m = ( _.s0 == flush_suit );
-                                bool s1m = ( _.s1 == flush_suit );
-
-                                if( s0m ){
-                                        fm |= 1ull << _.r0;
-                                }
-                                if( s1m ){
-                                        fm |= 1ull << _.r1;
-                                }
-
-                                ranking_t sr = otc.fme(fm);
-                                ranking_t tr = std::min(sr, rr);
-
-                                shed.put(idx, tr);
-
-                        }
-
-                        shed.end_eval();
-
-                }
-                shed.regroup();
-
-                
-                for(auto& _ : subs){
-                        _->finish();
-                }
-        }
-};
 
 
 
-struct dispatch_generic : dispatch_table{
-        using transform_type =
-                optimized_transform<
-                        sub_eval,
-                        eval_scheduler_simple,
-                        basic_sub_eval_factory,
-                        rank_hash_eval>;
-
-
-        virtual bool match(dispatch_context const& dispatch_ctx)const override{
-                return true;
-        }
-        virtual std::shared_ptr<optimized_transform_base> make()const override{
-                return std::make_shared<transform_type>();
-        }
-        virtual std::string name()const override{
-                return "generic";
-        }
-};
-static register_disptach_table<dispatch_generic> reg_dispatch_generic;
 
 struct dispatch_three_player : dispatch_table{
         using transform_type =
                 optimized_transform<
                         sub_eval_three,
-                        eval_scheduler_simple,
+                        generic_shed,
                         basic_sub_eval_factory,
                         rank_hash_eval>;
 

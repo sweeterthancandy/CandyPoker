@@ -1,6 +1,7 @@
 #ifndef LIB_EVAL_DISPATCH_TABLE_H
 #define LIB_EVAL_DISPATCH_TABLE_H
 
+#include "ps/eval/pass_eval_hand_instr_vec.h"
 
 namespace ps{
 
@@ -48,6 +49,16 @@ struct register_disptach_table{
                         return l->precedence() < r->precedence();
                 });
         }
+};
+        
+struct basic_sub_eval_factory{
+        template<class T>
+        struct bind{
+                using sub_ptr_type = std::shared_ptr<T>;
+                sub_ptr_type operator()(instruction_list::iterator iter, card_eval_instruction* instr)const{
+                        return std::make_shared<T>(iter, instr);
+                }
+        };
 };
 
 } // end namespace ps

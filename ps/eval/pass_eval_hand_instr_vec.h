@@ -206,7 +206,7 @@ namespace pass_eval_hand_instr_vec_detail{
                         size_t weight = ms.count_disjoint(hv_mask);
                         if( weight == 0 )
                                 return;
-                        
+                        #if 0
                         Eigen::Vector3i V{
                                 R[allocation_[0]],
                                 R[allocation_[1]],
@@ -239,6 +239,7 @@ namespace pass_eval_hand_instr_vec_detail{
                                         wins_[2] += weight;
                         }
                         return;
+                        #endif
 
                         auto r0 = R[allocation_[0]];
                         auto r1 = R[allocation_[1]];
@@ -669,8 +670,8 @@ struct rank_opt_device : std::vector<rank_opt_item>{
                                 hand.second().id(),
                                 hand.second().rank().id(),
                                 hand.second().suit().id(),
-                                static_cast<std::uint16_t>(1) << hand.first().rank().id(),
-                                static_cast<std::uint16_t>(1) << hand.second().rank().id(),
+                                static_cast<std::uint16_t>(static_cast<std::uint16_t>(1) << static_cast<std::uint16_t>(hand.first().rank().id())),
+                                static_cast<std::uint16_t>(static_cast<std::uint16_t>(1) << static_cast<std::uint16_t>(hand.second().rank().id())),
                                 nfnp_mask
                         };
                         *out = item;

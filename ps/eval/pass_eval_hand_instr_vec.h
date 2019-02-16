@@ -523,8 +523,8 @@ namespace pass_eval_hand_instr_vec_detail{
                         if( _cond )
                         #endif
                         {
-                                //size_t weight = ms.count_disjoint(hv_mask);
-                                size_t weight = 1;
+                                size_t weight = ms.count_disjoint(hv_mask);
+                                //size_t weight = 1;
                                 eval_[mask] += weight;
                         }
                 }

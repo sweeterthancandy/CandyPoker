@@ -98,33 +98,6 @@ namespace pass_eval_hand_instr_vec_detail{
                                 mat(n,i) += weight;
                         }
                 }
-                void prepare_intrinsic_3( mask_set const& ms,
-                                          std::vector<ranking_t> const& R,
-                                          size_t index,
-                                         __m128i* v0,
-                                         __m128i* v1,
-                                         __m128i* v2){
-                        size_t weight = ms.count_disjoint(hv_mask);
-                        #define INSERT(X)                                   \
-                        do{                                                 \
-                                _mm_insert_epi16(*v0, R[allocation_[0]], X); \
-                                _mm_insert_epi16(*v1, R[allocation_[1]], X); \
-                                _mm_insert_epi16(*v2, R[allocation_[2]], X); \
-                        }while(0)
-                        switch(index){
-                        case 0: INSERT(0); break;
-                        case 1: INSERT(1); break;
-                        case 2: INSERT(2); break;
-                        case 3: INSERT(3); break;
-                        case 4: INSERT(4); break;
-                        case 5: INSERT(5); break;
-                        case 6: INSERT(6); break;
-                        case 7: INSERT(7); break;
-                        default:
-                                PS_UNREACHABLE();
-                        }
-                        #undef INSERT
-                }
                 void accept(mask_set const& ms, std::vector<ranking_t> const& R)noexcept
                 {
                         size_t weight = ms.count_disjoint(hv_mask);
@@ -432,6 +405,141 @@ namespace pass_eval_hand_instr_vec_detail{
                 std::array<size_t, UpperMask> eval_;
         };
 
+        struct sub_eval_three_intrinsic{
+                enum{ UpperMask = 0b111 + 1 };
+                using iter_t = instruction_list::iterator;
+                sub_eval_three_intrinsic(iter_t iter, card_eval_instruction* instr)
+                        :iter_{iter}, instr_{instr}
+                {
+                        hv   = instr->get_vector();
+                        hv_mask = hv.mask();
+
+                        eval_.fill(0);
+                }
+                std::uint16_t make_mask(std::vector<ranking_t> const& R)const noexcept{
+                        auto r0 = R[allocation_[0]];
+                        auto r1 = R[allocation_[1]];
+                        auto r2 = R[allocation_[2]];
+                                        
+                        auto r_min = std::min({r0,r1,r2});
+
+                        std::uint16_t mask = 0;
+                        if( r_min == r0 )
+                                mask |= 0b001;
+                        if( r_min == r1 )
+                                mask |= 0b010;
+                        if( r_min == r2 )
+                                mask |= 0b100;
+
+                        return mask;
+                }
+                void accept(mask_set const& ms, std::vector<ranking_t> const& R)noexcept
+                {
+                        size_t weight = ms.count_disjoint(hv_mask);
+                        if( weight == 0 )
+                                return;
+
+                        auto mask = make_mask(R);
+
+                        eval_[mask] += weight;
+
+                }
+
+
+                void prepare_intrinsic_3( std::vector<ranking_t> const& R,
+                                          size_t index,
+                                         __m128i* v0,
+                                         __m128i* v1,
+                                         __m128i* v2){
+                        #define INSERT(X)                                   \
+                        do{                                                 \
+                                _mm_insert_epi16(*v0, R[allocation_[0]], X); \
+                                _mm_insert_epi16(*v1, R[allocation_[1]], X); \
+                                _mm_insert_epi16(*v2, R[allocation_[2]], X); \
+                        }while(0)
+                        switch(index){
+                        case 0: INSERT(0); break;
+                        case 1: INSERT(1); break;
+                        case 2: INSERT(2); break;
+                        case 3: INSERT(3); break;
+                        case 4: INSERT(4); break;
+                        case 5: INSERT(5); break;
+                        case 6: INSERT(6); break;
+                        case 7: INSERT(7); break;
+                        default:
+                                PS_UNREACHABLE();
+                        }
+                        #undef INSERT
+                }
+                void accept_intrinsic_3(std::vector<ranking_t> const& R,
+                                        mask_set const& ms, 
+                                        size_t index,
+                                        __m128i* masks){
+                        auto orig_mask = make_mask(R);
+                        size_t weight = ms.count_disjoint(hv_mask);
+                        int mask;
+                        #define EXTRACT(X) \
+                        do{ \
+                                mask = _mm_extract_epi16(*masks, X); \
+                        }while(0)
+                        switch(index){
+                        case 0: EXTRACT(0); break;
+                        case 1: EXTRACT(1); break;
+                        case 2: EXTRACT(2); break;
+                        case 3: EXTRACT(3); break;
+                        case 4: EXTRACT(4); break;
+                        case 5: EXTRACT(5); break;
+                        case 6: EXTRACT(6); break;
+                        case 7: EXTRACT(7); break;
+                        default:
+                                PS_UNREACHABLE();
+                        }
+                        #undef EXTRACT
+
+                        PS_ASSERT(orig_mask == mask, "orig_mask = " << std::bitset<16>(orig_mask).to_string() << ", " <<
+                                                     "mask = " <<  std::bitset<16>(mask).to_string());
+                }
+
+                void finish(){
+                        matrix_t mat;
+                        mat.resize(n, n);
+                        mat.fill(0);
+                        for(int mask = 1; mask != UpperMask; ++mask){
+                                auto pcnt = __builtin_popcount(mask);
+                                if( mask & 0b001 )
+                                        mat(pcnt-1, 0) += eval_[mask];
+                                if( mask & 0b010 )
+                                        mat(pcnt-1, 1) += eval_[mask];
+                                if( mask & 0b100 )
+                                        mat(pcnt-1, 2) += eval_[mask];
+                        }
+                        *iter_ = std::make_shared<matrix_instruction>(instr_->group(), mat * instr_->get_matrix());
+                }
+                void declare(std::unordered_set<holdem_id>& S){
+                        for(auto _ : hv){
+                                S.insert(_);
+                        }
+                }
+                template<class Alloc>
+                void allocate(Alloc const& alloc){
+                        for(size_t idx=0;idx!=n;++idx){
+                                allocation_[idx] = alloc(hv[idx]);
+                        }
+                }
+
+
+
+        private:
+                iter_t iter_;
+                card_eval_instruction* instr_;
+
+                holdem_hand_vector hv;
+                size_t hv_mask;
+                size_t n{3};
+
+                std::array<size_t, 9> allocation_;
+                std::array<size_t, UpperMask> eval_;
+        };
         
         #if 0
         struct sub_eval_three_perm{
@@ -720,15 +828,33 @@ namespace pass_eval_hand_instr_vec_detail{
                 }
                 void end_eval()noexcept{
                         BOOST_ASSERT( out_ == batch_size_ );
+                        __m128i m0 = _mm_set1_epi16(0b001);
+                        __m128i m1 = _mm_set1_epi16(0b010);
+                        __m128i m2 = _mm_set1_epi16(0b100);
+
                         size_t idx=0;
                         for(;idx + 8 < subs_.size();idx+=8){
                                 __m128i v0 = _mm_setzero_si128();
                                 __m128i v1 = _mm_setzero_si128();
                                 __m128i v2 = _mm_setzero_si128();
                                 for(size_t j=0;j!=8;++j){
-                                        subs_[idx]->prepare_intrinsic_3(*ms_, evals_, j, &v0, &v1, &v2);
+                                        subs_[idx]->prepare_intrinsic_3(evals_, j, &v0, &v1, &v2);
                                 }
                                 __m128i r_min = _mm_min_epi16(v0, _mm_min_epi16(v1, v2));
+
+                                __m128i eq0 =_mm_cmpeq_epi16(r_min, v0);
+                                __m128i eq1 =_mm_cmpeq_epi16(r_min, v1);
+                                __m128i eq2 =_mm_cmpeq_epi16(r_min, v2);
+                                
+                                __m128i a0 = _mm_or_si128(eq0, m0);
+                                __m128i a1 = _mm_or_si128(eq1, m1);
+                                __m128i a2 = _mm_or_si128(eq2, m2);
+
+                                __m128i mask = _mm_or_si128(a0, _mm_or_si128(a1, a2));
+                                
+                                for(size_t j=0;j!=8;++j){
+                                        subs_[idx]->accept_intrinsic_3(evals_, *ms_, j, &mask);
+                                }
 
                         }
                         for(;idx!=subs_.size();++idx){
@@ -1207,10 +1333,11 @@ struct pass_eval_hand_instr_vec : computation_pass{
                         transfrom_impl( ctx, instr_list, result, to_map, basic_sub_eval_factory<sub_eval_two>{});
                 }
                 #endif
-                #if 0
+                #if 1
                 else if( n_dist.size() == 1 && *n_dist.begin() == 3 ){
                         //transfrom_impl( ctx, instr_list, result, to_map, basic_sub_eval_factory<sub_eval_three>{});
-                        transfrom_impl( ctx, instr_list, result, to_map, basic_sub_eval_factory<sub_eval_three_perm>{});
+                        //transfrom_impl( ctx, instr_list, result, to_map, basic_sub_eval_factory<sub_eval_three_perm>{});
+                        transfrom_impl( ctx, instr_list, result, to_map, basic_sub_eval_factory<sub_eval_three_intrinsic>{});
                 } 
                 #endif
                 #if 0
@@ -1218,7 +1345,7 @@ struct pass_eval_hand_instr_vec : computation_pass{
                         transfrom_impl( ctx, instr_list, result, to_map, basic_sub_eval_factory<sub_eval_four>{});
                 } 
                 #endif
-                #if 1
+                #if 0
                 else
                 {
                         transfrom_impl( ctx, instr_list, result, to_map, basic_sub_eval_factory<sub_eval>{});

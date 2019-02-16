@@ -1270,12 +1270,33 @@ struct dispatch_generic : dispatch_table{
         }
 };
 
+struct dispatch_three_player : dispatch_table{
+        using transform_type =
+                optimized_transform<
+                        sub_eval_three,
+                        eval_scheduler_simple,
+                        basic_sub_eval_factory,
+                        rank_hash_eval>;
+
+
+        virtual bool match(dispatch_context const& dispatch_ctx)const override{
+                return dispatch_ctx.homo_num_players &&  dispatch_ctx.homo_num_players.get() == 3;
+        }
+        virtual std::shared_ptr<optimized_transform_base> make()const override{
+                return std::make_shared<transform_type>();
+        }
+        virtual std::string name()const override{
+                return "three-player-generic";
+        }
+};
+
 
 struct pass_eval_hand_instr_vec_impl{
 
 
 
         pass_eval_hand_instr_vec_impl(){
+                table_.push_back(std::make_shared<dispatch_three_player>());
                 table_.push_back(std::make_shared<dispatch_generic>());
         }
         virtual void transform_dispatch(computation_context* ctx, instruction_list* instr_list, computation_result* result){

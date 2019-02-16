@@ -66,6 +66,10 @@ namespace rank_hasher{
                   We also want to remap the highest bits into the
                   lower sections, which can be done though some 
                   rules
+
+
+                  Although the above is true, if you look at the probabilty
+                  of dealing 7 cards, 50% of the time you only have 2, 
                 
         */
         inline

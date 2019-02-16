@@ -3,6 +3,8 @@
 
 #include "lib/eval/rank_opt_device.h"
 
+#include <valgrind/callgrind.h>
+
 namespace ps{
 
 
@@ -20,6 +22,7 @@ struct optimized_transform : optimized_transform_base
         virtual void apply(optimized_transform_context& otc, computation_context* ctx, instruction_list* instr_list, computation_result* result,
                    std::vector<typename instruction_list::iterator> const& target_list)override
         {
+                CALLGRIND_START_INSTRUMENTATION;
 
                 factory_type factory;
 
@@ -103,6 +106,9 @@ struct optimized_transform : optimized_transform_base
                 for(auto& _ : subs){
                         _->finish();
                 }
+
+                CALLGRIND_STOP_INSTRUMENTATION;
+                CALLGRIND_DUMP_STATS;
         }
 };
 } // end namespace ps

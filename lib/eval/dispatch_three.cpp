@@ -136,77 +136,6 @@ namespace ps{
 
 
         
-        struct sub_eval_three_perm{
-                enum{ UpperMask = 0b111 + 1 };
-                using iter_t = instruction_list::iterator;
-                sub_eval_three_perm(iter_t iter, card_eval_instruction* instr)
-                        :iter_{iter}, instr_{instr}
-                {
-                        hv   = instr->get_vector();
-                        hv_mask = hv.mask();
-
-                        eval_.fill(0);
-                }
-                void accept(mask_set const& ms, std::vector<ranking_t> const& R)noexcept
-                {
-                        size_t weight = ms.count_disjoint(hv_mask);
-                        if( weight == 0 )
-                                return;
-
-                        auto r0 = R[allocation_[0]];
-                        auto r1 = R[allocation_[1]];
-                        auto r2 = R[allocation_[2]];
-                                        
-                        auto r_min = std::min({r0,r1,r2});
-
-                        std::uint16_t mask = 0;
-                        if( r_min == r0 )
-                                mask |= 0b001;
-                        if( r_min == r1 )
-                                mask |= 0b010;
-                        if( r_min == r2 )
-                                mask |= 0b100;
-
-                        eval_[mask] += weight;
-
-                }
-                void finish(){
-                        matrix_t mat;
-                        mat.resize(n, n);
-                        mat.fill(0);
-                        for(int mask = 1; mask != UpperMask; ++mask){
-                                auto pcnt = __builtin_popcount(mask);
-                                if( mask & 0b001 )
-                                        mat(pcnt-1, 0) += eval_[mask];
-                                if( mask & 0b010 )
-                                        mat(pcnt-1, 1) += eval_[mask];
-                                if( mask & 0b100 )
-                                        mat(pcnt-1, 2) += eval_[mask];
-                        }
-                        *iter_ = std::make_shared<matrix_instruction>(instr_->group(), mat * instr_->get_matrix());
-                }
-                void declare(std::unordered_set<holdem_id>& S){
-                        for(auto _ : hv){
-                                S.insert(_);
-                        }
-                }
-                template<class Alloc>
-                void allocate(Alloc const& alloc){
-                        for(size_t idx=0;idx!=n;++idx){
-                                allocation_[idx] = alloc(hv[idx]);
-                        }
-                }
-        private:
-                iter_t iter_;
-                card_eval_instruction* instr_;
-
-                holdem_hand_vector hv;
-                size_t hv_mask;
-                size_t n{3};
-
-                std::array<size_t, 9> allocation_;
-                std::array<size_t, UpperMask> eval_;
-        };
 
         
         #if 0
@@ -319,7 +248,105 @@ namespace ps{
         };
         static register_disptach_table<dispatch_three_player> reg_reg_dispatch_generic;
         
+        
+        
+        
+        
+        
+        struct sub_eval_three_perm{
+                enum{ UpperMask = 0b111 + 1 };
+                using iter_t = instruction_list::iterator;
+                sub_eval_three_perm(iter_t iter, card_eval_instruction* instr)
+                        :iter_{iter}, instr_{instr}
+                {
+                        hv   = instr->get_vector();
+                        hv_mask = hv.mask();
 
+                        eval_.fill(0);
+                }
+                void accept(mask_set const& ms, std::vector<ranking_t> const& R)noexcept
+                {
+                        size_t weight = ms.count_disjoint(hv_mask);
+                        if( weight == 0 )
+                                return;
+
+                        auto r0 = R[allocation_[0]];
+                        auto r1 = R[allocation_[1]];
+                        auto r2 = R[allocation_[2]];
+                                        
+                        auto r_min = std::min({r0,r1,r2});
+
+                        std::uint16_t mask = 0;
+                        if( r_min == r0 )
+                                mask |= 0b001;
+                        if( r_min == r1 )
+                                mask |= 0b010;
+                        if( r_min == r2 )
+                                mask |= 0b100;
+
+                        eval_[mask] += weight;
+
+                }
+                void finish(){
+                        matrix_t mat;
+                        mat.resize(n, n);
+                        mat.fill(0);
+                        for(int mask = 1; mask != UpperMask; ++mask){
+                                auto pcnt = __builtin_popcount(mask);
+                                if( mask & 0b001 )
+                                        mat(pcnt-1, 0) += eval_[mask];
+                                if( mask & 0b010 )
+                                        mat(pcnt-1, 1) += eval_[mask];
+                                if( mask & 0b100 )
+                                        mat(pcnt-1, 2) += eval_[mask];
+                        }
+                        *iter_ = std::make_shared<matrix_instruction>(instr_->group(), mat * instr_->get_matrix());
+                }
+                void declare(std::unordered_set<holdem_id>& S){
+                        for(auto _ : hv){
+                                S.insert(_);
+                        }
+                }
+                template<class Alloc>
+                void allocate(Alloc const& alloc){
+                        for(size_t idx=0;idx!=n;++idx){
+                                allocation_[idx] = alloc(hv[idx]);
+                        }
+                }
+        private:
+                iter_t iter_;
+                card_eval_instruction* instr_;
+
+                holdem_hand_vector hv;
+                size_t hv_mask;
+                size_t n{3};
+
+                std::array<size_t, 9> allocation_;
+                std::array<size_t, UpperMask> eval_;
+        };
+
+        // this seems slower
+        struct dispatch_three_player_perm : dispatch_table{
+                using transform_type =
+                        optimized_transform<
+                        sub_eval_three_perm,
+                        generic_shed,
+                        basic_sub_eval_factory,
+                        rank_hash_eval>;
+
+
+                virtual bool match(dispatch_context const& dispatch_ctx)const override{
+                        return dispatch_ctx.homo_num_players &&  dispatch_ctx.homo_num_players.get() == 3;
+                }
+                virtual std::shared_ptr<optimized_transform_base> make()const override{
+                        return std::make_shared<transform_type>();
+                }
+                virtual std::string name()const override{
+                        return "three-player-perm";
+                }
+                virtual size_t precedence()const override{ return 101; }
+        };
+        static register_disptach_table<dispatch_three_player_perm> reg_dispatch_three_player_perm;
 
 
 } // end namespace ps

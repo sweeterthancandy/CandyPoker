@@ -1,5 +1,6 @@
 #include "ps/eval/pass_eval_hand_instr_vec.h"
 #include "lib/eval/rank_opt_device.h"
+#include "lib/eval/dispatch_table.h"
 
 namespace ps{
 
@@ -71,10 +72,6 @@ namespace ps{
                 void accept(mask_set const& ms, std::vector<ranking_t> const& R)noexcept
                 {
                         size_t weight = ms.count_disjoint(hv_mask);
-                        #if 0
-                        if( weight == 0 )
-                                return;
-                        #endif
 
                         for(size_t i=0;i!=n;++i){
                                 ranked[i] = R[allocation_[i]];
@@ -110,6 +107,64 @@ namespace ps{
                 size_t n;
                 std::array<size_t, 9> allocation_;
         };
+
+        struct eval_scheduler_simple{
+                template<class SubPtrType>
+                struct bind{
+                        explicit bind(size_t batch_size, std::vector<SubPtrType>& subs)
+                                :batch_size_{batch_size}
+                                ,subs_{subs}
+                        {
+                                evals_.resize(batch_size_);
+                        }
+                        void begin_eval(mask_set const& ms)noexcept{
+                                ms_   = &ms;
+                                out_  = 0;
+                        }
+                        void put(size_t index, ranking_t rank)noexcept{
+                                evals_[index] = rank;
+                        }
+                        void end_eval()noexcept{
+                                BOOST_ASSERT( out_ == batch_size_ );
+                                for(auto& _ : subs_){
+                                        _->accept(*ms_, evals_);
+                                }
+                        }
+                        void regroup()noexcept{
+                                // nop
+                        }
+                private:
+                        size_t batch_size_;
+                        std::vector<ranking_t> evals_;
+                        std::vector<SubPtrType>& subs_;
+                        mask_set const* ms_;
+                        size_t out_{0};
+                };
+        };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
         
         struct sub_eval_two{
@@ -375,113 +430,6 @@ namespace ps{
                 std::array<size_t, UpperMask> eval_;
         };
 
-        struct sub_eval_three_intrinsic{
-                enum{ UpperMask = 0b111 + 1 };
-                using iter_t = instruction_list::iterator;
-                sub_eval_three_intrinsic(iter_t iter, card_eval_instruction* instr)
-                        :iter_{iter}, instr_{instr}
-                {
-                        hv   = instr->get_vector();
-                        hv_mask = hv.mask();
-
-                        eval_.fill(0);
-                }
-                std::uint16_t make_mask(std::vector<ranking_t> const& R)const noexcept{
-                        auto r0 = R[allocation_[0]];
-                        auto r1 = R[allocation_[1]];
-                        auto r2 = R[allocation_[2]];
-                                        
-                        auto r_min = std::min({r0,r1,r2});
-
-                        std::uint16_t mask = 0;
-                        if( r_min == r0 )
-                                mask |= 0b001;
-                        if( r_min == r1 )
-                                mask |= 0b010;
-                        if( r_min == r2 )
-                                mask |= 0b100;
-
-                        return mask;
-                }
-                void accept(mask_set const& ms, std::vector<ranking_t> const& R)noexcept
-                {
-                        size_t weight = ms.count_disjoint(hv_mask);
-                        if( weight == 0 )
-                                return;
-
-                        auto mask = make_mask(R);
-
-                        eval_[mask] += weight;
-
-                }
-
-
-                template<size_t Idx>
-                __attribute__((__always_inline__))
-                void prepare_intrinsic_3( std::vector<ranking_t> const& R,
-                                         __m256i& v0,
-                                         __m256i& v1,
-                                         __m256i& v2)noexcept
-                {
-                        auto r0 = R[allocation_[0]];
-                        auto r1 = R[allocation_[1]];
-                        auto r2 = R[allocation_[2]];
-                                
-                        v0 = _mm256_insert_epi16(v0, r0, Idx);
-                        v1 = _mm256_insert_epi16(v1, r1, Idx);
-                        v2 = _mm256_insert_epi16(v2, r2, Idx);
-                }
-                template<size_t Idx>
-                __attribute__((__always_inline__))
-                void accept_intrinsic_3(std::vector<ranking_t> const& R,
-                                        mask_set const& ms, 
-                                        __m256i& masks)noexcept
-                {
-                        int mask = _mm256_extract_epi16(masks, Idx);
-                        size_t weight = ms.count_disjoint(hv_mask);
-                        eval_[mask] += weight;
-                }
-
-                void finish(){
-                        matrix_t mat;
-                        mat.resize(n, n);
-                        mat.fill(0);
-                        for(int mask = 1; mask != UpperMask; ++mask){
-                                auto pcnt = __builtin_popcount(mask);
-                                if( mask & 0b001 )
-                                        mat(pcnt-1, 0) += eval_[mask];
-                                if( mask & 0b010 )
-                                        mat(pcnt-1, 1) += eval_[mask];
-                                if( mask & 0b100 )
-                                        mat(pcnt-1, 2) += eval_[mask];
-                        }
-                        *iter_ = std::make_shared<matrix_instruction>(instr_->group(), mat * instr_->get_matrix());
-                }
-                void declare(std::unordered_set<holdem_id>& S){
-                        for(auto _ : hv){
-                                S.insert(_);
-                        }
-                }
-                template<class Alloc>
-                void allocate(Alloc const& alloc){
-                        for(size_t idx=0;idx!=n;++idx){
-                                allocation_[idx] = alloc(hv[idx]);
-                        }
-                }
-
-
-
-        private:
-                iter_t iter_;
-                card_eval_instruction* instr_;
-
-                holdem_hand_vector hv;
-                size_t hv_mask;
-                size_t n{3};
-
-                std::array<size_t, 9> allocation_;
-                std::array<size_t, UpperMask> eval_;
-        };
         
         #if 0
         struct sub_eval_three_perm{
@@ -743,40 +691,116 @@ namespace ps{
 
 
 
-        struct eval_scheduler_simple{
-                template<class SubPtrType>
-                struct bind{
-                        explicit bind(size_t batch_size, std::vector<SubPtrType>& subs)
-                                :batch_size_{batch_size}
-                                ,subs_{subs}
-                        {
-                                evals_.resize(batch_size_);
-                        }
-                        void begin_eval(mask_set const& ms)noexcept{
-                                ms_   = &ms;
-                                out_  = 0;
-                        }
-                        void put(size_t index, ranking_t rank)noexcept{
-                                evals_[index] = rank;
-                        }
-                        void end_eval()noexcept{
-                                BOOST_ASSERT( out_ == batch_size_ );
-                                for(auto& _ : subs_){
-                                        _->accept(*ms_, evals_);
-                                }
-                        }
-                        void regroup()noexcept{
-                                // nop
-                        }
-                private:
-                        size_t batch_size_;
-                        std::vector<ranking_t> evals_;
-                        std::vector<SubPtrType>& subs_;
-                        mask_set const* ms_;
-                        size_t out_{0};
-                };
-        };
 
+
+
+
+        struct sub_eval_three_intrinsic{
+                enum{ UpperMask = 0b111 + 1 };
+                using iter_t = instruction_list::iterator;
+                sub_eval_three_intrinsic(iter_t iter, card_eval_instruction* instr)
+                        :iter_{iter}, instr_{instr}
+                {
+                        hv   = instr->get_vector();
+                        hv_mask = hv.mask();
+
+                        eval_.fill(0);
+                }
+                std::uint16_t make_mask(std::vector<ranking_t> const& R)const noexcept{
+                        auto r0 = R[allocation_[0]];
+                        auto r1 = R[allocation_[1]];
+                        auto r2 = R[allocation_[2]];
+                                        
+                        auto r_min = std::min({r0,r1,r2});
+
+                        std::uint16_t mask = 0;
+                        if( r_min == r0 )
+                                mask |= 0b001;
+                        if( r_min == r1 )
+                                mask |= 0b010;
+                        if( r_min == r2 )
+                                mask |= 0b100;
+
+                        return mask;
+                }
+                void accept(mask_set const& ms, std::vector<ranking_t> const& R)noexcept
+                {
+                        size_t weight = ms.count_disjoint(hv_mask);
+                        if( weight == 0 )
+                                return;
+
+                        auto mask = make_mask(R);
+
+                        eval_[mask] += weight;
+
+                }
+
+                template<size_t Idx>
+                __attribute__((__always_inline__))
+                void prepare_intrinsic_3( std::vector<ranking_t> const& R,
+                                         __m256i& v0,
+                                         __m256i& v1,
+                                         __m256i& v2)noexcept
+                {
+                        auto r0 = R[allocation_[0]];
+                        auto r1 = R[allocation_[1]];
+                        auto r2 = R[allocation_[2]];
+                                
+                        v0 = _mm256_insert_epi16(v0, r0, Idx);
+                        v1 = _mm256_insert_epi16(v1, r1, Idx);
+                        v2 = _mm256_insert_epi16(v2, r2, Idx);
+                }
+                template<size_t Idx>
+                __attribute__((__always_inline__))
+                void accept_intrinsic_3(std::vector<ranking_t> const& R,
+                                        mask_set const& ms, 
+                                        __m256i& masks)noexcept
+                {
+                        int mask = _mm256_extract_epi16(masks, Idx);
+                        size_t weight = ms.count_disjoint(hv_mask);
+                        eval_[mask] += weight;
+                }
+
+                void finish(){
+                        matrix_t mat;
+                        mat.resize(n, n);
+                        mat.fill(0);
+                        for(int mask = 1; mask != UpperMask; ++mask){
+                                auto pcnt = __builtin_popcount(mask);
+                                if( mask & 0b001 )
+                                        mat(pcnt-1, 0) += eval_[mask];
+                                if( mask & 0b010 )
+                                        mat(pcnt-1, 1) += eval_[mask];
+                                if( mask & 0b100 )
+                                        mat(pcnt-1, 2) += eval_[mask];
+                        }
+                        *iter_ = std::make_shared<matrix_instruction>(instr_->group(), mat * instr_->get_matrix());
+                }
+                void declare(std::unordered_set<holdem_id>& S){
+                        for(auto _ : hv){
+                                S.insert(_);
+                        }
+                }
+                template<class Alloc>
+                void allocate(Alloc const& alloc){
+                        for(size_t idx=0;idx!=n;++idx){
+                                allocation_[idx] = alloc(hv[idx]);
+                        }
+                }
+
+
+
+        private:
+                iter_t iter_;
+                card_eval_instruction* instr_;
+
+                holdem_hand_vector hv;
+                size_t hv_mask;
+                size_t n{3};
+
+                std::array<size_t, 9> allocation_;
+                std::array<size_t, UpperMask> eval_;
+        };
         template<class SubPtrType>
         struct eval_scheduler_intrinsic_3{
                 explicit eval_scheduler_intrinsic_3(size_t batch_size,
@@ -1003,122 +1027,6 @@ namespace ps{
                 std::vector<eval> evals_;
         };
         
-        template<class EvalType, class SubPtrType>
-        struct eval_scheduler_reshed{
-                enum{ DefaultReshedSize = 100 };
-
-                struct atom{
-                        size_t group_id;
-                        size_t index;
-                        rank_hasher::rank_hash_t rank_hash;
-                };
-
-                struct group{
-                        size_t mask;
-                        card_vector const* cv;
-                        std::vector<ranking_t> evals;
-                };
-
-                explicit eval_scheduler_reshed(EvalType* impl, size_t batch_size,
-                                               std::vector<SubPtrType>& subs,
-                                               size_t reshed_size = DefaultReshedSize)
-                        :impl_{impl}
-                        ,batch_size_{batch_size}
-                        ,subs_{subs}
-                        ,reshed_size_{DefaultReshedSize}
-                {
-                        size_t alloc_size = reshed_size_ + batch_size_;
-                        // we don't need this many gruops, but gyuarenees large enough 
-                        groups_.resize(alloc_size);
-                        for(auto& g : groups_ ){
-                                g.evals.resize(batch_size_);
-                        }
-                        atoms_.resize(alloc_size);
-                        view_proto_.resize(alloc_size);
-                        for(size_t idx=0;idx!=alloc_size;++idx){
-                                view_proto_[idx] = &atoms_[idx];
-                        }
-                        view_.reserve(alloc_size);
-
-                }
-
-                void begin_eval(size_t mask, card_vector const& cv)noexcept{
-                        groups_[group_iter_].mask = mask;
-                        groups_[group_iter_].cv   = &cv;
-                }
-                void shedule(size_t index, suit_hasher::suit_hash_t suit_hash, rank_hasher::rank_hash_t rank_hash,
-                          card_id c0, card_id c1)noexcept
-                {
-                        bool hash_possible = suit_hasher::has_flush_unsafe(suit_hash); 
-
-                        if( hash_possible ){
-                                auto& g = groups_[group_iter_];
-                                g.evals[index] = impl_->rank_flush(*g.cv, c0, c1);
-                        } else {
-                                auto& a = atoms_[atom_iter_];
-                                a.group_id  = group_iter_;
-                                a.index     = index;
-                                a.rank_hash = rank_hash;
-                                ++atom_iter_;
-                        }
-                }
-                void end_eval()noexcept{
-                        ++group_iter_;
-                        if( atom_iter_ >= reshed_size_ ){
-                                regroup();
-                        }
-                }
-                void regroup()noexcept{
-                        static size_t counter{0};
-
-
-
-                        // this is the point of this class, rather than execute each atom in series 
-                        // nativly, I can reorder them to take advantage of CPU cache
-                        //
-                        // execute every atom
-                        //
-
-                        view_ = view_proto_;
-                        view_.resize(atom_iter_);
-
-                        boost::sort(view_, [](auto const& l, auto const& r){
-                                return l->rank_hash < r->rank_hash;
-                        });
-
-                        for(auto ptr : view_){
-                                auto const& a = *ptr;
-                                auto& g = groups_[a.group_id];
-                                g.evals[a.index] = impl_->rank_no_flush(a.rank_hash);
-                        }
-                        
-                        for(size_t idx=0;idx<group_iter_;++idx){
-                                auto const& g = groups_[idx];
-                                for(auto& _ : subs_){
-                                        _->accept(g.mask, g.evals);
-                                }
-                        }
-                        atom_iter_ = 0;
-                        group_iter_ = 0;
-
-                        ++counter;
-                        //std::cout << "counter => " << counter << "\n"; // __CandyPrint__(cxx-print-scalar,counter)
-                                 
-                }
-        private:
-                EvalType* impl_;
-                size_t batch_size_;
-                std::vector<SubPtrType>& subs_;
-                size_t reshed_size_;
-
-                std::vector<group> groups_;
-                std::vector<atom> atoms_;
-
-                size_t atom_iter_{0};
-                size_t group_iter_{0};
-                std::vector<atom*> view_proto_;
-                std::vector<atom*> view_;
-        };
 
 
 
@@ -1129,11 +1037,6 @@ namespace ps{
 
 
 
-struct optimized_transform_base{
-        virtual ~optimized_transform_base(){}
-        virtual void apply(computation_context* ctx, instruction_list* instr_list, computation_result* result,
-                   std::vector<typename instruction_list::iterator> const& target_list)=0;
-};
 
 template<class Sub,
          class Schedular,
@@ -1146,7 +1049,7 @@ struct optimized_transform : optimized_transform_base
         using factory_type   = typename Factory::template bind<Sub>;
         using eval_type      = Eval;
 
-        virtual void apply(computation_context* ctx, instruction_list* instr_list, computation_result* result,
+        virtual void apply(optimized_transform_context& otc, computation_context* ctx, instruction_list* instr_list, computation_result* result,
                    std::vector<typename instruction_list::iterator> const& target_list)override
         {
 
@@ -1186,7 +1089,7 @@ struct optimized_transform : optimized_transform_base
                 
                 schedular_type shed{ rod.size(), subs};
 
-                for(auto const& weighted_pair : w.weighted_rng() ){
+                for(auto const& weighted_pair : otc.w.weighted_rng() ){
 
                         auto const& b = *weighted_pair.board;
 
@@ -1216,7 +1119,7 @@ struct optimized_transform : optimized_transform_base
                                         fm |= 1ull << _.r1;
                                 }
 
-                                ranking_t sr = fme(fm);
+                                ranking_t sr = otc.fme(fm);
                                 ranking_t tr = std::min(sr, rr);
 
                                 shed.put(idx, tr);
@@ -1233,22 +1136,9 @@ struct optimized_transform : optimized_transform_base
                         _->finish();
                 }
         }
-private:
-        flush_mask_eval fme;
-        no_flush_no_pair_mask nfnpm;
-        holdem_board_decl w;
 };
 
 
-struct dispatch_context{
-        boost::optional<size_t> homo_num_players;
-};
-struct dispatch_table{
-        virtual ~dispatch_table()=default;
-        virtual bool match(dispatch_context const& dispatch_ctx)const=0;
-        virtual std::shared_ptr<optimized_transform_base> make()const=0;
-        virtual std::string name()const=0;
-};
 
 struct dispatch_generic : dispatch_table{
         using transform_type =
@@ -1269,6 +1159,7 @@ struct dispatch_generic : dispatch_table{
                 return "generic";
         }
 };
+static register_disptach_table<dispatch_generic> reg_dispatch_generic;
 
 struct dispatch_three_player : dispatch_table{
         using transform_type =
@@ -1288,7 +1179,9 @@ struct dispatch_three_player : dispatch_table{
         virtual std::string name()const override{
                 return "three-player-generic";
         }
+        virtual size_t precedence()const override{ return 100; }
 };
+static register_disptach_table<dispatch_three_player> reg_reg_dispatch_generic;
 
 
 struct pass_eval_hand_instr_vec_impl{
@@ -1296,8 +1189,6 @@ struct pass_eval_hand_instr_vec_impl{
 
 
         pass_eval_hand_instr_vec_impl(){
-                table_.push_back(std::make_shared<dispatch_three_player>());
-                table_.push_back(std::make_shared<dispatch_generic>());
         }
         virtual void transform_dispatch(computation_context* ctx, instruction_list* instr_list, computation_result* result){
                 std::vector<instruction_list::iterator> to_map;
@@ -1323,7 +1214,7 @@ struct pass_eval_hand_instr_vec_impl{
                         dctx.homo_num_players = *n_dist.begin();
 
                 std::shared_ptr<optimized_transform_base> ot;
-                for(auto const& item : table_){
+                for(auto const& item : dispatch_table::world() ){
                         if( item->match(dctx) ){
                                 boost::timer::cpu_timer tmr;
                                 ot = item->make();
@@ -1336,12 +1227,12 @@ struct pass_eval_hand_instr_vec_impl{
                         PS_LOG(trace) << "no dispatch";
                 } else {
                         boost::timer::cpu_timer tmr;
-                        ot->apply(ctx, instr_list, result, to_map);
+                        ot->apply(oct_, ctx, instr_list, result, to_map);
                         PS_LOG(trace) << "Took " << tmr.format(2, "%w seconds") << " to do main loop";
                 }
         }
 private:
-        std::vector<std::shared_ptr<dispatch_table> > table_;
+        optimized_transform_context oct_;
 };
 
 

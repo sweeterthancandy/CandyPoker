@@ -19,19 +19,26 @@ if( WIN32 )
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MT")
 else()
   add_definitions(-DBOOST_LOG_DYN_LINK)
-  set(CMAKE_CXX_FLAGS "-std=c++14 -frtti -fno-omit-frame-pointer -Wno-switch")
 
-  set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -ggdb3")
-  set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O2 -ggdb3")
+  if(0)
+          set(CMAKE_CXX_FLAGS "-std=c++14 -frtti -fno-omit-frame-pointer -ggdb3 -mavx -mavx2 -fno-inline ")
+  else()
+          set(CMAKE_CXX_FLAGS "-std=c++14 -frtti  -Wno-switch")
 
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall  -pedantic")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-sign-compare")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-variable")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-missing-braces")
-  #for eigen
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-misleading-indentation")
-  
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx -mavx2 -fno-inline")
+          set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -ggdb3")
+          set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
+
+          set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall  -pedantic")
+          set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-sign-compare")
+          set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-variable")
+          set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-missing-braces")
+          #for eigen
+          set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-misleading-indentation")
+          
+          set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx -mavx2")
+
+          #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-omit-frame-pointer")
+  endif()
 
 
   #add_definitions(-D_GLIBCXX_ASSERTIONS)
@@ -47,7 +54,6 @@ include_directories(${Boost_INCLUDE_DIRS})
 include_directories(.)
 include_directories( /usr/include/eigen3/ )
 include_directories( /usr/include/eigen3/Eigen/ )
-include_directories( deps/SKPokerEval/src/ )
 
 
 #aux_source_directory(lib/base base_sources)
@@ -64,7 +70,7 @@ set(base_sources
         lib/eval/pass_eval_hand_instr_vec.cpp
         lib/eval/dispatch_generic.cpp
         lib/eval/dispatch_three.cpp
-        lib/eval/dispatch_three_avx2.cpp
+        #lib/eval/dispatch_three_avx2.cpp
         
         lib/support/singleton_factory.cpp
 
@@ -83,7 +89,7 @@ set(
         driver_sources
 
         app/driver.cpp
-        app/cmd_flopzilla.cpp
+        #app/cmd_flopzilla.cpp
         app/cmd_solver.cpp
         app/cmd_cache.cpp 
 )

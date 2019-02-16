@@ -6,6 +6,54 @@
 namespace ps{
 
 
+#if 1
+
+struct mask_set{
+        void add(size_t mask){
+                masks_.push_back(mask);
+        }
+        size_t count_disjoint_impl_(size_t that)const noexcept{
+                size_t count = 0;
+                for(auto mask : masks_ ){
+                        count += !( mask & that );
+                }
+                return count;
+        }
+        size_t count_disjoint(size_t that)const noexcept{
+                return count_disjoint_impl_(that);
+        }
+        size_t size()const{ return masks_.size(); }
+        friend bool operator<(mask_set const& l, mask_set const& r)noexcept{
+                return l.masks_ < r.masks_;
+        }
+private:
+        std::vector<size_t> masks_ __attribute__((aligned (16)));
+};
+#elif 1
+
+struct mask_set{
+        void add(size_t mask){
+                masks_.emplace_back(mask, 1);
+        }
+        size_t count_disjoint_impl_(size_t that)const noexcept{
+                size_t count = 0;
+                for(auto p : masks_ ){
+                        count += p.second * (!!( p.first & that ) );
+                }
+                return count;
+        }
+        size_t count_disjoint(size_t that)const noexcept{
+                return count_disjoint_impl_(that);
+        }
+        size_t size()const{ return masks_.size(); }
+        friend bool operator<(mask_set const& l, mask_set const& r)noexcept{
+                return l.masks_ < r.masks_;
+        }
+private:
+        std::vector<std::pair<size_t, unsigned> > masks_;
+};
+
+#elif 0
 struct mask_set{
         void add(size_t mask){
                 masks_.push_back(mask);
@@ -51,7 +99,7 @@ struct mask_set{
                 return result;
         }
         size_t count_disjoint(size_t that)const noexcept{
-                return count_disjoint_impl_(that);
+                return count_disjoint_sse2_impl_(that);
         }
         size_t size()const{ return masks_.size(); }
         friend bool operator<(mask_set const& l, mask_set const& r)noexcept{
@@ -62,11 +110,11 @@ private:
 };
 
 
+#else
 
 /*
         weirdly this is slower
  */
-#if 0
 
 struct mask_set{
         void add(size_t mask){
@@ -74,6 +122,7 @@ struct mask_set{
                 union_ |= mask;
         }
         size_t count_disjoint(size_t that)const noexcept{
+                return 1;
                 #if 1
                 #if 0
                 static size_t hit = 0;
@@ -88,8 +137,10 @@ struct mask_set{
                         #endif
                         return size();
                 }
+                #if 0
                 if( size() == 1 )
                         return 0;
+                #endif
                 #endif
                 size_t count = 0;
                 for(auto mask : masks_ ){
@@ -100,6 +151,9 @@ struct mask_set{
                 return count;
         }
         size_t size()const{ return masks_.size(); }
+        friend bool operator<(mask_set const& l, mask_set const& r)noexcept{
+                return l.masks_ < r.masks_;
+        }
 private:
         std::vector<size_t> masks_;
         size_t union_{0};

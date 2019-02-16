@@ -70,8 +70,43 @@ namespace rank_hasher{
 
                   Although the above is true, if you look at the probabilty
                   of dealing 7 cards, 50% of the time you only have 2, 
+
+                  +----+-------------+-------------+
+                  |card|AKQJT98765432|AKQJT98765432|
+                  +----+-------------+-------------+
+                  |yyyy|xxxxxxxxxxxxx|xxxxxxxxxxxxx|
+                  +----+-------------+-------------+
+                  |3rd |  Second     |   First     |
+                  +----+-------------+-------------+
                 
         */
+        #if 1
+        inline
+        rank_hash_t append(rank_hash_t hash, rank_id rank)noexcept{
+                auto mask0 = ( 0x1 << (rank+ 0) );
+                auto mask1 = ( 0x1 << (rank+13) );
+                auto bit0 = !!( mask0 & hash );
+                auto bit1 = !!( mask1 & hash );
+                if( bit0 & bit1 ){
+                        // description: 3 -> 4
+                        hash |= (rank + 1) << 0x1A;
+                } else if( bit0 ){
+                        // description:  1 ->  2
+                        // binary     : 01 -> 10
+                        hash &= ~mask0;
+                        hash |=  mask1;
+                } else if( bit1 ){
+                        // description:  2 ->  3
+                        // binary     : 10 -> 11
+                        hash |=  mask0;
+                } else {
+                        // description:  0 ->  1
+                        // binary     :  0 ->  1
+                        hash |=  mask0;
+                }
+                return hash;
+        }
+        #else
         inline
         rank_hash_t append(rank_hash_t hash, rank_id rank)noexcept{
                 auto idx = rank * 2;
@@ -100,6 +135,7 @@ namespace rank_hasher{
                 }
                 return hash;
         }
+        #endif
         
         inline
         rank_hash_t create()noexcept{ return 0; }

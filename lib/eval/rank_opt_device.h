@@ -21,11 +21,14 @@ struct rank_opt_item{
 };
 struct rank_opt_device : std::vector<rank_opt_item>{
 
+        #if 0
         struct segmented{
                 std::vector<rank_opt_item> segment_0;
                 std::vector<rank_opt_item> segment_1;
                 std::vector<rank_opt_item> segment_2;
         };
+        std::array<segmented, 4> segments;
+        #endif
 
         template<class Con>
         static rank_opt_device create(Con const& con){
@@ -61,6 +64,7 @@ struct rank_opt_device : std::vector<rank_opt_item>{
                         ++index;
                 }
 
+                #if 0
                 for(unsigned sid=0;sid!=4;++sid){
                         auto& seg = result.segments[sid];
                         for(auto const& _ : result){
@@ -94,10 +98,10 @@ struct rank_opt_device : std::vector<rank_opt_item>{
                         std::cout << "rod.size() => " << result.size() << "\n"; // __CandyPrint__(cxx-print-scalar,rod.size())
                         std::cout << "(seg.segment_0.size()+ seg.segment_1.size()+ seg.segment_2.size()) => " << (seg.segment_0.size()+ seg.segment_1.size()+ seg.segment_2.size()) << "\n"; // __CandyPrint__(cxx-print-scalar,(seg.segment_0.size()+ seg.segment_1.size()+ seg.segment_2.size()))
                 }
+                #endif
 
                 return result;
         }
-        std::array<segmented, 4> segments;
 };
 
 } // end namespace ps

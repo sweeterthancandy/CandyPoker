@@ -482,11 +482,12 @@ namespace pass_eval_hand_instr_vec_detail{
                         #undef INSERT
                         #endif
                 }
+                template<size_t Idx>
                 __attribute__((__always_inline__))
                 void accept_intrinsic_3(std::vector<ranking_t> const& R,
                                         mask_set const& ms, 
-                                        size_t index,
                                         __m128i* masks)noexcept{
+                        #if 0
                         int mask;
                         #define EXTRACT(X) \
                         do{ \
@@ -505,6 +506,8 @@ namespace pass_eval_hand_instr_vec_detail{
                                 PS_UNREACHABLE();
                         }
                         #undef EXTRACT
+                        #endif
+                        int mask = _mm_extract_epi16(*masks, Idx);
 
                         #if 0
                         auto orig_mask = make_mask(R);
@@ -512,10 +515,13 @@ namespace pass_eval_hand_instr_vec_detail{
                                                      "mask = " <<  std::bitset<16>(mask).to_string());
                         #endif
 
-                        volatile bool _cond = false;
+                        #if 0
+                        volatile bool _cond = true;
                         
 
-                        if( _cond ){
+                        if( _cond )
+                        #endif
+                        {
                                 size_t weight = ms.count_disjoint(hv_mask);
                                 eval_[mask] += weight;
                         }
@@ -887,9 +893,19 @@ namespace pass_eval_hand_instr_vec_detail{
                                 __m128i a2 = _mm_and_si128(eq2, m2);
                                 __m128i mask = _mm_or_si128(a0, _mm_or_si128(a1, a2));
                                 
+                                #if 0
                                 for(size_t j=0;j!=8;++j){
                                         subs_[idx+j]->accept_intrinsic_3(evals_, *ms_, j, &mask);
                                 }
+                                #endif
+                                subs_[idx+0]->template accept_intrinsic_3<0>(evals_, *ms_, &mask);
+                                subs_[idx+1]->template accept_intrinsic_3<1>(evals_, *ms_, &mask);
+                                subs_[idx+2]->template accept_intrinsic_3<2>(evals_, *ms_, &mask);
+                                subs_[idx+3]->template accept_intrinsic_3<3>(evals_, *ms_, &mask);
+                                subs_[idx+4]->template accept_intrinsic_3<4>(evals_, *ms_, &mask);
+                                subs_[idx+5]->template accept_intrinsic_3<5>(evals_, *ms_, &mask);
+                                subs_[idx+6]->template accept_intrinsic_3<6>(evals_, *ms_, &mask);
+                                subs_[idx+7]->template accept_intrinsic_3<7>(evals_, *ms_, &mask);
 
                                 //std::exit(0);
 

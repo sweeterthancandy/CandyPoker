@@ -48,6 +48,7 @@ SOFTWARE.
 #include <boost/iterator/counting_iterator.hpp>
 
 #include <emmintrin.h>
+#include <immintrin.h>
 
 namespace ps{
 
@@ -449,9 +450,9 @@ namespace pass_eval_hand_instr_vec_detail{
                 template<size_t Idx>
                 __attribute__((__always_inline__))
                 void prepare_intrinsic_3( std::vector<ranking_t> const& R,
-                                         __m128i v0,
-                                         __m128i v1,
-                                         __m128i v2)noexcept{
+                                         __m128i& v0,
+                                         __m128i& v1,
+                                         __m128i& v2)noexcept{
                         auto r0 = R[allocation_[0]];
                         auto r1 = R[allocation_[1]];
                         auto r2 = R[allocation_[2]];

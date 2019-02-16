@@ -6,18 +6,11 @@ namespace ps{
 
         
 struct rank_opt_item{
-        size_t index;
         holdem_id hid;
-        size_t mask;
-        card_id c0;
         rank_id r0;
         suit_id s0;
-        card_id c1;
         rank_id r1; 
         suit_id s1;
-        std::uint16_t r0_shifted;
-        std::uint16_t r1_shifted;
-        std::uint16_t nfnp_mask{0};
 };
 struct rank_opt_device : std::vector<rank_opt_item>{
 
@@ -46,18 +39,11 @@ struct rank_opt_device : std::vector<rank_opt_item>{
                         }
 
                         rank_opt_item item{
-                                index,
                                 hid,
-                                hand.mask(),
-                                hand.first().id(),
                                 hand.first().rank().id(),
                                 hand.first().suit().id(),
-                                hand.second().id(),
                                 hand.second().rank().id(),
-                                hand.second().suit().id(),
-                                static_cast<std::uint16_t>(static_cast<std::uint16_t>(1) << static_cast<std::uint16_t>(hand.first().rank().id())),
-                                static_cast<std::uint16_t>(static_cast<std::uint16_t>(1) << static_cast<std::uint16_t>(hand.second().rank().id())),
-                                nfnp_mask
+                                hand.second().suit().id()
                         };
                         *out = item;
                         ++out;

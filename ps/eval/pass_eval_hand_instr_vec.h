@@ -450,23 +450,23 @@ namespace pass_eval_hand_instr_vec_detail{
                 template<size_t Idx>
                 __attribute__((__always_inline__))
                 void prepare_intrinsic_3( std::vector<ranking_t> const& R,
-                                         __m128i& v0,
-                                         __m128i& v1,
-                                         __m128i& v2)noexcept{
+                                         __m256i& v0,
+                                         __m256i& v1,
+                                         __m256i& v2)noexcept{
                         auto r0 = R[allocation_[0]];
                         auto r1 = R[allocation_[1]];
                         auto r2 = R[allocation_[2]];
                                 
-                        v0 = _mm_insert_epi16(v0, r0, Idx);
-                        v1 = _mm_insert_epi16(v1, r1, Idx);
-                        v2 = _mm_insert_epi16(v2, r2, Idx);
+                        v0 = _mm256_insert_epi16(v0, r0, Idx);
+                        v1 = _mm256_insert_epi16(v1, r1, Idx);
+                        v2 = _mm256_insert_epi16(v2, r2, Idx);
 
                         #if 0
                         #define INSERT(X)                           \
                         do{                                         \
-                                *v0 = _mm_insert_epi16(*v0, r0, X); \
-                                *v1 = _mm_insert_epi16(*v1, r1, X); \
-                                *v2 = _mm_insert_epi16(*v2, r2, X); \
+                                *v0 = _mm256_insert_epi16(*v0, r0, X); \
+                                *v1 = _mm256_insert_epi16(*v1, r1, X); \
+                                *v2 = _mm256_insert_epi16(*v2, r2, X); \
                         }while(0)
                         switch(index){
                         case 0: INSERT(0); break;
@@ -487,12 +487,12 @@ namespace pass_eval_hand_instr_vec_detail{
                 __attribute__((__always_inline__))
                 void accept_intrinsic_3(std::vector<ranking_t> const& R,
                                         mask_set const& ms, 
-                                        __m128i* masks)noexcept{
+                                        __m256i* masks)noexcept{
                         #if 0
                         int mask;
                         #define EXTRACT(X) \
                         do{ \
-                                mask = _mm_extract_epi16(*masks, X); \
+                                mask = _mm256_extract_epi16(*masks, X); \
                         }while(0)
                         switch(index){
                         case 0: EXTRACT(0); break;
@@ -508,7 +508,7 @@ namespace pass_eval_hand_instr_vec_detail{
                         }
                         #undef EXTRACT
                         #endif
-                        int mask = _mm_extract_epi16(*masks, Idx);
+                        int mask = _mm256_extract_epi16(*masks, Idx);
 
                         #if 0
                         auto orig_mask = make_mask(R);
@@ -523,7 +523,8 @@ namespace pass_eval_hand_instr_vec_detail{
                         if( _cond )
                         #endif
                         {
-                                size_t weight = ms.count_disjoint(hv_mask);
+                                //size_t weight = ms.count_disjoint(hv_mask);
+                                size_t weight = 1;
                                 eval_[mask] += weight;
                         }
                 }
@@ -857,18 +858,18 @@ namespace pass_eval_hand_instr_vec_detail{
                 void end_eval()noexcept{
                         BOOST_ASSERT( out_ == batch_size_ );
 
-                        //#define DBG(REG, X) do{ std::cout << #REG "[" << (X) << "]=" << std::bitset<16>(_mm_extract_epi16(REG,X)).to_string() << "\n"; }while(0)
+                        //#define DBG(REG, X) do{ std::cout << #REG "[" << (X) << "]=" << std::bitset<16>(_mm256_extract_epi16(REG,X)).to_string() << "\n"; }while(0)
                         #define DBG(REG, X) do{}while(0)
 
-                        __m128i m0 = _mm_set1_epi16(0b001);
-                        __m128i m1 = _mm_set1_epi16(0b010);
-                        __m128i m2 = _mm_set1_epi16(0b100);
+                        __m256i m0 = _mm256_set1_epi16(0b001);
+                        __m256i m1 = _mm256_set1_epi16(0b010);
+                        __m256i m2 = _mm256_set1_epi16(0b100);
 
                         size_t idx=0;
-                        for(;idx + 8 < subs_.size();idx+=8){
-                                __m128i v0 = _mm_setzero_si128();
-                                __m128i v1 = _mm_setzero_si128();
-                                __m128i v2 = _mm_setzero_si128();
+                        for(;idx + 16 < subs_.size();idx+=16){
+                                __m256i v0 = _mm256_setzero_si256();
+                                __m256i v1 = _mm256_setzero_si256();
+                                __m256i v2 = _mm256_setzero_si256();
 
                                 #if 0
                                 for(size_t j=0;j!=8;++j){
@@ -883,16 +884,24 @@ namespace pass_eval_hand_instr_vec_detail{
                                 subs_[idx+5]->template prepare_intrinsic_3<5>(evals_,  v0, v1, v2);
                                 subs_[idx+6]->template prepare_intrinsic_3<6>(evals_,  v0, v1, v2);
                                 subs_[idx+7]->template prepare_intrinsic_3<7>(evals_,  v0, v1, v2);
+                                subs_[idx+8 ]->template prepare_intrinsic_3<8>(evals_,  v0, v1, v2);
+                                subs_[idx+9 ]->template prepare_intrinsic_3<9>(evals_,  v0, v1, v2);
+                                subs_[idx+10]->template prepare_intrinsic_3<10>(evals_,  v0, v1, v2);
+                                subs_[idx+11]->template prepare_intrinsic_3<11>(evals_,  v0, v1, v2);
+                                subs_[idx+12]->template prepare_intrinsic_3<12>(evals_,  v0, v1, v2);
+                                subs_[idx+13]->template prepare_intrinsic_3<13>(evals_,  v0, v1, v2);
+                                subs_[idx+14]->template prepare_intrinsic_3<14>(evals_,  v0, v1, v2);
+                                subs_[idx+15]->template prepare_intrinsic_3<15>(evals_,  v0, v1, v2);
 
 
-                                __m128i r_min = _mm_min_epi16(v0, _mm_min_epi16(v1, v2));
-                                __m128i eq0 =_mm_cmpeq_epi16(r_min, v0);
-                                __m128i eq1 =_mm_cmpeq_epi16(r_min, v1);
-                                __m128i eq2 =_mm_cmpeq_epi16(r_min, v2);
-                                __m128i a0 = _mm_and_si128(eq0, m0);
-                                __m128i a1 = _mm_and_si128(eq1, m1);
-                                __m128i a2 = _mm_and_si128(eq2, m2);
-                                __m128i mask = _mm_or_si128(a0, _mm_or_si128(a1, a2));
+                                __m256i r_min = _mm256_min_epi16(v0, _mm256_min_epi16(v1, v2));
+                                __m256i eq0 =_mm256_cmpeq_epi16(r_min, v0);
+                                __m256i eq1 =_mm256_cmpeq_epi16(r_min, v1);
+                                __m256i eq2 =_mm256_cmpeq_epi16(r_min, v2);
+                                __m256i a0 = _mm256_and_si256(eq0, m0);
+                                __m256i a1 = _mm256_and_si256(eq1, m1);
+                                __m256i a2 = _mm256_and_si256(eq2, m2);
+                                __m256i mask = _mm256_or_si256(a0, _mm256_or_si256(a1, a2));
                                 
                                 #if 0
                                 for(size_t j=0;j!=8;++j){
@@ -907,6 +916,14 @@ namespace pass_eval_hand_instr_vec_detail{
                                 subs_[idx+5]->template accept_intrinsic_3<5>(evals_, *ms_, &mask);
                                 subs_[idx+6]->template accept_intrinsic_3<6>(evals_, *ms_, &mask);
                                 subs_[idx+7]->template accept_intrinsic_3<7>(evals_, *ms_, &mask);
+                                subs_[idx+8]->template accept_intrinsic_3<8>(evals_, *ms_, &mask);
+                                subs_[idx+9]->template accept_intrinsic_3<9>(evals_, *ms_, &mask);
+                                subs_[idx+10]->template accept_intrinsic_3<10>(evals_, *ms_, &mask);
+                                subs_[idx+11]->template accept_intrinsic_3<11>(evals_, *ms_, &mask);
+                                subs_[idx+12]->template accept_intrinsic_3<12>(evals_, *ms_, &mask);
+                                subs_[idx+13]->template accept_intrinsic_3<13>(evals_, *ms_, &mask);
+                                subs_[idx+14]->template accept_intrinsic_3<14>(evals_, *ms_, &mask);
+                                subs_[idx+15]->template accept_intrinsic_3<15>(evals_, *ms_, &mask);
 
                                 //std::exit(0);
 

@@ -37,7 +37,8 @@ SOFTWARE.
 #include <boost/log/trivial.hpp>
 #include <boost/assert.hpp>
 
-#define PS_LOG(level) BOOST_LOG_TRIVIAL(level) << "[" << BOOST_CURRENT_FUNCTION << "] "
+//#define PS_LOG(level) BOOST_LOG_TRIVIAL(level) << "[" << BOOST_CURRENT_FUNCTION << "] "
+#define PS_LOG(level) BOOST_LOG_TRIVIAL(level)
 
 #if 0
 #ifndef BOOST_ASSERT_IS_VOID

@@ -446,16 +446,21 @@ namespace pass_eval_hand_instr_vec_detail{
                 }
 
 
+                __attribute__((__always_inline__))
                 void prepare_intrinsic_3( std::vector<ranking_t> const& R,
                                           size_t index,
                                          __m128i* v0,
                                          __m128i* v1,
-                                         __m128i* v2){
-                        #define INSERT(X)                                   \
-                        do{                                                 \
-                                _mm_insert_epi16(*v0, R[allocation_[0]], X); \
-                                _mm_insert_epi16(*v1, R[allocation_[1]], X); \
-                                _mm_insert_epi16(*v2, R[allocation_[2]], X); \
+                                         __m128i* v2)noexcept{
+                        auto r0 = R[allocation_[0]];
+                        auto r1 = R[allocation_[1]];
+                        auto r2 = R[allocation_[2]];
+
+                        #define INSERT(X)                           \
+                        do{                                         \
+                                *v0 = _mm_insert_epi16(*v0, r0, X); \
+                                *v1 = _mm_insert_epi16(*v1, r1, X); \
+                                *v2 = _mm_insert_epi16(*v2, r2, X); \
                         }while(0)
                         switch(index){
                         case 0: INSERT(0); break;
@@ -471,12 +476,11 @@ namespace pass_eval_hand_instr_vec_detail{
                         }
                         #undef INSERT
                 }
+                __attribute__((__always_inline__))
                 void accept_intrinsic_3(std::vector<ranking_t> const& R,
                                         mask_set const& ms, 
                                         size_t index,
-                                        __m128i* masks){
-                        auto orig_mask = make_mask(R);
-                        size_t weight = ms.count_disjoint(hv_mask);
+                                        __m128i* masks)noexcept{
                         int mask;
                         #define EXTRACT(X) \
                         do{ \
@@ -496,8 +500,19 @@ namespace pass_eval_hand_instr_vec_detail{
                         }
                         #undef EXTRACT
 
+                        #if 0
+                        auto orig_mask = make_mask(R);
                         PS_ASSERT(orig_mask == mask, "orig_mask = " << std::bitset<16>(orig_mask).to_string() << ", " <<
                                                      "mask = " <<  std::bitset<16>(mask).to_string());
+                        #endif
+
+                        volatile bool _cond = false;
+                        
+
+                        if( _cond ){
+                                size_t weight = ms.count_disjoint(hv_mask);
+                                eval_[mask] += weight;
+                        }
                 }
 
                 void finish(){
@@ -828,6 +843,10 @@ namespace pass_eval_hand_instr_vec_detail{
                 }
                 void end_eval()noexcept{
                         BOOST_ASSERT( out_ == batch_size_ );
+
+                        //#define DBG(REG, X) do{ std::cout << #REG "[" << (X) << "]=" << std::bitset<16>(_mm_extract_epi16(REG,X)).to_string() << "\n"; }while(0)
+                        #define DBG(REG, X) do{}while(0)
+
                         __m128i m0 = _mm_set1_epi16(0b001);
                         __m128i m1 = _mm_set1_epi16(0b010);
                         __m128i m2 = _mm_set1_epi16(0b100);
@@ -837,24 +856,24 @@ namespace pass_eval_hand_instr_vec_detail{
                                 __m128i v0 = _mm_setzero_si128();
                                 __m128i v1 = _mm_setzero_si128();
                                 __m128i v2 = _mm_setzero_si128();
+
                                 for(size_t j=0;j!=8;++j){
-                                        subs_[idx]->prepare_intrinsic_3(evals_, j, &v0, &v1, &v2);
+                                        subs_[idx+j]->prepare_intrinsic_3(evals_, j, &v0, &v1, &v2);
                                 }
                                 __m128i r_min = _mm_min_epi16(v0, _mm_min_epi16(v1, v2));
-
                                 __m128i eq0 =_mm_cmpeq_epi16(r_min, v0);
                                 __m128i eq1 =_mm_cmpeq_epi16(r_min, v1);
                                 __m128i eq2 =_mm_cmpeq_epi16(r_min, v2);
-                                
-                                __m128i a0 = _mm_or_si128(eq0, m0);
-                                __m128i a1 = _mm_or_si128(eq1, m1);
-                                __m128i a2 = _mm_or_si128(eq2, m2);
-
+                                __m128i a0 = _mm_and_si128(eq0, m0);
+                                __m128i a1 = _mm_and_si128(eq1, m1);
+                                __m128i a2 = _mm_and_si128(eq2, m2);
                                 __m128i mask = _mm_or_si128(a0, _mm_or_si128(a1, a2));
                                 
                                 for(size_t j=0;j!=8;++j){
-                                        subs_[idx]->accept_intrinsic_3(evals_, *ms_, j, &mask);
+                                        subs_[idx+j]->accept_intrinsic_3(evals_, *ms_, j, &mask);
                                 }
+
+                                //std::exit(0);
 
                         }
                         for(;idx!=subs_.size();++idx){

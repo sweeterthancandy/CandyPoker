@@ -408,7 +408,6 @@ struct PrintBoard : Command{
                         std::cout << _.board() << ","
                                   << _.flush_possible() << ","
                                   << +_.flush_suit() << ","
-                                  << std::setw(10) << _.flush_suit_board() << ","
                                   << std::bitset<13>(_.flush_mask()).to_string() << "\n";
                 }
 

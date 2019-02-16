@@ -60,18 +60,12 @@ struct optimized_transform : optimized_transform_base
                 
                 schedular_type shed{ rod.size(), subs};
 
-                for(auto const& weighted_pair : otc.w.weighted_rng() ){
+                for(auto const& b : otc.w.weighted_rng() ){
 
-                        auto const& b = *weighted_pair.board;
-
-                        auto rank_proto       = b.rank_hash();
-
-                        auto const& flush_suit_board = b.flush_suit_board();
-                        size_t fsbsz = flush_suit_board.size();
-                        suit_id flush_suit    = b.flush_suit();
-                        auto flush_mask = b.flush_mask();
+                        suit_id flush_suit = b.flush_suit();
+                        auto flush_mask    = b.flush_mask();
                         
-                        shed.begin_eval(weighted_pair.masks);
+                        shed.begin_eval(b.masks);
                         
                         for(size_t idx=0;idx!=rod.size();++idx){
                                 auto const& _ = rod[idx];
@@ -100,6 +94,7 @@ struct optimized_transform : optimized_transform_base
                         shed.end_eval();
 
                 }
+
                 shed.regroup();
 
                 

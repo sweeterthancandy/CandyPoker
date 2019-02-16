@@ -64,6 +64,30 @@ namespace ps{
 
 struct holdem_board_decl{
         enum{ Debug = false };
+
+        struct lightweight_layout{
+
+                lightweight_layout(size_t rank_mask, suit_id flush_suit, size_t flush_mask, std::array<ranking_t, 13 * 13 + 13> local_eval)
+                        :flush_suit_(flush_suit),
+                        flush_mask_(flush_mask),
+                        local_eval_(local_eval)
+                {
+                        masks.add(rank_mask);
+                }
+
+
+                suit_id            flush_suit()const noexcept{ return flush_suit_; }
+                size_t             flush_mask()const{ return flush_mask_; };
+
+
+                ranking_t          no_flush_rank(card_id c0, card_id c1)const noexcept{
+                        return local_eval_[ c0 * 13 + c1 ];
+                }
+                suit_id flush_suit_{0};
+                size_t flush_mask_{0};
+                std::array<ranking_t, 13 * 13 + 13> local_eval_;
+                mask_set masks;
+        };
         struct layout{
                 layout(rank_hash_eval const& eval, card_vector vec)
                         :vec_{std::move(vec)}
@@ -85,6 +109,8 @@ struct holdem_board_decl{
                         }
                         mask_ = vec_.mask();
                         PS_ASSERT( __builtin_popcountll(mask_) == 5, "__builtin_popcountll(mask_) = " <<__builtin_popcountll(mask_) ); 
+                
+                        card_vector flush_suit_board_;
 
                         // do we have 3,4,5 of any suit?
                         // only one suit can have this
@@ -122,27 +148,25 @@ struct holdem_board_decl{
 
                 bool               flush_possible()const noexcept{ return flush_possible_; }
                 suit_id            flush_suit()const noexcept{ return flush_suit_; }
-                card_vector const& flush_suit_board()const noexcept{ return flush_suit_board_; }
                 size_t             flush_mask()const{ return flush_mask_; };
 
                 ranking_t          no_flush_rank(card_id c0, card_id c1)const noexcept{
                         return local_eval_[ c0 * 13 + c1 ];
+                }
+
+                lightweight_layout make_lightweight()const{
+                        return lightweight_layout{mask(), flush_suit_, flush_mask_, local_eval_};
                 }
         private:
                 size_t mask_;
                 card_vector vec_;
                 rank_hasher::rank_hash_t rank_hash_{0};
                 suit_hasher::suit_hash_t suit_hash_{0};
-                card_vector flush_suit_board_;
                 suit_id flush_suit_{0};
                 bool flush_possible_;
                 size_t flush_mask_{0};
                 friend struct super_duper_board_opt_idea;
                 std::array<ranking_t, 13 * 13 + 13> local_eval_;
-        };
-        struct weighted_layout{
-                layout const* board;
-                mask_set masks;
         };
 
         holdem_board_decl(){
@@ -156,13 +180,14 @@ struct holdem_board_decl{
 
                 for( auto const& l : world_ ){
                         if( l.flush_possible() ){
-                                weighted_.emplace_back( weighted_layout{&l} );
-                                weighted_.back().masks.add( l.mask() );
+                                // singleton
+                                weighted_.emplace_back( l.make_lightweight() );
                         } else {
+                                // try to aggrefate
                                 auto iter = m.find( l.rank_hash() );
                                 if( iter == m.end()){
-                                        weighted_.emplace_back( weighted_layout{&l} );
-                                        weighted_.back().masks.add( l.mask() );
+                                        // first one
+                                        weighted_.emplace_back( l.make_lightweight() );
                                         m[l.rank_hash()] = weighted_.size() -1 ;
                                 } else {
                                         weighted_[iter->second].masks.add(l.mask());
@@ -203,7 +228,7 @@ struct holdem_board_decl{
         auto const& weighted_rng()const{ return weighted_; }
 private:
         std::vector<layout> world_;
-        std::vector<weighted_layout> weighted_;
+        std::vector<lightweight_layout> weighted_;
         
 };
 

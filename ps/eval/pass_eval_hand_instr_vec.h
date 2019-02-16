@@ -47,6 +47,8 @@ SOFTWARE.
 
 #include <boost/iterator/counting_iterator.hpp>
 
+#include <emmintrin.h>
+
 namespace ps{
 
 
@@ -96,11 +98,40 @@ namespace pass_eval_hand_instr_vec_detail{
                                 mat(n,i) += weight;
                         }
                 }
+                void prepare_intrinsic_3( mask_set const& ms,
+                                          std::vector<ranking_t> const& R,
+                                          size_t index,
+                                         __m128i* v0,
+                                         __m128i* v1,
+                                         __m128i* v2){
+                        size_t weight = ms.count_disjoint(hv_mask);
+                        #define INSERT(X)                                   \
+                        do{                                                 \
+                                _mm_insert_epi16(*v0, R[allocation_[0]], X); \
+                                _mm_insert_epi16(*v1, R[allocation_[1]], X); \
+                                _mm_insert_epi16(*v2, R[allocation_[2]], X); \
+                        }while(0)
+                        switch(index){
+                        case 0: INSERT(0); break;
+                        case 1: INSERT(1); break;
+                        case 2: INSERT(2); break;
+                        case 3: INSERT(3); break;
+                        case 4: INSERT(4); break;
+                        case 5: INSERT(5); break;
+                        case 6: INSERT(6); break;
+                        case 7: INSERT(7); break;
+                        default:
+                                PS_UNREACHABLE();
+                        }
+                        #undef INSERT
+                }
                 void accept(mask_set const& ms, std::vector<ranking_t> const& R)noexcept
                 {
                         size_t weight = ms.count_disjoint(hv_mask);
+                        #if 0
                         if( weight == 0 )
                                 return;
+                        #endif
 
                         for(size_t i=0;i!=n;++i){
                                 ranked[i] = R[allocation_[i]];
@@ -647,7 +678,6 @@ namespace pass_eval_hand_instr_vec_detail{
                 {
                         evals_.resize(batch_size_);
                 }
-
                 void begin_eval(mask_set const& ms)noexcept{
                         ms_   = &ms;
                         out_  = 0;
@@ -659,6 +689,50 @@ namespace pass_eval_hand_instr_vec_detail{
                         BOOST_ASSERT( out_ == batch_size_ );
                         for(auto& _ : subs_){
                                 _->accept(*ms_, evals_);
+                        }
+                }
+                void regroup()noexcept{
+                        // nop
+                }
+        private:
+                size_t batch_size_;
+                std::vector<ranking_t> evals_;
+                std::vector<SubPtrType>& subs_;
+                mask_set const* ms_;
+                size_t out_{0};
+        };
+        template<class SubPtrType>
+        struct eval_scheduler_intrinsic_3{
+                explicit eval_scheduler_intrinsic_3(size_t batch_size,
+                                               std::vector<SubPtrType>& subs)
+                        :batch_size_{batch_size}
+                        ,subs_{subs}
+                {
+                        evals_.resize(batch_size_);
+
+                }
+                void begin_eval(mask_set const& ms)noexcept{
+                        ms_   = &ms;
+                        out_  = 0;
+                }
+                void put(size_t index, ranking_t rank)noexcept{
+                        evals_[index] = rank;
+                }
+                void end_eval()noexcept{
+                        BOOST_ASSERT( out_ == batch_size_ );
+                        size_t idx=0;
+                        for(;idx + 8 < subs_.size();idx+=8){
+                                __m128i v0 = _mm_setzero_si128();
+                                __m128i v1 = _mm_setzero_si128();
+                                __m128i v2 = _mm_setzero_si128();
+                                for(size_t j=0;j!=8;++j){
+                                        subs_[idx]->prepare_intrinsic_3(*ms_, evals_, j, &v0, &v1, &v2);
+                                }
+                                __m128i r_min = _mm_min_epi16(v0, _mm_min_epi16(v1, v2));
+
+                        }
+                        for(;idx!=subs_.size();++idx){
+                                subs_[idx]->accept(*ms_, evals_);
                         }
                 }
                 void regroup()noexcept{
@@ -1054,7 +1128,8 @@ struct pass_eval_hand_instr_vec : computation_pass{
                 
                 boost::timer::cpu_timer tmr;
                 
-                using shed_type = pass_eval_hand_instr_vec_detail::eval_scheduler_simple<sub_ptr_type>;
+                //using shed_type = pass_eval_hand_instr_vec_detail::eval_scheduler_simple<sub_ptr_type>;
+                using shed_type = pass_eval_hand_instr_vec_detail::eval_scheduler_intrinsic_3<sub_ptr_type>;
                 //using shed_type = pass_eval_hand_instr_vec_detail::eval_scheduler_reshed<mask_computer_detail::rank_hash_eval, sub_ptr_type>;
                 shed_type shed{ rod.size(), subs};
 
@@ -1132,7 +1207,7 @@ struct pass_eval_hand_instr_vec : computation_pass{
                         transfrom_impl( ctx, instr_list, result, to_map, basic_sub_eval_factory<sub_eval_two>{});
                 }
                 #endif
-                #if 1
+                #if 0
                 else if( n_dist.size() == 1 && *n_dist.begin() == 3 ){
                         //transfrom_impl( ctx, instr_list, result, to_map, basic_sub_eval_factory<sub_eval_three>{});
                         transfrom_impl( ctx, instr_list, result, to_map, basic_sub_eval_factory<sub_eval_three_perm>{});
@@ -1143,10 +1218,12 @@ struct pass_eval_hand_instr_vec : computation_pass{
                         transfrom_impl( ctx, instr_list, result, to_map, basic_sub_eval_factory<sub_eval_four>{});
                 } 
                 #endif
+                #if 1
                 else
                 {
                         transfrom_impl( ctx, instr_list, result, to_map, basic_sub_eval_factory<sub_eval>{});
                 }
+                #endif
         }
 private:
         flush_mask_eval fme;

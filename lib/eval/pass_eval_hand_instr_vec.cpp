@@ -1,6 +1,29 @@
 #include "ps/eval/pass_eval_hand_instr_vec.h"
+#include "lib/eval/rank_opt_device.h"
 
 namespace ps{
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
         /*
                 sub_eval represents a single hand vs hand evaluations.
@@ -684,50 +707,76 @@ namespace ps{
                 std::array<size_t, 9> draw4_;
         };
 
-
-
-
         
-        template<class T>
         struct basic_sub_eval_factory{
-                using sub_ptr_type = std::shared_ptr<T>;
-                sub_ptr_type operator()(instruction_list::iterator iter, card_eval_instruction* instr)const{
-                        return std::make_shared<T>(iter, instr);
-                }
+                template<class T>
+                struct bind{
+                        using sub_ptr_type = std::shared_ptr<T>;
+                        sub_ptr_type operator()(instruction_list::iterator iter, card_eval_instruction* instr)const{
+                                return std::make_shared<T>(iter, instr);
+                        }
+                };
         };
 
-        template<class SubPtrType>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         struct eval_scheduler_simple{
-                explicit eval_scheduler_simple(size_t batch_size,
-                                               std::vector<SubPtrType>& subs)
-                        :batch_size_{batch_size}
-                        ,subs_{subs}
-                {
-                        evals_.resize(batch_size_);
-                }
-                void begin_eval(mask_set const& ms)noexcept{
-                        ms_   = &ms;
-                        out_  = 0;
-                }
-                void put(size_t index, ranking_t rank)noexcept{
-                        evals_[index] = rank;
-                }
-                void end_eval()noexcept{
-                        BOOST_ASSERT( out_ == batch_size_ );
-                        for(auto& _ : subs_){
-                                _->accept(*ms_, evals_);
+                template<class SubPtrType>
+                struct bind{
+                        explicit bind(size_t batch_size, std::vector<SubPtrType>& subs)
+                                :batch_size_{batch_size}
+                                ,subs_{subs}
+                        {
+                                evals_.resize(batch_size_);
                         }
-                }
-                void regroup()noexcept{
-                        // nop
-                }
-        private:
-                size_t batch_size_;
-                std::vector<ranking_t> evals_;
-                std::vector<SubPtrType>& subs_;
-                mask_set const* ms_;
-                size_t out_{0};
+                        void begin_eval(mask_set const& ms)noexcept{
+                                ms_   = &ms;
+                                out_  = 0;
+                        }
+                        void put(size_t index, ranking_t rank)noexcept{
+                                evals_[index] = rank;
+                        }
+                        void end_eval()noexcept{
+                                BOOST_ASSERT( out_ == batch_size_ );
+                                for(auto& _ : subs_){
+                                        _->accept(*ms_, evals_);
+                                }
+                        }
+                        void regroup()noexcept{
+                                // nop
+                        }
+                private:
+                        size_t batch_size_;
+                        std::vector<ranking_t> evals_;
+                        std::vector<SubPtrType>& subs_;
+                        mask_set const* ms_;
+                        size_t out_{0};
+                };
         };
+
         template<class SubPtrType>
         struct eval_scheduler_intrinsic_3{
                 explicit eval_scheduler_intrinsic_3(size_t batch_size,
@@ -1072,117 +1121,37 @@ namespace ps{
         };
 
 
-struct rank_opt_item{
-        size_t index;
-        holdem_id hid;
-        size_t mask;
-        card_id c0;
-        rank_id r0;
-        suit_id s0;
-        card_id c1;
-        rank_id r1; 
-        suit_id s1;
-        std::uint16_t r0_shifted;
-        std::uint16_t r1_shifted;
-        std::uint16_t nfnp_mask{0};
-};
-struct rank_opt_device : std::vector<rank_opt_item>{
-
-        struct segmented{
-                std::vector<rank_opt_item> segment_0;
-                std::vector<rank_opt_item> segment_1;
-                std::vector<rank_opt_item> segment_2;
-        };
-
-        template<class Con>
-        static rank_opt_device create(Con const& con){
-                rank_opt_device result;
-                result.resize(con.size());
-                rank_opt_item* out = &result[0];
-                size_t index = 0;
-                for(auto hid : con){
-                        auto const& hand{holdem_hand_decl::get(hid)};
-
-                        std::uint16_t nfnp_mask = static_cast<std::uint16_t>(1) << hand.first().rank().id() |
-                                                  static_cast<std::uint16_t>(1) << hand.second().rank().id();
-                        if( __builtin_popcount(nfnp_mask) != 2 ){
-                                nfnp_mask = ~static_cast<std::uint16_t>(1);
-                        }
-
-                        rank_opt_item item{
-                                index,
-                                hid,
-                                hand.mask(),
-                                hand.first().id(),
-                                hand.first().rank().id(),
-                                hand.first().suit().id(),
-                                hand.second().id(),
-                                hand.second().rank().id(),
-                                hand.second().suit().id(),
-                                static_cast<std::uint16_t>(static_cast<std::uint16_t>(1) << static_cast<std::uint16_t>(hand.first().rank().id())),
-                                static_cast<std::uint16_t>(static_cast<std::uint16_t>(1) << static_cast<std::uint16_t>(hand.second().rank().id())),
-                                nfnp_mask
-                        };
-                        *out = item;
-                        ++out;
-                        ++index;
-                }
-
-                for(unsigned sid=0;sid!=4;++sid){
-                        auto& seg = result.segments[sid];
-                        for(auto const& _ : result){
-                                unsigned count = 0;
-                                bool s0c = ( _.s0 == sid );
-                                bool s1c = ( _.s1 == sid );
-
-                                if( s0c ) ++count;
-                                if( s1c ) ++count;
 
 
-                                switch(count){
-                                case 0:
-                                        seg.segment_0.push_back(_);
-                                        break;
-                                case 1:
-                                        seg.segment_1.push_back(_);
-                                        if( s1c ){
-                                                auto& obj = seg.segment_1.back();
-                                                std::swap(obj.c0        , obj.c1);
-                                                std::swap(obj.r0        , obj.r1);
-                                                std::swap(obj.s0        , obj.s1);
-                                                std::swap(obj.r0_shifted, obj.r1_shifted);
-                                        }
-                                        break;
-                                case 2:
-                                        seg.segment_2.push_back(_);
-                                        break;
-                                }
-                        }
-                        std::cout << "rod.size() => " << result.size() << "\n"; // __CandyPrint__(cxx-print-scalar,rod.size())
-                        std::cout << "(seg.segment_0.size()+ seg.segment_1.size()+ seg.segment_2.size()) => " << (seg.segment_0.size()+ seg.segment_1.size()+ seg.segment_2.size()) << "\n"; // __CandyPrint__(cxx-print-scalar,(seg.segment_0.size()+ seg.segment_1.size()+ seg.segment_2.size()))
-                }
 
-                return result;
-        }
-        std::array<segmented, 4> segments;
+
+
+
+
+
+struct optimized_transform_base{
+        virtual ~optimized_transform_base(){}
+        virtual void apply(computation_context* ctx, instruction_list* instr_list, computation_result* result,
+                   std::vector<typename instruction_list::iterator> const& target_list)=0;
 };
 
+template<class Sub,
+         class Schedular,
+         class Factory,
+         class Eval>
+struct optimized_transform : optimized_transform_base
+{
+        using sub_ptr_type   = std::shared_ptr<Sub>;
+        using schedular_type = typename Schedular::template bind<sub_ptr_type>;
+        using factory_type   = typename Factory::template bind<Sub>;
+        using eval_type      = Eval;
 
-
-
-struct pass_eval_hand_instr_vec_impl{
-
-
-        using eval_type = rank_hash_eval;
-
-
-        template<class Factory>
-        void transfrom_impl(computation_context* ctx, instruction_list* instr_list, computation_result* result,
-                                   std::vector<typename instruction_list::iterator> const& target_list,
-                                   Factory const& factory)
+        virtual void apply(computation_context* ctx, instruction_list* instr_list, computation_result* result,
+                   std::vector<typename instruction_list::iterator> const& target_list)override
         {
 
-                using sub_ptr_type = typename std::decay_t<Factory>::sub_ptr_type;
+                factory_type factory;
+
                 std::vector<sub_ptr_type> subs;
 
                 for(auto& target : target_list){
@@ -1214,12 +1183,8 @@ struct pass_eval_hand_instr_vec_impl{
                 std::vector<ranking_t> R;
                 R.resize(rod.size());
                 
-                boost::timer::cpu_timer tmr;
                 
-                //using shed_type = eval_scheduler_simple<sub_ptr_type>;
-                using shed_type = eval_scheduler_intrinsic_3<sub_ptr_type>;
-                //using shed_type = eval_scheduler_reshed<mask_computer_detail::rank_hash_eval, sub_ptr_type>;
-                shed_type shed{ rod.size(), subs};
+                schedular_type shed{ rod.size(), subs};
 
                 for(auto const& weighted_pair : w.weighted_rng() ){
 
@@ -1264,12 +1229,56 @@ struct pass_eval_hand_instr_vec_impl{
                 shed.regroup();
 
                 
-                PS_LOG(trace) << "Took " << tmr.format(2, "%w seconds") << " to do main loop";
                 for(auto& _ : subs){
                         _->finish();
                 }
         }
-        virtual void transform_impl(computation_context* ctx, instruction_list* instr_list, computation_result* result){
+private:
+        flush_mask_eval fme;
+        no_flush_no_pair_mask nfnpm;
+        holdem_board_decl w;
+};
+
+
+struct dispatch_context{
+        boost::optional<size_t> homo_num_players;
+};
+struct dispatch_table{
+        virtual ~dispatch_table()=default;
+        virtual bool match(dispatch_context const& dispatch_ctx)const=0;
+        virtual std::shared_ptr<optimized_transform_base> make()const=0;
+        virtual std::string name()const=0;
+};
+
+struct dispatch_generic : dispatch_table{
+        using transform_type =
+                optimized_transform<
+                        sub_eval,
+                        eval_scheduler_simple,
+                        basic_sub_eval_factory,
+                        rank_hash_eval>;
+
+
+        virtual bool match(dispatch_context const& dispatch_ctx)const override{
+                return true;
+        }
+        virtual std::shared_ptr<optimized_transform_base> make()const override{
+                return std::make_shared<transform_type>();
+        }
+        virtual std::string name()const override{
+                return "generic";
+        }
+};
+
+
+struct pass_eval_hand_instr_vec_impl{
+
+
+
+        pass_eval_hand_instr_vec_impl(){
+                table_.push_back(std::make_shared<dispatch_generic>());
+        }
+        virtual void transform_dispatch(computation_context* ctx, instruction_list* instr_list, computation_result* result){
                 std::vector<instruction_list::iterator> to_map;
 
                 for(auto iter(instr_list->begin()),end(instr_list->end());iter!=end;++iter){
@@ -1288,35 +1297,30 @@ struct pass_eval_hand_instr_vec_impl{
                         n_dist.insert(instr->get_vector().size());
                 }
 
-                if(0){}
-                #if 0
-                else if( n_dist.size() == 1 && *n_dist.begin() == 2 ){
-                        transfrom_impl( ctx, instr_list, result, to_map, basic_sub_eval_factory<sub_eval_two>{});
+                dispatch_context dctx;
+                if( n_dist.size() == 1 )
+                        dctx.homo_num_players = *n_dist.begin();
+
+                std::shared_ptr<optimized_transform_base> ot;
+                for(auto const& item : table_){
+                        if( item->match(dctx) ){
+                                boost::timer::cpu_timer tmr;
+                                ot = item->make();
+                                PS_LOG(trace) << "Took " << tmr.format(2, "%w seconds") << " to do make transform";
+                                PS_LOG(trace) << "Using transform " << item->name();
+                                break;
+                        }
                 }
-                #endif
-                #if 1
-                else if( n_dist.size() == 1 && *n_dist.begin() == 3 ){
-                        //transfrom_impl( ctx, instr_list, result, to_map, basic_sub_eval_factory<sub_eval_three>{});
-                        //transfrom_impl( ctx, instr_list, result, to_map, basic_sub_eval_factory<sub_eval_three_perm>{});
-                        transfrom_impl( ctx, instr_list, result, to_map, basic_sub_eval_factory<sub_eval_three_intrinsic>{});
-                } 
-                #endif
-                #if 0
-                else if( n_dist.size() == 1 && *n_dist.begin() == 4 ){
-                        transfrom_impl( ctx, instr_list, result, to_map, basic_sub_eval_factory<sub_eval_four>{});
-                } 
-                #endif
-                #if 0
-                else
-                {
-                        transfrom_impl( ctx, instr_list, result, to_map, basic_sub_eval_factory<sub_eval>{});
+                if( ! ot ){
+                        PS_LOG(trace) << "no dispatch";
+                } else {
+                        boost::timer::cpu_timer tmr;
+                        ot->apply(ctx, instr_list, result, to_map);
+                        PS_LOG(trace) << "Took " << tmr.format(2, "%w seconds") << " to do main loop";
                 }
-                #endif
         }
 private:
-        flush_mask_eval fme;
-        no_flush_no_pair_mask nfnpm;
-        holdem_board_decl w;
+        std::vector<std::shared_ptr<dispatch_table> > table_;
 };
 
 
@@ -1324,7 +1328,7 @@ pass_eval_hand_instr_vec::pass_eval_hand_instr_vec()
         : impl_{std::make_shared<pass_eval_hand_instr_vec_impl>()}
 {}
 void pass_eval_hand_instr_vec::transform(computation_context* ctx, instruction_list* instr_list, computation_result* result){
-        impl_->transform_impl(ctx, instr_list, result);
+        impl_->transform_dispatch(ctx, instr_list, result);
 }
 
 

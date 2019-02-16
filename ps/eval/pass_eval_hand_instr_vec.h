@@ -87,6 +87,15 @@ namespace pass_eval_hand_instr_vec_detail{
                         mat.resize(n, n);
                         mat.fill(0);
                 }
+                template<class ArrayType>
+                void accept_(mask_set const& ms, size_t n, ArrayType const& v){
+                        size_t weight = ms.count_disjoint(hv_mask);
+                        if( weight == 0 )
+                                return;
+                        for(size_t i=0;i!=n;++i){
+                                mat(n,i) += weight;
+                        }
+                }
                 void accept(mask_set const& ms, std::vector<ranking_t> const& R)noexcept
                 {
                         size_t weight = ms.count_disjoint(hv_mask);
@@ -104,6 +113,11 @@ namespace pass_eval_hand_instr_vec_detail{
                 void declare(std::unordered_set<holdem_id>& S){
                         for(auto _ : hv){
                                 S.insert(_);
+                        }
+                }
+                void declare_allocation(std::unordered_set<size_t>& S){
+                        for(size_t idx=0;idx!=n;++idx){
+                                S.insert(allocation_[idx]);
                         }
                 }
                 template<class Alloc>
@@ -314,7 +328,162 @@ namespace pass_eval_hand_instr_vec_detail{
                 std::array<size_t, 9> draw2_;
                 std::array<size_t, 9> draw3_;
         };
+        
+        struct sub_eval_three_perm{
+                enum{ UpperMask = 0b111 + 1 };
+                using iter_t = instruction_list::iterator;
+                sub_eval_three_perm(iter_t iter, card_eval_instruction* instr)
+                        :iter_{iter}, instr_{instr}
+                {
+                        hv   = instr->get_vector();
+                        hv_mask = hv.mask();
 
+                        eval_.fill(0);
+                }
+                void accept(mask_set const& ms, std::vector<ranking_t> const& R)noexcept
+                {
+                        size_t weight = ms.count_disjoint(hv_mask);
+                        if( weight == 0 )
+                                return;
+
+                        auto r0 = R[allocation_[0]];
+                        auto r1 = R[allocation_[1]];
+                        auto r2 = R[allocation_[2]];
+                                        
+                        auto r_min = std::min({r0,r1,r2});
+
+                        std::uint16_t mask = 0;
+                        if( r_min == r0 )
+                                mask |= 0b001;
+                        if( r_min == r1 )
+                                mask |= 0b010;
+                        if( r_min == r2 )
+                                mask |= 0b100;
+
+                        eval_[mask] += weight;
+
+                }
+                void finish(){
+                        matrix_t mat;
+                        mat.resize(n, n);
+                        mat.fill(0);
+                        for(int mask = 1; mask != UpperMask; ++mask){
+                                auto pcnt = __builtin_popcount(mask);
+                                if( mask & 0b001 )
+                                        mat(pcnt-1, 0) += eval_[mask];
+                                if( mask & 0b010 )
+                                        mat(pcnt-1, 1) += eval_[mask];
+                                if( mask & 0b100 )
+                                        mat(pcnt-1, 2) += eval_[mask];
+                        }
+                        *iter_ = std::make_shared<matrix_instruction>(instr_->group(), mat * instr_->get_matrix());
+                }
+                void declare(std::unordered_set<holdem_id>& S){
+                        for(auto _ : hv){
+                                S.insert(_);
+                        }
+                }
+                template<class Alloc>
+                void allocate(Alloc const& alloc){
+                        for(size_t idx=0;idx!=n;++idx){
+                                allocation_[idx] = alloc(hv[idx]);
+                        }
+                }
+        private:
+                iter_t iter_;
+                card_eval_instruction* instr_;
+
+                holdem_hand_vector hv;
+                size_t hv_mask;
+                size_t n{3};
+
+                std::array<size_t, 9> allocation_;
+                std::array<size_t, UpperMask> eval_;
+        };
+
+        
+        #if 0
+        struct sub_eval_three_perm{
+                enum{ UpperMask = 0b111 + 1 };
+                using iter_t = instruction_list::iterator;
+                sub_eval_three_perm(iter_t iter, card_eval_instruction* instr)
+                        :iter_{iter}, instr_{instr}
+                {
+                        hv   = instr->get_vector();
+                        hv_mask = hv.mask();
+                        mat.resize(n, n);
+                        mat.fill(0);
+                        eval_.fill(0);
+                }
+                void accept(mask_set const& ms, std::vector<ranking_t> const& R)noexcept
+                {
+                        size_t weight = ms.count_disjoint(hv_mask);
+                        if( weight == 0 )
+                                return;
+
+                        auto r0 = R[allocation_[0]];
+                        auto r1 = R[allocation_[1]];
+                        auto r2 = R[allocation_[2]];
+
+                                        
+                        //auto r_min = std::min({r0,r1,r2});
+                        auto r_min = std::min(r0,std::min(r1,r2));
+
+
+                        std::uint16_t mask = 0;
+                        if( r_min == r0 )
+                                mask |= 0b001;
+                        if( r_min == r1 )
+                                mask |= 0b010;
+                        if( r_min == r2 )
+                                mask |= 0b100;
+
+                        //std::cout << "std::bitset<16>(mask).to_string() => " << std::bitset<16>(mask).to_string() << "\n"; // __CandyPrint__(cxx-print-scalar,std::bitset<16>(mask).to_string())
+
+                        eval_.at(mask) += weight;
+                }
+                void finish(){
+                        mat(0,0) += eval_[0b001];
+                        mat(0,1) += eval_[0b010];
+                        mat(0,2) += eval_[0b100];
+
+                        #if 0
+                        for(int mask = 1; mask != UpperMask; ++mask){
+                                auto pcnt = __builtin_popcount(mask);
+                                if( mask & 0b001 )
+                                        mat(pcnt-1, 0) += eval_[mask];
+                                if( mask & 0b010 )
+                                        mat(pcnt-1, 1) += eval_[mask];
+                                if( mask & 0b100 )
+                                        mat(pcnt-1, 2) += eval_[mask];
+                        }
+                        #endif
+                        *iter_ = std::make_shared<matrix_instruction>(instr_->group(), mat * instr_->get_matrix());
+                }
+                void declare(std::unordered_set<holdem_id>& S){
+                        for(auto _ : hv){
+                                S.insert(_);
+                        }
+                }
+                template<class Alloc>
+                void allocate(Alloc const& alloc){
+                        for(size_t idx=0;idx!=n;++idx){
+                                allocation_[idx] = alloc(hv[idx]);
+                        }
+                }
+        private:
+                iter_t iter_;
+                card_eval_instruction* instr_;
+
+                holdem_hand_vector hv;
+                size_t hv_mask;
+                matrix_t mat;
+                size_t n{3};
+
+                std::array<size_t, 9> allocation_;
+                std::array<std::uint16_t, UpperMask > eval_;
+        };
+        #endif
 
         struct sub_eval_four{
                 using iter_t = instruction_list::iterator;
@@ -469,7 +638,6 @@ namespace pass_eval_hand_instr_vec_detail{
                 }
         };
 
-
         template<class SubPtrType>
         struct eval_scheduler_simple{
                 explicit eval_scheduler_simple(size_t batch_size,
@@ -502,6 +670,127 @@ namespace pass_eval_hand_instr_vec_detail{
                 std::vector<SubPtrType>& subs_;
                 mask_set const* ms_;
                 size_t out_{0};
+        };
+
+        template<class SubPtrType>
+        struct eval_scheduler_batch_sort{
+                // allocation -> group
+                struct eval_group{
+                        size_t offset;
+                        std::vector<size_t> subs;
+                };
+                struct eval{
+                        size_t group;
+                        ranking_t rank;
+                };
+                explicit eval_scheduler_batch_sort(size_t batch_size,
+                                               std::vector<SubPtrType>& subs)
+                        :batch_size_{batch_size}
+                        ,subs_{subs}
+                {
+                        groups_.resize(batch_size_);
+
+                        size_t count = 0;
+                        for(size_t idx=0;idx!=subs_.size();++idx){
+                                std::unordered_set<size_t> S;
+                                subs_[idx]->declare_allocation(S);
+                                for(auto _ : S){
+                                        groups_.at(_).subs.push_back(idx);
+                                }
+                                ++count;
+                        }
+                        PS_LOG(trace) << "made eval_scheduler_batch_sort";
+
+                        for(size_t idx=0;idx!=groups_.size();++idx){
+                                groups_[idx].offset = evals_proto_.size();
+                                for(auto _ : groups_[idx].subs ){
+                                        evals_proto_.emplace_back(eval{_, 0});
+                                }
+                        }
+                        PS_LOG(trace) << "made eval_scheduler_batch_sort and evals_proto_";
+                }
+
+                void begin_eval(mask_set const& ms)noexcept{
+                        ms_   = &ms;
+                        out_  = 0;
+                        evals_ = evals_proto_;
+                }
+                void put(size_t index, ranking_t rank)noexcept{
+                        auto const& G = groups_[index];
+                        for(size_t idx=0;idx!=G.subs.size();++idx){
+                                evals_.at(G.offset + idx).rank  = rank;
+                        }
+                }
+                void end_eval()noexcept{
+                        BOOST_ASSERT( out_ == batch_size_ );
+
+                        /*
+                                What I want to do here is optmizize the evaluation.
+                                For each subgroup ie,
+                                        AsKs TsTc 6h8s,
+                                we have to figure out the evaluation, which is one of
+                                        {(0), (1), (2), (0,1), (0,2), (1,2), (1,2,3)},
+                                which correspond to draws etc.
+                                        I'm speculating that this can be optimized,
+                                but trying to figure out every batch at once
+
+                         */
+
+                        boost::sort( evals_, [](auto const& l, auto const& r){
+                                if( l.rank != r.rank )
+                                        return l.rank < r.rank;
+                                return l.group < r.group;
+                        });
+
+                        #if 0
+                        return;
+                        std::vector<unsigned> group_A(subs_.size(),0u);
+                        std::vector<unsigned> group_B(subs_.size(),0u);
+                        std::vector<std::array<unsigned, 3> > group_R(subs_.size());
+                        #endif
+
+                        auto emit_level_set = [&](unsigned first, unsigned last){
+                                #if 0
+                                for(auto iter=first;iter!=evals_.size();++iter){
+                                        for(auto group : evals_[iter].groups ){
+                                                // set already done
+                                                if( group_A[group] != 0 )
+                                                        continue;
+                                                group_R[group][group_B[group]] = evals_[iter].index;
+                                                ++group_B[group];
+                                        }
+                                }
+                                for(auto iter=0;iter!=group_B.size();++iter){
+                                        if( group_B[iter] == 0 )
+                                                continue;
+
+                                        subs_[iter]->accept_(*ms_, group_B[iter], group_R[iter] );
+
+                                        group_A[iter] += group_B[iter];
+                                }
+                                #endif
+                        };
+
+                        size_t first=0;
+                        for(size_t idx=1;idx!=evals_.size();++idx){
+                                if( evals_[idx].rank != evals_[first].rank ){
+                                        emit_level_set(first, idx);
+                                        first = idx;
+                                }
+                        }
+                        emit_level_set(first, evals_.size());
+                }
+                void regroup()noexcept{
+                        // nop
+                }
+        private:
+                size_t batch_size_;
+                std::vector<SubPtrType>& subs_;
+                mask_set const* ms_;
+                size_t out_{0};
+                std::vector<eval_group> groups_;
+                std::vector<eval> evals_proto_;
+                std::vector<eval> evals_;
         };
         
         template<class EvalType, class SubPtrType>
@@ -845,10 +1134,11 @@ struct pass_eval_hand_instr_vec : computation_pass{
                 #endif
                 #if 1
                 else if( n_dist.size() == 1 && *n_dist.begin() == 3 ){
-                        transfrom_impl( ctx, instr_list, result, to_map, basic_sub_eval_factory<sub_eval_three>{});
+                        //transfrom_impl( ctx, instr_list, result, to_map, basic_sub_eval_factory<sub_eval_three>{});
+                        transfrom_impl( ctx, instr_list, result, to_map, basic_sub_eval_factory<sub_eval_three_perm>{});
                 } 
                 #endif
-                #if 1
+                #if 0
                 else if( n_dist.size() == 1 && *n_dist.begin() == 4 ){
                         transfrom_impl( ctx, instr_list, result, to_map, basic_sub_eval_factory<sub_eval_four>{});
                 } 

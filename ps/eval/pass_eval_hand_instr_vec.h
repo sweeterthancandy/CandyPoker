@@ -452,7 +452,8 @@ namespace pass_eval_hand_instr_vec_detail{
                 void prepare_intrinsic_3( std::vector<ranking_t> const& R,
                                          __m256i& v0,
                                          __m256i& v1,
-                                         __m256i& v2)noexcept{
+                                         __m256i& v2)noexcept
+                {
                         auto r0 = R[allocation_[0]];
                         auto r1 = R[allocation_[1]];
                         auto r2 = R[allocation_[2]];
@@ -460,73 +461,16 @@ namespace pass_eval_hand_instr_vec_detail{
                         v0 = _mm256_insert_epi16(v0, r0, Idx);
                         v1 = _mm256_insert_epi16(v1, r1, Idx);
                         v2 = _mm256_insert_epi16(v2, r2, Idx);
-
-                        #if 0
-                        #define INSERT(X)                           \
-                        do{                                         \
-                                *v0 = _mm256_insert_epi16(*v0, r0, X); \
-                                *v1 = _mm256_insert_epi16(*v1, r1, X); \
-                                *v2 = _mm256_insert_epi16(*v2, r2, X); \
-                        }while(0)
-                        switch(index){
-                        case 0: INSERT(0); break;
-                        case 1: INSERT(1); break;
-                        case 2: INSERT(2); break;
-                        case 3: INSERT(3); break;
-                        case 4: INSERT(4); break;
-                        case 5: INSERT(5); break;
-                        case 6: INSERT(6); break;
-                        case 7: INSERT(7); break;
-                        default:
-                                PS_UNREACHABLE();
-                        }
-                        #undef INSERT
-                        #endif
                 }
                 template<size_t Idx>
                 __attribute__((__always_inline__))
                 void accept_intrinsic_3(std::vector<ranking_t> const& R,
                                         mask_set const& ms, 
-                                        __m256i* masks)noexcept{
-                        #if 0
-                        int mask;
-                        #define EXTRACT(X) \
-                        do{ \
-                                mask = _mm256_extract_epi16(*masks, X); \
-                        }while(0)
-                        switch(index){
-                        case 0: EXTRACT(0); break;
-                        case 1: EXTRACT(1); break;
-                        case 2: EXTRACT(2); break;
-                        case 3: EXTRACT(3); break;
-                        case 4: EXTRACT(4); break;
-                        case 5: EXTRACT(5); break;
-                        case 6: EXTRACT(6); break;
-                        case 7: EXTRACT(7); break;
-                        default:
-                                PS_UNREACHABLE();
-                        }
-                        #undef EXTRACT
-                        #endif
-                        int mask = _mm256_extract_epi16(*masks, Idx);
-
-                        #if 0
-                        auto orig_mask = make_mask(R);
-                        PS_ASSERT(orig_mask == mask, "orig_mask = " << std::bitset<16>(orig_mask).to_string() << ", " <<
-                                                     "mask = " <<  std::bitset<16>(mask).to_string());
-                        #endif
-
-                        #if 0
-                        volatile bool _cond = true;
-                        
-
-                        if( _cond )
-                        #endif
-                        {
-                                size_t weight = ms.count_disjoint(hv_mask);
-                                //size_t weight = 1;
-                                eval_[mask] += weight;
-                        }
+                                        __m256i& masks)noexcept
+                {
+                        int mask = _mm256_extract_epi16(masks, Idx);
+                        size_t weight = ms.count_disjoint(hv_mask);
+                        eval_[mask] += weight;
                 }
 
                 void finish(){
@@ -908,22 +852,22 @@ namespace pass_eval_hand_instr_vec_detail{
                                         subs_[idx+j]->accept_intrinsic_3(evals_, *ms_, j, &mask);
                                 }
                                 #endif
-                                subs_[idx+0]->template accept_intrinsic_3<0>(evals_, *ms_, &mask);
-                                subs_[idx+1]->template accept_intrinsic_3<1>(evals_, *ms_, &mask);
-                                subs_[idx+2]->template accept_intrinsic_3<2>(evals_, *ms_, &mask);
-                                subs_[idx+3]->template accept_intrinsic_3<3>(evals_, *ms_, &mask);
-                                subs_[idx+4]->template accept_intrinsic_3<4>(evals_, *ms_, &mask);
-                                subs_[idx+5]->template accept_intrinsic_3<5>(evals_, *ms_, &mask);
-                                subs_[idx+6]->template accept_intrinsic_3<6>(evals_, *ms_, &mask);
-                                subs_[idx+7]->template accept_intrinsic_3<7>(evals_, *ms_, &mask);
-                                subs_[idx+8]->template accept_intrinsic_3<8>(evals_, *ms_, &mask);
-                                subs_[idx+9]->template accept_intrinsic_3<9>(evals_, *ms_, &mask);
-                                subs_[idx+10]->template accept_intrinsic_3<10>(evals_, *ms_, &mask);
-                                subs_[idx+11]->template accept_intrinsic_3<11>(evals_, *ms_, &mask);
-                                subs_[idx+12]->template accept_intrinsic_3<12>(evals_, *ms_, &mask);
-                                subs_[idx+13]->template accept_intrinsic_3<13>(evals_, *ms_, &mask);
-                                subs_[idx+14]->template accept_intrinsic_3<14>(evals_, *ms_, &mask);
-                                subs_[idx+15]->template accept_intrinsic_3<15>(evals_, *ms_, &mask);
+                                subs_[idx+ 0]->template accept_intrinsic_3< 0>(evals_, *ms_, mask);
+                                subs_[idx+ 1]->template accept_intrinsic_3< 1>(evals_, *ms_, mask);
+                                subs_[idx+ 2]->template accept_intrinsic_3< 2>(evals_, *ms_, mask);
+                                subs_[idx+ 3]->template accept_intrinsic_3< 3>(evals_, *ms_, mask);
+                                subs_[idx+ 4]->template accept_intrinsic_3< 4>(evals_, *ms_, mask);
+                                subs_[idx+ 5]->template accept_intrinsic_3< 5>(evals_, *ms_, mask);
+                                subs_[idx+ 6]->template accept_intrinsic_3< 6>(evals_, *ms_, mask);
+                                subs_[idx+ 7]->template accept_intrinsic_3< 7>(evals_, *ms_, mask);
+                                subs_[idx+ 8]->template accept_intrinsic_3< 8>(evals_, *ms_, mask);
+                                subs_[idx+ 9]->template accept_intrinsic_3< 9>(evals_, *ms_, mask);
+                                subs_[idx+10]->template accept_intrinsic_3<10>(evals_, *ms_, mask);
+                                subs_[idx+11]->template accept_intrinsic_3<11>(evals_, *ms_, mask);
+                                subs_[idx+12]->template accept_intrinsic_3<12>(evals_, *ms_, mask);
+                                subs_[idx+13]->template accept_intrinsic_3<13>(evals_, *ms_, mask);
+                                subs_[idx+14]->template accept_intrinsic_3<14>(evals_, *ms_, mask);
+                                subs_[idx+15]->template accept_intrinsic_3<15>(evals_, *ms_, mask);
 
                                 //std::exit(0);
 

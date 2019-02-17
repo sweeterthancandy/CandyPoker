@@ -4,14 +4,19 @@
 
 namespace ps{
 
+        /*
+                This was originally meant to be a small interface, and then
+                from the small interface be able to change the order of evaluations,
+                thinking I could do something in terns or reordering for CPU-cache
+                improvment. This didn't work. but this is still helpfull
+         */
         struct generic_shed{
                 template<class SubPtrType>
                 struct bind{
                         explicit bind(size_t batch_size, std::vector<SubPtrType>& subs)
-                                :batch_size_{batch_size}
-                                ,subs_{subs}
+                                :subs_{subs}
                         {
-                                evals_.resize(batch_size_);
+                                evals_.resize(batch_size);
                         }
                         void put(size_t index, ranking_t rank)noexcept{
                                 evals_[index] = rank;
@@ -25,7 +30,6 @@ namespace ps{
                                 // nop
                         }
                 private:
-                        size_t batch_size_;
                         std::vector<ranking_t> evals_;
                         std::vector<SubPtrType>& subs_;
                 };

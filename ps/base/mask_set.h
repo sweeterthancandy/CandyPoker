@@ -2,6 +2,7 @@
 #define PS_BASE_MASK_SET_H
 
 #include <emmintrin.h>
+//#include <boost/container/small_vector.hpp>
 
 namespace ps{
 
@@ -11,6 +12,7 @@ namespace ps{
 struct mask_set{
         void add(size_t mask){
                 masks_.push_back(mask);
+                union_ |= mask;
         }
         size_t count_disjoint_impl_(size_t that)const noexcept{
                 size_t count = 0;
@@ -26,8 +28,11 @@ struct mask_set{
         friend bool operator<(mask_set const& l, mask_set const& r)noexcept{
                 return l.masks_ < r.masks_;
         }
+        size_t get_union()const{ return union_; }
 private:
-        std::vector<size_t> masks_ __attribute__((aligned (16)));
+        //boost::container::small_vector<size_t, 32> masks_;
+        std::vector<size_t> masks_;
+        size_t union_{0};
 };
 #elif 1
 

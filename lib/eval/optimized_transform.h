@@ -71,11 +71,11 @@ struct optimized_transform : optimized_transform_base
                                 auto const& _ = rod[idx];
 
                                 ranking_t rr = b.no_flush_rank(_.r0, _.r1);
-                                
-                                auto fm = flush_mask;
 
                                 bool s0m = ( _.s0 == flush_suit );
                                 bool s1m = ( _.s1 == flush_suit );
+                                
+                                auto fm = flush_mask;
 
                                 if( s0m ){
                                         fm |= 1ull << _.r0;

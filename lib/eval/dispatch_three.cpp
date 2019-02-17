@@ -12,8 +12,6 @@ namespace ps{
                 {
                         hv   = instr->get_vector();
                         hv_mask = hv.mask();
-                        mat.resize(n, n);
-                        mat.fill(0);
 
                         wins_.fill(0);
                         draw2_.fill(0);
@@ -21,43 +19,16 @@ namespace ps{
                 }
                 void accept(mask_set const& ms, std::vector<ranking_t> const& R)noexcept
                 {
-                        size_t weight = ms.count_disjoint(hv_mask);
+
+                        size_t weight = [&](){
+                                if( (ms.get_union() & hv_mask) == 0 ){
+                                        return ms.size();
+                                }
+                                return ms.count_disjoint(hv_mask);
+                        }();
+
                         if( weight == 0 )
                                 return;
-                        #if 0
-                        Eigen::Vector3i V{
-                                R[allocation_[0]],
-                                R[allocation_[1]],
-                                R[allocation_[2]]};
-                        auto min = V.minCoeff();
-                        if( V(0) == min ){
-                                if( V(1) == min ){
-                                        if( V(2) == min ){
-                                                draw3_[0] += weight;
-                                                draw3_[1] += weight;
-                                                draw3_[2] += weight;
-                                        } else {
-                                                draw2_[0] += weight;
-                                                draw2_[1] += weight;
-                                        }
-                                } else if( V(2) == min ){
-                                        draw2_[0] += weight;
-                                        draw2_[2] += weight;
-                                } else {
-                                        wins_[0] += weight;
-                                }
-                        } else if( V(1) == min ){
-                                if( V(2) == min ){
-                                        draw2_[1] += weight;
-                                        draw2_[2] += weight;
-                                } else {
-                                        wins_[1] += weight;
-                                }
-                        } else {
-                                        wins_[2] += weight;
-                        }
-                        return;
-                        #endif
 
                         auto r0 = R[allocation_[0]];
                         auto r1 = R[allocation_[1]];
@@ -99,7 +70,10 @@ namespace ps{
                                 }
                         }
                 }
-                void finish(){
+                void finish()noexcept{
+                        matrix_t mat;
+                        mat.resize(n, n);
+                        mat.fill(0);
                         for(size_t idx=0;idx!=n;++idx){
                                 mat(0, idx) += wins_[idx];
                                 mat(1, idx) += draw2_[idx];
@@ -107,13 +81,13 @@ namespace ps{
                         }
                         *iter_ = std::make_shared<matrix_instruction>(instr_->group(), mat * instr_->get_matrix());
                 }
-                void declare(std::unordered_set<holdem_id>& S){
+                void declare(std::unordered_set<holdem_id>& S)noexcept{
                         for(auto _ : hv){
                                 S.insert(_);
                         }
                 }
                 template<class Alloc>
-                void allocate(Alloc const& alloc){
+                void allocate(Alloc const& alloc)noexcept{
                         for(size_t idx=0;idx!=n;++idx){
                                 allocation_[idx] = alloc(hv[idx]);
                         }
@@ -124,7 +98,6 @@ namespace ps{
 
                 holdem_hand_vector hv;
                 size_t hv_mask;
-                matrix_t mat;
                 size_t n{3};
 
                 std::array<size_t, 9> allocation_;

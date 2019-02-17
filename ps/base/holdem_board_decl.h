@@ -195,6 +195,8 @@ struct holdem_board_decl{
                         }
                 }
 
+                std::cout << "max mask size = " << boost::max_element(  weighted_, [](auto const& l, auto const& r){ return l.masks.size() < r.masks.size(); })->masks.size() << "\n";
+
                 if( Debug ){
 
                         std::map<mask_set, size_t> hist;
@@ -229,7 +231,6 @@ struct holdem_board_decl{
 private:
         std::vector<layout> world_;
         std::vector<lightweight_layout> weighted_;
-        
 };
 
 } // ps

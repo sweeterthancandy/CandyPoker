@@ -53,12 +53,18 @@ SOFTWARE.
                 }while(0)
 #endif
 #endif
+
+        #if 0
         #define PS_ASSERT(expr, msg)                                       \
                 do{                                                        \
                         if( ! ( expr ) ){                                  \
                                 PS_LOG(error) << "{Assert Failed}" << msg; \
                         }                                                  \
                 }while(0)
+        #endif
+
+#define PS_ASSERT(expr, msg)              
+
 
 namespace ps{
 

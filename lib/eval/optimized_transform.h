@@ -20,10 +20,11 @@ struct optimized_transform : optimized_transform_base
         using eval_type      = Eval;
 
         virtual void apply(optimized_transform_context& otc, computation_context* ctx, instruction_list* instr_list, computation_result* result,
-                   std::vector<typename instruction_list::iterator> const& target_list)override
+                   std::vector<typename instruction_list::iterator> const& target_list)noexcept override
         {
                 CALLGRIND_START_INSTRUMENTATION;
 
+                // this needs to outlive the lifetime of every object
                 factory_type factory;
 
                 std::vector<sub_ptr_type> subs;

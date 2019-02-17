@@ -88,21 +88,29 @@ private:
 };
 
 struct matrix_instruction : instruction{
-        explicit matrix_instruction(std::string const& grp, matrix_t mat)
+        explicit matrix_instruction(std::string const& grp, matrix_t mat,
+                                    std::string const& dbg_msg = std::string{})
                 :instruction{grp, T_Matrix}
                 ,mat_{std::move(mat)}
+                ,dbg_msg_{dbg_msg}
         {}
         virtual std::string to_string()const override{
                 std::stringstream sstr;
-                sstr << "Matrix{" << matrix_to_string(mat_) << "}";
+                sstr << "Matrix{" << matrix_to_string(mat_);
+                if( dbg_msg_.size() ){
+                        sstr << ", " << dbg_msg_;
+                }
+                sstr << "}";
                 return sstr.str();
         }
         virtual std::shared_ptr<instruction> clone()const override{
                 return std::make_shared<matrix_instruction>(group(), mat_);
         }
         matrix_t const& get_matrix()const{ return mat_; }
+        std::string const& debug_message()const{ return dbg_msg_; }
 private:
         matrix_t mat_;
+        std::string dbg_msg_;
 };
 
 template<class VectorType, instruction::type Type>

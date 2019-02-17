@@ -71,6 +71,7 @@ set(base_sources
         lib/eval/dispatch_generic.cpp
         lib/eval/dispatch_three.cpp
         lib/eval/dispatch_three_avx2.cpp
+        lib/eval/dispatch_four.cpp
         
         lib/support/singleton_factory.cpp
 

@@ -14,7 +14,7 @@ struct optimized_transform_context{
 struct optimized_transform_base{
         virtual ~optimized_transform_base(){}
         virtual void apply(optimized_transform_context& otc, computation_context* ctx, instruction_list* instr_list, computation_result* result,
-                   std::vector<typename instruction_list::iterator> const& target_list)=0;
+                   std::vector<typename instruction_list::iterator> const& target_list)noexcept=0;
 };
 
 struct dispatch_context{
@@ -72,6 +72,7 @@ struct raw_sub_eval_factory{
         };
 };
 
+// Ok I want to allocate blocks of sub objects in contihoues memory for cache reasons
 template<size_t ObjectPoolSize>
 struct block_sub_eval_factory{
         template<class T>

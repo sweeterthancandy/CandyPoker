@@ -70,7 +70,7 @@ namespace ps{
                                 mat(1, idx) += draw2_[idx];
                                 mat(2, idx) += draw3_[idx];
                         }
-                        *iter_ = std::make_shared<matrix_instruction>(instr_->group(), mat * instr_->get_matrix());
+                        *iter_ = std::make_shared<matrix_instruction>(instr_->group(), mat * instr_->get_matrix(), instr_->to_string());
                 }
                 void declare(std::unordered_set<holdem_id>& S)noexcept{
                         for(auto _ : hv){
@@ -258,7 +258,7 @@ namespace ps{
                                 if( mask & 0b100 )
                                         mat(pcnt-1, 2) += eval_[mask];
                         }
-                        *iter_ = std::make_shared<matrix_instruction>(instr_->group(), mat * instr_->get_matrix());
+                        *iter_ = std::make_shared<matrix_instruction>(instr_->group(), mat * instr_->get_matrix(), instr_->to_string());
                 }
                 void declare(std::unordered_set<holdem_id>& S){
                         for(auto _ : hv){

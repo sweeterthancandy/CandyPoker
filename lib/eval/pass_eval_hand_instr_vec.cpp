@@ -449,9 +449,11 @@ struct pass_eval_hand_instr_vec_impl{
                                         break;
                                 }
                         }
-                        PS_LOG(trace) << "======= engines ===========";
-                        for(auto const& item : dispatch_table::world() ){
-                                PS_LOG(trace) << "    - " << item->name();
+                        if( ! ot ){
+                                PS_LOG(trace) << "======= engines ===========";
+                                for(auto const& item : dispatch_table::world() ){
+                                        PS_LOG(trace) << "    - " << item->name();
+                                }
                         }
                 } else {
                         // rules based apprach  

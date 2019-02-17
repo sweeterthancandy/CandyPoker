@@ -92,17 +92,12 @@ struct optimized_transform : optimized_transform_base
                 };
 
                 for(auto const& b : otc.w.weighted_aggregate_rng() ){
-                        shed.begin_eval(&b.masks, 0ull);
                         apply_any_board(b);
-                        //shed.end_eval(&b.masks);
-                        shed.end_eval();
+                        shed.end_eval(&b.masks, 0ull);
                 }
                 for(auto const& b : otc.w.weighted_singleton_rng() ){
-                        shed.begin_eval(nullptr, b.single_rank_mask());
-                        //shed.begin_eval(&b.masks, 0ull);
-                        //shed.end_eval(&b.masks);
                         apply_any_board(b);
-                        shed.end_eval();
+                        shed.end_eval(nullptr, b.single_rank_mask());
                 }
 
                 shed.regroup();

@@ -111,6 +111,7 @@ namespace ps{
         };
         struct scheduler_intrinsic_three_avx2{
                 enum{ CheckUnion = true };
+                enum{ CheckZeroWeight = false };
                 template<class SubPtrType>
                 struct bind{
                         explicit bind(size_t batch_size, std::vector<SubPtrType>& subs)
@@ -179,6 +180,9 @@ namespace ps{
                                                 do{                                                                     \
                                                         size_t weight = generic_weight_policy{} \
                                                         .calculate( subs_[idx+ N]->hand_mask(), ms, single_mask);        \
+                                                        if( CheckZeroWeight ){\
+                                                                if( weight == 0 ) break ; \
+                                                        }\
                                                         subs_[idx+ N]->template accept_intrinsic_3< N>(weight, evals_, mask);\
                                                 }while(0)
 
@@ -248,9 +252,6 @@ namespace ps{
                                 //#define DBG(REG, X) do{ std::cout << #REG "[" << (X) << "]=" << std::bitset<16>(_mm256_extract_epi16(REG,X)).to_string() << "\n"; }while(0)
                                 #define DBG(REG, X) do{}while(0)
 
-                                __m256i m0 = _mm256_set1_epi16(0b001);
-                                __m256i m1 = _mm256_set1_epi16(0b010);
-                                __m256i m2 = _mm256_set1_epi16(0b100);
 
                                 #define FOR_EACH(X) \
                                 do {\
@@ -278,6 +279,10 @@ namespace ps{
 
                                 std::array<decltype(std::declval<SubPtrType>().get()), 16> batch;
                                 std::array<size_t, 16> batch_weight;
+                                
+                                __m256i m0 = _mm256_set1_epi16(0b001);
+                                __m256i m1 = _mm256_set1_epi16(0b010);
+                                __m256i m2 = _mm256_set1_epi16(0b100);
 
                                 for(; head != subs_.size();tail=head){
                                         __m256i v0 = _mm256_setzero_si256();

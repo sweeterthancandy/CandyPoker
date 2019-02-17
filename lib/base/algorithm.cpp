@@ -218,6 +218,7 @@ std::tuple<
                 }while(boost::next_permutation(suits));
         }
 
+        boost::sort(suit_perm_vec);
         if( Debug ){
                 PS_LOG(trace) << "begin rank_permutations";
                 for(auto const& sp : suit_perm_vec ){
@@ -225,8 +226,6 @@ std::tuple<
                 }
                 PS_LOG(trace) << "end   rank_permutations";
         }
-
-        boost::sort(suit_perm_vec);
 
         PS_LOG(trace) << "hv = " << suit_perm_vec.front().hv;
         return { suit_perm_vec.front().player_perm, suit_perm_vec.front().hv };

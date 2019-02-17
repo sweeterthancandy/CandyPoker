@@ -21,15 +21,20 @@ struct mask_set{
                 masks_.push_back(mask);
                 union_ |= mask;
         }
-        size_t count_disjoint_impl_(size_t that)const noexcept{
-                size_t count = 0;
+        template<class IntegerType>
+        IntegerType count_disjoint_impl_(size_t that)const noexcept{
+                IntegerType count = 0;
                 for(auto mask : masks_ ){
                         count += !( mask & that );
                 }
                 return count;
         }
         size_t count_disjoint(size_t that)const noexcept{
-                return count_disjoint_impl_(that);
+                return count_disjoint_impl_<size_t>(that);
+        }
+        template<class IntegerType>
+        IntegerType count_disjoint_with(size_t that)const noexcept{
+                return count_disjoint_impl_<IntegerType>(that);
         }
         size_t size()const{ return masks_.size(); }
         friend bool operator<(mask_set const& l, mask_set const& r)noexcept{

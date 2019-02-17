@@ -4,6 +4,9 @@
 
 namespace ps{
 
+        //using eval_counter_type = std::uint_fast32_t;
+        using eval_counter_type = size_t;
+
         /*
                 This was originally meant to be a small interface, and then
                 from the small interface be able to change the order of evaluations,
@@ -14,14 +17,14 @@ namespace ps{
         struct generic_weight_policy{
                 // this is 5% faster (in my limited testing)
                 enum{ CheckUnion = true };
-                size_t calculate(size_t hv_mask, mask_set const* ms, size_t single_mask)const noexcept{
+                eval_counter_type calculate(size_t hv_mask, mask_set const* ms, size_t single_mask)const noexcept{
                         if( !! ms ){
                                 if( CheckUnion ){
                                         if( ( ms->get_union() & hv_mask) == 0 ){
                                                 return ms->size();
                                         }
                                 }
-                                return ms->count_disjoint(hv_mask);
+                                return ms->count_disjoint_with<eval_counter_type>(hv_mask);
                         } else {
                                 return (( hv_mask & single_mask )==0?1:0);
                         }
@@ -43,7 +46,7 @@ namespace ps{
                         }
                         void end_eval(mask_set const* ms, size_t single_mask)noexcept{
                                 for(auto& _ : subs_){
-                                        size_t weight = generic_weight_policy{}
+                                        auto weight = generic_weight_policy{}
                                                 .calculate(_->hand_mask(), ms, single_mask);
                                         #if 0
                                         size_t weight = [&]()->size_t{

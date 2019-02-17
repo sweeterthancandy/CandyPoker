@@ -61,6 +61,62 @@ struct basic_sub_eval_factory{
         };
 };
 
+// This is slightly faster due to memory checks
+struct raw_sub_eval_factory{
+        template<class T>
+        struct bind{
+                using sub_ptr_type = T*;
+                sub_ptr_type operator()(instruction_list::iterator iter, card_eval_instruction* instr)const{
+                        return new T(iter, instr);
+                }
+        };
+};
+
+template<size_t ObjectPoolSize>
+struct block_sub_eval_factory{
+        template<class T>
+        struct bind{
+                enum{ BlockSize = ObjectPoolSize * sizeof(T) };
+
+                struct block{
+                        block(){
+                                head_ = &mem_[0];
+                                end_  = &mem_[0] + BlockSize;
+                                for(; (size_t)head_ % alignof(T) != 0 ; ++head_);
+                        }
+                        void* allocate(size_t sz){
+                                if( head_ + sz >= end_ )
+                                        return nullptr;
+                                auto candidate = head_;
+                                head_ += sz;
+                                return candidate;
+                        }
+                private:
+                        std::array<unsigned char, BlockSize> mem_;
+                        unsigned char* head_;
+                        unsigned char* end_;
+                };
+                using sub_ptr_type = T*;
+                bind(){
+                        blocks.push_back(std::make_unique<block>());
+                }
+                sub_ptr_type operator()(instruction_list::iterator iter, card_eval_instruction* instr){
+                        auto raw = [&](){
+                                auto teptr = blocks.back()->allocate(sizeof(T));
+                                if( !! teptr )
+                                        return teptr;
+                                blocks.push_back(std::make_unique<block>());
+                                return blocks.back()->allocate(sizeof(T));
+                        }();
+                        auto typed = reinterpret_cast<T*>(raw);
+                        new(typed)T(iter, instr);
+                        return typed;
+                }
+        private:
+                std::vector<std::unique_ptr<block> > blocks;
+        };
+};
+
 } // end namespace ps
 
 #endif // LIB_EVAL_DISPATCH_TABLE_H

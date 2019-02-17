@@ -19,7 +19,7 @@ namespace ps{
                         draw3_.fill(0);
                 }
                 size_t hand_mask()const noexcept{ return hv_mask; }
-                void accept_weight(size_t weight, std::vector<ranking_t> const& R)noexcept
+                void accept_weight(eval_counter_type weight, std::vector<ranking_t> const& R)noexcept
                 {
                         auto r0 = R[allocation_[0]];
                         auto r1 = R[allocation_[1]];
@@ -90,10 +90,10 @@ namespace ps{
                 holdem_hand_vector hv;
                 size_t hv_mask;
 
-                std::array<size_t, 3> allocation_;
-                std::array<size_t, 3> wins_;
-                std::array<size_t, 3> draw2_;
-                std::array<size_t, 3> draw3_;
+                std::array<eval_counter_type, 3> allocation_;
+                std::array<eval_counter_type, 3> wins_;
+                std::array<eval_counter_type, 3> draw2_;
+                std::array<eval_counter_type, 3> draw3_;
         };
 
 
@@ -194,7 +194,7 @@ namespace ps{
                         optimized_transform<
                         sub_eval_three,
                         generic_shed,
-                        basic_sub_eval_factory,
+                        block_sub_eval_factory<10'000>,
                         rank_hash_eval>;
 
 

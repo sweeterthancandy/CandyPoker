@@ -92,7 +92,11 @@ struct suit_perm_info{
         holdem_hand_vector hv;
         size_t card_mask;
         friend bool operator<(suit_perm_info const& l, suit_perm_info const& r)noexcept{
-                return l.card_mask < r.card_mask;
+                #if 0
+                if( l.card_mask != r.card_mask )
+                        return l.card_mask < r.card_mask;
+                #endif
+                return l.hv < r.hv;
         }
 };
 
@@ -224,6 +228,7 @@ std::tuple<
 
         boost::sort(suit_perm_vec);
 
+        PS_LOG(trace) << "hv = " << suit_perm_vec.front().hv;
         return { suit_perm_vec.front().player_perm, suit_perm_vec.front().hv };
 
 }

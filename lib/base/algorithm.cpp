@@ -27,6 +27,7 @@ SOFTWARE.
 
 */
 #include "ps/base/algorithm.h"
+#include "ps/base/rank_hasher.h"
 
 #include <boost/range/algorithm.hpp>
 #include <map>
@@ -67,11 +68,171 @@ namespace ps{
 
         
  */
+struct rank_info{
+        size_t index;
+        holdem_id hid;
+        rank_hasher::rank_hash_t rank_hash;
+        bool is_suited;
+        friend bool operator==(rank_info const& l, rank_info const& r)noexcept{
+                return ( ! ( l < r ) ) && ( ! ( r < l ) );
+        }
+        friend bool operator!=(rank_info const& l, rank_info const& r)noexcept{
+                return ( ! (l == r) );
+        }
+        friend bool operator<(rank_info const& l, rank_info const& r)noexcept{
+                if( l.rank_hash != r.rank_hash ){
+                        return l.rank_hash <  r.rank_hash;
+                }
+                return l.is_suited <  r.is_suited;
+        }
+};
+struct suit_perm_info{
+        std::array<suit_id, 4> suit_perm;
+        std::vector<int> player_perm;
+        holdem_hand_vector hv;
+        size_t card_mask;
+        friend bool operator<(suit_perm_info const& l, suit_perm_info const& r)noexcept{
+                return l.card_mask < r.card_mask;
+        }
+};
+
 
 std::tuple<
         std::vector<int>,
-        std::vector<ps::holdem_id>
-> permutate_for_the_better( std::vector<ps::holdem_id> const& players ){
+        std::vector<holdem_id>
+> permutate_for_the_better( std::vector<holdem_id> const& players )
+{
+        enum{ Debug = false };
+
+        std::vector< rank_info > ri;
+        for(size_t idx=0;idx!=players.size();++idx){
+                auto h =  holdem_hand_decl::get( players[idx] ) ;
+                auto rank_hash = rank_hasher::create_from_cards(h.first(), h.second());
+                ri.emplace_back(rank_info{idx, players[idx], rank_hash, h.is_suited()});
+        }
+        boost::sort( ri );
+
+        std::vector< std::vector<rank_info> > level_sets;
+
+        level_sets.emplace_back();
+        level_sets.back().push_back( ri[0] );
+        for(size_t idx=1; idx < ri.size();++idx){
+                if( level_sets.back().front() == ri[idx]){
+                        // same set
+                        level_sets.back().push_back(ri[idx]);
+                } else {
+                        // start new set
+                        level_sets.emplace_back();
+                        level_sets.back().push_back(ri[idx]);
+                }
+        }
+
+        if( Debug ){
+                PS_LOG(trace) << "begin level_sets";
+                for(auto const& ls : level_sets ){
+                        holdem_hand_vector hv;
+                        for(auto const& _ : ls){
+                                hv.push_back(_.hid);
+                        }
+                        PS_LOG(trace) << "    -" << hv;
+                }
+                PS_LOG(trace) << "end   level_sets";
+        }
+
+        std::vector< std::vector< rank_info > > rank_permutations;
+        rank_permutations.emplace_back();
+
+        for(auto& ls : level_sets){
+                if( ls.size() == 1 ){
+                        for(auto& _ : rank_permutations ){
+                                _.push_back(ls.back());
+                        }
+                } else {
+                        
+                        decltype(rank_permutations) next;
+
+                        // should be sorted anyway
+                        boost::sort(ls);
+                        do{
+                                for(auto rp : rank_permutations ){
+                                        for(auto const& item : ls ){
+                                                rp.push_back(item);
+                                        }
+                                        next.push_back(rp);
+                                }
+                        }while(boost::next_permutation(ls, [](auto const& l, auto const& r){ return l.index < r.index; }));
+                        rank_permutations = std::move(next);
+                }
+        }
+
+        if( Debug ){
+                PS_LOG(trace) << "rank_permutations.size() => " << rank_permutations.size();
+                PS_LOG(trace) << "begin rank_permutations";
+                for(auto const& rp : rank_permutations ){
+                        holdem_hand_vector hv;
+                        for(auto const& _ : rp){
+                                hv.push_back(_.hid);
+                        }
+                        PS_LOG(trace) << "    -" << hv;
+                }
+                PS_LOG(trace) << "end   rank_permutations";
+        }
+        
+        std::vector<suit_perm_info> suit_perm_vec;
+
+        std::array<suit_id, 4> suits = { 0, 1, 2, 3};
+        for(auto const& rp : rank_permutations ){
+                boost::sort(suits);
+                do{
+                        std::vector<int> player_perm;
+                        holdem_hand_vector hv;
+                        size_t mask = 0;
+
+                        for(auto const& _ : rp){
+
+                                auto h =  holdem_hand_decl::get( _.hid ) ;
+
+                                rank_id r0 = h.first().rank();
+                                suit_id s0 = h.first().suit();
+                                rank_id r1 = h.second().rank();
+                                suit_id s1 = h.second().suit();
+
+                                suit_id m0 = suits[s0];
+                                suit_id m1 = suits[s1];
+
+                                holdem_id mhid = holdem_hand_decl::make_id(r0, m0, r1, m1);
+
+                                mask |= static_cast<size_t>(1) << mhid;
+
+                                player_perm.push_back(_.index);
+                                hv.push_back(mhid);
+                        }
+
+                        suit_perm_vec.push_back(suit_perm_info{suits, std::move(player_perm),
+                                                               hv, mask});
+
+                }while(boost::next_permutation(suits));
+        }
+
+        if( Debug ){
+                PS_LOG(trace) << "begin rank_permutations";
+                for(auto const& sp : suit_perm_vec ){
+                        PS_LOG(trace) << "    -" << sp.hv;
+                }
+                PS_LOG(trace) << "end   rank_permutations";
+        }
+
+        boost::sort(suit_perm_vec);
+
+        return { suit_perm_vec.front().player_perm, suit_perm_vec.front().hv };
+
+}
+
+#if 0
+std::tuple<
+        std::vector<int>,
+        std::vector<holdem_id>
+> permutate_for_the_better( std::vector<holdem_id> const& players ){
         // first create vector of n, and token_n = hh_n
         //      (0,hh_0), (1,hh_1), ... (n,hh_n),
         // where first h is greater handk the second h
@@ -147,7 +308,7 @@ std::tuple<
                 suit_perms.emplace_back(rev_suit_map[i]);
         }
         
-        std::vector<ps::holdem_id> perm_hands;
+        std::vector<holdem_id> perm_hands;
         for(size_t i=0;i != players.size();++i){
                 auto h =  holdem_hand_decl::get( players[perm[i]] ) ;
 
@@ -183,5 +344,6 @@ std::tuple<
         }
         return std::make_tuple( perm, perm_hands);
 }
+#endif
 
 } // ps

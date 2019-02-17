@@ -222,6 +222,10 @@ namespace ps{
                 static bool disjoint_id(Args&&... args){
                         return disjoint( holdem_hand_decl::get(args)... );
                 }
+
+                bool is_suited()const noexcept{ return ( card_suit_from_id(first_.id()) == card_suit_from_id(second_.id()) ); }
+                bool is_offsuit()const noexcept{ return ! is_suited(); }
+                                                               
         private:
                 holdem_id id_;
                 card_decl first_;

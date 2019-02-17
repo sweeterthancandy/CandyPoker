@@ -141,6 +141,7 @@ struct computation_pass_manager : std::vector<std::shared_ptr<computation_pass> 
 
 struct pass_permutate : computation_pass{
         virtual void transform(computation_context* ctx, instruction_list* instr_list, computation_result* result)override{
+                boost::timer::cpu_timer tmr;
                 for(auto instr : *instr_list){
                         if( instr->get_type() != instruction::T_CardEval )
                                 continue;
@@ -161,7 +162,9 @@ struct pass_permutate : computation_pass{
 
                         ptr->set_vector(std::get<1>(result));
                         ptr->set_matrix( matrix * perm_matrix );
+
                 }
+                PS_LOG(trace) << format(tmr.elapsed(), 2, "pass_permuatete took %w second");
         }
 };
 struct pass_sort_type : computation_pass{
@@ -267,6 +270,20 @@ struct pass_write : computation_pass{
                 }
         }
 };
+
+#if 0
+struct pass_check_matrix_duplicates : computation_pass{
+        virtual void transform(computation_context* ctx, instruction_list* instr_list, computation_result* result)override{
+                for(auto instr : *instr_list){
+                        if( instr->get_type() != instruction::T_Matrix )
+                                continue;
+                        auto ptr = reinterpret_cast<matrix_instruction*>(instr.get());
+                        auto const& matrix = ptr->get_matrix();
+
+                }
+        }
+};
+#endif
 
 } // end namespace ps
 

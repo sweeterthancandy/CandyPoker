@@ -38,6 +38,7 @@ namespace ps{
                         mat.resize(n, n);
                         mat.fill(0);
                 }
+                size_t hand_mask()const noexcept{ return hv_mask; }
                 template<class ArrayType>
                 void accept_(mask_set const& ms, size_t n, ArrayType const& v){
                         size_t weight = ms.count_disjoint(hv_mask);
@@ -47,16 +48,8 @@ namespace ps{
                                 mat(n,i) += weight;
                         }
                 }
-                void accept(mask_set const* ms, size_t single_mask, std::vector<ranking_t> const& R)noexcept
+                void accept_weight(size_t weight, std::vector<ranking_t> const& R)noexcept
                 {
-                        size_t weight = [&]()->size_t{
-                                if( !! ms ){
-                                        return ms->count_disjoint(hv_mask);
-                                } else {
-                                        return (( hv_mask & single_mask )==0?1:0);
-                                }
-                        }();
-
                         for(size_t i=0;i!=n;++i){
                                 ranked[i] = R[allocation_[i]];
                         }

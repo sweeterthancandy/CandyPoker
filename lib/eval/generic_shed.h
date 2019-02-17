@@ -13,6 +13,10 @@ namespace ps{
         struct generic_shed{
                 template<class SubPtrType>
                 struct bind{
+                        // this is 5% faster (in my limited testing)
+                        enum{ CheckZeroWeight = true };
+                        // this is 5% faster (in my limited testing)
+                        enum{ CheckUnion = true };
                         explicit bind(size_t batch_size, std::vector<SubPtrType>& subs)
                                 :subs_{subs}
                         {
@@ -23,7 +27,24 @@ namespace ps{
                         }
                         void end_eval(mask_set const* ms, size_t single_mask)noexcept{
                                 for(auto& _ : subs_){
-                                        _->accept(ms, single_mask, evals_);
+                                        size_t weight = [&]()->size_t{
+                                                auto hv_mask = _->hand_mask();
+                                                if( !! ms ){
+                                                        if( CheckUnion ){
+                                                                if( ( ms->get_union() & hv_mask) == 0 ){
+                                                                        return ms->size();
+                                                                }
+                                                        }
+                                                        return ms->count_disjoint(hv_mask);
+                                                } else {
+                                                        return (( hv_mask & single_mask )==0?1:0);
+                                                }
+                                        }();
+                                        if( CheckZeroWeight ){
+                                                if( weight == 0 )
+                                                        continue;
+                                        }
+                                        _->accept_weight(weight, evals_);
                                 }
                         }
                         void regroup()noexcept{

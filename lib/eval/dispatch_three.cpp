@@ -6,6 +6,7 @@
 namespace ps{
 
         struct sub_eval_three{
+                enum{ PlayerSize = 3};
                 using iter_t = instruction_list::iterator;
                 sub_eval_three(iter_t iter, card_eval_instruction* instr)
                         :iter_{iter}, instr_{instr}
@@ -17,23 +18,9 @@ namespace ps{
                         draw2_.fill(0);
                         draw3_.fill(0);
                 }
-                void accept(mask_set const* ms, size_t single_mask, std::vector<ranking_t> const& R)noexcept
+                size_t hand_mask()const noexcept{ return hv_mask; }
+                void accept_weight(size_t weight, std::vector<ranking_t> const& R)noexcept
                 {
-
-                       size_t weight = [&]()noexcept->size_t{
-                                if( !! ms ){
-                                        if( (ms->get_union() & hv_mask) == 0 ){
-                                                return ms->size();
-                                        }
-                                        return ms->count_disjoint(hv_mask);
-                                } else{
-                                        return ( ( hv_mask & single_mask) == 0 ? 1 : 0 );
-                                }
-                        }();
-
-                        if( weight == 0 )
-                                return;
-
                         auto r0 = R[allocation_[0]];
                         auto r1 = R[allocation_[1]];
                         auto r2 = R[allocation_[2]];
@@ -76,9 +63,9 @@ namespace ps{
                 }
                 void finish()noexcept{
                         matrix_t mat;
-                        mat.resize(n, n);
+                        mat.resize(PlayerSize, PlayerSize);
                         mat.fill(0);
-                        for(size_t idx=0;idx!=n;++idx){
+                        for(size_t idx=0;idx!=PlayerSize;++idx){
                                 mat(0, idx) += wins_[idx];
                                 mat(1, idx) += draw2_[idx];
                                 mat(2, idx) += draw3_[idx];
@@ -92,7 +79,7 @@ namespace ps{
                 }
                 template<class Alloc>
                 void allocate(Alloc const& alloc)noexcept{
-                        for(size_t idx=0;idx!=n;++idx){
+                        for(size_t idx=0;idx!=PlayerSize;++idx){
                                 allocation_[idx] = alloc(hv[idx]);
                         }
                 }
@@ -102,12 +89,11 @@ namespace ps{
 
                 holdem_hand_vector hv;
                 size_t hv_mask;
-                size_t n{3};
 
-                std::array<size_t, 9> allocation_;
-                std::array<size_t, 9> wins_;
-                std::array<size_t, 9> draw2_;
-                std::array<size_t, 9> draw3_;
+                std::array<size_t, 3> allocation_;
+                std::array<size_t, 3> wins_;
+                std::array<size_t, 3> draw2_;
+                std::array<size_t, 3> draw3_;
         };
 
 
@@ -227,9 +213,6 @@ namespace ps{
         
         
         
-        #if 0
-        
-        
         
         struct sub_eval_three_perm{
                 enum{ UpperMask = 0b111 + 1 };
@@ -242,12 +225,9 @@ namespace ps{
 
                         eval_.fill(0);
                 }
-                void accept(mask_set const& ms, std::vector<ranking_t> const& R)noexcept
+                size_t hand_mask()const noexcept{ return hv_mask; }
+                void accept_weight(size_t weight, std::vector<ranking_t> const& R)noexcept
                 {
-                        size_t weight = ms.count_disjoint(hv_mask);
-                        if( weight == 0 )
-                                return;
-
                         auto r0 = R[allocation_[0]];
                         auto r1 = R[allocation_[1]];
                         auto r2 = R[allocation_[2]];
@@ -325,7 +305,6 @@ namespace ps{
                 virtual size_t precedence()const override{ return 101; }
         };
         static register_disptach_table<dispatch_three_player_perm> reg_dispatch_three_player_perm;
-        #endif
 
 
 } // end namespace ps

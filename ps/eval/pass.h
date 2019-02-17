@@ -126,9 +126,9 @@ private:
 
 
 struct computation_pass_manager : std::vector<std::shared_ptr<computation_pass> >{
-        template<class PassType>
-        void add_pass(){
-                this->push_back(std::make_shared<PassType>());
+        template<class PassType, class... Args>
+        void add_pass(Args&&... args){
+                this->push_back(std::make_shared<PassType>(std::forward<Args>(args)...));
         }
 
         void execute_(computation_context* ctx, instruction_list* instr_list, computation_result* result){

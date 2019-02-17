@@ -406,8 +406,9 @@ struct pass_eval_hand_instr_vec_impl{
 
 
 
-        pass_eval_hand_instr_vec_impl(){
-        }
+        pass_eval_hand_instr_vec_impl(std::string const& engine)
+                : engine_{engine}
+        {}
         virtual void transform_dispatch(computation_context* ctx, instruction_list* instr_list, computation_result* result){
                 std::vector<instruction_list::iterator> to_map;
 
@@ -432,13 +433,33 @@ struct pass_eval_hand_instr_vec_impl{
                         dctx.homo_num_players = *n_dist.begin();
 
                 std::shared_ptr<optimized_transform_base> ot;
-                for(auto const& item : dispatch_table::world() ){
-                        if( item->match(dctx) ){
-                                boost::timer::cpu_timer tmr;
-                                ot = item->make();
-                                PS_LOG(trace) << "Took " << tmr.format(2, "%w seconds") << " to do make transform";
-                                PS_LOG(trace) << "Using transform " << item->name();
-                                break;
+
+                auto construct = [&](auto const& decl){
+                        boost::timer::cpu_timer tmr;
+                        ot = decl->make();
+                        PS_LOG(trace) << "Took " << tmr.format(2, "%w seconds") << " to do make transform";
+                        PS_LOG(trace) << "Using transform " << decl->name();
+                };
+
+                if( engine_.size() ){
+                        // we are looking for a specigfic one
+                        for(auto const& item : dispatch_table::world() ){
+                                if( item->name() == engine_ ){
+                                        construct(item);
+                                        break;
+                                }
+                        }
+                        PS_LOG(trace) << "======= engines ===========";
+                        for(auto const& item : dispatch_table::world() ){
+                                PS_LOG(trace) << "    - " << item->name();
+                        }
+                } else {
+                        // rules based apprach  
+                        for(auto const& item : dispatch_table::world() ){
+                                if( item->match(dctx) ){
+                                        construct(item);
+                                        break;
+                                }
                         }
                 }
                 if( ! ot ){
@@ -450,12 +471,13 @@ struct pass_eval_hand_instr_vec_impl{
                 }
         }
 private:
+        std::string engine_;
         optimized_transform_context oct_;
 };
 
 
-pass_eval_hand_instr_vec::pass_eval_hand_instr_vec()
-        : impl_{std::make_shared<pass_eval_hand_instr_vec_impl>()}
+pass_eval_hand_instr_vec::pass_eval_hand_instr_vec(std::string const& engine)
+        : impl_{std::make_shared<pass_eval_hand_instr_vec_impl>(engine)}
 {}
 void pass_eval_hand_instr_vec::transform(computation_context* ctx, instruction_list* instr_list, computation_result* result){
         impl_->transform_dispatch(ctx, instr_list, result);

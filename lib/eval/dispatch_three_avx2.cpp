@@ -17,6 +17,7 @@ namespace ps{
 
                         eval_.fill(0);
                 }
+                size_t hand_vector()const noexcept{ return hv_mask; }
                 std::uint16_t make_mask(std::vector<ranking_t> const& R)const noexcept{
                         auto r0 = R[allocation_[0]];
                         auto r1 = R[allocation_[1]];
@@ -34,11 +35,8 @@ namespace ps{
 
                         return mask;
                 }
-                void accept(mask_set const& ms, std::vector<ranking_t> const& R)noexcept
+                void accept_weight(size_t weight, std::vector<ranking_t> const& R)noexcept
                 {
-                        size_t weight = ms.count_disjoint(hv_mask);
-                        if( weight == 0 )
-                                return;
 
                         auto mask = make_mask(R);
 

@@ -47,9 +47,15 @@ namespace ps{
                                 mat(n,i) += weight;
                         }
                 }
-                void accept(mask_set const& ms, std::vector<ranking_t> const& R)noexcept
+                void accept(mask_set const* ms, size_t single_mask, std::vector<ranking_t> const& R)noexcept
                 {
-                        size_t weight = ms.count_disjoint(hv_mask);
+                        size_t weight = [&]()->size_t{
+                                if( !! ms ){
+                                        return ms->count_disjoint(hv_mask);
+                                } else {
+                                        return (( hv_mask & single_mask )==0?1:0);
+                                }
+                        }();
 
                         for(size_t i=0;i!=n;++i){
                                 ranked[i] = R[allocation_[i]];

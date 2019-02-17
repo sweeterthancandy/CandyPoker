@@ -60,12 +60,10 @@ struct optimized_transform : optimized_transform_base
                 
                 schedular_type shed{ rod.size(), subs};
 
-                for(auto const& b : otc.w.weighted_rng() ){
-
+                auto apply_any_board = [&](auto const& b)noexcept{
                         suit_id flush_suit = b.flush_suit();
                         auto flush_mask    = b.flush_mask();
                         
-                        shed.begin_eval(b.masks);
                         
                         for(size_t idx=0;idx!=rod.size();++idx){
                                 auto const& _ = rod[idx];
@@ -91,8 +89,20 @@ struct optimized_transform : optimized_transform_base
 
                         }
 
-                        shed.end_eval();
+                };
 
+                for(auto const& b : otc.w.weighted_aggregate_rng() ){
+                        shed.begin_eval(&b.masks, 0ull);
+                        apply_any_board(b);
+                        //shed.end_eval(&b.masks);
+                        shed.end_eval();
+                }
+                for(auto const& b : otc.w.weighted_singleton_rng() ){
+                        shed.begin_eval(nullptr, b.single_rank_mask());
+                        //shed.begin_eval(&b.masks, 0ull);
+                        //shed.end_eval(&b.masks);
+                        apply_any_board(b);
+                        shed.end_eval();
                 }
 
                 shed.regroup();

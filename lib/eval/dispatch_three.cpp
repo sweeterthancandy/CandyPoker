@@ -17,14 +17,18 @@ namespace ps{
                         draw2_.fill(0);
                         draw3_.fill(0);
                 }
-                void accept(mask_set const& ms, std::vector<ranking_t> const& R)noexcept
+                void accept(mask_set const* ms, size_t single_mask, std::vector<ranking_t> const& R)noexcept
                 {
 
-                        size_t weight = [&](){
-                                if( (ms.get_union() & hv_mask) == 0 ){
-                                        return ms.size();
+                       size_t weight = [&]()noexcept->size_t{
+                                if( !! ms ){
+                                        if( (ms->get_union() & hv_mask) == 0 ){
+                                                return ms->size();
+                                        }
+                                        return ms->count_disjoint(hv_mask);
+                                } else{
+                                        return ( ( hv_mask & single_mask) == 0 ? 1 : 0 );
                                 }
-                                return ms.count_disjoint(hv_mask);
                         }();
 
                         if( weight == 0 )
@@ -223,6 +227,7 @@ namespace ps{
         
         
         
+        #if 0
         
         
         
@@ -320,6 +325,7 @@ namespace ps{
                 virtual size_t precedence()const override{ return 101; }
         };
         static register_disptach_table<dispatch_three_player_perm> reg_dispatch_three_player_perm;
+        #endif
 
 
 } // end namespace ps

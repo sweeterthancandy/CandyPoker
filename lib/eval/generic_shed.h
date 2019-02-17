@@ -13,8 +13,9 @@ namespace ps{
                         {
                                 evals_.resize(batch_size_);
                         }
-                        void begin_eval(mask_set const& ms)noexcept{
-                                ms_   = &ms;
+                        void begin_eval(mask_set const* ms, size_t single_mask)noexcept{
+                                ms_          = ms;
+                                single_mask_ = single_mask;
                                 out_  = 0;
                         }
                         void put(size_t index, ranking_t rank)noexcept{
@@ -23,7 +24,7 @@ namespace ps{
                         void end_eval()noexcept{
                                 BOOST_ASSERT( out_ == batch_size_ );
                                 for(auto& _ : subs_){
-                                        _->accept(*ms_, evals_);
+                                        _->accept(ms_, single_mask_, evals_);
                                 }
                         }
                         void regroup()noexcept{
@@ -34,6 +35,7 @@ namespace ps{
                         std::vector<ranking_t> evals_;
                         std::vector<SubPtrType>& subs_;
                         mask_set const* ms_;
+                        size_t single_mask_;
                         size_t out_{0};
                 };
         };

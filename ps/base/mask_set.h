@@ -2,7 +2,7 @@
 #define PS_BASE_MASK_SET_H
 
 #include <emmintrin.h>
-//#include <boost/container/small_vector.hpp>
+#include <boost/container/small_vector.hpp>
 
 namespace ps{
 
@@ -10,6 +10,13 @@ namespace ps{
 #if 1
 
 struct mask_set{
+        enum{ UseBoostSmallVector = false };
+        using vector_type = std::conditional_t<
+                UseBoostSmallVector,
+                boost::container::small_vector<size_t, 1>,
+                std::vector<size_t>
+        >;
+
         void add(size_t mask){
                 masks_.push_back(mask);
                 union_ |= mask;
@@ -30,10 +37,10 @@ struct mask_set{
         }
         size_t get_union()const{ return union_; }
 private:
-        //boost::container::small_vector<size_t, 32> masks_;
-        std::vector<size_t> masks_;
+        vector_type masks_;
         size_t union_{0};
 };
+
 #elif 1
 
 struct mask_set{

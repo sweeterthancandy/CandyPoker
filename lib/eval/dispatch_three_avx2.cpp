@@ -17,7 +17,7 @@ namespace ps{
 
                         eval_.fill(0);
                 }
-                size_t hand_vector()const noexcept{ return hv_mask; }
+                size_t hand_mask()const noexcept{ return hv_mask; }
                 std::uint16_t make_mask(std::vector<ranking_t> const& R)const noexcept{
                         auto r0 = R[allocation_[0]];
                         auto r1 = R[allocation_[1]];
@@ -61,12 +61,11 @@ namespace ps{
                 }
                 template<size_t Idx>
                 __attribute__((__always_inline__))
-                void accept_intrinsic_3(std::vector<ranking_t> const& R,
-                                        mask_set const& ms, 
+                void accept_intrinsic_3(size_t weight,
+                                        std::vector<ranking_t> const& R,
                                         __m256i& masks)noexcept
                 {
                         int mask = _mm256_extract_epi16(masks, Idx);
-                        size_t weight = ms.count_disjoint(hv_mask);
                         eval_[mask] += weight;
                 }
 
@@ -111,24 +110,19 @@ namespace ps{
                 std::array<size_t, UpperMask> eval_;
         };
         struct scheduler_intrinsic_three_avx2{
+                enum{ CheckUnion = true };
                 template<class SubPtrType>
                 struct bind{
                         explicit bind(size_t batch_size, std::vector<SubPtrType>& subs)
-                                :batch_size_{batch_size}
-                                ,subs_{subs}
+                                :subs_{subs}
                         {
-                                evals_.resize(batch_size_);
+                                evals_.resize(batch_size);
 
-                        }
-                        void begin_eval(mask_set const& ms)noexcept{
-                                ms_   = &ms;
-                                out_  = 0;
                         }
                         void put(size_t index, ranking_t rank)noexcept{
                                 evals_[index] = rank;
                         }
-                        void end_eval()noexcept{
-                                BOOST_ASSERT( out_ == batch_size_ );
+                        void end_eval(mask_set const* ms, size_t single_mask)noexcept{
 
                                 //#define DBG(REG, X) do{ std::cout << #REG "[" << (X) << "]=" << std::bitset<16>(_mm256_extract_epi16(REG,X)).to_string() << "\n"; }while(0)
                                 #define DBG(REG, X) do{}while(0)
@@ -137,28 +131,39 @@ namespace ps{
                                 __m256i m1 = _mm256_set1_epi16(0b010);
                                 __m256i m2 = _mm256_set1_epi16(0b100);
 
+                                #define FOR_EACH(X) \
+                                do {\
+                                        X(0);\
+                                        X(1);\
+                                        X(2);\
+                                        X(3);\
+                                        X(4);\
+                                        X(5);\
+                                        X(6);\
+                                        X(7);\
+                                        X(8);\
+                                        X(9);\
+                                        X(10);\
+                                        X(11);\
+                                        X(12);\
+                                        X(13);\
+                                        X(14);\
+                                        X(15);\
+                                }while(0)
+
+
                                 size_t idx=0;
                                 for(;idx + 16 < subs_.size();idx+=16){
                                         __m256i v0 = _mm256_setzero_si256();
                                         __m256i v1 = _mm256_setzero_si256();
                                         __m256i v2 = _mm256_setzero_si256();
 
-                                        subs_[idx+0]->template prepare_intrinsic_3<0>(evals_,  v0, v1, v2);
-                                        subs_[idx+1]->template prepare_intrinsic_3<1>(evals_,  v0, v1, v2);
-                                        subs_[idx+2]->template prepare_intrinsic_3<2>(evals_,  v0, v1, v2);
-                                        subs_[idx+3]->template prepare_intrinsic_3<3>(evals_,  v0, v1, v2);
-                                        subs_[idx+4]->template prepare_intrinsic_3<4>(evals_,  v0, v1, v2);
-                                        subs_[idx+5]->template prepare_intrinsic_3<5>(evals_,  v0, v1, v2);
-                                        subs_[idx+6]->template prepare_intrinsic_3<6>(evals_,  v0, v1, v2);
-                                        subs_[idx+7]->template prepare_intrinsic_3<7>(evals_,  v0, v1, v2);
-                                        subs_[idx+8 ]->template prepare_intrinsic_3<8>(evals_,  v0, v1, v2);
-                                        subs_[idx+9 ]->template prepare_intrinsic_3<9>(evals_,  v0, v1, v2);
-                                        subs_[idx+10]->template prepare_intrinsic_3<10>(evals_,  v0, v1, v2);
-                                        subs_[idx+11]->template prepare_intrinsic_3<11>(evals_,  v0, v1, v2);
-                                        subs_[idx+12]->template prepare_intrinsic_3<12>(evals_,  v0, v1, v2);
-                                        subs_[idx+13]->template prepare_intrinsic_3<13>(evals_,  v0, v1, v2);
-                                        subs_[idx+14]->template prepare_intrinsic_3<14>(evals_,  v0, v1, v2);
-                                        subs_[idx+15]->template prepare_intrinsic_3<15>(evals_,  v0, v1, v2);
+                                        #define PREPARE(N)                                                                 \
+                                                do{                                                                        \
+                                                        subs_[idx+N]->template prepare_intrinsic_3<N>(evals_,  v0, v1, v2);\
+                                                }while(0)
+
+                                        FOR_EACH(PREPARE);
 
 
                                         __m256i r_min = _mm256_min_epi16(v0, _mm256_min_epi16(v1, v2));
@@ -169,34 +174,28 @@ namespace ps{
                                         __m256i a1 = _mm256_and_si256(eq1, m1);
                                         __m256i a2 = _mm256_and_si256(eq2, m2);
                                         __m256i mask = _mm256_or_si256(a0, _mm256_or_si256(a1, a2));
-                                        
-                                        subs_[idx+ 0]->template accept_intrinsic_3< 0>(evals_, *ms_, mask);
-                                        subs_[idx+ 1]->template accept_intrinsic_3< 1>(evals_, *ms_, mask);
-                                        subs_[idx+ 2]->template accept_intrinsic_3< 2>(evals_, *ms_, mask);
-                                        subs_[idx+ 3]->template accept_intrinsic_3< 3>(evals_, *ms_, mask);
-                                        subs_[idx+ 4]->template accept_intrinsic_3< 4>(evals_, *ms_, mask);
-                                        subs_[idx+ 5]->template accept_intrinsic_3< 5>(evals_, *ms_, mask);
-                                        subs_[idx+ 6]->template accept_intrinsic_3< 6>(evals_, *ms_, mask);
-                                        subs_[idx+ 7]->template accept_intrinsic_3< 7>(evals_, *ms_, mask);
-                                        subs_[idx+ 8]->template accept_intrinsic_3< 8>(evals_, *ms_, mask);
-                                        subs_[idx+ 9]->template accept_intrinsic_3< 9>(evals_, *ms_, mask);
-                                        subs_[idx+10]->template accept_intrinsic_3<10>(evals_, *ms_, mask);
-                                        subs_[idx+11]->template accept_intrinsic_3<11>(evals_, *ms_, mask);
-                                        subs_[idx+12]->template accept_intrinsic_3<12>(evals_, *ms_, mask);
-                                        subs_[idx+13]->template accept_intrinsic_3<13>(evals_, *ms_, mask);
-                                        subs_[idx+14]->template accept_intrinsic_3<14>(evals_, *ms_, mask);
-                                        subs_[idx+15]->template accept_intrinsic_3<15>(evals_, *ms_, mask);
 
+                                        #define FINALIZE(N)                                                             \
+                                                do{                                                                     \
+                                                        size_t weight = generic_weight_policy{} \
+                                                        .calculate( subs_[idx+ N]->hand_mask(), ms, single_mask);        \
+                                                        subs_[idx+ N]->template accept_intrinsic_3< N>(weight, evals_, mask);\
+                                                }while(0)
+
+                                        FOR_EACH(FINALIZE);
+
+                                        
                                 }
                                 for(;idx!=subs_.size();++idx){
-                                        subs_[idx]->accept(*ms_, evals_);
+                                        size_t weight = generic_weight_policy{}
+                                                .calculate(subs_[idx]->hand_mask(), ms, single_mask);
+                                        subs_[idx]->accept_weight(weight, evals_);
                                 }
                         }
                         void regroup()noexcept{
                                 // nop
                         }
                 private:
-                        size_t batch_size_;
                         std::vector<ranking_t> evals_;
                         std::vector<SubPtrType>& subs_;
                         mask_set const* ms_;

@@ -22,6 +22,7 @@ struct optimized_transform : optimized_transform_base
         virtual void apply(optimized_transform_context& otc, computation_context* ctx, instruction_list* instr_list, computation_result* result,
                    std::vector<typename instruction_list::iterator> const& target_list)noexcept override
         {
+                boost::timer::cpu_timer tmr;
                 CALLGRIND_START_INSTRUMENTATION;
 
                 // this needs to outlive the lifetime of every object
@@ -92,14 +93,28 @@ struct optimized_transform : optimized_transform_base
 
                 };
 
+                PS_LOG(trace) << tmr.format(4, "init took %w seconds");
+                tmr.start();
+                size_t count = 0;
                 for(auto const& b : otc.w.weighted_aggregate_rng() ){
                         apply_any_board(b);
+                        #if 1
                         shed.end_eval(&b.masks, 0ull);
+                        #endif
+                        ++count;
                 }
+                PS_LOG(trace) << tmr.format(4, "no    flush boards took %w seconds") << " to do " << count << " boards";
+                tmr.start();
+                count = 0;
                 for(auto const& b : otc.w.weighted_singleton_rng() ){
                         apply_any_board(b);
-                        shed.end_eval(nullptr, b.single_rank_mask());
+                        #if 1
+                        //shed.end_eval(nullptr, b.single_rank_mask());
+                        shed.end_eval(&b.masks, 0ull);
+                        #endif
+                        ++count;
                 }
+                PS_LOG(trace) << tmr.format(4, "maybe flush boards took %w seconds") << " to do " << count << " boards";
 
                 shed.regroup();
 

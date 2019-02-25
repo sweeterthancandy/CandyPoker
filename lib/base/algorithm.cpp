@@ -225,9 +225,9 @@ std::tuple<
                         PS_LOG(trace) << "    -" << sp.hv;
                 }
                 PS_LOG(trace) << "end   rank_permutations";
+                PS_LOG(trace) << "hv = " << suit_perm_vec.front().hv;
         }
 
-        PS_LOG(trace) << "hv = " << suit_perm_vec.front().hv;
         return { suit_perm_vec.front().player_perm, suit_perm_vec.front().hv };
 
 }

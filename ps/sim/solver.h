@@ -197,19 +197,23 @@ namespace sim{
                                         PS_LOG(error) << "failed to read config " << e.what();
                                 }
                         }
+                        PS_LOG(trace) << "Memory().size() = " << Memory().size();
+                        for (auto const& p : Memory())
+                        {
+                            PS_LOG(trace) << p.first;
+                        }
                         BOOST_THROW_EXCEPTION(std::domain_error("solver doesn't exist " + name));
                 }
         private:
                 template<class T>
                 friend struct SolverRegister;
-                static std::unordered_map<std::string, std::shared_ptr<SolverDecl> >& Memory(){
-                        static std::unordered_map<std::string, std::shared_ptr<SolverDecl> > M;
-                        return M;
-                }
+
+                static std::unordered_map<std::string, std::shared_ptr<SolverDecl> >& Memory();
         };
         template<class T>
         struct SolverRegister{
                 SolverRegister(std::string const& name){
+                        PS_LOG(trace) << "SolverRegister " << name;
                         SolverDecl::Memory()[name] = std::make_shared<T>();
                 }
         };

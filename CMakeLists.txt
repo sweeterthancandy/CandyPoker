@@ -81,6 +81,7 @@ set(base_sources
         
         lib/support/singleton_factory.cpp
 
+        lib/sim/solver.cpp
         lib/sim/solver_numeric.cpp
         lib/sim/solver_permutation.cpp
         #lib/sim/delta_sequence.cpp

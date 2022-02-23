@@ -26,39 +26,31 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 */
-#ifndef PS_DETAIL_POP_COUNT_H
-#define PS_DETAIL_POP_COUNT_H
 
 
-#include <boost/predef.h>
+#include "ps/base/cards.h"
+#include "ps/support/command.h"
+#include "ps/detail/print.h"
+#include "ps/eval/class_cache.h"
+#include "ps/eval/holdem_class_vector_cache.h"
+#include "app/pretty_printer.h"
+#include "app/serialization_util.h"
+#include "ps/detail/graph.h"
 
-#if BOOST_OS_LINUX
-namespace ps{
-namespace detail{
-        inline int popcount(unsigned long long val)
-        {
-                return __builtin_popcountll(val);
-        }
-} // detail
-} // ps
-
-
-#elif BOOST_OS_WINDOWS
-
-#include <intrin.h>
+#include "ps/sim/computer.h"
+#include "ps/sim/game_tree.h"
+#include "ps/sim/computer_factory.h"
+#include "ps/sim/_extra.h"
+#include "ps/sim/solver.h"
+#include "ps/sim/solver.h"
 
 namespace ps{
-namespace detail{
-        inline int popcount(unsigned long long val)
-        {
-                return __popcnt64(val);
+namespace sim{
+                
+        std::unordered_map<std::string, std::shared_ptr<SolverDecl> >& SolverDecl::Memory(){
+                static std::unordered_map<std::string, std::shared_ptr<SolverDecl> > M;
+                return M;
         }
-} // detail
-} // ps
-#else
-        static_assert(false);
-#endif
 
-
-
-#endif // PS_DETAIL_POP_COUNT_H
+} // end namespace sim
+} // end namespace ps

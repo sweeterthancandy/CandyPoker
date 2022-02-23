@@ -3,7 +3,6 @@ cmake_minimum_required(VERSION 3.6)
 project(ps)
 
 
-
 if( WIN32 )
   #find_package (Eigen3 3.3 REQUIRED NO_MODULE)
   include_directories( C:/work/eigen )
@@ -114,4 +113,4 @@ target_link_libraries(candy-poker ${Boost_LIBRARIES})
 target_link_libraries(candy-poker ps_lib )
 #target_link_libraries(candy-poker Eigen3::Eigen)
 
-
+add_subdirectory(gtest)

@@ -34,7 +34,7 @@ struct rank_opt_device : std::vector<rank_opt_item>{
 
                         std::uint16_t nfnp_mask = static_cast<std::uint16_t>(1) << hand.first().rank().id() |
                                                   static_cast<std::uint16_t>(1) << hand.second().rank().id();
-                        if( __builtin_popcount(nfnp_mask) != 2 ){
+                        if( detail::popcount(nfnp_mask) != 2 ){
                                 nfnp_mask = ~static_cast<std::uint16_t>(1);
                         }
 

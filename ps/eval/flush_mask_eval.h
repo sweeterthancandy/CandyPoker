@@ -2,7 +2,7 @@
 #define PS_EVAL_FLUSH_MASK_EVAL_H
 
 #include "ps/eval/evaluator_6_card_map.h"
-
+#include "ps/detail/popcount.h"
 
 namespace ps{
 
@@ -17,7 +17,7 @@ struct flush_mask_eval{
         template<class Array, class Eval>
         static void create_flush_mask_eval_inplace(Array& array, Eval const& eval){
                 for(size_t mask = 0; mask <= RankMaskUpper ; ++mask ){
-                        auto pc = __builtin_popcountll(mask);
+                        auto pc = detail::popcount(mask);
                         switch(pc){
                         case 5:
                         case 6:
@@ -133,7 +133,7 @@ struct no_flush_no_pair_mask{
         template<class Array, class Eval>
         static void create_flush_mask_eval_inplace(Array& array, Eval const& eval){
                 for(size_t mask = 0; mask <= RankMaskUpper ; ++mask ){
-                        auto pc = __builtin_popcountll(mask);
+                        auto pc = detail::popcount(mask);
                         switch(pc){
                         case 5:
                         case 6:

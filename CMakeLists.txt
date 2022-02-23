@@ -1,20 +1,26 @@
 cmake_minimum_required(VERSION 3.6)
 
-#find_package (Eigen3 3.3 REQUIRED NO_MODULE)
 project(ps)
 
 
 
 if( WIN32 )
+  #find_package (Eigen3 3.3 REQUIRED NO_MODULE)
+  include_directories( C:/work/eigen )
+  include_directories( C:/work/eigen/Eigen )
+
+
+
   set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS TRUE)
   set(BUILD_SHARED_LIBS TRUE)
   
   set(Boost_USE_STATIC_LIBS        ON) # only find static libs
   set(Boost_USE_MULTITHREADED      ON)
   set(Boost_USE_STATIC_RUNTIME    OFF)
-
+  
   set(BOOST_INCLUDEDIR C:/work/modular-boost )
   set(BOOST_LIBRARYDIR C:/work/modular-boost/stage/lib )
+
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /D_CRT_SECURE_NO_WARNINGS")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MT")
 else()
@@ -97,7 +103,12 @@ set(
 )
 
 add_executable(candy-poker ${driver_sources} )
-target_link_libraries(candy-poker pthread )
+
+
+if( WIN32 )
+else()
+        target_link_libraries(candy-poker pthread )
+endif()
 target_link_libraries(candy-poker ${Boost_LIBRARIES})
 target_link_libraries(candy-poker ps_lib )
 #target_link_libraries(candy-poker Eigen3::Eigen)

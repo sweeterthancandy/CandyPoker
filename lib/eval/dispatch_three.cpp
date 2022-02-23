@@ -2,6 +2,7 @@
 #include "lib/eval/generic_shed.h"
 #include "lib/eval/generic_sub_eval.h"
 #include "lib/eval/optimized_transform.h"
+#include "ps/detail/popcount.h"
 
 namespace ps{
 
@@ -250,7 +251,7 @@ namespace ps{
                         mat.resize(n, n);
                         mat.fill(0);
                         for(int mask = 1; mask != UpperMask; ++mask){
-                                auto pcnt = __builtin_popcount(mask);
+                                auto pcnt = detail::popcount(mask);
                                 if( mask & 0b001 )
                                         mat(pcnt-1, 0) += eval_[mask];
                                 if( mask & 0b010 )

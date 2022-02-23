@@ -3,7 +3,12 @@
 
 #include "lib/eval/rank_opt_device.h"
 
+// #define DO_VAlGRIND
+
+
+#ifdef DO_VAlGRIND
 #include <valgrind/callgrind.h>
+#endif // DO_VAlGRIND
 
 namespace ps{
 
@@ -23,7 +28,10 @@ struct optimized_transform : optimized_transform_base
                    std::vector<typename instruction_list::iterator> const& target_list)noexcept override
         {
                 boost::timer::cpu_timer tmr;
+
+#ifdef DO_VAlGRIND
                 CALLGRIND_START_INSTRUMENTATION;
+#endif // DO_VAlGRIND
 
                 // this needs to outlive the lifetime of every object
                 factory_type factory;
@@ -123,8 +131,10 @@ struct optimized_transform : optimized_transform_base
                         _->finish();
                 }
 
+#ifdef DO_VAlGRIND
                 CALLGRIND_STOP_INSTRUMENTATION;
                 CALLGRIND_DUMP_STATS;
+#endif
         }
 };
 } // end namespace ps

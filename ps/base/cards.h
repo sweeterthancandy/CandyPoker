@@ -38,6 +38,7 @@ SOFTWARE.
 #include "ps/base/cards_fwd.h"
 #include "ps/detail/void_t.h"
 #include "ps/detail/print.h"
+#include "ps/detail/popcount.h"
 #include "ps/support/index_sequence.h"
 
 
@@ -211,7 +212,7 @@ namespace ps{
                 static bool disjoint(Args&&... args){
                         size_t mask{0};
                         int aux[] = {0, ( mask |= args.mask(), 0)...};
-                        return __builtin_popcountll(mask)*2 == sizeof...(args);
+                        return detail::popcount(mask)*2 == sizeof...(args);
                 }
                 template<class... Args,
                         class _ = detail::void_t<

@@ -34,6 +34,7 @@ SOFTWARE.
 #include "app/pretty_printer.h"
 #include "app/serialization_util.h"
 #include "ps/detail/graph.h"
+#include "ps/detail/popcount.h"
 
 #include "ps/sim/computer.h"
 #include "ps/sim/game_tree.h"
@@ -227,7 +228,7 @@ namespace sim{
 
                         for(size_t level = 0; level <= args_.max_popcount; ++level ){
                                 for(size_t mask = 0; mask != upper_bound; ++mask ){
-                                        if( __builtin_popcountll(mask) != level )
+                                        if( detail::popcount(mask) != level )
                                                 continue;
                                         cross_products.emplace_back();
                                         for(size_t idx=0;idx!=mixed_info.size();++idx){

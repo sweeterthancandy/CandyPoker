@@ -3,6 +3,16 @@
 #include "lib/eval/generic_sub_eval.h"
 #include "lib/eval/optimized_transform.h"
 
+
+#include <boost/predef.h>
+
+#if BOOST_OS_LINUX
+    #define PS_ALWAYS_INLINE __attribute__((__always_inline__))
+#else
+    #define PS_ALWAYS_INLINE
+#endif
+
+
 namespace ps{
         // These are actually slower, hard to beat a good compiler
 
@@ -45,7 +55,7 @@ namespace ps{
                 }
 
                 template<size_t Idx>
-                __attribute__((__always_inline__))
+                PS_ALWAYS_INLINE
                 void prepare_intrinsic_3( std::vector<ranking_t> const& R,
                                          __m256i& v0,
                                          __m256i& v1,
@@ -60,7 +70,7 @@ namespace ps{
                         v2 = _mm256_insert_epi16(v2, r2, Idx);
                 }
                 template<size_t Idx>
-                __attribute__((__always_inline__))
+                PS_ALWAYS_INLINE
                 void accept_intrinsic_3(size_t weight,
                                         std::vector<ranking_t> const& R,
                                         __m256i& masks)noexcept
@@ -74,7 +84,7 @@ namespace ps{
                         mat.resize(n, n);
                         mat.fill(0);
                         for(int mask = 1; mask != UpperMask; ++mask){
-                                auto pcnt = __builtin_popcount(mask);
+                                auto pcnt = detail::popcount(mask);
                                 if( mask & 0b001 )
                                         mat(pcnt-1, 0) += eval_[mask];
                                 if( mask & 0b010 )

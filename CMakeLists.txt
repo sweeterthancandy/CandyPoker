@@ -3,6 +3,15 @@ cmake_minimum_required(VERSION 3.6)
 project(ps)
 
 
+enable_testing()
+
+
+add_subdirectory(deps/googletest)
+
+include_directories(${gtest_SOURCE_DIR})
+include_directories(${gtest_SOURCE_DIR}/include)
+
+
 if( WIN32 )
   #find_package (Eigen3 3.3 REQUIRED NO_MODULE)
   include_directories( C:/work/eigen )

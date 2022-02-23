@@ -213,7 +213,6 @@ namespace sim{
         template<class T>
         struct SolverRegister{
                 SolverRegister(std::string const& name){
-                        PS_LOG(trace) << "SolverRegister " << name;
                         SolverDecl::Memory()[name] = std::make_shared<T>();
                 }
         };

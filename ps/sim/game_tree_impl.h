@@ -93,7 +93,7 @@ namespace sim{
                 virtual size_t NumPlayers()const override{ return 2; }
                 
                 virtual void VisitProbabilityDist(std::function<void(double, holdem_class_vector const& cv)> const& V)const noexcept override{
-                        for(auto const& group : *Memory_TwoPlayerClassVector){
+                        for(auto const& group : *get_Memory_TwoPlayerClassVector()){
                                 for(auto const& _ : group.vec){
                                         V(_.prob, _.cv);
                                 }
@@ -197,7 +197,7 @@ namespace sim{
                 virtual size_t NumPlayers()const override{ return 2; }
                 
                 virtual void VisitProbabilityDist(std::function<void(double, holdem_class_vector const& cv)> const& V)const noexcept override{
-                        for(auto const& group : *Memory_TwoPlayerClassVector){
+                        for(auto const& group : *get_Memory_TwoPlayerClassVector()){
                                 for(auto const& _ : group.vec){
                                         V(_.prob, _.cv);
                                 }
@@ -342,7 +342,7 @@ namespace sim{
                 virtual size_t NumPlayers()const override{ return 3; }
                 
                 virtual void VisitProbabilityDist(std::function<void(double, holdem_class_vector const& cv)> const& V)const noexcept override{
-                        for(auto const& group : *Memory_ThreePlayerClassVector){
+                        for(auto const& group : *get_Memory_ThreePlayerClassVector()){
                                 for(auto const& _ : group.vec){
                                         V(_.prob, _.cv);
                                 }

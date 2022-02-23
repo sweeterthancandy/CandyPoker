@@ -144,7 +144,16 @@ namespace{
 
 namespace ps{
 
-support::persistent_memory_decl<holdem_class_vector_pair_cache> Memory_ThreePlayerClassVector( std::make_unique<n_player_impl>(3) );
-support::persistent_memory_decl<holdem_class_vector_pair_cache> Memory_TwoPlayerClassVector( std::make_unique<n_player_impl>(2) );
+static support::persistent_memory_decl<holdem_class_vector_pair_cache> Memory_ThreePlayerClassVector( std::make_unique<n_player_impl>(3) );
+static support::persistent_memory_decl<holdem_class_vector_pair_cache> Memory_TwoPlayerClassVector( std::make_unique<n_player_impl>(2) );
 
+support::persistent_memory_decl<holdem_class_vector_pair_cache> const& get_Memory_ThreePlayerClassVector()
+{
+    return Memory_ThreePlayerClassVector;
+}
+support::persistent_memory_decl<holdem_class_vector_pair_cache> const& get_Memory_TwoPlayerClassVector()
+{
+    return Memory_TwoPlayerClassVector;
+
+}
 } // end namespace ps

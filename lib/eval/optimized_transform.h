@@ -104,10 +104,26 @@ struct optimized_transform : optimized_transform_base
                 PS_LOG(trace) << tmr.format(4, "init took %w seconds");
                 tmr.start();
                 size_t count = 0;
+                //std::unordered_map<int, int> non_zero_m;
+                std::array< eval_counter_type, 10> weights;
+                weights.fill(0);
                 for(auto const& b : otc.w.weighted_aggregate_rng() ){
                         apply_any_board(b);
                         #if 1
-                        shed.end_eval(&b.masks, 0ull);
+                        if constexpr (std::is_same<void, decltype(shed.end_eval(&b.masks, 0ull))>::value)
+                        {
+                            shed.end_eval(&b.masks, 0ull);
+                        }
+                        else
+                        {
+                            auto non_zero = shed.extract_weight(weights, &b.masks, 0ull);
+                            if (non_zero == 0)
+                            {
+                                continue;
+                            }
+                            shed.end_eval_with_weight(&b.masks, 0ull, weights);
+                            //++non_zero_m[ret];
+                        }
                         #endif
                         ++count;
                 }
@@ -118,11 +134,29 @@ struct optimized_transform : optimized_transform_base
                         apply_any_board(b);
                         #if 1
                         //shed.end_eval(nullptr, b.single_rank_mask());
-                        shed.end_eval(&b.masks, 0ull);
+                        if constexpr (std::is_same<void, decltype(shed.end_eval(&b.masks, 0ull))>::value)
+                        {
+                            shed.end_eval(&b.masks, 0ull);
+                        }
+                        else
+                        {
+                            auto non_zero = shed.extract_weight(weights, &b.masks, 0ull);
+                            if (non_zero == 0)
+                            {
+                                continue;
+                            }
+                            shed.end_eval_with_weight(&b.masks, 0ull, weights);
+                            //++non_zero_m[ret];
+                        }
                         #endif
                         ++count;
                 }
                 PS_LOG(trace) << tmr.format(4, "maybe flush boards took %w seconds") << " to do " << count << " boards";
+
+                //for (const auto& p : non_zero_m)
+                //{
+                //    PS_LOG(trace) << "non_zero_m : " << p.first << " => " << p.second;
+                //}
 
                 shed.regroup();
 

@@ -44,7 +44,36 @@ namespace ps{
                         void put(size_t index, ranking_t rank)noexcept{
                                 evals_[index] = rank;
                         }
-                        void end_eval(mask_set const* ms, size_t single_mask)noexcept{
+                        int extract_weight(std::array< eval_counter_type, 10>& weights, mask_set const* ms, size_t single_mask)
+                        {
+                            int non_zero{ 0 };
+                            for (int idx=0;idx!=subs_.size();++idx)
+                            {
+                                auto weight = generic_weight_policy{}
+                                    .calculate(subs_[idx]->hand_mask(), ms, single_mask);
+                                weights[idx] = weight;
+                                if (weight != 0)
+                                {
+                                    ++non_zero;
+                                }
+
+                            }
+                            return non_zero;
+                        }
+                        void end_eval_with_weight(mask_set const* ms, size_t single_mask, std::array< eval_counter_type, 10>& weights)noexcept {
+                            for (int idx = 0; idx != subs_.size(); ++idx)
+                            {
+                                auto& _ = subs_[idx];
+                                auto weight = weights[idx];
+                                if (CheckZeroWeight) {
+                                    if (weight == 0)
+                                        continue;
+                                }
+                                _->accept_weight(weight, evals_);
+                            }
+                        }
+                        int end_eval(mask_set const* ms, size_t single_mask)noexcept{
+                                int non_zero{ 0 };
                                 for(auto& _ : subs_){
                                         auto weight = generic_weight_policy{}
                                                 .calculate(_->hand_mask(), ms, single_mask);
@@ -68,7 +97,9 @@ namespace ps{
                                                         continue;
                                         }
                                         _->accept_weight(weight, evals_);
+                                        ++non_zero;
                                 }
+                                return non_zero;
                         }
                         void regroup()noexcept{
                                 // nop

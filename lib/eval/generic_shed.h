@@ -32,6 +32,8 @@ namespace ps{
         };
 
         struct generic_shed{
+
+                using weights_ty = std::vector<eval_counter_type>;
                 template<class SubPtrType>
                 struct bind{
                         // this is 5% faster (in my limited testing)
@@ -44,7 +46,7 @@ namespace ps{
                         void put(size_t index, ranking_t rank)noexcept{
                                 evals_[index] = rank;
                         }
-                        int extract_weight(std::array< eval_counter_type, 10>& weights, mask_set const* ms, size_t single_mask)
+                        int extract_weight(weights_ty& weights, mask_set const* ms, size_t single_mask)noexcept
                         {
                             int non_zero{ 0 };
                             for (int idx=0;idx!=subs_.size();++idx)
@@ -60,7 +62,7 @@ namespace ps{
                             }
                             return non_zero;
                         }
-                        void end_eval_with_weight(mask_set const* ms, size_t single_mask, std::array< eval_counter_type, 10>& weights)noexcept {
+                        void end_eval_with_weight(mask_set const* ms, size_t single_mask, const weights_ty& weights)noexcept {
                             for (int idx = 0; idx != subs_.size(); ++idx)
                             {
                                 auto& _ = subs_[idx];

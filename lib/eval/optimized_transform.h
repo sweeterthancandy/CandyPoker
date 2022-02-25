@@ -66,9 +66,15 @@ struct optimized_transform : optimized_transform_base
 
                 std::vector<ranking_t> R;
                 R.resize(rod.size());
+
+                using weights_ty = std::vector< eval_counter_type>;
+                weights_ty weights;
+                weights.resize(subs.size());
                 
                 
                 schedular_type shed{ rod.size(), subs};
+
+                
 
                 auto apply_any_board = [&](auto const& b)noexcept{
                         suit_id flush_suit = b.flush_suit();
@@ -78,10 +84,12 @@ struct optimized_transform : optimized_transform_base
                         for(size_t idx=0;idx!=rod.size();++idx){
                                 auto const& _ = rod[idx];
 
+                              
+
                                 ranking_t rr = b.no_flush_rank(_.r0, _.r1);
 
                                 bool s0m = ( _.s0 == flush_suit );
-                                bool s1m = ( _.s1 == flush_suit );
+                                bool s1m = ( _.s1  == flush_suit );
                                 
                                 auto fm = flush_mask;
 
@@ -105,13 +113,15 @@ struct optimized_transform : optimized_transform_base
                 tmr.start();
                 size_t count = 0;
                 //std::unordered_map<int, int> non_zero_m;
-                std::array< eval_counter_type, 10> weights;
-                weights.fill(0);
+
+                constexpr bool enable_weight_branch{ false };
+
                 for(auto const& b : otc.w.weighted_aggregate_rng() ){
-                        apply_any_board(b);
+                        
                         #if 1
-                        if constexpr (std::is_same<void, decltype(shed.end_eval(&b.masks, 0ull))>::value)
+                        if constexpr (std::is_same<void, decltype(shed.end_eval(&b.masks, 0ull))>::value || (!enable_weight_branch))
                         {
+                            apply_any_board(b);
                             shed.end_eval(&b.masks, 0ull);
                         }
                         else
@@ -121,6 +131,7 @@ struct optimized_transform : optimized_transform_base
                             {
                                 continue;
                             }
+                            apply_any_board(b);
                             shed.end_eval_with_weight(&b.masks, 0ull, weights);
                             //++non_zero_m[ret];
                         }
@@ -131,11 +142,12 @@ struct optimized_transform : optimized_transform_base
                 tmr.start();
                 count = 0;
                 for(auto const& b : otc.w.weighted_singleton_rng() ){
-                        apply_any_board(b);
+                        
                         #if 1
                         //shed.end_eval(nullptr, b.single_rank_mask());
-                        if constexpr (std::is_same<void, decltype(shed.end_eval(&b.masks, 0ull))>::value)
+                        if constexpr (std::is_same<void, decltype(shed.end_eval(&b.masks, 0ull))>::value || (!enable_weight_branch))
                         {
+                            apply_any_board(b);
                             shed.end_eval(&b.masks, 0ull);
                         }
                         else
@@ -145,6 +157,7 @@ struct optimized_transform : optimized_transform_base
                             {
                                 continue;
                             }
+                            apply_any_board(b);
                             shed.end_eval_with_weight(&b.masks, 0ull, weights);
                             //++non_zero_m[ret];
                         }

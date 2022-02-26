@@ -16,15 +16,20 @@ The integration tests are created by just finding examples which i assume to be 
 TEST(Eval, AA_vs_KK) {
         std::vector<std::string> player_ranges{ "AA", "KK" };
         auto result = evaluate(player_ranges);
-        for(auto const& p : result.players())
-        {
-                std::cout << "p.EquityAsRational() => " << p.EquityAsRational() << "\n"; // __CandyPrint__(cxx-print-scalar,p.EquityAsRational())
-                std::cout << "p.EquityAsDouble() => " << p.EquityAsDouble() << "\n"; // __CandyPrint__(cxx-print-scalar,p.EquityAsDouble())
-                std::cout << "p.Wins() => " << p.Wins() << "\n"; // __CandyPrint__(cxx-print-scalar,p.Wins())
-                std::cout << "p.AnyDraw() => " << p.AnyDraw() << "\n"; // __CandyPrint__(cxx-print-scalar,p.AnyDraw())
 
-        }
+        const auto P0 = result.player_view(0);
+        const auto P1 = result.player_view(1);
 
+        EXPECT_EQ( P0.Wins(), 50'371'344 );
+        EXPECT_EQ( P0.AnyDraws(), 285'228 );
+        EXPECT_EQ( P1.Wins(), 10'986'372 );
+        EXPECT_EQ( P1.AnyDraws(), 285'228 );
+        
+        EXPECT_EQ( P0.EquityAsRational(), rational_ty(255121, 311328));
+        EXPECT_EQ( P1.EquityAsRational(), rational_ty(56207, 311328));
+
+        EXPECT_NEAR(P0.EquityAsDouble(), 0.8195, 0.0005);
+        EXPECT_NEAR(P1.EquityAsDouble(), 0.1805, 0.0005);
 }
 
 

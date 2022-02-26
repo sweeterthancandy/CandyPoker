@@ -67,6 +67,8 @@ namespace ps{
         };
 
         struct suit_decl{
+                using index_ty = suit_id;
+                static constexpr suit_id max_id = 4;
                 suit_decl(suit_id id, char sym, std::string const& name)
                         : id_{id}, sym_{sym}, name_{name}
                 {}
@@ -89,6 +91,8 @@ namespace ps{
         };
 
         struct rank_decl{
+                using index_ty = rank_id;
+                static constexpr rank_id max_id = 13;
                 rank_decl(rank_id id, char sym)
                         : id_{id}, sym_{sym}
                 {}
@@ -111,6 +115,8 @@ namespace ps{
 
 
         struct card_decl{
+                using index_ty = card_id;
+                static constexpr const card_id max_id = 52;
                 card_decl( suit_decl const& s, rank_decl const& r):
                         id_{make_id(s.id(),r.id())}
                         ,suit_{s}, rank_{r}
@@ -148,6 +154,7 @@ namespace ps{
         };
 
         struct holdem_hand_decl{
+                using index_ty = holdem_id;
                 static constexpr const holdem_id max_id = 52 * 51 / 2;
                 // a must be the biggest
                 holdem_hand_decl( card_decl const& a, card_decl const& b):
@@ -202,7 +209,7 @@ namespace ps{
                 }
                 operator holdem_id()const{ return id_; }
                 holdem_class_id class_()const;
-                static double prob(holdem_id c0, holdem_id c1);
+
                 template<class... Args,
                         class _ = detail::void_t<
                                         std::enable_if_t<
@@ -277,6 +284,7 @@ namespace ps{
         };
 
         struct holdem_class_decl{
+                using index_ty = holdem_class_id;
                 static constexpr const holdem_class_id max_id = 13 * 13;
                 holdem_class_decl(holdem_class_type cat,
                                   rank_decl const& a,

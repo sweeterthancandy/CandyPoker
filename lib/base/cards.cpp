@@ -131,37 +131,25 @@ namespace ps{
         }
         
         holdem_hand_decl const& holdem_hand_decl::get(holdem_id id){
-                static decl_factory<holdem_hand_decl> fac{
-                        [](){
-                                std::vector< holdem_hand_decl> aux;
-                                for( char a{52};a!=1;){
-                                        --a;
-                                        for( char b{a};b!=0;){
-                                                --b;
-                                                aux.emplace_back( card_decl::get(a), card_decl::get(b));
-                                        }
-                                }
-                                return std::move(aux);
-                        }()
-                };
+                static auto unique_hand_vec = []()
+                {
+                    std::vector< holdem_hand_decl> aux;
+                    for (card_id a=0;(a + static_cast<card_id>(1))!= card_decl::max_id;++a){
+                        for (card_id b(a + 1 ); b != card_decl::max_id;++b) {
+                            aux.emplace_back(card_decl::get(a), card_decl::get(b));
+                        }
+                    }
+                    if (aux.size() != holdem_hand_decl::max_id)
+                    {
+                        BOOST_THROW_EXCEPTION(std::domain_error("not hands"));
+                    }
+                    return aux;
+                }();
+                
+                static decl_factory<holdem_hand_decl> fac{ std::move(unique_hand_vec) };
                 return fac.get(id);
         }
-        double holdem_hand_decl::prob(holdem_id c0, holdem_id c1){
-                // static
-                static auto aux = [](){
-                        size_t count{0};
-                        for(size_t i{0};i!=holdem_hand_decl::max_id;++i){
-                                for(size_t j{0};j!=holdem_hand_decl::max_id;++j){
-                                        if( disjoint(holdem_hand_decl::get(i),
-                                                     holdem_hand_decl::get(j) ) )
-                                                ++count;
-                                }
-                        }
-                        return count;
-                }();
-                return 
-                        1.0 / aux;
-        }
+     
 
         holdem_class_id holdem_class_decl::make_id(holdem_class_type cat, rank_id x, rank_id y){
                 using std::get;

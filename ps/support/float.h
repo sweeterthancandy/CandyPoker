@@ -26,30 +26,31 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 */
+#ifndef PS_SUPPORT_FLOAT_H
+#define PS_SUPPORT_FLOAT_H
 
-
-#include "ps/base/cards.h"
-#include "ps/support/command.h"
-#include "ps/detail/print.h"
-#include "ps/eval/class_cache.h"
-#include "ps/eval/holdem_class_vector_cache.h"
-#include "app/pretty_printer.h"
-#include "app/serialization_util.h"
-#include "ps/detail/graph.h"
-
-#include "ps/sim/computer.h"
-#include "ps/sim/game_tree.h"
-#include "ps/sim/computer_factory.h"
-#include "ps/sim/_extra.h"
-#include "ps/sim/solver.h"
 
 namespace ps{
-namespace sim{
-                
-        std::unordered_map<std::string, std::shared_ptr<SolverDecl> >& SolverDecl::Memory(){
-                static std::unordered_map<std::string, std::shared_ptr<SolverDecl> > M;
-                return M;
+namespace support{
+
+
+        const bool is_nan(double x)
+        {
+
+                switch(std::fpclassify(x)) {
+                case FP_INFINITE:
+                case FP_NAN:
+                case FP_SUBNORMAL:
+                default:
+                        return true;
+                case FP_ZERO:
+                case FP_NORMAL:
+                        return false;
+                }
         }
 
-} // end namespace sim
-} // end namespace ps
+
+} // support
+} // ps
+
+#endif // PS_SUPPORT_FLOAT_H

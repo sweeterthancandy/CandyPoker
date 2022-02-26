@@ -82,7 +82,7 @@ public:
 		auto Wins()const {
 			return wins_;
 		}
-		auto AnyDraw()const {
+		auto AnyDraws()const {
 			return any_draw_;
 		}
 		const auto& EquityAsRational()const { return equity_; }

@@ -5,6 +5,8 @@ project(my_project)
 add_executable(
   ps-test
   eval.cpp
+  cards.cpp
+
 )
 target_link_libraries(
   ps-test

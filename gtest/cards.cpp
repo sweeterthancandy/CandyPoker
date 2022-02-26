@@ -30,6 +30,7 @@ SOFTWARE.
 
 #include "ps/base/cards.h"
 #include "ps/base/algorithm.h"
+#include "ps/support/float.h"
 
 using namespace ps;
 
@@ -85,48 +86,54 @@ TEST(card_decl, _){
         EXPECT_EQ( card_decl::parse("Ah").suit(), suit_decl::parse("h") );
         EXPECT_EQ( card_decl::parse("Ah").rank(), rank_decl::parse("A") );
 }
-TEST(holdem_hand_decl, _){
-        for(card_id id{0};id!=( 52 * 52 - 52 ) / 2 ;++id){
-                EXPECT_EQ(id, holdem_hand_decl::get(id).id());
-        }
-        for(card_id x{0};x!=52;++x){
-                for(card_id y{0};y!=52;++y){
-                        if( x == y )
-                                continue;
-                        auto const& decl =  holdem_hand_decl::get(x,y) ;
-                        auto const& decl2 =  holdem_hand_decl::get(y,x) ;
 
-                        // should be transative
-                        EXPECT_EQ(decl.id(), decl2.id());
-                        // should be less than this, should be a 
-                        // strictly lower trianglar matrix
-                        EXPECT_LE(decl.id(),( 52 * 52 - 52 ) / 2);
-                        
-                        std::set<card_id> s;
-                        s.insert(decl.first().id());
-                        s.insert(decl.second().id());
 
-                        if( s.count(x) + s.count(y) != 2 ){
-                                PRINT_SEQ((x)(y)(decl.first().id())(decl.second().id()));
-                        }
+template<typename T>
+static std::string binary_str_cast(const T& x)
+{
+    std::stringstream ss;
+    ss << std::bitset<sizeof(T) * 8>(x);
+    return ss.str();
+}
 
-                        EXPECT_EQ( 1, s.count(x) );
-                        EXPECT_EQ( 1, s.count(y) );
-                }
-        }
+
+TEST(card_vector,_)
+{
+        auto c0 = card_decl::parse("2h");
+        auto c1 = card_decl::parse("Ts");
+
+        card_vector cv{c0.id(),c1.id()};
+
+        EXPECT_EQ( c0.mask() | c1.mask(), cv.mask());
+        EXPECT_EQ( detail::popcount(c0.mask()), 1);
+        EXPECT_EQ( detail::popcount(c1.mask()), 1);
+        EXPECT_EQ( detail::popcount(cv.mask()), 2);
+}
+
+TEST(holdem_hand_decl, mask)
+{
+        auto c0 = card_decl::parse("As");
+        auto c1 = card_decl::parse("Ks");
+        
+        auto c2 = card_decl::parse("Tc");
+        auto c3 = card_decl::parse("Ts");
+
+        holdem_hand_decl h0{c0,c1};
+        holdem_hand_decl h1{c2,c3};
+        
+        holdem_hand_decl h2{c0,c3};
+
+        EXPECT_EQ( c0.mask() | c1.mask(), holdem_hand_decl(c0,c1).mask());
+
+        EXPECT_FALSE( disjoint(h0,h0));
+        EXPECT_TRUE( disjoint(h0,h1));
+        EXPECT_FALSE( disjoint(h0,h2));
 
 }
-TEST(holdem_hand_decl, static_prob){
-        double sigma{0.0};
-        for(size_t i{0};i!=holdem_hand_decl::max_id;++i){
-                for(size_t j{0};j!=holdem_hand_decl::max_id;++j){
-                        if( disjoint(holdem_hand_decl::get(i),
-                                     holdem_hand_decl::get(j)) )
-                                sigma += holdem_hand_decl::prob(i,j);
-                }
-        }
-        EXPECT_NEAR(1.0, sigma, 1e-3);
-}
+
+
+
+
 
 
 TEST(holdem_class_decl, prob){
@@ -137,6 +144,7 @@ TEST(holdem_class_decl, prob){
         EXPECT_NEAR(1.0, sigma, 1e-3);
         EXPECT_NEAR( ( 4 / 52.0 ) * (3 / 52.0) , holdem_class_decl::parse("AA").prob(), 1e-3);
 }
+
 TEST(holdem_class_decl, static_prob){
         double sigma{0.0};
         for(size_t i{0};i!=169;++i){

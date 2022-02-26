@@ -107,7 +107,7 @@ struct MaskEval : Command{
 
                 std::vector<frontend::range> players;
                 for(auto const& s : players_s ){
-                        players.push_back( frontend::parse(s) );
+                        players.push_back( expand(frontend::parse(s)) );
                 }
 
                 computation_context comp_ctx{players.size()};

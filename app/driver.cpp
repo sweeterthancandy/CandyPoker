@@ -343,8 +343,20 @@ static TrivialCommandDecl<PrintBoard> PrintBoardDecl{"print-board"};
 
 
 int main(int argc, char** argv){
+    static char* argv_proxy[] = {
+        "dummy",
+        "eval",
+        "AKo",
+        "T9s+",
+        nullptr };
+    int argc_proxy = sizeof(argv_proxy) / sizeof(void*) - 1;
+
         try{
+#if 0
+            CommandDecl::Driver(argc_proxy, argv_proxy);
+#else
                 CommandDecl::Driver(argc, argv);
+#endif
         } catch(std::exception const& e){
                 std::cerr << "Caught exception: " << e.what() << "\n";
         }

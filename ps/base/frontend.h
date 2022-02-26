@@ -429,9 +429,15 @@ namespace ps{
                                 void operator()(T const& prim)const{
                                         rank_id x{ prim.first() };
                                         rank_id y{ prim.second() };
-                                        assert( x > y && "unexpected");
-                                        for( rank_id r{y}; r < x; ++r){
-                                                vec_->emplace_back( T{x,r} );
+                                        if (y > x)
+                                        {
+                                            BOOST_THROW_EXCEPTION(std::domain_error("expected x > y"));
+                                        }
+                                        rank_id d = x - y;
+                                        for (rank_id iter = x; iter != rank_decl::max_id; ++iter)
+                                        {
+                                            rank_id implied_second_card = iter - d;
+                                            vec_->emplace_back(T{ iter, implied_second_card });
                                         }
                                 }
                         private:

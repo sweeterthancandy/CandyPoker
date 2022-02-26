@@ -33,3 +33,28 @@ TEST(Eval, AA_vs_KK) {
 }
 
 
+TEST(Eval, AAo_vs_22_vs_87s) {
+        std::vector<std::string> player_ranges{ "AKo", "22", "87s" };
+        auto result = evaluate(player_ranges);
+
+        const auto P0 = result.player_view(0);
+        const auto P1 = result.player_view(1);
+        const auto P2 = result.player_view(2);
+
+        EXPECT_EQ( P0.Wins(), 	150'166'584 );
+        EXPECT_EQ( P0.AnyDraws(), 1'728'144 );
+
+        EXPECT_EQ( P1.Wins(), 102'821'760  );
+        EXPECT_EQ( P1.AnyDraws(), 1'728'144 );
+        
+        EXPECT_EQ( P2.Wins(), 140'060'664  );
+        EXPECT_EQ( P2.AnyDraws(), 1'728'144 );
+        
+        EXPECT_EQ( P0.EquityAsRational(), rational_ty(6280943,16449048));
+        EXPECT_EQ( P1.EquityAsRational(), rational_ty(2154121,8224524));
+        EXPECT_EQ( P2.EquityAsRational(), rational_ty(5859863,16449048));
+
+        EXPECT_NEAR(P0.EquityAsDouble(), 0.3818, 0.0005);
+        EXPECT_NEAR(P1.EquityAsDouble(), 0.2619, 0.0005);
+        EXPECT_NEAR(P2.EquityAsDouble(), 0.3562, 0.0005);
+}

@@ -230,11 +230,10 @@ struct holdem_board_decl{
                         }
                 }
 
-                PS_LOG(trace) << "singletons=" << singletons << ", aggregates=" << aggregates << " ( "
-                         << (( aggregates * 100.0 ) / ( singletons + aggregates ));
+                //PS_LOG(trace) << "singletons=" << singletons << ", aggregates=" << aggregates << " ( "<< (( aggregates * 100.0 ) / ( singletons + aggregates ));
 
                 //std::cout << "max mask size = " << boost::max_element(  weighted_, [](auto const& l, auto const& r){ return l.masks.size() < r.masks.size(); })->masks.size() << "\n";
-                profile_memory();
+                //profile_memory();
 
 
                 #if 0

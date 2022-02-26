@@ -40,7 +40,21 @@ SOFTWARE.
 #include <boost/assert.hpp>
 
 //#define PS_LOG(level) BOOST_LOG_TRIVIAL(level) << "[" << BOOST_CURRENT_FUNCTION << "] "
-#define PS_LOG(level) BOOST_LOG_TRIVIAL(level)
+
+
+#define PS_LOG_POLICY_NONE 0
+#define PS_LOG_POLICY_BOOST_TRIVIAL 1
+
+#define PS_LOG_POLICY PS_LOG_POLICY_NONE
+
+#ifdef PS_LOG_POLICY == PS_LOG_POLICY_NONE
+    #define PS_LOG(level) if(false) BOOST_LOG_TRIVIAL(level)
+#elif PS_LOG_POLICY == PS_LOG_POLICY_BOOST_TRIVIAL
+    #define PS_LOG(level) BOOST_LOG_TRIVIAL(level)
+#else
+    #error ""not a valid policy""
+#endif
+
 
 #define PS_ASSERT_POLICY_BOOST 0
 #define PS_ASSERT_POLICY_LOG 1

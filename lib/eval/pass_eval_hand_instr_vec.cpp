@@ -270,6 +270,9 @@ struct pass_eval_hand_instr_vec_impl{
                 : engine_{engine}
         {}
         virtual void transform_dispatch(computation_context* ctx, instruction_list* instr_list, computation_result* result){
+
+                static optimized_transform_context static_mem_oct;
+
                 std::vector<instruction_list::iterator> to_map;
 
                 for(auto iter(instr_list->begin()),end(instr_list->end());iter!=end;++iter){
@@ -328,13 +331,12 @@ struct pass_eval_hand_instr_vec_impl{
                         PS_LOG(trace) << "no dispatch";
                 } else {
                         boost::timer::cpu_timer tmr;
-                        ot->apply(oct_, ctx, instr_list, result, to_map);
+                        ot->apply(static_mem_oct, ctx, instr_list, result, to_map);
                         PS_LOG(trace) << "Took " << tmr.format(2, "%w seconds") << " to do main loop";
                 }
         }
 private:
         std::string engine_;
-        optimized_transform_context oct_;
 };
 
 

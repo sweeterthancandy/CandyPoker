@@ -141,7 +141,6 @@ struct computation_pass_manager : std::vector<std::shared_ptr<computation_pass> 
 
 struct pass_permutate : computation_pass{
         virtual void transform(computation_context* ctx, instruction_list* instr_list, computation_result* result)override{
-                boost::timer::cpu_timer tmr;
                 for(auto& instr : *instr_list){
                         if( instr->get_type() != instruction::T_CardEval )
                                 continue;
@@ -159,7 +158,6 @@ struct pass_permutate : computation_pass{
                         instr = std::make_shared< card_eval_instruction>(permed_result_desc, std::get<1>(result));
 
                 }
-                PS_LOG(trace) << format(tmr.elapsed(), 2, "pass_permuatete took %w second");
         }
 };
 struct pass_sort_type : computation_pass{

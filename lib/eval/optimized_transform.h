@@ -29,6 +29,8 @@ struct optimized_transform : optimized_transform_base
         {
                 boost::timer::cpu_timer tmr;
 
+                constexpr bool WithLogging = false;
+
 #ifdef DO_VAlGRIND
                 CALLGRIND_START_INSTRUMENTATION;
 #endif // DO_VAlGRIND
@@ -52,7 +54,7 @@ struct optimized_transform : optimized_transform_base
                         _->declare(S);
                 }
 
-                PS_LOG(trace) << "Have " << S.size() << " unique holdem hands";
+                if(WithLogging) PS_LOG(trace) << "Have " << S.size() << " unique holdem hands";
 
                 // this is the maximually speed up the compution, by preocompyting some stuff
                 rank_opt_device rod = rank_opt_device::create(S);
@@ -64,7 +66,7 @@ struct optimized_transform : optimized_transform_base
                         _->allocate( [&](auto hid){ return allocation_table.find(hid)->second; });
                 }
 
-                PS_LOG(trace) << "Have " << subs.size() << " subs";
+                if (WithLogging) PS_LOG(trace) << "Have " << subs.size() << " subs";
 
                 std::vector<ranking_t> R;
                 R.resize(rod.size());
@@ -111,7 +113,7 @@ struct optimized_transform : optimized_transform_base
 
                 };
 
-                PS_LOG(trace) << tmr.format(4, "init took %w seconds");
+                if (WithLogging) PS_LOG(trace) << tmr.format(4, "init took %w seconds");
                 tmr.start();
                 size_t count = 0;
                 //std::unordered_map<int, int> non_zero_m;
@@ -140,7 +142,7 @@ struct optimized_transform : optimized_transform_base
                         #endif
                         ++count;
                 }
-                PS_LOG(trace) << tmr.format(4, "no    flush boards took %w seconds") << " to do " << count << " boards";
+                if (WithLogging) PS_LOG(trace) << tmr.format(4, "no    flush boards took %w seconds") << " to do " << count << " boards";
                 tmr.start();
                 count = 0;
                 for(auto const& b : otc.w.weighted_singleton_rng() ){
@@ -166,7 +168,7 @@ struct optimized_transform : optimized_transform_base
                         #endif
                         ++count;
                 }
-                PS_LOG(trace) << tmr.format(4, "maybe flush boards took %w seconds") << " to do " << count << " boards";
+                if (WithLogging) PS_LOG(trace) << tmr.format(4, "maybe flush boards took %w seconds") << " to do " << count << " boards";
 
                 //for (const auto& p : non_zero_m)
                 //{

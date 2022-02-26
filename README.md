@@ -7,9 +7,24 @@ This is a C++ poker project authored by Gerry Candy, which aims to be a general 
 
 The original goals have now been achived
 
-# Getting Started
+The requirements are boost, and Eigen. Although Eigen is just used for Vector/Matrix multiplication.
 
-The requirements are boost, and Eigen. Although Eigen is just used for Vector/Matrix multiplication
+# Getting Started Windows
+        
+        REM you first need to clone https://gitlab.com/libeigen/eigen.git to somewhere
+        REM also get some version of boost 
+        git@github.com:sweeterthancandy/CandyPoker.git
+        cd CandyPoker
+        mkdir deps
+        cd deps
+        git clone https://github.com/google/googletest.git
+        cd ..
+        cmake -B build -DCMAKE_BUILD_TYPE=Release -DBoost_INCLUDE_DIR=C:\work\boost_1_77_0\boost_1_77_0
+        REM open build\ps.sln and build
+        
+
+# Getting Started Linux
+
 
         git@github.com:sweeterthancandy/CandyPoker.git
         cd CandyPoker
@@ -19,6 +34,8 @@ The requirements are boost, and Eigen. Although Eigen is just used for Vector/Ma
         cd ..
         cmake -G Ninja -DCMAKE_BUILD_TYPE=Release .
         ninja
+
+
 
         # simple equity evaluation
         ./candy-poker eval AA KK 

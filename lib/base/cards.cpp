@@ -60,6 +60,7 @@ namespace{
 
 namespace ps{
         suit_decl const& suit_decl::get(suit_id id){
+                PS_ASSERT_VALID_SUIT_ID(id);
                 using namespace decl;
                 static decl_factory<suit_decl> fac{_h, _d, _c, _s};
                 return fac.get(id);
@@ -78,6 +79,7 @@ namespace ps{
         }
         
         rank_decl const& rank_decl::get(rank_id id){
+                PS_ASSERT_VALID_RANK_ID(id);
                 using namespace decl;
                 static decl_factory<rank_decl> fac{_2,_3,_4,_5,_6,
                                                    _7,_8,_9,_T,_J,
@@ -107,6 +109,7 @@ namespace ps{
         }
         
         card_decl const& card_decl::get(card_id id){
+                PS_ASSERT_VALID_CARD_ID(id);
                 using namespace decl;
                 static decl_factory<card_decl> fac{
                         _Ah, _Kh, _Qh, _Jh, _Th, _9h, _8h, _7h, _6h, _5h, _4h, _3h, _2h,
@@ -125,12 +128,17 @@ namespace ps{
         holdem_id holdem_hand_decl::make_id( rank_id r0, suit_id s0,
                                 rank_id r1, suit_id s1)
         {
+                PS_ASSERT_VALID_RANK_ID(r0);
+                PS_ASSERT_VALID_RANK_ID(r1);
+                PS_ASSERT_VALID_SUIT_ID(s0);
+                PS_ASSERT_VALID_SUIT_ID(s1);
                 holdem_id x{ card_decl::make_id(s0, r0) };
                 holdem_id y{ card_decl::make_id(s1, r1) };
                 return make_id(x,y);
         }
         
         holdem_hand_decl const& holdem_hand_decl::get(holdem_id id){
+                PS_ASSERT_VALID_HOLDEM_ID(id);
                 static auto unique_hand_vec = []()
                 {
                     std::vector< holdem_hand_decl> aux;
@@ -152,6 +160,8 @@ namespace ps{
      
 
         holdem_class_id holdem_class_decl::make_id(holdem_class_type cat, rank_id x, rank_id y){
+                PS_ASSERT_VALID_RANK_ID(x);
+                PS_ASSERT_VALID_RANK_ID(y);
                 using std::get;
                 static auto aux = [](){
                         std::vector<std::tuple<int,rank_id, rank_id, holdem_class_id> > vec;
@@ -184,6 +194,7 @@ namespace ps{
                 BOOST_THROW_EXCEPTION(std::domain_error("not a tuple"));
         }
         holdem_class_decl const& holdem_class_decl::get(holdem_id id){
+                PS_ASSERT_VALID_HOLDEM_ID(id);
                 static decl_factory<holdem_class_decl> fac{
                         [](){
                                 std::vector<holdem_class_decl> aux;

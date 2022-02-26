@@ -43,6 +43,11 @@ SOFTWARE.
 #include "ps/support/index_sequence.h"
 
 
+#define PS_ASSERT_VALID_SUIT_ID(x) PS_ASSERT( x < suit_decl::max_id, "suit_id = " << x)
+#define PS_ASSERT_VALID_RANK_ID(x) PS_ASSERT( x < rank_decl::max_id, "rank_id = " << x)
+#define PS_ASSERT_VALID_CARD_ID(x) PS_ASSERT( x < card_decl::max_id, "card_id = " << x)
+#define PS_ASSERT_VALID_HOLDEM_ID(x) PS_ASSERT( x < holdem_hand_decl::max_id, "holdem_hand_id = " << x)
+
 namespace ps{
         
         struct card_vector : std::vector<card_id>{
@@ -54,8 +59,8 @@ namespace ps{
                         for( auto id : *this ){
                                 m |= ( static_cast<size_t>(1) << id );
                         }
-                        PS_ASSERT( __builtin_popcountll(m) == size(),
-                                "__builtin_popcountll(m) = " << __builtin_popcountll(m) << 
+                        PS_ASSERT( detail::popcount(m) == size(),
+                                "__builtin_popcountll(m) = " << detail::popcount(m) <<
                                 ", size() = " << size()  << 
                                 ", bits = {" << std::bitset<sizeof(size_t)*8>{static_cast<unsigned long long>(m)}.to_string() << "}"
                         );
@@ -76,7 +81,9 @@ namespace ps{
                 static constexpr suit_id max_id = 4;
                 suit_decl(suit_id id, char sym, std::string const& name)
                         : id_{id}, sym_{sym}, name_{name}
-                {}
+                {
+                    PS_ASSERT_VALID_SUIT_ID(id);
+                }
                 auto id()const{ return id_; }
                 const char symbol()const { return sym_; }
                 std::string to_string()const{ return std::string{sym_}; }
@@ -219,14 +226,16 @@ namespace ps{
                 static holdem_hand_decl const& parse(std::string const& s);
                 static holdem_id make_id( rank_id r0, suit_id s0, rank_id r1, suit_id s1);
                 inline static holdem_id make_id( card_id x, card_id y){
+                        PS_ASSERT_VALID_CARD_ID(x);
+                        PS_ASSERT_VALID_CARD_ID(y);
                         static std::array<holdem_id, 52*52> proto{
                                 [](){
                                         size_t id{0};
                                         std::array<holdem_id, 52*52> result;
-                                        for( char a{52};a!=1;){
-                                                --a;
-                                                for( char b{a};b!=0;){
-                                                        --b;
+                                        for(card_id a =0; a != card_decl::max_id; ++a)
+                                        {
+                                                for(card_id b=0;b <= a;++b)
+                                                {
                                                         result[a * 52 + b ] = id;
                                                         result[b * 52 + a ] = id;
                                                         ++id;
@@ -672,5 +681,8 @@ namespace ps{
 } // end namespace cards
 
 #include "ps/base/decl.h"
+
+
+
 
 #endif // PS_CORE_CARDS_H

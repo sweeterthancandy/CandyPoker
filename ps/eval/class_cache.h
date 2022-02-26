@@ -45,7 +45,7 @@ SOFTWARE.
 
 namespace boost{
 namespace serialization{
-        struct access;
+        class access;
 } // end namespace serialization
 } // end namespace boost
 

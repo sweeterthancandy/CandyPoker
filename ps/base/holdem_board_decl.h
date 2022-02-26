@@ -136,7 +136,7 @@ struct holdem_board_decl{
                                 ++suit_hist[card_suit_from_id(id)];
                         }
                         mask_ = vec_.mask();
-                        PS_ASSERT( __builtin_popcountll(mask_) == 5, "__builtin_popcountll(mask_) = " <<__builtin_popcountll(mask_) ); 
+                        PS_ASSERT( detail::popcount(mask_) == 5, "__builtin_popcountll(mask_) = " << detail::popcount(mask_) );
                 
                         card_vector flush_suit_board_;
 

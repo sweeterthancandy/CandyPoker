@@ -51,7 +51,7 @@ namespace ps{
 namespace detail{
         inline int popcount(unsigned long long val)
         {
-                return __popcnt64(val);
+            return static_cast<int>(__popcnt64(val));
         }
 } // detail
 } // ps

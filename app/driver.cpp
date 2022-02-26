@@ -343,12 +343,19 @@ static TrivialCommandDecl<PrintBoard> PrintBoardDecl{"print-board"};
 
 
 int main(int argc, char** argv){
+#if 0
     static char* argv_proxy[] = {
         "dummy",
         "eval",
         "AKo",
         "T9s+",
         nullptr };
+#else
+    static char* argv_proxy[] = {
+        "dummy",
+        "solver",
+        nullptr };
+#endif
     int argc_proxy = sizeof(argv_proxy) / sizeof(void*) - 1;
 
         try{

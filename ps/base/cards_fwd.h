@@ -40,10 +40,14 @@ SOFTWARE.
 //#define PS_LOG(level) BOOST_LOG_TRIVIAL(level) << "[" << BOOST_CURRENT_FUNCTION << "] "
 #define PS_LOG(level) BOOST_LOG_TRIVIAL(level)
 
-#if 0
-#ifndef BOOST_ASSERT_IS_VOID
-        #define PS_ASSERT(expr, msg) (void)0
-#else
+#define PS_ASSERT_POLICY_BOOST 0
+#define PS_ASSERT_POLICY_LOG 1
+#define PS_ASSERT_POLICY_NONE 2
+
+#define PS_ASSERT_POLICY PS_ASSERT_POLICY_LOG
+
+
+#if PS_ASSERT_POLICY == PS_ASSERT_POLICY_BOOST
         #define PS_ASSERT(expr, msg)                                       \
                 do{                                                        \
                         if( ! ( expr ) ){                                  \
@@ -51,19 +55,18 @@ SOFTWARE.
                         }                                                  \
                         BOOST_ASSERT( expr);                               \
                 }while(0)
-#endif
-#endif
-
-        #if 0
+#elif PS_ASSERT_POLICY == PS_ASSERT_POLICY_LOG
         #define PS_ASSERT(expr, msg)                                       \
                 do{                                                        \
                         if( ! ( expr ) ){                                  \
                                 PS_LOG(error) << "{Assert Failed}" << msg; \
                         }                                                  \
                 }while(0)
-        #endif
-
+#elif PS_ASSERT_POLICY == PS_ASSERT_POLICY_NONE
 #define PS_ASSERT(expr, msg)              
+#else
+#error "not a valid assert policy"
+#endif
 
 
 namespace ps{

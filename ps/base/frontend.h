@@ -160,7 +160,11 @@ namespace ps{
 
                 template<suit_category Suit_Category, int Order_Decl>
                 struct basic_rank_tuple{
-                        explicit basic_rank_tuple(rank_id x, rank_id y):x_{x},y_{y}{}
+                        explicit basic_rank_tuple(rank_id x, rank_id y):x_{x},y_{y}
+                        {
+                            PS_ASSERT_VALID_RANK_ID(x);
+                            PS_ASSERT_VALID_RANK_ID(y);
+                        }
                         auto first()const{ return x_; }
                         auto second()const{ return y_; }
 

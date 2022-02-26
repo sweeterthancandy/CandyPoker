@@ -136,6 +136,8 @@ struct result_description
         {
             result.emplace_back(p.first, std::move(p.second.get()));
         }
+
+        return result;
     }
 private:
     std::string group_;

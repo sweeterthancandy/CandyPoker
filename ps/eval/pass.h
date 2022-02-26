@@ -177,7 +177,7 @@ struct pass_sort_type : computation_pass{
                                 {
                                         auto lt = reinterpret_cast<card_eval_instruction*>(l.get());
                                         auto rt = reinterpret_cast<card_eval_instruction*>(r.get());
-                                        return lt->get_vector() < rt->get_vector();
+                                        return std::tie(lt->group(), lt->get_vector()) < std::tie(lt->group(), rt->get_vector());
                                 }
                                 break;
                         }
@@ -201,7 +201,7 @@ struct pass_collect : computation_pass{
                         auto a = reinterpret_cast<card_eval_instruction*>(&**subset[subset.size()-1]);
                         auto b = reinterpret_cast<card_eval_instruction*>(&**subset[subset.size()-2]);
 
-                        if( a->get_vector() == b->get_vector() ){
+                        if(std::tie(a->group(), a->get_vector()) == std::tie(b->group(), b->get_vector())){
                                 b->set_matrix( a->get_matrix() + b->get_matrix() );
                                 instr_list->erase(subset.back());
                                 subset.pop_back();

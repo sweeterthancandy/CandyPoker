@@ -61,6 +61,10 @@ SOFTWARE.
 #include "ps/eval/holdem_class_vector_cache.h"
 
 #include <boost/program_options.hpp>
+
+#include "ps/interface/interface.h"
+#include "ps/base/tree.h"
+
 namespace bpo = boost::program_options;
 
 using namespace ps;
@@ -76,6 +80,7 @@ struct MaskEval : Command{
 
                 bool debug{false};
                 bool help{false};
+                bool breakdown{ false };
                 std::vector<std::string> players_s;
                 // way to choose a specific one
                 std::string engine;
@@ -83,6 +88,7 @@ struct MaskEval : Command{
                 bpo::options_description desc("Solver command");
                 desc.add_options()
                         ("debug"     , bpo::value(&debug)->implicit_value(true), "debug flag")
+                        ("breakdown", bpo::value(&breakdown)->implicit_value(true), "breakdown")
                         ("help"      , bpo::value(&help)->implicit_value(true), "this message")
                         ("player"    , bpo::value(&players_s), "player ranges")
                         ("engine"     , bpo::value(&engine), "choose speicifc eval mechinism")
@@ -105,45 +111,104 @@ struct MaskEval : Command{
                         return EXIT_SUCCESS;
                 }
 
-                std::vector<frontend::range> players;
-                for(auto const& s : players_s ){
-                        players.push_back( expand(frontend::parse(s)) );
+
+
+                if (breakdown)
+                {
+                    const size_t num_players = players_s.size();
+
+                    std::vector<frontend::range> players;
+                    for (auto const& s : players_s) {
+                        players.push_back(frontend::parse(s));
+                    }
+
+                    struct SubComputation
+                    {
+                        std::vector<holdem_class_id> opt_class_vec;
+                        std::vector<holdem_id> player_hand_vec;
+                        std::vector<std::string> player_hand_str;
+                    };
+                    std::vector<SubComputation> subs;
+
+                    tree_range root(players);
+                    for (auto const& c : root.children) {
+                        for (auto const& d : c.children) {
+                            std::vector<std::string> aux_as_str;
+                            for (auto const& id : d.players)
+                            {
+                                aux_as_str.push_back(holdem_hand_decl::get(id).to_string());
+                            }
+                            subs.push_back(SubComputation{
+                                c.opt_cplayers,
+                                d.players,
+                                aux_as_str });
+                        }
+                    }
+
+                    subs.push_back(SubComputation{
+                        {},
+                        {},
+                        players_s });
+                
+
+                    std::vector<std::vector<std::string>> tmp;
+                    for (auto const& x : subs)
+                    {
+                        std::cout << std_vector_to_string(x.player_hand_str) << "\n";
+                        tmp.push_back(x.player_hand_str);
+                    }
+                    auto result_list_view = interface_::evaluate_list(tmp, engine);
+
+                    std::vector<std::string> title;
+
+
+                    title.emplace_back("i"); // breakdown index
+                    title.emplace_back("p"); // player index
+                    title.emplace_back("class");
+                    title.emplace_back("hand");
+                    title.emplace_back("equity");
+
+                    using namespace Pretty;
+                    std::vector< LineItem > lines;
+                    lines.push_back(title);
+
+                    for (size_t idx = 0; idx != subs.size(); ++idx)
+                    {
+                        auto const& sub = subs[idx];
+                        auto const& result_view = result_list_view[idx];
+                        for (size_t player_index = 0; player_index != num_players; ++player_index)
+                        {
+                            auto const& player_view = result_view.player_view(player_index);
+
+                            const auto class_fmt = [&]()->std::string {
+                                if (sub.opt_class_vec.size()) {
+                                    return holdem_class_decl::get(sub.opt_class_vec.at(player_index)).to_string();
+                                }
+                                return "";
+                            }();
+
+                            const auto equity_fmt = str(boost::format("%.4f%%") % (player_view.EquityAsDouble() * 100));
+
+          
+                            lines.push_back(
+                                std::vector<std::string>{
+                                    std::to_string(idx),
+                                    std::to_string(player_index),
+                                    class_fmt,
+                                    sub.player_hand_str.at(player_index),
+                                    equity_fmt });
+                            
+                        }
+                    }
+                    RenderTablePretty(std::cout, lines);
+                }
+                else
+                {
+                    auto result_view = interface_::evaluate(players_s, engine);
+                    pretty_print_equity_breakdown_mat(std::cout, result_view.get_matrix(), players_s);
                 }
 
-                computation_context comp_ctx{players.size()};
-
-                computation_pass_manager mgr;
-                if( debug )
-                        mgr.add_pass<pass_print>();
-                mgr.add_pass<pass_permutate>();
-                mgr.add_pass<pass_sort_type>();
-                mgr.add_pass<pass_collect>();
-                if( debug )
-                        mgr.add_pass<pass_print>();
-                mgr.add_pass<pass_eval_hand_instr_vec>(engine);
-                if( debug )
-                        mgr.add_pass<pass_print>();
-                mgr.add_pass<pass_write>();
-
-                boost::timer::auto_cpu_timer at;
-
-                #if 0
-                instruction_list instr_list = frontend_to_instruction_list(players);
-                auto result = mgr.execute_old(&comp_ctx, &instr_list);
-
-                if( result ){
-                        pretty_print_equity_breakdown_mat(std::cout, *result, args_);
-                }
-                #endif
-                computation_result result{comp_ctx};
-                std::string tag = "B";
-                auto const& m = result.allocate_tag(tag);
-                instruction_list instr_list = frontend_to_instruction_list(tag, players);
-                mgr.execute_(&comp_ctx, &instr_list, &result);
-
-                if( result ){
-                        pretty_print_equity_breakdown_mat(std::cout, m, players_s);
-                }
+                
 
                 return EXIT_SUCCESS;
         }

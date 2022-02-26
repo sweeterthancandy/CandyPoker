@@ -145,7 +145,7 @@ struct basic_eval_instruction : instruction{
         }
         virtual std::string to_string()const override{
                 std::stringstream sstr;
-                sstr << (Type == T_CardEval ? "CardEval" : "ClassEval" ) << "{" << vec_ << ", " << matrix_to_string(matrix_) << "}";
+                sstr << (Type == T_CardEval ? "CardEval" : "ClassEval" ) << "{" << vec_ << ", " << matrix_to_string(matrix_) << ", group=" << group() << "}";
                 return sstr.str();
         }
         

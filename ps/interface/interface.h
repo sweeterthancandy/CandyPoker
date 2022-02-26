@@ -145,6 +145,8 @@ public:
 	const auto& player_view(size_t idx)const {
 		return players_[idx];
 	}
+
+	matrix_t const& get_matrix()const { return result_; }
 private:
 	std::vector<std::string> player_ranges_;
 	matrix_t result_;

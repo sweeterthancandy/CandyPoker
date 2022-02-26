@@ -30,6 +30,8 @@ SOFTWARE.
 #define PS_CARDS_FWD_H
 
 #include <string>
+#include <iostream>
+#include <sstream>
 #include <cstdint>
 
 #include <Eigen/Dense>
@@ -134,10 +136,24 @@ namespace ps{
                 sstr << "[";
                 for(size_t j=0;j!=vec.size();++j){
                         sstr << sep << vec(j);
-                        sep = ",";
+                        
+                    sep = ",";
                 }
                 sstr << "]";
                 return sstr.str();
+        }
+        template<class VectorType>
+        inline std::string std_vector_to_string(VectorType const& vec) {
+            std::stringstream sstr;
+            std::string sep;
+            sstr << "[";
+            for (size_t j = 0; j != vec.size(); ++j) {
+                sstr << sep << vec[j];
+
+                sep = ",";
+            }
+            sstr << "]";
+            return sstr.str();
         }
         
         

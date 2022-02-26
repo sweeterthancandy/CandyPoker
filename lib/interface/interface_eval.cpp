@@ -105,12 +105,24 @@ namespace interface_ {
             
         }
 
+        const bool debug = true;
+
         computation_pass_manager mgr;
         mgr.add_pass<pass_permutate>();
+        if (debug)
+            mgr.add_pass<pass_print>();
         mgr.add_pass<pass_sort_type>();
+        if (debug)
+            mgr.add_pass<pass_print>();
         mgr.add_pass<pass_collect>();
+        if (debug)
+            mgr.add_pass<pass_print>();
         mgr.add_pass<pass_eval_hand_instr_vec>(engine);
+        if (debug)
+            mgr.add_pass<pass_print>();
         mgr.add_pass<pass_write>();
+        if (debug)
+            mgr.add_pass<pass_print>();
         mgr.execute_(&comp_ctx, &agg_instr_list, &result);
 
         std::vector< EvaulationResultView> result_view;

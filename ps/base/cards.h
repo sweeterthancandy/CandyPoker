@@ -282,6 +282,18 @@ namespace ps{
                 holdem_hand_vector(Args&&... args)
                 : std::vector<ps::holdem_id>{std::forward<Args>(args)...}
                 {}
+                // for unit testing
+                template<class... Args>
+                static holdem_hand_vector union_(Args&&... args)
+                {
+                    std::unordered_set< holdem_id> s;
+                    const int aux[] = {
+                        (std::for_each(std::cbegin(args), std::cend(args), [&](holdem_id id) { s.insert(id); }), 0)...
+                    };
+                    return holdem_hand_vector(std::cbegin(s), std::cend(s));
+                }
+
+
                 holdem_hand_decl const& decl_at(size_t i)const;
                 friend std::ostream& operator<<(std::ostream& ostr, holdem_hand_vector const& self);
                 auto find_injective_permutation()const;

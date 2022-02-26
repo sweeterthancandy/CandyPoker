@@ -631,14 +631,19 @@ namespace ps{
                                 int _[]={0, ( operator+=(std::forward<Args>(args)),0)...};
                         }
                         #endif
-                        friend std::ostream& operator<<(std::ostream& ostr, range const& self){
+                        std::string to_string()const
+                        {
+                                std::stringstream ss;
                                 using printer = detail::operator_left_shift;
-                                for(size_t i{0};i!=self.subs_.size();++i){
-                                        if( i != 0)
-                                                ostr << ", ";
-                                        boost::apply_visitor( printer(ostr), self.subs_[i] );
+                                for (size_t i{ 0 }; i != subs_.size(); ++i) {
+                                    if (i != 0)
+                                        ss << ", ";
+                                    boost::apply_visitor(printer(ss), subs_[i]);
                                 }
-                                return ostr;
+                                return ss.str();
+                        }
+                        friend std::ostream& operator<<(std::ostream& ostr, range const& self){
+                                return ostr << self.to_string();
                         }
                         range& operator+=(sub_range_t sub){
                                 subs_.emplace_back(sub);

@@ -147,21 +147,16 @@ struct pass_permutate : computation_pass{
                                 continue;
                         auto ptr = reinterpret_cast<card_eval_instruction*>(instr.get());
                         auto const& vec = ptr->get_vector();
-                        auto const& matrix = ptr->get_matrix();
                         auto result = permutate_for_the_better(vec);
 
                         if( std::get<1>(result) == vec )
                                 continue;
 
-                        matrix_t perm_matrix(vec.size(), vec.size());
-                        perm_matrix.fill(0);
                         auto const& perm = std::get<0>(result);
-                        for(size_t idx=0;idx!=perm.size();++idx){
-                                perm_matrix(idx, perm[idx]) = 1.0;
-                        }
 
-                        ptr->set_vector(std::get<1>(result));
-                        ptr->set_matrix( matrix * perm_matrix );
+                        std::vector<result_description> permed_result_desc = result_description::apply_perm(ptr->result_desc(), perm);
+
+                        instr = std::make_shared< card_eval_instruction>(permed_result_desc, std::get<1>(result));
 
                 }
                 PS_LOG(trace) << format(tmr.elapsed(), 2, "pass_permuatete took %w second");
@@ -177,7 +172,7 @@ struct pass_sort_type : computation_pass{
                                 {
                                         auto lt = reinterpret_cast<card_eval_instruction*>(l.get());
                                         auto rt = reinterpret_cast<card_eval_instruction*>(r.get());
-                                        return std::tie(lt->group(), lt->get_vector()) < std::tie(lt->group(), rt->get_vector());
+                                        return std::tie(lt->get_vector()) < std::tie(rt->get_vector());
                                 }
                                 break;
                         }
@@ -189,26 +184,42 @@ struct pass_collect : computation_pass{
         virtual void transform(computation_context* ctx, instruction_list* instr_list, computation_result* result)override{
                 using iter_type = decltype(instr_list->begin());
 
-                std::vector<iter_type> subset;
+                std::map<
+                    holdem_hand_vector,
+                    std::vector<iter_type>
+                > vec_device;
 
+                
                 for(iter_type iter(instr_list->begin()),end(instr_list->end());iter!=end;++iter){
-                        if( (*iter)->get_type() == instruction::T_CardEval )
-                                subset.push_back(iter);
+                    if ((*iter)->get_type() == instruction::T_CardEval)
+                    {
+                        const auto ptr = reinterpret_cast<card_eval_instruction*>(&**iter);
+                        vec_device[ptr->get_vector()].push_back(iter);
+                    }
                 }
 
-
-                for(; subset.size() >= 2 ;){
-                        auto a = reinterpret_cast<card_eval_instruction*>(&**subset[subset.size()-1]);
-                        auto b = reinterpret_cast<card_eval_instruction*>(&**subset[subset.size()-2]);
-
-                        if(std::tie(a->group(), a->get_vector()) == std::tie(b->group(), b->get_vector())){
-                                b->set_matrix( a->get_matrix() + b->get_matrix() );
-                                instr_list->erase(subset.back());
-                                subset.pop_back();
-                        }  else{
-                                subset.pop_back();
-                        }
+                for (auto const& p : vec_device)
+                {
+                    if (p.second.size() < 2)
+                    {
+                        continue;
+                    }
+                    std::vector<result_description> agg_result_desc;
+                    for (auto const& iter : p.second)
+                    {
+                        const auto ptr = reinterpret_cast<card_eval_instruction*>(&**iter);
+                        auto const& step_result_desc = ptr->result_desc();
+                        std::copy(
+                            std::cbegin(step_result_desc),
+                            std::cend(step_result_desc),
+                            std::back_inserter(agg_result_desc));
+                        instr_list->erase(iter);
+                    }
+                    agg_result_desc = result_description::aggregate(agg_result_desc);
+                    auto agg_ptr = std::make_shared< card_eval_instruction>(agg_result_desc, p.first);
+                    instr_list->push_back(agg_ptr);
                 }
+               
 
         }
 };
@@ -222,6 +233,7 @@ struct pass_print : computation_pass{
         }
 };
 
+#if 0
 struct pass_class2cards : instruction_map_pass{
         virtual boost::optional<instruction_list> try_map_instruction(computation_context* ctx, instruction* instrr)override{
                 if( instrr->get_type() != instruction::T_ClassVec )
@@ -250,11 +262,12 @@ struct pass_class2cards : instruction_map_pass{
                 }
                 instruction_list result;
                 for(auto const& _ : meta){
-                        result.push_back(std::make_shared<card_eval_instruction>(instrr->group(), _.first, _.second));
+                        result.push_back(std::make_shared<card_eval_instruction>(instr->result_desc(), _.first, _.second));
                 }
                 return result;
         }
 };
+#endif
 
 struct pass_write : computation_pass{
         virtual void transform(computation_context* ctx, instruction_list* instr_list, computation_result* result)override{
@@ -266,7 +279,11 @@ struct pass_write : computation_pass{
                 }
                 for(auto instr_ : *instr_list ){
                         auto instr = reinterpret_cast<matrix_instruction*>(instr_.get());
-                        result->allocate_tag(instr->group()) += instr->get_matrix();
+                        auto const& result_desc = instr->result_desc();
+                        for (auto const& output_target : result_desc)
+                        {
+                            result->allocate_tag(output_target.group()) += instr->result_matrix() * output_target.transform();
+                        }      
                 }
         }
 };

@@ -72,7 +72,7 @@ void class_cache::load(std::string const& filename)
 }
 void class_cache::create(size_t n, class_cache* cache, std::string const& file_name, size_t num_threads){
         computation_pass_manager mgr;
-        mgr.add_pass<pass_class2cards>();
+        //mgr.add_pass<pass_class2cards>();
         mgr.add_pass<pass_permutate>();
         mgr.add_pass<pass_sort_type>();
         mgr.add_pass<pass_collect>();
@@ -171,7 +171,7 @@ void class_cache::create(size_t n, class_cache* cache, std::string const& file_n
 
                                 auto tag = boost::lexical_cast<std::string>(token++);
                                 tags.push_back(tag);
-                                instr_list.push_back(std::make_shared<class_vec_instruction>(tag, cv));
+                                instr_list.push_back(std::make_shared<class_eval_instruction>(tag, cv));
                         }
                         mgr.execute_(&comp_ctx, &instr_list, &result);
                         BOOST_ASSERT( result );

@@ -56,7 +56,7 @@ namespace ps{
                         detail::dispatch_ranked_vector_mat(mat, ranked, n, weight);
                 }
                 void finish(){
-                        *iter_ = std::make_shared<matrix_instruction>(instr_->group(), mat * instr_->get_matrix());
+                        *iter_ = std::make_shared<matrix_instruction>(instr_->result_desc(), mat);
                 }
                 void declare(std::unordered_set<holdem_id>& S){
                         for(auto _ : hv){

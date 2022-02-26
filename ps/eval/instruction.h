@@ -52,26 +52,103 @@ struct instruction{
                 T_ClassEval,
                 T_Matrix,
                 T_ClassVec,
+                T_NOP,
         };
-        explicit instruction(std::string const& grp, type t)
-                :group_{grp}, type_{t}
+        explicit instruction(type t)
+                : type_{t}
         {}
         type get_type()const{ return type_; }
 
         virtual std::string to_string()const=0;
         virtual std::shared_ptr<instruction> clone()const=0;
-        std::string const& group()const{ return group_; }
 private:
-        std::string group_;
         type type_;
 };
 
+struct nop_instruction : instruction
+{
+    nop_instruction() :instruction{ T_NOP } {}
+    virtual std::string to_string()const {
+        return "NOP";
+    }
+    virtual std::shared_ptr<instruction> clone()const
+    {
+        return std::make_shared<nop_instruction>();
+    }
+};
+
+struct result_description
+{
+    result_description(
+        std::string const& group,
+        matrix_t const& transform)
+        : group_{ group }, transform_{ transform }
+    {}
+    std::string const& group()const {
+        return group_;
+    }
+    matrix_t const& transform()const
+    {
+        return transform_;
+    }
+    friend std::ostream& operator<<(std::ostream& ostr, result_description const& self)
+    {
+        return ostr << "ResultDesc{" << matrix_to_string(self.transform()) << ", group=" << self.group() << "}";
+    }
+    static std::vector<result_description> apply_perm(std::vector<result_description> const& desc_list, std::vector<int> const& perm)
+    {
+
+        matrix_t perm_matrix(perm.size(), perm.size());
+        perm_matrix.fill(0);
+
+        for (size_t idx = 0; idx != perm.size(); ++idx) {
+            perm_matrix(idx, perm[idx]) = 1.0;
+        }
+
+        std::vector<result_description> result;
+        for (auto const& x : desc_list)
+        {
+            result.emplace_back(x.group(), x.transform() * perm_matrix);
+        }
+        return result;
+    }
+    static std::vector<result_description> aggregate(std::vector<result_description> const& desc_list)
+    {
+        std::unordered_map<
+            std::string,
+            boost::optional<matrix_t>
+        > sum_device;
+        for (auto const& x : desc_list)
+        {
+            auto& head = sum_device[x.group()];
+            if (head.has_value())
+            {
+                head.get() += x.transform();
+            }
+            else
+            {
+                head.emplace(x.transform());
+            }
+        }
+
+        std::vector<result_description> result;
+        for (auto const& p : sum_device)
+        {
+            result.emplace_back(p.first, std::move(p.second.get()));
+        }
+    }
+private:
+    std::string group_;
+    matrix_t transform_;
+};
 
 
+#if 0
 
 struct class_vec_instruction : instruction{
-        explicit class_vec_instruction(std::string const& grp, holdem_class_vector vec)
-                :instruction{grp, T_ClassVec}
+        explicit class_vec_instruction(std::vector<result_description> const& result_desc, holdem_class_vector vec)
+                :instruction{T_ClassVec}
+            , result_desc_{ result_desc }
                 ,vec_{std::move(vec)}
         {}
         virtual std::string to_string()const override{
@@ -80,23 +157,27 @@ struct class_vec_instruction : instruction{
                 return sstr.str();
         }
         virtual std::shared_ptr<instruction> clone()const override{
-                return std::make_shared<class_vec_instruction>(group(), vec_);
+                return std::make_shared<class_vec_instruction>(result_desc_, vec_);
         }
         holdem_class_vector const& get_vector()const{ return vec_; }
+        auto const& result_desc()const { return result_desc_; }
 private:
+        std::vector<result_description> result_desc_;
         holdem_class_vector vec_;
 };
+#endif
 
 struct matrix_instruction : instruction{
-        explicit matrix_instruction(std::string const& grp, matrix_t mat,
+        explicit matrix_instruction(std::vector< result_description> result_desc, matrix_t mat,
                                     std::string const& dbg_msg = std::string{})
-                :instruction{grp, T_Matrix}
-                ,mat_{std::move(mat)}
+                :instruction{ T_Matrix}
+                , result_desc_{std::move(result_desc)}
+                , mat_{ std::move(mat) }
                 ,dbg_msg_{dbg_msg}
         {}
         virtual std::string to_string()const override{
                 std::stringstream sstr;
-                sstr << "Matrix{" << matrix_to_string(mat_);
+                sstr << "Matrix{" << mat_ << ", " << std_vector_to_string(result_desc_);
                 if( dbg_msg_.size() ){
                         sstr << ", " << dbg_msg_;
                 }
@@ -104,11 +185,13 @@ struct matrix_instruction : instruction{
                 return sstr.str();
         }
         virtual std::shared_ptr<instruction> clone()const override{
-                return std::make_shared<matrix_instruction>(group(), mat_);
+                return std::make_shared<matrix_instruction>(result_desc_, mat_);
         }
-        matrix_t const& get_matrix()const{ return mat_; }
+        matrix_t const& result_matrix()const { return mat_; }
+        std::vector< result_description> const& result_desc()const { return result_desc_; }
         std::string const& debug_message()const{ return dbg_msg_; }
 private:
+        std::vector< result_description> result_desc_;
         matrix_t mat_;
         std::string dbg_msg_;
 };
@@ -119,16 +202,16 @@ struct basic_eval_instruction : instruction{
         using vector_type = VectorType;
         using self_type = basic_eval_instruction;
 
-        basic_eval_instruction(std::string const& grp, vector_type const& vec)
-                : instruction{grp, Type}
+        basic_eval_instruction(std::string const& group, vector_type const& vec)
+                : instruction{Type}
                 , vec_{vec}
-                , matrix_{matrix_t::Identity(vec.size(), vec.size())}
+            , result_desc_{ {result_description(group, matrix_t::Identity(vec.size(), vec.size()))} }
         {
         }
-        basic_eval_instruction(std::string const& grp, vector_type const& vec, matrix_t const& matrix)
-                : instruction{grp, Type}
+        basic_eval_instruction(std::vector<result_description> result_desc, vector_type const& vec)
+                : instruction{Type}
                 , vec_{vec}
-                , matrix_{matrix}
+                , result_desc_{std::move(result_desc)}
         {
         }
         holdem_hand_vector get_vector()const{
@@ -137,30 +220,24 @@ struct basic_eval_instruction : instruction{
         void set_vector(holdem_hand_vector const& vec){
                 vec_ = vec;
         }
-        matrix_t const& get_matrix()const{
-                return matrix_;
-        }
-        void set_matrix(matrix_t const& matrix){
-                matrix_ = matrix;
-        }
         virtual std::string to_string()const override{
                 std::stringstream sstr;
-                sstr << (Type == T_CardEval ? "CardEval" : "ClassEval" ) << "{" << vec_ << ", " << matrix_to_string(matrix_) << ", group=" << group() << "}";
+                sstr << (Type == T_CardEval ? "CardEval" : "ClassEval" ) << "{" << vec_ << ", group=" << std_vector_to_string(result_desc_) << "}";
                 return sstr.str();
         }
         
         virtual std::shared_ptr<instruction> clone()const override{
-                return std::make_shared<self_type>(group(), vec_, matrix_);
+                return std::make_shared<self_type>(result_desc_, vec_);
         }
         
         friend std::ostream& operator<<(std::ostream& ostr, basic_eval_instruction const& self){
                 return ostr << self.to_string();
         }
-
+        auto const& result_desc()const { return result_desc_; }
 
 private:
         vector_type vec_;
-        matrix_t matrix_;
+        std::vector<result_description> result_desc_;
 };
 
 using card_eval_instruction  = basic_eval_instruction<holdem_hand_vector, instruction::T_CardEval>;

@@ -63,7 +63,7 @@ namespace ps{
                                 mat(0, idx) += wins_[idx];
                                 mat(1, idx) += draw2_[idx];
                         }
-                        *iter_ = std::make_shared<matrix_instruction>(instr_->group(), mat * instr_->get_matrix());
+                        *iter_ = std::make_shared<matrix_instruction>(instr_->result_desc(), mat);
                 }
                 void declare(std::unordered_set<holdem_id>& S){
                         for(auto _ : hv){

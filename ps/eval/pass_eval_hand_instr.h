@@ -116,7 +116,8 @@ struct pass_eval_hand_instr : instruction_map_pass{
                         detail::dispatch_ranked_vector_mat(mat, ranked, n);
                 }
                 instruction_list tmp;
-                tmp.emplace_back(std::make_shared<matrix_instruction>(instrr->group(), mat * instr.get_matrix()));
+                auto result_instr = std::make_shared<matrix_instruction>(instr.result_desc(), mat);
+                tmp.emplace_back(result_instr);
                 return tmp;
         }
 private:

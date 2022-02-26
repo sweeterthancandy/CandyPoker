@@ -13,6 +13,10 @@ The requirements are boost, and Eigen. Although Eigen is just used for Vector/Ma
 
         git@github.com:sweeterthancandy/CandyPoker.git
         cd CandyPoker
+        mkdir deps
+        cd deps
+        git clone https://github.com/google/googletest.git
+        cd ..
         cmake -G Ninja -DCMAKE_BUILD_TYPE=Release .
         ninja
 

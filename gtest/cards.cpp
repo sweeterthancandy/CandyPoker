@@ -132,6 +132,27 @@ TEST(holdem_hand_decl, mask)
 }
 
 
+TEST(holdem_hand_vector,parser)
+{
+        std::string c0_expr{"AhAc"};
+        std::string c1_expr{"KhKc"};
+        std::string c2_expr{"8s7s"};
+        std::string hv_expr{c0_expr+c1_expr+c2_expr};
+
+
+        const auto c0 = holdem_hand_decl::parse(c0_expr);
+        const auto c1 = holdem_hand_decl::parse(c1_expr);
+        const auto c2 = holdem_hand_decl::parse(c2_expr);
+
+        const auto hv = holdem_hand_vector::parse(hv_expr);
+        const holdem_hand_vector expected_hv({c0.id(), c1.id(), c2.id()});
+
+        EXPECT_EQ( 3, hv.size());
+        EXPECT_EQ( hv.to_set(), expected_hv.to_set());
+
+        
+}
+
 
 
 
@@ -162,3 +183,4 @@ TEST(holdem_class_decl, class_){
                 }
         }
 }
+

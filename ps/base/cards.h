@@ -33,6 +33,7 @@ SOFTWARE.
 #include <set>
 #include <map>
 #include <bitset>
+#include <unordered_set>
 
 
 #include "ps/base/cards_fwd.h"
@@ -64,6 +65,10 @@ namespace ps{
                 static inline card_vector parse(std::string const& s);
 
                 friend inline std::ostream& operator<<(std::ostream& ostr, card_vector const& self);
+
+                std::unordered_set<card_id> to_set()const {
+                    return std::unordered_set<card_id>{begin(), end()};
+                }
         };
 
         struct suit_decl{
@@ -84,6 +89,8 @@ namespace ps{
                 static suit_decl const& parse(std::string const& s);
                 static suit_decl const& parse(char c){ return parse(std::string{c}); }
                 operator suit_id()const{ return id_; }
+
+
         private:
                 suit_id id_;
                 char sym_;
@@ -261,6 +268,29 @@ namespace ps{
                         sstr << *this;
                         return sstr.str();
                 }
+                // treat every 4 chars as a card, ie
+                //          parse("2c2hAsKs");
+                // -> holdem_hand_vector({holdem_hand_decl::parse("2c2h"), holdem_hand_decl::parse("AsKs")})
+                static holdem_hand_vector parse(std::string const& s)
+                {
+                    
+                    if (s.size() % 4 != 0)
+                    {
+                        BOOST_THROW_EXCEPTION(std::domain_error("does not look like a card vector"));
+                    }
+                    holdem_hand_vector result;
+                    for (size_t hand_offset = 0; hand_offset != s.size(); hand_offset += 4)
+                    {
+                        auto c0 = card_decl::parse(s.substr(hand_offset + 0, 2));
+                        auto c1 = card_decl::parse(s.substr(hand_offset + 2, 2));
+                        auto hand_id = holdem_hand_decl::make_id(c0, c1);
+                        result.push_back(hand_id);
+                    }
+                    return result;
+                }
+                std::unordered_set<holdem_id> to_set()const {
+                    return std::unordered_set<holdem_id>{begin(), end()};
+                }
         };
 
         struct holdem_hand_iterator :
@@ -322,6 +352,10 @@ namespace ps{
                 decltype(auto) first()const{ return first_; }
                 decltype(auto) second()const{ return second_; }
                 static holdem_class_decl const& get(holdem_id id);
+
+                /*
+                parse("XX") or parse("XYs") or parse("XYo")
+                */
                 static holdem_class_decl const& parse(std::string const& s);
                 // any bijection will do, nice to keep the mapping within a char
                 static holdem_class_id make_id(holdem_class_type cat, rank_id x, rank_id y);

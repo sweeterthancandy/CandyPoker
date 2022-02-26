@@ -26,31 +26,30 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 */
-#ifndef PS_SUPPORT_FLOAT_H
-#define PS_SUPPORT_FLOAT_H
+#include <gtest/gtest.h>
+
+#include "ps/base/cards.h"
+#include "ps/base/algorithm.h"
+#include "ps/support/float.h"
+#include "ps/base/frontend.h"
+
+using namespace ps;
+using namespace ps::frontend;
+
+TEST(frontend, parser_holdem_hand)
+{
+        #if 0
+        const range = range::parse("TT");
+        holdem_hand_vector hv = range.to_holdem_vector();
+        holdem_hand_vector expected_hv{
+                holdem_hand_decl::parse("TcTs").id(),
+                holdem_hand_decl::parse("TcTd").id(),
+                holdem_hand_decl::parse("TcTh").id(),
+                holdem_hand_decl::parse("TsTd").id(),
+                holdem_hand_decl::parse("TsTh").id(),
+                holdem_hand_decl::parse("TsTh").id(),
+        };
+        #endif
 
 
-namespace ps{
-namespace support{
-
-
-        inline const bool is_nan(double x)
-        {
-
-                switch(std::fpclassify(x)) {
-                case FP_INFINITE:
-                case FP_NAN:
-                case FP_SUBNORMAL:
-                default:
-                        return true;
-                case FP_ZERO:
-                case FP_NORMAL:
-                        return false;
-                }
-        }
-
-
-} // support
-} // ps
-
-#endif // PS_SUPPORT_FLOAT_H
+}

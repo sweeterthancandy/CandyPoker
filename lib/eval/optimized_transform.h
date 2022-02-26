@@ -52,6 +52,8 @@ struct optimized_transform : optimized_transform_base
                         _->declare(S);
                 }
 
+                PS_LOG(trace) << "Have " << S.size() << " unique holdem hands";
+
                 // this is the maximually speed up the compution, by preocompyting some stuff
                 rank_opt_device rod = rank_opt_device::create(S);
                 std::unordered_map<holdem_id, size_t> allocation_table;

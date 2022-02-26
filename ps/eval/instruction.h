@@ -179,7 +179,7 @@ struct matrix_instruction : instruction{
         {}
         virtual std::string to_string()const override{
                 std::stringstream sstr;
-                sstr << "Matrix{" << mat_ << ", " << std_vector_to_string(result_desc_);
+                sstr << "Matrix{" << matrix_to_string(mat_) << ", " << std_vector_to_string(result_desc_);
                 if( dbg_msg_.size() ){
                         sstr << ", " << dbg_msg_;
                 }

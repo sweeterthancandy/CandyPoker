@@ -105,7 +105,7 @@ namespace interface_ {
             
         }
 
-        const bool debug = true;
+        const bool debug = false;
 
         computation_pass_manager mgr;
         mgr.add_pass<pass_permutate>();

@@ -9,8 +9,17 @@ enable_testing()
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 add_subdirectory(deps/googletest)
 
+
 include_directories(${gtest_SOURCE_DIR})
 include_directories(${gtest_SOURCE_DIR}/include)
+
+add_subdirectory(deps/benchmark)
+
+include_directories(${googlebenchmark_SOURCE_DIR})
+include_directories(${googlebenchmark_SOURCE_DIR}/include)
+
+
+
 
 
 if( WIN32 )
@@ -127,3 +136,4 @@ target_link_libraries(candy-poker ps_lib )
 #target_link_libraries(candy-poker Eigen3::Eigen)
 
 add_subdirectory(gtest)
+add_subdirectory(benchmark)

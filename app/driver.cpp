@@ -361,7 +361,7 @@ int main(int argc, char** argv){
     int argc_proxy = sizeof(argv_proxy) / sizeof(void*) - 1;
 
         try{
-#if 1
+#if 0
             CommandDecl::Driver(argc_proxy, argv_proxy);
 #else
                 CommandDecl::Driver(argc, argv);

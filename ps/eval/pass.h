@@ -142,7 +142,7 @@ struct computation_pass_manager : std::vector<std::shared_ptr<computation_pass> 
 struct pass_permutate : computation_pass{
         virtual void transform(computation_context* ctx, instruction_list* instr_list, computation_result* result)override{
                 boost::timer::cpu_timer tmr;
-                for(auto instr : *instr_list){
+                for(auto& instr : *instr_list){
                         if( instr->get_type() != instruction::T_CardEval )
                                 continue;
                         auto ptr = reinterpret_cast<card_eval_instruction*>(instr.get());

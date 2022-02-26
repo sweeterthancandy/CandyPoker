@@ -160,16 +160,15 @@ TEST(holdem_class_decl, parse){
 
 
         std::string expected_expr;
-        rank_decl::visit_suit_combinations(
-                [&expected_expr](suit_decl const& a, suit_id const& b)
+        suit_decl::visit_suit_combinations(
+                [&expected_expr](suit_decl const& a, suit_decl const& b)
                 {
-                        expected_expr += "T" + a.symbol() + "T" + b.symbol();
+                        expected_expr += std::string{"T"} + a.symbol() + "T" + b.symbol();
                 });
-        std::cout << "expected_expr => " << expected_expr << "\n"; // __CandyPrint__(cxx-print-scalar,expected_expr)
         holdem_hand_vector expected_hv = holdem_hand_vector::parse(expected_expr);
         EXPECT_EQ( expected_hv.size(), 6);
 
-        EXPECTED_EQ( hv.to_set(), expected_hv.to_set());
+        EXPECT_EQ( hv.to_set(), expected_hv.to_set());
 
 }
 

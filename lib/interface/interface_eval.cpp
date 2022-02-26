@@ -66,14 +66,44 @@ SOFTWARE.
 namespace ps{
 namespace interface_ {
 
-    EvaulationResultView evaluate(std::vector<std::string>& player_ranges, std::string const& engine)
+    std::vector<EvaulationResultView> evaluate_list(std::vector<std::vector<std::string> > const& player_ranges_list, std::string const& engine)
     {
-        std::vector<frontend::range> players;
-        for (auto const& s : player_ranges) {
-            players.push_back(frontend::parse(s));
+        if (player_ranges_list.empty())
+        {
+            return {};
         }
+        const size_t common_size = player_ranges_list[0].size();
+        computation_context comp_ctx{ common_size };
+        computation_result result{ comp_ctx };
+        size_t index = 0;
+        std::vector<std::string> tag_list;
 
-        computation_context comp_ctx{ players.size() };
+        instruction_list agg_instr_list;
+        for (auto const& player_ranges : player_ranges_list)
+        {
+            if (player_ranges.size() != common_size)
+            {
+                BOOST_THROW_EXCEPTION(std::domain_error("all players must be same size"));
+            }
+            std::vector<frontend::range> players;
+            for (auto const& s : player_ranges) {
+                players.push_back(frontend::parse(s));
+            }
+
+            std::string tag = "Tag_" + std::to_string(index);
+            ++index;
+
+            result.allocate_tag(tag);
+            tag_list.push_back(tag);
+
+            instruction_list instr_list = frontend_to_instruction_list(tag, players);
+
+            std::copy(
+                std::cbegin(instr_list),
+                std::cend(instr_list),
+                std::back_inserter(agg_instr_list));
+            
+        }
 
         computation_pass_manager mgr;
         mgr.add_pass<pass_permutate>();
@@ -81,13 +111,22 @@ namespace interface_ {
         mgr.add_pass<pass_collect>();
         mgr.add_pass<pass_eval_hand_instr_vec>(engine);
         mgr.add_pass<pass_write>();
+        mgr.execute_(&comp_ctx, &agg_instr_list, &result);
 
-        computation_result result{ comp_ctx };
-        std::string tag = "B";
-        const matrix_t& m = result.allocate_tag(tag);
-        instruction_list instr_list = frontend_to_instruction_list(tag, players);
-        mgr.execute_(&comp_ctx, &instr_list, &result);
-        return EvaulationResultView{ player_ranges, m };
+        std::vector< EvaulationResultView> result_view;
+        for (size_t idx =0; idx!= player_ranges_list.size();++idx)
+        {
+            auto const& tag = tag_list[idx];
+            auto const& player_ranges = player_ranges_list[idx];
+            result_view.push_back(EvaulationResultView{ player_ranges, result.allocate_tag(tag) });
+        }
+        return result_view;
+    }
+
+    EvaulationResultView evaluate(std::vector<std::string> const& player_ranges, std::string const& engine)
+    {
+        auto packed_result = evaluate_list({ player_ranges }, engine);
+        return packed_result[0];
     }
 
 

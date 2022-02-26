@@ -95,7 +95,7 @@ public:
 	};
 
 	EvaulationResultView(
-		std::vector<std::string>& player_ranges,
+		const std::vector<std::string>& player_ranges,
 		const matrix_t& result)
 		: player_ranges_{player_ranges}
 		, result_{ result }
@@ -151,7 +151,9 @@ private:
 	std::vector< PlayerView> players_;
 };
 
-EvaulationResultView evaluate(std::vector<std::string>& player_ranges, std::string const& engine = {});
+EvaulationResultView evaluate(std::vector<std::string> const& player_ranges, std::string const& engine = {});
+
+std::vector<EvaulationResultView> evaluate_list(std::vector<std::vector<std::string> > const& player_ranges, std::string const& engine = {});
 
 } // end namespace interface_
 } // end namespace ps

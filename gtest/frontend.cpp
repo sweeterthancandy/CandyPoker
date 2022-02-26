@@ -38,18 +38,24 @@ using namespace ps::frontend;
 
 TEST(frontend, parser_holdem_hand)
 {
-        #if 0
-        const range = range::parse("TT");
+        const std::string expr{"TcTs"};
+        const range = range::parse(expr);
+        holdem_hand_vector hv = range.to_holdem_vector();
+        holdem_hand_vector expected_hv{
+                holdem_hand_decl::parse(expr).id(),
+        };
+
+        EXPECT_EQ( hv.to_set(), expected_hv.to_set());
+}
+
+TEST(frontend, parser_holdem_hand)
+{
+        const std::string expr{"TT"};
+        const range = range::parse(expr);
         holdem_hand_vector hv = range.to_holdem_vector();
         holdem_hand_vector expected_hv{
                 holdem_hand_decl::parse("TcTs").id(),
-                holdem_hand_decl::parse("TcTd").id(),
-                holdem_hand_decl::parse("TcTh").id(),
-                holdem_hand_decl::parse("TsTd").id(),
-                holdem_hand_decl::parse("TsTh").id(),
-                holdem_hand_decl::parse("TsTh").id(),
         };
-        #endif
 
-
+        EXPECT_EQ( hv.to_set(), expected_hv.to_set());
 }

@@ -78,6 +78,7 @@ namespace ps{
                         : id_{id}, sym_{sym}, name_{name}
                 {}
                 auto id()const{ return id_; }
+                const char symbol()const { return sym_; }
                 std::string to_string()const{ return std::string{sym_}; }
                 friend std::ostream& operator<<(std::ostream& ostr, suit_decl const& self){
                         return ostr << self.to_string();
@@ -89,6 +90,28 @@ namespace ps{
                 static suit_decl const& parse(std::string const& s);
                 static suit_decl const& parse(char c){ return parse(std::string{c}); }
                 operator suit_id()const{ return id_; }
+
+                // to help with unit testing
+                template<class V>
+                static void visit_suit_id_combinations(V&& v)
+                {
+                    for (suit_id a = 0; (a + 1) != suit_decl::max_id; ++a)
+                    {
+                        for (suit_id b = a + 1; b != suit_decl::max_id; ++b)
+                        {
+                            v(a, b);
+                        }
+                    }
+                }
+                template<class V>
+                static void visit_suit_combinations(V&& v)
+                {
+                    auto outer = [&](suit_id a, suit_id b)
+                    {
+                        v(suit_decl::get(a), suit_decl::get(b));
+                    };
+                    suit_decl::visit_suit_id_combinations(outer);
+                }
 
 
         private:
@@ -104,6 +127,7 @@ namespace ps{
                         : id_{id}, sym_{sym}
                 {}
                 auto id()const{ return id_; }
+                const char symbol()const { return sym_; }
                 std::string to_string()const{ return std::string{sym_}; }
                 friend std::ostream& operator<<(std::ostream& ostr, rank_decl const& self){
                         return ostr << self.to_string();
@@ -115,6 +139,8 @@ namespace ps{
                 static rank_decl const& parse(std::string const& s);
                 static rank_decl const& parse(char c){ return parse(std::string{c}); }
                 operator rank_id()const{ return id_; }
+
+                
         private:
                 rank_id id_;
                 char sym_;
@@ -320,7 +346,7 @@ namespace ps{
                                   rank_decl const& a,
                                   rank_decl const& b);
                 auto const& get_hand_set()const{ return hand_set_; }
-                auto const& get_hand_vector()const{ return hand_id_set_; }
+                holdem_hand_vector const& get_hand_vector()const{ return hand_id_set_; }
                 auto id()const{ return id_; }
                 auto category()const{ return cat_; }
                 std::string to_string()const;

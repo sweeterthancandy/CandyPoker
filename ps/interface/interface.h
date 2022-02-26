@@ -29,21 +29,13 @@ SOFTWARE.
 #ifndef PS_INTERFACE_H
 #define PS_INTERFACE_H
 
+#include "ps/base/cards_fwd.h"
 
-#include <sstream>
-#include <mutex>
+#include <string>
+#include <vector>
 #include <unordered_map>
 
-#include <boost/range/algorithm.hpp>
-#include <boost/timer/timer.hpp>
 #include <boost/rational.hpp>
-#include "ps/eval/rank_decl.h"
-#include "ps/detail/visit_combinations.h"
-#include "ps/detail/print.h"
-
-#include "ps/base/visit_poker_rankings.h"
-#include "ps/base/suit_hasher.h"
-#include "ps/base/prime_rank_map.h"
 
 /*
 Need this for unit testing, as really the evaluation is configurable in the application, but

@@ -15,9 +15,19 @@ include_directories(${gtest_SOURCE_DIR}/include)
 
 add_subdirectory(deps/benchmark)
 
-include_directories(${googlebenchmark_SOURCE_DIR})
-include_directories(${googlebenchmark_SOURCE_DIR}/include)
+macro(print_all_variables)
+    message(STATUS "print_all_variables------------------------------------------{")
+    get_cmake_property(_variableNames VARIABLES)
+    foreach (_variableName ${_variableNames})
+        message(STATUS "${_variableName}=${${_variableName}}")
+    endforeach()
+    message(STATUS "print_all_variables------------------------------------------}")
+endmacro()
 
+print_all_variables()
+
+include_directories(deps/benchmark/include)
+include_directories(build/deps/benchmark/include)
 
 
 

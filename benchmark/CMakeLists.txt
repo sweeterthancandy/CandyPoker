@@ -1,0 +1,15 @@
+cmake_minimum_required(VERSION 3.14)
+project(my_project)
+  
+
+add_executable(
+  eval-benchmark
+  eval_benchmark.cpp
+
+)
+target_link_libraries(
+  eval-benchmark
+)
+target_link_libraries(eval-benchmark ${Boost_LIBRARIES})
+target_link_libraries(eval-benchmark ps_lib )
+target_link_libraries(eval-benchmark benchmark::benchmark )

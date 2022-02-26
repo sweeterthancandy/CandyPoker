@@ -3,12 +3,12 @@ project(my_project)
   
 
 add_executable(
-  hello_test
-  hello_test.cc
+  ps-test
+  eval.cpp
 )
 target_link_libraries(
-  hello_test
+  ps-test
   gtest_main
 )
-target_link_libraries(hello_test ${Boost_LIBRARIES})
-target_link_libraries(hello_test ps_lib )
+target_link_libraries(ps-test ${Boost_LIBRARIES})
+target_link_libraries(ps-test ps_lib )

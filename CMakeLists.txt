@@ -94,6 +94,9 @@ set(base_sources
         lib/sim/solver_permutation.cpp
         #lib/sim/delta_sequence.cpp
         #lib/sim/pipeline.cpp
+        
+        
+        lib/interface/interface_eval.cpp
 )
 add_library(ps_lib SHARED ${base_sources}) 
 target_link_libraries(ps_lib ${Boost_LIBRARIES})

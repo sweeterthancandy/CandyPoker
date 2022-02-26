@@ -624,7 +624,7 @@ namespace ps{
                 
                 #endif
                 title.emplace_back("draw equity");
-                //title.emplace_back("lose");
+                title.emplace_back("any draw");
                 title.emplace_back("sigma");
                 
                 std::vector< LineItem > lines;
@@ -658,19 +658,18 @@ namespace ps{
                         /*
                                 draw_equity = \sum_i=1..n win_{i}/i
                         */
-                        unsigned long long draw;
-                        unsigned long long p_sigma;
+                        unsigned long long any_draw{ 0 };
                         for(size_t j=0; j != players.size(); ++j ){
                                 line.emplace_back( boost::lexical_cast<std::string>(breakdown(j,i)) );
-                                if( j != 0 ) draw += breakdown(j,i);
-                                p_sigma += breakdown(j,i);
+                                if( j != 0 ) any_draw += breakdown(j,i);
                         }
+                        
 
-                        auto draw_sigma = (equity - static_cast<double>(breakdown(0,i))/sigma)*sigma;
+                        auto win_equity = static_cast<double>(breakdown(0, i)) / sigma;
+
+                        auto draw_sigma = (equity - win_equity);
                         line.emplace_back( str(boost::format("%.2f%%") % ( draw_sigma )));
-                        #if 0
-                        line.emplace_back( boost::lexical_cast<std::string>(pv.lose()) );
-                        #endif
+                        line.emplace_back(boost::lexical_cast<std::string>(any_draw));
                         line.emplace_back( boost::lexical_cast<std::string>(sigma) );
 
                         lines.push_back(line);

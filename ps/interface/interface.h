@@ -73,18 +73,25 @@ public:
 	public:
 		PlayerView(
 			std::string const& range,
-			const rational_ty& equity)
-			: range_{ range }, equity_{ equity }
+			const rational_ty& equity,
+			unsigned long long wins,
+			unsigned long long any_draw)
+			: range_{ range }, equity_{ equity }, wins_{ wins }, any_draw_{any_draw}
 		{}
 		const auto& Range()const { return range_; }
-		auto Wins()const{ return }
+		auto Wins()const {
+			return wins_;
+		}
+		auto AnyDraw()const {
+			return any_draw_;
+		}
 		const auto& EquityAsRational()const { return equity_; }
 		const double EquityAsDouble()const { return boost::rational_cast<double>(equity_); }
 	private:
 		std::string range_;
 		rational_ty equity_;
 		unsigned long long wins_;
-		unsigned long long ties_;
+		unsigned long long any_draw_;
 	};
 
 	EvaulationResultView(
@@ -118,11 +125,17 @@ public:
 		for (size_t i = 0; i != num_players; ++i)
 		{
 			rational_ty equity{ 0 };
+			unsigned long long any_draw{ 0 };
 			for (size_t j = 0; j != num_players; ++j) {
 				equity += result(j, i) / rational_ty(j + 1);
+				if (j != 0)
+				{
+					any_draw += result(j, i);
+				}
 			}
 			equity /= sigma;
-			players_.emplace_back(player_ranges[i], equity);
+			const auto wins = result(0, i);
+			players_.emplace_back(player_ranges[i], equity, wins, any_draw);
 		}
 
 	}

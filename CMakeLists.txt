@@ -6,6 +6,7 @@ project(ps)
 enable_testing()
 
 
+set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 add_subdirectory(deps/googletest)
 
 include_directories(${gtest_SOURCE_DIR})

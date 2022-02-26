@@ -78,3 +78,43 @@ TEST(Eval, TwoPlayerRange) {
         EXPECT_EQ( P1.EquityAsRational(), rational_ty(1313579,1902560));
 
 }
+
+TEST(Eval, MultipleSims)
+{
+        std::vector<std::string> first_eval_ranges{ "AA", "KK" };
+        std::vector<std::string> second_eval_ranges{ "AKs,AQs,AKo", "AA,KK,QQ" };
+
+        auto result_list = evaluate_list({first_eval_ranges, second_eval_ranges});
+        ASSERT_EQ(result_list.size(),2);
+
+        {
+                auto result = result_list[0];
+                const auto P0 = result.player_view(0);
+                const auto P1 = result.player_view(1);
+
+                EXPECT_EQ( P0.Wins(), 50'371'344 );
+                EXPECT_EQ( P0.AnyDraws(), 285'228 );
+                EXPECT_EQ( P1.Wins(), 10'986'372 );
+                EXPECT_EQ( P1.AnyDraws(), 285'228 );
+                
+                EXPECT_EQ( P0.EquityAsRational(), rational_ty(255121, 311328));
+                EXPECT_EQ( P1.EquityAsRational(), rational_ty(56207, 311328));
+
+                EXPECT_NEAR(P0.EquityAsDouble(), 0.8195, 0.0005);
+                EXPECT_NEAR(P1.EquityAsDouble(), 0.1805, 0.0005);
+        }
+        {
+                auto result = result_list[1];
+                const auto P0 = result.player_view(0);
+                const auto P1 = result.player_view(1);
+
+                EXPECT_EQ( P0.Wins(), 125'645'556 );
+                EXPECT_EQ( P0.AnyDraws(), 3'148'680 );
+                
+                EXPECT_EQ( P1.Wins(), 282'158'724 );
+                EXPECT_EQ( P1.AnyDraws(), 3'148'680 );
+
+                EXPECT_EQ( P0.EquityAsRational(), rational_ty(588981,1902560));
+                EXPECT_EQ( P1.EquityAsRational(), rational_ty(1313579,1902560));
+        }
+}

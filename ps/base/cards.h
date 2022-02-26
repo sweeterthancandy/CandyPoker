@@ -232,10 +232,10 @@ namespace ps{
                                 [](){
                                         size_t id{0};
                                         std::array<holdem_id, 52*52> result;
-                                        for(card_id a =0; a != card_decl::max_id; ++a)
-                                        {
-                                                for(card_id b=0;b <= a;++b)
-                                                {
+                                        for( char a{52};a!=1;){
+                                                --a;
+                                                for( char b{a};b!=0;){
+                                                        --b;
                                                         result[a * 52 + b ] = id;
                                                         result[b * 52 + a ] = id;
                                                         ++id;

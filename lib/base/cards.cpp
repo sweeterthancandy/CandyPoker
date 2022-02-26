@@ -59,6 +59,49 @@ namespace{
 }
 
 namespace ps{
+
+        size_t card_vector::mask()const {
+            size_t m{ 0 };
+            for (auto id : *this) {
+                m |= (static_cast<size_t>(1) << id);
+            }
+            PS_ASSERT(detail::popcount(m) == size(),
+                "__builtin_popcountll(m) = " << detail::popcount(m) <<
+                ", size() = " << size() <<
+                ", bits = {" << std::bitset<sizeof(size_t) * 8>{static_cast<unsigned long long>(m)}.to_string() << "}"
+            );
+            return m;
+        }
+
+        card_vector card_vector::from_bitmask(size_t mask) {
+            card_vector vec;
+            for (size_t i = 0; i != 52; ++i) {
+                if (mask & card_decl::get(i).mask()) {
+                    vec.push_back(i);
+                }
+            }
+            return std::move(vec);
+        }
+        card_vector card_vector::parse(std::string const& s) {
+            if (s.size() == 0 || s.size() % 2 == 1) {
+                // failure
+                return card_vector{};
+            }
+            card_vector result;
+            for (size_t idx = 0; idx != s.size(); idx += 2) {
+                auto sub = s.substr(idx, 2);
+                auto cd = card_decl::parse(sub);
+                result.push_back(cd);
+            }
+            return result;
+        }
+
+        suit_decl::suit_decl(suit_id id, char sym, std::string const& name)
+            : id_{ id }, sym_{ sym }, name_{ name }
+        {
+            PS_ASSERT_VALID_SUIT_ID(id);
+        }
+
         suit_decl const& suit_decl::get(suit_id id){
                 PS_ASSERT_VALID_SUIT_ID(id);
                 using namespace decl;
@@ -78,6 +121,12 @@ namespace ps{
                 }
         }
         
+
+        rank_decl::rank_decl(rank_id id, char sym)
+            : id_{ id }, sym_{ sym }
+        {
+            PS_ASSERT_VALID_RANK_ID(id);
+        }
         rank_decl const& rank_decl::get(rank_id id){
                 PS_ASSERT_VALID_RANK_ID(id);
                 using namespace decl;
@@ -107,6 +156,22 @@ namespace ps{
                                 BOOST_THROW_EXCEPTION(std::domain_error("not a rank (" + s + ")"));
                 }
         }
+
+        card_decl::card_decl(suit_decl const& s, rank_decl const& r) :
+            id_{ make_id(s.id(),r.id()) }
+            , suit_{ s }, rank_{ r }
+        {}
+
+        std::string card_decl::to_string()const {
+            return rank_.to_string() +
+                suit_.to_string();
+        }
+
+        card_decl const& card_decl::parse(std::string const& s) {
+            assert(s.size() == 2 && "precondition failed");
+            return get(rank_decl::parse(s.substr(0, 1)).id() * 4 +
+                suit_decl::parse(s.substr(1, 1)).id());
+        }
         
         card_decl const& card_decl::get(card_id id){
                 PS_ASSERT_VALID_CARD_ID(id);
@@ -119,6 +184,40 @@ namespace ps{
                 };
                 return fac.get(id);
         }
+
+
+        holdem_hand_decl::holdem_hand_decl(card_decl const& a, card_decl const& b) :
+            id_{ make_id(a.id(), b.id()) },
+            first_{ a },
+            second_{ b }
+        {
+        }
+
+        holdem_id holdem_hand_decl::make_id(card_id x, card_id y) {
+            PS_ASSERT_VALID_CARD_ID(x);
+            PS_ASSERT_VALID_CARD_ID(y);
+            static std::array<holdem_id, 52 * 52> proto{
+                    []() {
+                            size_t id{0};
+                            std::array<holdem_id, 52 * 52> result;
+                            for (char a{52}; a != 1;) {
+                                    --a;
+                                    for (char b{a}; b != 0;) {
+                                            --b;
+                                            result[a * 52 + b] = id;
+                                            result[b * 52 + a] = id;
+                                            ++id;
+                                    }
+                            }
+                            //PRINT_SEQ((id)((52*52-52)/2));
+                            return std::move(result);
+                    }()
+            };
+            assert(x < 52 && "precondition failed");
+            assert(y < 52 && "precondition failed");
+            return proto[x * 52 + y];
+        }
+
         holdem_hand_decl const& holdem_hand_decl::parse(std::string const& s){
                 assert( s.size() == 4 && "precondition failed");
                 auto x = card_decl::parse(s.substr(0,2)).id();
@@ -156,6 +255,25 @@ namespace ps{
                 
                 static decl_factory<holdem_hand_decl> fac{ std::move(unique_hand_vec) };
                 return fac.get(id);
+        }
+
+
+        holdem_hand_vector holdem_hand_vector::parse(std::string const& s)
+        {
+
+            if (s.size() % 4 != 0)
+            {
+                BOOST_THROW_EXCEPTION(std::domain_error("does not look like a card vector"));
+            }
+            holdem_hand_vector result;
+            for (size_t hand_offset = 0; hand_offset != s.size(); hand_offset += 4)
+            {
+                auto c0 = card_decl::parse(s.substr(hand_offset + 0, 2));
+                auto c1 = card_decl::parse(s.substr(hand_offset + 2, 2));
+                auto hand_id = holdem_hand_decl::make_id(c0, c1);
+                result.push_back(hand_id);
+            }
+            return result;
         }
      
 

@@ -54,20 +54,9 @@ namespace ps{
                 template<class... Args>
                 card_vector(Args&&... args):std::vector<card_id>{std::forward<Args>(args)...}{}
 
-                size_t mask()const{
-                        size_t m{0};
-                        for( auto id : *this ){
-                                m |= ( static_cast<size_t>(1) << id );
-                        }
-                        PS_ASSERT( detail::popcount(m) == size(),
-                                "__builtin_popcountll(m) = " << detail::popcount(m) <<
-                                ", size() = " << size()  << 
-                                ", bits = {" << std::bitset<sizeof(size_t)*8>{static_cast<unsigned long long>(m)}.to_string() << "}"
-                        );
-                        return m;
-                }
-                static inline card_vector from_bitmask(size_t mask);
-                static inline card_vector parse(std::string const& s);
+                size_t mask()const;
+                static card_vector from_bitmask(size_t mask);
+                static card_vector parse(std::string const& s);
 
                 friend inline std::ostream& operator<<(std::ostream& ostr, card_vector const& self);
 
@@ -79,11 +68,7 @@ namespace ps{
         struct suit_decl{
                 using index_ty = suit_id;
                 static constexpr suit_id max_id = 4;
-                suit_decl(suit_id id, char sym, std::string const& name)
-                        : id_{id}, sym_{sym}, name_{name}
-                {
-                    PS_ASSERT_VALID_SUIT_ID(id);
-                }
+                suit_decl(suit_id id, char sym, std::string const& name);
                 auto id()const{ return id_; }
                 const char symbol()const { return sym_; }
                 std::string to_string()const{ return std::string{sym_}; }
@@ -130,9 +115,7 @@ namespace ps{
         struct rank_decl{
                 using index_ty = rank_id;
                 static constexpr rank_id max_id = 13;
-                rank_decl(rank_id id, char sym)
-                        : id_{id}, sym_{sym}
-                {}
+                rank_decl(rank_id id, char sym);
                 auto id()const{ return id_; }
                 const char symbol()const { return sym_; }
                 std::string to_string()const{ return std::string{sym_}; }
@@ -157,16 +140,10 @@ namespace ps{
         struct card_decl{
                 using index_ty = card_id;
                 static constexpr const card_id max_id = 52;
-                card_decl( suit_decl const& s, rank_decl const& r):
-                        id_{make_id(s.id(),r.id())}
-                        ,suit_{s}, rank_{r}
-                {}
+                card_decl(suit_decl const& s, rank_decl const& r);
                 auto id()const{ return id_; }
                 size_t mask()const{ return static_cast<size_t>(1) << id(); }
-                std::string to_string()const{
-                        return rank_.to_string() + 
-                               suit_.to_string();
-                }
+                std::string to_string()const;
                 // id & 0x3
                 suit_decl const& suit()const{ return suit_; }
                 // id >> 2
@@ -178,11 +155,7 @@ namespace ps{
                         return id_ < that.id_;
                 }
                 static card_decl const& get(card_id id);
-                inline static card_decl const& parse(std::string const& s){
-                        assert( s.size() == 2 && "precondition failed");
-                        return get( rank_decl::parse(s.substr(0,1)).id() * 4 +
-                                    suit_decl::parse(s.substr(1,1)).id()   );
-                }
+                static card_decl const& parse(std::string const& s);
                 operator card_id()const{ return id_; }
                 static card_id make_id( suit_id s, rank_id r){
                         return s + r * 4;
@@ -197,12 +170,7 @@ namespace ps{
                 using index_ty = holdem_id;
                 static constexpr const holdem_id max_id = 52 * 51 / 2;
                 // a must be the biggest
-                holdem_hand_decl( card_decl const& a, card_decl const& b):
-                        id_{ make_id(a.id(), b.id()) },
-                        first_{a},
-                        second_{b}
-                {
-                }
+                holdem_hand_decl(card_decl const& a, card_decl const& b);
                 auto id()const{ return id_; }
                 size_t mask()const{
                         return first().mask() | second().mask();
@@ -225,30 +193,7 @@ namespace ps{
                 }
                 static holdem_hand_decl const& parse(std::string const& s);
                 static holdem_id make_id( rank_id r0, suit_id s0, rank_id r1, suit_id s1);
-                inline static holdem_id make_id( card_id x, card_id y){
-                        PS_ASSERT_VALID_CARD_ID(x);
-                        PS_ASSERT_VALID_CARD_ID(y);
-                        static std::array<holdem_id, 52*52> proto{
-                                [](){
-                                        size_t id{0};
-                                        std::array<holdem_id, 52*52> result;
-                                        for( char a{52};a!=1;){
-                                                --a;
-                                                for( char b{a};b!=0;){
-                                                        --b;
-                                                        result[a * 52 + b ] = id;
-                                                        result[b * 52 + a ] = id;
-                                                        ++id;
-                                                }
-                                        }
-                                        //PRINT_SEQ((id)((52*52-52)/2));
-                                        return std::move(result);
-                                }()
-                        };
-                        assert( x < 52 && "precondition failed");
-                        assert( y < 52 && "precondition failed");
-                        return proto[x * 52 + y];
-                }
+                static holdem_id make_id(card_id x, card_id y);
                 operator holdem_id()const{ return id_; }
                 holdem_class_id class_()const;
 
@@ -318,23 +263,8 @@ namespace ps{
                 // treat every 4 chars as a card, ie
                 //          parse("2c2hAsKs");
                 // -> holdem_hand_vector({holdem_hand_decl::parse("2c2h"), holdem_hand_decl::parse("AsKs")})
-                static holdem_hand_vector parse(std::string const& s)
-                {
-                    
-                    if (s.size() % 4 != 0)
-                    {
-                        BOOST_THROW_EXCEPTION(std::domain_error("does not look like a card vector"));
-                    }
-                    holdem_hand_vector result;
-                    for (size_t hand_offset = 0; hand_offset != s.size(); hand_offset += 4)
-                    {
-                        auto c0 = card_decl::parse(s.substr(hand_offset + 0, 2));
-                        auto c1 = card_decl::parse(s.substr(hand_offset + 2, 2));
-                        auto hand_id = holdem_hand_decl::make_id(c0, c1);
-                        result.push_back(hand_id);
-                    }
-                    return result;
-                }
+                static holdem_hand_vector parse(std::string const& s);
+
                 std::unordered_set<holdem_id> to_set()const {
                     return std::unordered_set<holdem_id>{begin(), end()};
                 }
@@ -622,28 +552,7 @@ namespace ps{
                         return card_decl::get(id).to_string();
                 });
         }
-        card_vector card_vector::from_bitmask(size_t mask){
-                card_vector vec;
-                for(size_t i=0;i!=52;++i){
-                        if( mask & card_decl::get(i).mask() ){
-                                vec.push_back(i);
-                        }
-                }
-                return std::move(vec);
-        }
-        card_vector card_vector::parse(std::string const& s){
-                if( s.size() == 0 || s.size()%2 == 1 ){
-                        // failure
-                        return card_vector{};
-                }
-                card_vector result;
-                for(size_t idx=0;idx!=s.size();idx+=2){
-                        auto sub = s.substr(idx,2);
-                        auto cd = card_decl::parse(sub);
-                        result.push_back(cd);
-                }
-                return result;
-        }
+        
 
         enum hand_rank_category{
                 HR_RoyalFlush,

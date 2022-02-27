@@ -33,6 +33,7 @@ SOFTWARE.
 #include <functional>
 #include <list>
 #include <vector>
+#include "ps/base/cards_fwd.h"
 #include "ps/detail/reinterpret_pointer_cast.h"
 #include <boost/iterator/indirect_iterator.hpp>
 

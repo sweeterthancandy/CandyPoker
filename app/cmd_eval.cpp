@@ -29,12 +29,14 @@ SOFTWARE.
 #include <thread>
 #include <numeric>
 #include <atomic>
-#include <boost/format.hpp>
+
+
 #include "ps/support/config.h"
-#include "ps/base/frontend.h"
+#include "ps/support/command.h"
+#include "app/pretty_printer.h"
+
+#if 0
 #include "ps/base/cards.h"
-#include "ps/base/tree.h"
-#include "ps/base/board_combination_iterator.h"
 #include "ps/support/index_sequence.h"
 #include "ps/eval/evaluator_5_card_map.h"
 #include "ps/eval/evaluator_6_card_map.h"
@@ -48,22 +50,23 @@ SOFTWARE.
 #include "ps/eval/pass.h"
 #include "ps/eval/pass_eval_hand_instr_vec.h"
 #include "ps/base/rank_board_combination_iterator.h"
+#endif
 
-#include <boost/timer/timer.hpp>
+#include "ps/support/persistent.h"
+#include "ps/eval/holdem_class_vector_cache.h"
+#include "ps/interface/interface.h"
 
-#include <boost/log/trivial.hpp>
 
 #include <Eigen/Dense>
 #include <fstream>
 
-#include "ps/support/command.h"
-#include "ps/support/persistent.h"
-#include "ps/eval/holdem_class_vector_cache.h"
 
+#include <boost/format.hpp>
 #include <boost/program_options.hpp>
+#include <boost/timer/timer.hpp>
+#include <boost/log/trivial.hpp>
 
-#include "ps/interface/interface.h"
-#include "ps/base/tree.h"
+
 
 namespace bpo = boost::program_options;
 
@@ -80,7 +83,6 @@ struct MaskEval : Command{
 
                 bool debug{false};
                 bool help{false};
-                bool breakdown{ false };
                 std::vector<std::string> players_s;
                 // way to choose a specific one
                 std::string engine;
@@ -88,7 +90,6 @@ struct MaskEval : Command{
                 bpo::options_description desc("Solver command");
                 desc.add_options()
                         ("debug"     , bpo::value(&debug)->implicit_value(true), "debug flag")
-                        ("breakdown", bpo::value(&breakdown)->implicit_value(true), "breakdown")
                         ("help"      , bpo::value(&help)->implicit_value(true), "this message")
                         ("player"    , bpo::value(&players_s), "player ranges")
                         ("engine"     , bpo::value(&engine), "choose speicifc eval mechinism")
@@ -112,7 +113,7 @@ struct MaskEval : Command{
                 }
 
 
-
+#if 0
                 if (breakdown)
                 {
                     const size_t num_players = players_s.size();
@@ -207,8 +208,10 @@ struct MaskEval : Command{
                     auto result_view = interface_::evaluate(players_s, engine);
                     pretty_print_equity_breakdown_mat(std::cout, result_view.get_matrix(), players_s);
                 }
+#endif
 
-                
+                auto result_view = interface_::evaluate(players_s, engine);
+                pretty_print_equity_breakdown_mat(std::cout, result_view.get_matrix(), players_s);
 
                 return EXIT_SUCCESS;
         }

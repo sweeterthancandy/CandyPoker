@@ -65,6 +65,7 @@ namespace bpo = boost::program_options;
 
 using namespace ps;
 
+#if 0
 namespace{
 
 struct PrintMemory : Command{
@@ -338,7 +339,7 @@ private:
 static TrivialCommandDecl<PrintBoard> PrintBoardDecl{"print-board"};
 
 } // end namespace anon
-
+#endif
 
 
 

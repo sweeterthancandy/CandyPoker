@@ -481,7 +481,7 @@ namespace ps{
                                                  } );
         }
         void holdem_class_range::parse(std::string const& item){
-                auto rep = expand(frontend::parse(item));
+                auto rep = frontend::range(item).expand();
                 boost::copy( rep.to_class_vector(), std::back_inserter(*this)); 
         }
 

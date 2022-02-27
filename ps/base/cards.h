@@ -299,7 +299,7 @@ namespace ps{
                 auto const& get_hand_set()const{ return hand_set_; }
                 holdem_hand_vector const& get_hand_vector()const{ return hand_id_set_; }
                 auto id()const{ return id_; }
-                auto category()const{ return cat_; }
+                holdem_class_type category()const{ return cat_; }
                 std::string to_string()const;
                 friend std::ostream& operator<<(std::ostream& ostr, holdem_class_decl const& self){
                         return ostr << self.to_string();

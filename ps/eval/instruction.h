@@ -43,6 +43,8 @@ SOFTWARE.
 #include "ps/base/frontend.h"
 #include "ps/base/tree.h"
 
+#include <boost/optional.hpp>
+
 namespace ps{
         
 

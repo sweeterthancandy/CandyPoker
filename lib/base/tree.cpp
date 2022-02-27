@@ -26,6 +26,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 */
+
 #include <boost/lexical_cast.hpp>
 
 #include "ps/base/tree.h"
@@ -73,9 +74,9 @@ namespace ps{
 
         tree_range::tree_range(std::vector<frontend::range> const& players){
                 std::vector<size_t> size_vec;
-                std::vector<frontend::primitive_range> prims;
+                std::vector<std::vector<frontend::class_range> > prims;
                 for(auto const& rng : players){
-                        prims.emplace_back( expand(rng).to_primitive_range());
+                        prims.emplace_back( rng.expand().to_class_range_vector());
                         assert( prims.back().size() != 0 && "precondition failed");
                         size_vec.emplace_back(prims.back().size()-1);
                 }
@@ -88,7 +89,7 @@ namespace ps{
                         detail::visit_vector_combinations(
                                 [&](auto... comb){
                                 children.emplace_back(
-                                        std::vector<frontend::primitive_t>{comb...}
+                                        std::vector<frontend::class_range>{comb...}
                                         );
                                 }, prims[0], prims[1]);
                         break;
@@ -96,7 +97,7 @@ namespace ps{
                         detail::visit_vector_combinations(
                                 [&](auto... comb){
                                 children.emplace_back(
-                                        std::vector<frontend::primitive_t>{comb...}
+                                        std::vector<frontend::class_range>{comb...}
                                         );
                                 }, prims[0], prims[1], prims[2]);
                         break;
@@ -104,7 +105,7 @@ namespace ps{
                         detail::visit_vector_combinations(
                                 [&](auto... comb){
                                 children.emplace_back(
-                                        std::vector<frontend::primitive_t>{comb...}
+                                        std::vector<frontend::class_range>{comb...}
                                         );
                                 }, prims[0], prims[1], prims[2], prims[3]);
                         break;
@@ -112,7 +113,7 @@ namespace ps{
                         detail::visit_vector_combinations(
                                 [&](auto... comb){
                                 children.emplace_back(
-                                        std::vector<frontend::primitive_t>{comb...}
+                                        std::vector<frontend::class_range>{comb...}
                                         );
                                 }, prims[0], prims[1], prims[2], prims[3], prims[4] );
                         break;
@@ -120,7 +121,7 @@ namespace ps{
                         detail::visit_vector_combinations(
                                 [&](auto... comb){
                                 children.emplace_back(
-                                        std::vector<frontend::primitive_t>{comb...}
+                                        std::vector<frontend::class_range>{comb...}
                                         );
                                 }, prims[0], prims[1], prims[2], prims[3], prims[4], prims[5]);
                         break;
@@ -128,7 +129,7 @@ namespace ps{
                         detail::visit_vector_combinations(
                                 [&](auto... comb){
                                 children.emplace_back(
-                                        std::vector<frontend::primitive_t>{comb...}
+                                        std::vector<frontend::class_range>{comb...}
                                         );
                                 }, prims[0], prims[1], prims[2], prims[3], prims[4], prims[5], prims[6]);
                         break;
@@ -136,7 +137,7 @@ namespace ps{
                         detail::visit_vector_combinations(
                                 [&](auto... comb){
                                 children.emplace_back(
-                                        std::vector<frontend::primitive_t>{comb...}
+                                        std::vector<frontend::class_range>{comb...}
                                         );
                                 }, prims[0], prims[1], prims[2], prims[3], prims[4], prims[5], prims[6], prims[7]);
                         break;
@@ -144,7 +145,7 @@ namespace ps{
                         detail::visit_vector_combinations(
                                 [&](auto... comb){
                                 children.emplace_back(
-                                        std::vector<frontend::primitive_t>{comb...}
+                                        std::vector<frontend::class_range>{comb...}
                                         );
                                 }, prims[0], prims[1], prims[2], prims[3], prims[4], prims[5], prims[6], prims[7], prims[8]);
                         break;
@@ -153,17 +154,15 @@ namespace ps{
                 }
         }
 
-        tree_primitive_range::tree_primitive_range(std::vector<frontend::primitive_t> const& players){
+        tree_primitive_range::tree_primitive_range(std::vector<frontend::class_range> const& players){
                 std::vector<size_t> size_vec;
                 std::vector<std::vector<holdem_id> > aux;
                 this->players = players;
 
                 for( auto const& p : this->players){
-                        aux.emplace_back( to_hand_vector(p));
+                        aux.emplace_back( p.to_holdem_vector());
                         size_vec.push_back( aux.back().size()-1);
-                        auto cid =  to_class_id( p ) ;
-                        if( cid != -1 )
-                                opt_cplayers.push_back(cid);
+                        opt_cplayers.push_back(p.get_class_id());
 
                 }
                 // all or none
@@ -182,9 +181,9 @@ namespace ps{
                                               holdem_hand_decl::get(aux[1][b]) ) )
                                 {
                                         children.emplace_back(
-                                                       std::vector<frontend::hand>{
-                                                                frontend::hand{aux[0][a]},
-                                                                frontend::hand{aux[1][b]}});
+                                                       std::vector<holdem_id>{
+                                                                holdem_id{aux[0][a]},
+                                                                holdem_id{aux[1][b]}});
                                 }
                         }, detail::true_, size_vec);
                         break;
@@ -199,10 +198,10 @@ namespace ps{
                                               holdem_hand_decl::get(aux[2][c]) ) )
                                 {
                                         children.emplace_back(
-                                                       std::vector<frontend::hand>{
-                                                                frontend::hand{aux[0][a]},
-                                                                frontend::hand{aux[1][b]},
-                                                                frontend::hand{aux[2][c]}});
+                                                       std::vector<holdem_id>{
+                                                                holdem_id{aux[0][a]},
+                                                                holdem_id{aux[1][b]},
+                                                                holdem_id{aux[2][c]}});
                                 }
                         }, detail::true_, size_vec);
                         break;
@@ -219,11 +218,11 @@ namespace ps{
                                             ) )
                                 {
                                         children.emplace_back(
-                                                       std::vector<frontend::hand>{
-                                                                frontend::hand{aux[0][a]},
-                                                                frontend::hand{aux[1][b]},
-                                                                frontend::hand{aux[2][c]},
-                                                                frontend::hand{aux[3][d]}
+                                                       std::vector<holdem_id>{
+                                                                holdem_id{aux[0][a]},
+                                                                holdem_id{aux[1][b]},
+                                                                holdem_id{aux[2][c]},
+                                                                holdem_id{aux[3][d]}
                                                                 });
                                 }
                         }, detail::true_, size_vec);
@@ -242,12 +241,12 @@ namespace ps{
                                             ) )
                                 {
                                         children.emplace_back(
-                                                       std::vector<frontend::hand>{
-                                                                frontend::hand{aux[0][a]},
-                                                                frontend::hand{aux[1][b]},
-                                                                frontend::hand{aux[2][c]},
-                                                                frontend::hand{aux[3][d]},
-                                                                frontend::hand{aux[4][e]}
+                                                       std::vector<holdem_id>{
+                                                                holdem_id{aux[0][a]},
+                                                                holdem_id{aux[1][b]},
+                                                                holdem_id{aux[2][c]},
+                                                                holdem_id{aux[3][d]},
+                                                                holdem_id{aux[4][e]}
                                                                 });
                                 }
                         }, detail::true_, size_vec);
@@ -267,13 +266,13 @@ namespace ps{
                                             ) )
                                 {
                                         children.emplace_back(
-                                                       std::vector<frontend::hand>{
-                                                                frontend::hand{aux[0][a]},
-                                                                frontend::hand{aux[1][b]},
-                                                                frontend::hand{aux[2][c]},
-                                                                frontend::hand{aux[3][d]},
-                                                                frontend::hand{aux[4][e]},
-                                                                frontend::hand{aux[5][f]}
+                                                       std::vector<holdem_id>{
+                                                                holdem_id{aux[0][a]},
+                                                                holdem_id{aux[1][b]},
+                                                                holdem_id{aux[2][c]},
+                                                                holdem_id{aux[3][d]},
+                                                                holdem_id{aux[4][e]},
+                                                                holdem_id{aux[5][f]}
                                                                 });
                                 }
                         }, detail::true_, size_vec);
@@ -294,14 +293,14 @@ namespace ps{
                                             ) )
                                 {
                                         children.emplace_back(
-                                                       std::vector<frontend::hand>{
-                                                                frontend::hand{aux[0][a]},
-                                                                frontend::hand{aux[1][b]},
-                                                                frontend::hand{aux[2][c]},
-                                                                frontend::hand{aux[3][d]},
-                                                                frontend::hand{aux[4][e]},
-                                                                frontend::hand{aux[5][f]},
-                                                                frontend::hand{aux[6][g]}
+                                                       std::vector<holdem_id>{
+                                                                holdem_id{aux[0][a]},
+                                                                holdem_id{aux[1][b]},
+                                                                holdem_id{aux[2][c]},
+                                                                holdem_id{aux[3][d]},
+                                                                holdem_id{aux[4][e]},
+                                                                holdem_id{aux[5][f]},
+                                                                holdem_id{aux[6][g]}
                                                                 });
                                 }
                         }, detail::true_, size_vec);
@@ -323,15 +322,15 @@ namespace ps{
                                             ) )
                                 {
                                         children.emplace_back(
-                                                       std::vector<frontend::hand>{
-                                                                frontend::hand{aux[0][a]},
-                                                                frontend::hand{aux[1][b]},
-                                                                frontend::hand{aux[2][c]},
-                                                                frontend::hand{aux[3][d]},
-                                                                frontend::hand{aux[4][e]},
-                                                                frontend::hand{aux[5][f]},
-                                                                frontend::hand{aux[6][g]},
-                                                                frontend::hand{aux[7][h]}
+                                                       std::vector<holdem_id>{
+                                                                holdem_id{aux[0][a]},
+                                                                holdem_id{aux[1][b]},
+                                                                holdem_id{aux[2][c]},
+                                                                holdem_id{aux[3][d]},
+                                                                holdem_id{aux[4][e]},
+                                                                holdem_id{aux[5][f]},
+                                                                holdem_id{aux[6][g]},
+                                                                holdem_id{aux[7][h]}
                                                                 });
                                 }
                         }, detail::true_, size_vec);
@@ -354,16 +353,16 @@ namespace ps{
                                             ) )
                                 {
                                         children.emplace_back(
-                                                       std::vector<frontend::hand>{
-                                                                frontend::hand{aux[0][a]},
-                                                                frontend::hand{aux[1][b]},
-                                                                frontend::hand{aux[2][c]},
-                                                                frontend::hand{aux[3][d]},
-                                                                frontend::hand{aux[4][e]},
-                                                                frontend::hand{aux[5][f]},
-                                                                frontend::hand{aux[6][g]},
-                                                                frontend::hand{aux[7][h]},
-                                                                frontend::hand{aux[8][i]}
+                                                       std::vector<holdem_id>{
+                                                                holdem_id{aux[0][a]},
+                                                                holdem_id{aux[1][b]},
+                                                                holdem_id{aux[2][c]},
+                                                                holdem_id{aux[3][d]},
+                                                                holdem_id{aux[4][e]},
+                                                                holdem_id{aux[5][f]},
+                                                                holdem_id{aux[6][g]},
+                                                                holdem_id{aux[7][h]},
+                                                                holdem_id{aux[8][i]}
                                                                 });
                                 }
                         }, detail::true_, size_vec);
@@ -373,3 +372,4 @@ namespace ps{
                 }
         }
 } // ps
+

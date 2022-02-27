@@ -32,6 +32,7 @@ SOFTWARE.
 #include <string>
 #include <iostream>
 #include <sstream>
+#include <vector>
 #include <cstdint>
 
 #include <Eigen/Dense>
@@ -47,7 +48,7 @@ SOFTWARE.
 
 #define PS_LOG_POLICY PS_LOG_POLICY_NONE
 
-#ifdef PS_LOG_POLICY == PS_LOG_POLICY_NONE
+#if PS_LOG_POLICY == PS_LOG_POLICY_NONE
     #define PS_LOG(level) if(false) BOOST_LOG_TRIVIAL(level)
 #elif PS_LOG_POLICY == PS_LOG_POLICY_BOOST_TRIVIAL
     #define PS_LOG(level) BOOST_LOG_TRIVIAL(level)

@@ -210,11 +210,13 @@ struct holdem_board_decl{
                 size_t singletons{0};
                 size_t aggregates{0};
 
+                std::unordered_map<int, size_t> suit_count;
 
                 for( auto const& l : world_ ){
                         if( l.flush_possible() ){
                                 // singleton
                                 weighted_singletons_.emplace_back( l.make_lightweight<lightweight_layout_singleton>() );
+                                ++suit_count[weighted_singletons_.back().flush_suit()];
                                 ++singletons;
                         } else {
                                 // try to aggrefate
@@ -222,12 +224,59 @@ struct holdem_board_decl{
                                 if( iter == m.end()){
                                         // first one
                                         weighted_aggregates_.emplace_back( l.make_lightweight<lightweight_layout_aggregate>() );
+                                        
                                         m[l.rank_hash()] = weighted_aggregates_.size() -1 ;
                                 } else {
                                         weighted_aggregates_[iter->second].masks.add(l.mask());
                                 }
                                 ++aggregates;
                         }
+                }
+
+                for (auto const& p : suit_count)
+                {
+                    std::cout << "suit " << p.first << " => " << p.second << "\n";
+                }
+
+                std::unordered_map<int, size_t> mask_set_count;
+                for (auto const& x : weighted_aggregates_)
+                {
+                    ++mask_set_count[x.masks.size()];
+                }
+                for (auto const& p : mask_set_count)
+                {
+                    std::cout << "mask counts " << p.first << " => " << p.second << "\n";
+                }
+
+
+                std::unordered_map<int, size_t> rank_mask_count;
+                for (auto const& x : weighted_singletons_)
+                {
+                    ++rank_mask_count[x.rank_mask_];
+                }
+                std::unordered_map<int, size_t> rank_mask_count_count;
+                for (auto const& p : rank_mask_count)
+                {
+                    ++rank_mask_count_count[p.second];
+                }
+                for (auto const& p : mask_set_count)
+                {
+                    std::cout << "mask counts " << p.first << " => " << p.second << "\n";
+                }
+
+                std::map<std::array<ranking_t, 13 * 13 + 13>, size_t> uniqie_ranking_count;
+                for (auto const& x : weighted_singletons_)
+                {
+                    ++uniqie_ranking_count[x.local_eval_];
+                }
+                std::unordered_map<int, size_t> uniqie_ranking_count_count;
+                for (auto const& p : uniqie_ranking_count)
+                {
+                    ++uniqie_ranking_count_count[p.second];
+                }
+                for (auto const& p : uniqie_ranking_count_count)
+                {
+                    std::cout << "uniqe evals " << p.first << " => " << p.second << "\n";
                 }
 
                 //PS_LOG(trace) << "singletons=" << singletons << ", aggregates=" << aggregates << " ( "<< (( aggregates * 100.0 ) / ( singletons + aggregates ));

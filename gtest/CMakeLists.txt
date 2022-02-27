@@ -6,7 +6,7 @@ add_executable(
   ps-test
   eval.cpp
   cards.cpp
-  frontend.cpp
+  #frontend.cpp
 
 )
 target_link_libraries(

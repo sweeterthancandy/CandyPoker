@@ -27,9 +27,9 @@ struct flush_mask_eval{
                                 continue;
                         }
 
-                        std::array<size_t, 7> ids;
+                        std::array<rank_id, 7> ids;
                         size_t iter = 0;
-                        for(size_t rank=0;rank!=13;++rank){
+                        for(rank_id rank=0;rank!=13;++rank){
                                 if( mask & (1ull << rank) ){
                                         ids[iter] = rank;
                                         ++iter;
@@ -143,9 +143,9 @@ struct no_flush_no_pair_mask{
                                 continue;
                         }
 
-                        std::array<size_t, 7> ids;
+                        std::array<rank_id, 7> ids;
                         size_t iter = 0;
-                        for(size_t rank=0;rank!=13;++rank){
+                        for(rank_id rank=0;rank!=13;++rank){
                                 if( mask & (1ull << rank) ){
                                         ids[iter] = rank;
                                         ++iter;

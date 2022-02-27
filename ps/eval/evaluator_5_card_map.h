@@ -67,7 +67,12 @@ struct evaluator_5_card_map{
                         void begin(std::string const&){}
                         void end(){}
                         void next( bool f, long a, long b, long c, long d, long e){
-                                auto m = prime_rank_map::create(a,b,c,d,e);
+                                auto m = prime_rank_map::create(
+                                    static_cast<rank_id>(a),
+                                    static_cast<rank_id>(b),
+                                    static_cast<rank_id>(c),
+                                    static_cast<rank_id>(d),
+                                    static_cast<rank_id>(e));
                                 if( f )
                                         self_->flush_map_[m] = order_;
                                 else
@@ -75,7 +80,7 @@ struct evaluator_5_card_map{
                                 ++order_;
                         }
                         evaluator_5_card_map* self_;
-                        size_t order_{1};
+                        ranking_t order_{1};
                 };
                 V v = {this};
                 flush_map_.resize( suit_hasher::five_card_max() +1 );

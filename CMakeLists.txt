@@ -103,9 +103,9 @@ set(base_sources
         lib/eval/holdem_class_vector_cache.cpp
         lib/eval/pass_eval_hand_instr_vec.cpp
         lib/eval/dispatch_generic.cpp
-        #lib/eval/dispatch_three.cpp
-        #lib/eval/dispatch_three_avx2.cpp
-        #lib/eval/dispatch_four.cpp
+        lib/eval/dispatch_three.cpp
+        lib/eval/dispatch_three_avx2.cpp
+        lib/eval/dispatch_four.cpp
         
         lib/support/singleton_factory.cpp
 
@@ -141,6 +141,7 @@ if( WIN32 )
 else()
         target_link_libraries(candy-poker pthread )
 endif()
+
 target_link_libraries(candy-poker ${Boost_LIBRARIES})
 target_link_libraries(candy-poker ps_lib )
 #target_link_libraries(candy-poker Eigen3::Eigen)

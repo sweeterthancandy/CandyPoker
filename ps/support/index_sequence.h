@@ -124,8 +124,11 @@ struct strict_lower_triangle_policy{
         template<class Vec>
         static void init(Vec& vec, size_t n, size_t m){
                 vec.resize(n);
-                for(size_t i=0;i!=vec.size();++i)
-                        vec[i] = i;
+                using value_ty = std::decay<decltype(vec[0])>::type;
+                for (size_t i = 0; i != vec.size(); ++i)
+                {
+                    vec[i] = static_cast<value_ty>(i);
+                }
         }
         template<class Vec>
         static bool next(Vec& vec, size_t m){

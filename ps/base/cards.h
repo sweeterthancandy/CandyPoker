@@ -500,48 +500,9 @@ namespace ps{
         };
 
         struct equity_view : std::vector<double>{
-                equity_view(matrix_t const& breakdown){
-                        sigma_ = 0;
-                        size_t n = breakdown.rows();
-                        std::map<long, unsigned long long> sigma_device;
-                        for( size_t i=0;i!=n;++i){
-                                for(size_t j=0; j != n; ++j ){
-                                        sigma_device[j] += breakdown(j,i);
-                                }
-                        }
-                        for( size_t i=0;i!=n;++i){
-                                sigma_ += sigma_device[i] / ( i +1 );
-                        }
-
-
-                        for( size_t i=0;i!=n;++i){
-
-                                double equity = 0.0;
-                                for(size_t j=0; j != n; ++j ){
-                                        equity += breakdown(j,i) / ( j +1 );
-                                }
-                                equity /= sigma_;
-                                push_back(equity);
-                        }
-                }
+                equity_view(matrix_t const& breakdown);
                 unsigned long long sigma()const{ return sigma_; }
-                bool valid()const{
-                        if( empty() )
-                                return false;
-                        for(auto _ : *this){
-                                switch(std::fpclassify(_)) {
-                                case FP_INFINITE:
-                                case FP_NAN:
-                                case FP_SUBNORMAL:
-                                default:
-                                        return false;
-                                case FP_ZERO:
-                                case FP_NORMAL:
-                                        break;	
-                                }
-                        }
-                        return true;
-                }
+                bool valid()const;
         private:
                 unsigned long long sigma_;
         };

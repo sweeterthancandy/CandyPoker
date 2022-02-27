@@ -208,7 +208,7 @@ std::tuple<
 
                                 mask |= static_cast<size_t>(1) << mhid;
 
-                                player_perm.push_back(_.index);
+                                player_perm.push_back(static_cast<int>(_.index));
                                 hv.push_back(mhid);
                         }
 

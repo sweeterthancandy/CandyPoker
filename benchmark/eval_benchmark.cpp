@@ -11,7 +11,7 @@ using namespace ps::interface_;
 namespace {
     inline auto do_frontend_parse(std::string const& s)
     {
-        return frontend::parse(s);
+        return frontend::range(s);
     }
 }
 

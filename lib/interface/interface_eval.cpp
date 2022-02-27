@@ -157,7 +157,7 @@ namespace interface_ {
                 }
                 std::vector<frontend::range> players;
                 for (auto const& s : player_ranges) {
-                    players.push_back(frontend::parse(s));
+                    players.push_back(frontend::range(s));
                 }
 
                 std::string tag = "Tag_" + std::to_string(index);

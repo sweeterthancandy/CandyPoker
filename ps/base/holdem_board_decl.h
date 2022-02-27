@@ -210,13 +210,13 @@ struct holdem_board_decl{
                 size_t singletons{0};
                 size_t aggregates{0};
 
-                std::unordered_map<int, size_t> suit_count;
+                //std::unordered_map<int, size_t> suit_count;
 
                 for( auto const& l : world_ ){
                         if( l.flush_possible() ){
                                 // singleton
                                 weighted_singletons_.emplace_back( l.make_lightweight<lightweight_layout_singleton>() );
-                                ++suit_count[weighted_singletons_.back().flush_suit()];
+                               // ++suit_count[weighted_singletons_.back().flush_suit()];
                                 ++singletons;
                         } else {
                                 // try to aggrefate
@@ -233,6 +233,7 @@ struct holdem_board_decl{
                         }
                 }
 
+#if 0
                 for (auto const& p : suit_count)
                 {
                     std::cout << "suit " << p.first << " => " << p.second << "\n";
@@ -278,6 +279,7 @@ struct holdem_board_decl{
                 {
                     std::cout << "uniqe evals " << p.first << " => " << p.second << "\n";
                 }
+#endif
 
                 //PS_LOG(trace) << "singletons=" << singletons << ", aggregates=" << aggregates << " ( "<< (( aggregates * 100.0 ) / ( singletons + aggregates ));
 

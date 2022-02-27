@@ -29,7 +29,7 @@ struct optimized_transform : optimized_transform_base
         {
                 boost::timer::cpu_timer tmr;
 
-                constexpr bool WithLogging = false;
+                constexpr bool WithLogging = true;
 
 #ifdef DO_VAlGRIND
                 CALLGRIND_START_INSTRUMENTATION;

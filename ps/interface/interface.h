@@ -36,6 +36,7 @@ SOFTWARE.
 #include <unordered_map>
 
 #include <boost/rational.hpp>
+#include <boost/optional.hpp>
 
 /*
 Need this for unit testing, as really the evaluation is configurable in the application, but

@@ -20,7 +20,7 @@ namespace ps{
                 enum{ CheckUnion = true };
                 eval_counter_type calculate(size_t hv_mask, mask_set const* ms, size_t single_mask)const noexcept{
                         if( !! ms ){
-                                if( CheckUnion ){
+                                if constexpr( CheckUnion ){
                                         if( ( ms->get_union() & hv_mask) == 0 ){
                                                 return ms->size();
                                         }
@@ -29,6 +29,14 @@ namespace ps{
                         } else {
                                 return (( hv_mask & single_mask )==0?1:0);
                         }
+                }
+                eval_counter_type calculate(size_t hv_mask, mask_set const& ms)const noexcept {
+                    if constexpr (CheckUnion) {
+                        if ((ms.get_union() & hv_mask) == 0) {
+                            return ms.size();
+                        }
+                    }
+                    return ms.count_disjoint_with<eval_counter_type>(hv_mask);
                 }
         };
 
@@ -47,55 +55,14 @@ namespace ps{
                         void put(size_t index, ranking_t rank)noexcept{
                                 evals_[index] = rank;
                         }
-                        int extract_weight(weights_ty& weights, mask_set const* ms, size_t single_mask)noexcept
-                        {
-                            int non_zero{ 0 };
-                            for (int idx=0;idx!=subs_.size();++idx)
-                            {
-                                auto weight = generic_weight_policy{}
-                                    .calculate(subs_[idx]->hand_mask(), ms, single_mask);
-                                weights[idx] = weight;
-                                if (weight != 0)
-                                {
-                                    ++non_zero;
-                                }
 
-                            }
-                            return non_zero;
-                        }
-                        void end_eval_with_weight(mask_set const* ms, size_t single_mask, const weights_ty& weights)noexcept {
-                            for (int idx = 0; idx != subs_.size(); ++idx)
-                            {
-                                auto& _ = subs_[idx];
-                                auto weight = weights[idx];
-                                if (CheckZeroWeight) {
-                                    if (weight == 0)
-                                        continue;
-                                }
-                                _->accept_weight(weight, evals_);
-                            }
-                        }
                         int end_eval(mask_set const* ms, size_t single_mask)noexcept{
+                                (void)single_mask;
                                 int non_zero{ 0 };
                                 for(auto& _ : subs_){
                                         auto weight = generic_weight_policy{}
-                                                .calculate(_->hand_mask(), ms, single_mask);
-                                        #if 0
-                                        size_t weight = [&]()->size_t{
-                                                auto hv_mask = _->hand_mask();
-                                                if( !! ms ){
-                                                        if( CheckUnion ){
-                                                                if( ( ms->get_union() & hv_mask) == 0 ){
-                                                                        return ms->size();
-                                                                }
-                                                        }
-                                                        return ms->count_disjoint(hv_mask);
-                                                } else {
-                                                        return (( hv_mask & single_mask )==0?1:0);
-                                                }
-                                        }();
-                                        #endif
-                                        if( CheckZeroWeight ){
+                                                .calculate(_->hand_mask(), *ms);
+                                        if constexpr ( CheckZeroWeight ){
                                                 if( weight == 0 )
                                                         continue;
                                         }

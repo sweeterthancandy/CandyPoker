@@ -210,7 +210,9 @@ struct MaskEval : Command{
                 }
 #endif
 
-                auto result_view = interface_::evaluate(players_s, engine);
+
+                interface_::EvaluationObject obj(players_s, engine, debug);
+                auto result_view = obj.Compute();
                 pretty_print_equity_breakdown_mat(std::cout, result_view.get_matrix(), players_s);
 
                 return EXIT_SUCCESS;

@@ -56,8 +56,9 @@ The result from computation is a matrix with the interpretation
 
 */
 
-// keep is signed to suppess warnings
-using rational_ty = boost::rational<int>;
+
+	using rational_int_ty = std::uintmax_t;
+using rational_ty = boost::rational<rational_int_ty>;
 
 class EvaulationResultView{
 public:
@@ -113,6 +114,7 @@ public:
 		}
 		rational_ty sigma = 0;
 		for (size_t i = 0; i != num_players; ++i) {
+
 			sigma += sigma_device[i] / rational_ty(i + 1);
 		}
 
@@ -121,13 +123,16 @@ public:
 			rational_ty equity{ 0 };
 			unsigned long long any_draw{ 0 };
 			for (size_t j = 0; j != num_players; ++j) {
-				equity += static_cast<int>(result(j, i)) / rational_ty(j + 1);
+				equity += static_cast<rational_int_ty>(result(j, i)) / rational_ty(j + 1);
 				if (j != 0)
 				{
 					any_draw += result(j, i);
 				}
 			}
-			equity /= sigma;
+
+			// skip 0/0 issues
+			if( sigma != 0)
+				equity /= sigma;
 			const auto wins = result(0, i);
 			players_.emplace_back(player_ranges[i], equity, wins, any_draw);
 		}
@@ -152,10 +157,10 @@ class EvaluationObject
 {
 public:
 	EvaluationObject(std::shared_ptr< EvaluationObjectImpl> impl) :impl_{ impl } {}
-	EvaluationObject(std::vector<std::string> const& player_ranges, std::string const& engine = {})
-		: EvaluationObject{ std::vector<std::vector<std::string> >{player_ranges} , engine }
+	EvaluationObject(std::vector<std::string> const& player_ranges, std::string const& engine = {}, bool debug = false)
+		: EvaluationObject{ std::vector<std::vector<std::string> >{player_ranges} , engine , debug }
 	{}
-	EvaluationObject(std::vector<std::vector<std::string> > const& player_ranges_list, std::string const& engine = {});
+	EvaluationObject(std::vector<std::vector<std::string> > const& player_ranges_list, boost::optional<std::string> const& engine = {}, bool debug = false);
 
 	EvaulationResultView Compute()const
 	{

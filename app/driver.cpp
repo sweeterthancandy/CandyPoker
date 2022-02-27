@@ -344,14 +344,18 @@ static TrivialCommandDecl<PrintBoard> PrintBoardDecl{"print-board"};
 
 
 int main(int argc, char** argv){
-#if 1
+#if 0
+#define USE_PROXY 1
     static char* argv_proxy[] = {
         "dummy",
         "eval",
-        "--breakdown",
+        "--debug",
         "1",
-        "AA",
-        "KK",
+        "--engine",
+        "generic",
+        "TT+",
+        "99+",
+        "88+",
         nullptr };
 #else
     static char* argv_proxy[] = {
@@ -362,7 +366,7 @@ int main(int argc, char** argv){
     int argc_proxy = sizeof(argv_proxy) / sizeof(void*) - 1;
 
         try{
-#if 0
+#ifdef USE_PROXY
             CommandDecl::Driver(argc_proxy, argv_proxy);
 #else
                 CommandDecl::Driver(argc, argv);

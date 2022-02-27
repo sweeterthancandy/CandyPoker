@@ -78,6 +78,7 @@ namespace interface_ {
     {
     public:
         EvaluationObjectImplPrepared(
+            bool debug,
             std::vector<std::vector<std::string> > const& player_ranges_list,
             std::string const& engine,
             std::vector<std::string> const& tag_list,
@@ -85,7 +86,10 @@ namespace interface_ {
             std::shared_ptr< computation_result> const& result,
             std::shared_ptr< instruction_list> const& agg_instr_list)
          
-            : player_ranges_list_{ player_ranges_list }
+            : debug_{ debug }
+            , player_ranges_list_ {
+                player_ranges_list
+            }
             , engine_{ engine }
             , tag_list_{tag_list}
             , comp_ctx_{ comp_ctx }
@@ -101,6 +105,9 @@ namespace interface_ {
             computation_pass_manager mgr;
            
             mgr.add_pass<pass_eval_hand_instr_vec>(engine_);
+            if (debug_)
+                mgr.add_pass<pass_print>();
+
             mgr.add_pass<pass_write>();
             mgr.execute_(comp_ctx_.get(), agg_instr_list_.get(), result_.get());
 
@@ -114,6 +121,7 @@ namespace interface_ {
             return result_view;
         }
     private:
+        bool debug_;
         std::vector<std::vector<std::string> > player_ranges_list_;
         std::string engine_;
 
@@ -128,9 +136,11 @@ namespace interface_ {
     public:
         EvaluationObjectImplUnprepared(
             std::vector<std::vector<std::string> > const& player_ranges_list,
-            std::string const& engine = {})
+            boost::optional<std::string> const& engine = {},
+            bool debug = false)
             : player_ranges_list_{ player_ranges_list }
-            , engine_{ engine }
+            , engine_{ engine.value_or("") }
+            , debug_{ debug }
         {
             PS_ASSERT(player_ranges_list.size() > 0, "need at least one");
         }
@@ -178,12 +188,17 @@ namespace interface_ {
 
             computation_pass_manager mgr;
             mgr.add_pass<pass_permutate>();
+            if (debug_)
+                mgr.add_pass<pass_print>();
             mgr.add_pass<pass_sort_type>();
             mgr.add_pass<pass_collect>();
+            if (debug_)
+                mgr.add_pass<pass_print>();
 
             mgr.execute_(comp_ctx.get(), agg_instr_list.get(), result.get());
 
             return std::make_shared< EvaluationObjectImplPrepared>(
+                debug_,
                 player_ranges_list_,
                 engine_,
                 tag_list,
@@ -194,14 +209,16 @@ namespace interface_ {
     private:
         std::vector<std::vector<std::string> > player_ranges_list_;
         std::string engine_;
+        bool debug_;
     };
 
 
-    EvaluationObject::EvaluationObject(std::vector<std::vector<std::string> > const& player_ranges_list, std::string const& engine)
+    EvaluationObject::EvaluationObject(std::vector<std::vector<std::string> > const& player_ranges_list, boost::optional<std::string> const& engine, bool debug)
     {
         impl_ = std::make_shared< EvaluationObjectImplUnprepared>(
             player_ranges_list,
-            engine);
+            engine,
+            debug);
     }
 
     std::vector<EvaulationResultView> EvaluationObject::ComputeList()const

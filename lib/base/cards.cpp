@@ -75,7 +75,7 @@ namespace ps{
 
         card_vector card_vector::from_bitmask(size_t mask) {
             card_vector vec;
-            for (size_t i = 0; i != 52; ++i) {
+            for (card_id i = 0; i != card_decl::max_id; ++i) {
                 if (mask & card_decl::get(i).mask()) {
                     vec.push_back(i);
                 }
@@ -198,7 +198,7 @@ namespace ps{
             PS_ASSERT_VALID_CARD_ID(y);
             static std::array<holdem_id, 52 * 52> proto{
                     []() {
-                            size_t id{0};
+                            holdem_id id{0};
                             std::array<holdem_id, 52 * 52> result;
                             for (char a{52}; a != 1;) {
                                     --a;
@@ -447,8 +447,8 @@ namespace ps{
                 static const size_t factor = 
                         [](){
                                 size_t ret{0};
-                                for(size_t i{0};i!=holdem_class_decl::max_id;++i){
-                                        for(size_t j{0};j!=holdem_class_decl::max_id;++j){
+                                for(holdem_class_id i{0};i!=holdem_class_decl::max_id;++i){
+                                        for(holdem_class_id j{0};j!=holdem_class_decl::max_id;++j){
                                                 ret += holdem_class_decl::weight(i,j);
                                         }
                                 }

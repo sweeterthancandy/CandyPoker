@@ -104,7 +104,7 @@ struct result_description
         perm_matrix.fill(0);
 
         for (size_t idx = 0; idx != perm.size(); ++idx) {
-            perm_matrix(idx, perm[idx]) = 1.0;
+            perm_matrix(idx, perm[idx]) = 1;
         }
 
         std::vector<result_description> result;

@@ -68,7 +68,7 @@ struct rank_hash_hash_eval
                 size_t bc = card_map_7_.bucket_count();
                 std::cout << "bc => " << bc << "\n"; // __CandyPrint__(cxx-print-scalar,bc)
         }
-        ranking_t rank(card_vector const& cv, size_t suit_hash, size_t rank_hash, long a, long b)const noexcept{
+        ranking_t rank(card_vector const& cv, size_t suit_hash, size_t rank_hash, card_id a, card_id b)const noexcept{
                 if( suit_hasher::has_flush_unsafe(suit_hash) ){
                         return e6cm_->rank(a,b,cv[0], cv[1], cv[2], cv[3], cv[4]);
                 }

@@ -142,7 +142,7 @@ struct holdem_board_decl{
 
                         // do we have 3,4,5 of any suit?
                         // only one suit can have this
-                        for(size_t sid =0;sid!=4;++sid){
+                        for(suit_id sid =0;sid!=suit_decl::max_id;++sid){
                                 if( suit_hist[sid] < 3 )
                                         continue;
                                 // only possible for one suit
@@ -157,8 +157,8 @@ struct holdem_board_decl{
                         flush_possible_ = ( flush_suit_board_.size() != 0);
 
                         local_eval_.fill(-1);
-                        for(size_t c0=0;c0!=13;++c0){
-                                for(size_t c1=0;c1!=13;++c1){
+                        for(rank_id c0=0;c0!=rank_decl::max_id;++c0){
+                                for(rank_id c1=0;c1!= rank_decl::max_id;++c1){
 
                                         auto mask = rank_hash_;
                                         mask = rank_hasher::append(mask, c0);

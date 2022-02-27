@@ -35,8 +35,14 @@ namespace {
                 rank_world_aux(){
                         result.emplace_back(); // dummy one because we start at 1
                 }
-                void next( bool f, rank_id a, rank_id b, rank_id c, rank_id d, rank_id e){
-                        rank_vector aux{a,b,c,d,e};
+                void next( bool f, long a, long b, long c, long d, long e){
+                        rank_vector aux{
+                            static_cast<rank_id>(a),
+                            static_cast<rank_id>(b),
+                            static_cast<rank_id>(c),
+                            static_cast<rank_id>(d),
+                            static_cast<rank_id>(e)
+                        };
                         result.emplace_back(order_, cat_, f, name_proto_, std::move(aux));
                         ++order_;
                 }

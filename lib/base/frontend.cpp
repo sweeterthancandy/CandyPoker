@@ -186,6 +186,7 @@ namespace ps {
                     case suit_category::suited:
                         return "suited";
                     case suit_category::offsuit:
+                    default: // dont care
                         return "offsuit";
                     }
                 }();
@@ -196,6 +197,7 @@ namespace ps {
                     case suit_category::suited:
                         return "s";
                     case suit_category::offsuit:
+                    default: // dont care
                         return "o";
                     }
                 }();
@@ -238,12 +240,15 @@ namespace ps {
                         }
                     }
                     break;
+                default:
+                        break;
                 }
                 return std::move(result);
             }
             holdem_class_id i_am_a_duck__to_class_id()const {
                 switch (Suit_Category) {
                 case suit_category::any_suit:
+                default:
                     BOOST_THROW_EXCEPTION(std::domain_error("bad card"));
                     break;
                 case suit_category::suited:

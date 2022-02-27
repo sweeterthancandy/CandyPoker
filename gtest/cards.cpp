@@ -175,7 +175,7 @@ TEST(holdem_class_decl, parse){
 
 TEST(holdem_class_decl, prob){
         double sigma{0.0};
-        for(size_t i{0};i!=169;++i){
+        for(holdem_id i{0};i!=169;++i){
                 sigma += holdem_class_decl::get(i).prob();
         }
         EXPECT_NEAR(1.0, sigma, 1e-3);
@@ -184,15 +184,15 @@ TEST(holdem_class_decl, prob){
 
 TEST(holdem_class_decl, static_prob){
         double sigma{0.0};
-        for(size_t i{0};i!=169;++i){
-                for(size_t j{0};j!=169;++j){
+        for(holdem_id i{0};i!=169;++i){
+                for(holdem_id j{0};j!=169;++j){
                         sigma += holdem_class_decl::prob(i,j);
                 }
         }
         EXPECT_NEAR(1.0, sigma, 1e-3);
 }
 TEST(holdem_class_decl, class_){
-        for(size_t i{0};i!=169;++i){
+        for(holdem_id i{0};i!=169;++i){
                 auto const& decl = holdem_class_decl::get(i);
                 for( auto c : decl.get_hand_set() ){
                         EXPECT_EQ(decl.id(), c.class_());

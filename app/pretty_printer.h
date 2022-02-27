@@ -81,6 +81,14 @@ SOFTWARE.
 #include "ps/base/cards.h"
 
 
+#if BOOST_OS_WINDOWS
+
+    #pragma warning(push)
+    #pragma warning(disable : 4267)
+    #pragma warning(disable : 4244)
+
+#endif
+
 
 
 namespace ps{
@@ -136,7 +144,7 @@ namespace Pretty{
         
 
         namespace Detail{
-                static auto repeat = [](char c, int n){
+                static auto repeat = [](char c, size_t n){
                         if(n == 0 )
                                 return std::string{};
                         return std::string(n, c);
@@ -752,8 +760,8 @@ namespace ps{
                 };
                 
                 std::cout << "   ";
-                for(size_t i{0};i!=13;++i){
-                        std::cout << pad( rank_decl::get(12-i).to_string(), widths[i] ) << " ";
+                for(rank_id i{0};i!=rank_decl::max_id;++i){
+                        std::cout << pad( rank_decl::get(static_cast<rank_id>(12-i)).to_string(), widths[i] ) << " ";
                 }
                 std::cout << "\n";
                 std::cout << "  +" << std::string( std::accumulate(widths.begin(), widths.end(), 0) + 13, '-') << "\n";
@@ -771,3 +779,10 @@ namespace ps{
         }
 } // end namespace ps
 #endif // PS_APP_PRETTY_PRINTER_H
+
+
+#if BOOST_OS_WINDOWS
+
+#pragma warning(pop)
+
+#endif

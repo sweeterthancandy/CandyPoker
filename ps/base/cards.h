@@ -313,6 +313,7 @@ namespace ps{
                                 return 4;
                         case holdem_class_type::offsuit:
                                 return 12;
+                        default: // don't care
                         case holdem_class_type::pocket_pair:
                                 return 6;
                         }

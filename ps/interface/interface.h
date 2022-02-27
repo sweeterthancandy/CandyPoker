@@ -56,7 +56,8 @@ The result from computation is a matrix with the interpretation
 
 */
 
-using rational_ty = boost::rational<unsigned long long>;
+// keep is signed to suppess warnings
+using rational_ty = boost::rational<int>;
 
 class EvaulationResultView{
 public:
@@ -120,7 +121,7 @@ public:
 			rational_ty equity{ 0 };
 			unsigned long long any_draw{ 0 };
 			for (size_t j = 0; j != num_players; ++j) {
-				equity += result(j, i) / rational_ty(j + 1);
+				equity += static_cast<int>(result(j, i)) / rational_ty(j + 1);
 				if (j != 0)
 				{
 					any_draw += result(j, i);

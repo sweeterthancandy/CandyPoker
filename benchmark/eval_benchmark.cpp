@@ -47,5 +47,35 @@ static void BM_ThreePlayerPocketPairGeneric(benchmark::State& state) {
 // Register the function as a benchmark
 BENCHMARK(BM_ThreePlayerPocketPairGeneric);
 
+static void BM_ThreePlayerPocketPairTPG(benchmark::State& state) {
+    for (auto _ : state)
+    {
+        std::vector<std::string> player_ranges{ "AA", "KK", "QQ" };
+        evaluate(player_ranges, "three-player-generic");
+    }
+}
+// Register the function as a benchmark
+BENCHMARK(BM_ThreePlayerPocketPairTPG);
+
+static void BM_ThreePlayerPocketPairTPP(benchmark::State& state) {
+    for (auto _ : state)
+    {
+        std::vector<std::string> player_ranges{ "AA", "KK", "QQ" };
+        evaluate(player_ranges, "three-player-perm");
+    }
+}
+// Register the function as a benchmark
+BENCHMARK(BM_ThreePlayerPocketPairTPP);
+
+static void BM_ThreePlayerPocketPairAVX2(benchmark::State& state) {
+    for (auto _ : state)
+    {
+        std::vector<std::string> player_ranges{ "AA", "KK", "QQ" };
+        evaluate(player_ranges, "three-player-avx2");
+    }
+}
+// Register the function as a benchmark
+BENCHMARK(BM_ThreePlayerPocketPairAVX2);
+
 
 BENCHMARK_MAIN();

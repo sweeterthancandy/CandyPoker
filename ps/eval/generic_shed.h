@@ -1,6 +1,7 @@
 #ifndef LIB_EVAL_GENERIC_SHED_H
 #define LIB_EVAL_GENERIC_SHED_H
 
+#include "ps/eval/optimized_transform.h"
 
 namespace ps{
 
@@ -103,6 +104,19 @@ namespace ps{
                                 }
                                 return non_zero;
                         }
+
+                        int end_eval_single(size_t mask)noexcept {
+                            int non_zero{ 0 };
+                            for (auto& _ : subs_) {
+                                if ((_->hand_mask() & mask) == 0)
+                                {
+                                    _->accept_weight(1, evals_);
+                                }
+                                ++non_zero;
+                            }
+                            return non_zero;
+                        }
+
                         void regroup()noexcept{
                                 // nop
                         }
@@ -112,6 +126,8 @@ namespace ps{
                 };
         };
 
+        template<>
+        struct supports_single_mask<generic_shed> : std::true_type {};
 } // end namespace ps
 
 #endif // LIB_EVAL_GENERIC_SHED_H

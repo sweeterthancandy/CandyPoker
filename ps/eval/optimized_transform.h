@@ -12,6 +12,9 @@
 
 namespace ps{
 
+    template<class T>
+    struct supports_single_mask : std::false_type {};
+
 
 template<class Sub,
          class Schedular,
@@ -122,24 +125,10 @@ struct optimized_transform : optimized_transform_base
 
                 for(auto const& b : otc.w.weighted_aggregate_rng() ){
                         
-                        #if 1
-                        if constexpr (std::is_same<void, decltype(shed.end_eval(&b.masks, 0ull))>::value || (!enable_weight_branch))
-                        {
-                            apply_any_board(b);
-                            shed.end_eval(&b.masks, 0ull);
-                        }
-                        else
-                        {
-                            auto non_zero = shed.extract_weight(weights, &b.masks, 0ull);
-                            if (non_zero == 0)
-                            {
-                                continue;
-                            }
-                            apply_any_board(b);
-                            shed.end_eval_with_weight(&b.masks, 0ull, weights);
-                            //++non_zero_m[ret];
-                        }
-                        #endif
+
+                        apply_any_board(b);
+                        shed.end_eval(&b.masks, 0ull);
+                       
                         ++count;
                 }
                 if (WithLogging) PS_LOG(trace) << tmr.format(4, "no    flush boards took %w seconds") << " to do " << count << " boards";
@@ -147,25 +136,16 @@ struct optimized_transform : optimized_transform_base
                 count = 0;
                 for(auto const& b : otc.w.weighted_singleton_rng() ){
                         
-                        #if 1
-                        //shed.end_eval(nullptr, b.single_rank_mask());
-                        if constexpr (std::is_same<void, decltype(shed.end_eval(&b.masks, 0ull))>::value || (!enable_weight_branch))
+                        apply_any_board(b);
+
+                        if constexpr (supports_single_mask< Schedular>{})
                         {
-                            apply_any_board(b);
-                            shed.end_eval(&b.masks, 0ull);
+                            shed.end_eval_single(b.single_rank_mask());
                         }
                         else
                         {
-                            auto non_zero = shed.extract_weight(weights, &b.masks, 0ull);
-                            if (non_zero == 0)
-                            {
-                                continue;
-                            }
-                            apply_any_board(b);
-                            shed.end_eval_with_weight(&b.masks, 0ull, weights);
-                            //++non_zero_m[ret];
+                            shed.end_eval(&b.masks, 0ull);
                         }
-                        #endif
                         ++count;
                 }
                 if (WithLogging) PS_LOG(trace) << tmr.format(4, "maybe flush boards took %w seconds") << " to do " << count << " boards";

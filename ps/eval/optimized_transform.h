@@ -1,7 +1,7 @@
 #ifndef LIB_EVAL_OPTIMIZED_TRANSFORM_H
 #define LIB_EVAL_OPTIMIZED_TRANSFORM_H
 
-#include "lib/eval/rank_opt_device.h"
+#include "ps/eval/rank_opt_device.h"
 
 // #define DO_VAlGRIND
 

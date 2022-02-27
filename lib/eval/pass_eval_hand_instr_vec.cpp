@@ -1,9 +1,9 @@
 #include "ps/eval/pass_eval_hand_instr_vec.h"
-#include "lib/eval/rank_opt_device.h"
-#include "lib/eval/dispatch_table.h"
-#include "lib/eval/generic_shed.h"
-#include "lib/eval/generic_sub_eval.h"
-#include "lib/eval/optimized_transform.h"
+#include "ps/eval/rank_opt_device.h"
+#include "ps/eval/dispatch_table.h"
+#include "ps/eval/generic_shed.h"
+#include "ps/eval/generic_sub_eval.h"
+#include "ps/eval/optimized_transform.h"
 
 namespace ps{
 

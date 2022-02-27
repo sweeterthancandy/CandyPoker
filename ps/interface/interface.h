@@ -56,8 +56,9 @@ The result from computation is a matrix with the interpretation
 
 */
 
-
-	using rational_int_ty = std::uintmax_t;
+// TODO, handle issues with very large numbers, ie std::optional<boost::rational<rational_int_ty>> where an issue
+// comes up
+using rational_int_ty = std::uintmax_t;
 using rational_ty = boost::rational<rational_int_ty>;
 
 class EvaulationResultView{

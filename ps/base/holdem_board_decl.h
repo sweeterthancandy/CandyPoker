@@ -195,14 +195,141 @@ struct holdem_board_decl{
                 bool flush_possible_;
                 size_t flush_mask_{0};
                 friend struct super_duper_board_opt_idea;
+        public:
                 std::array<ranking_t, 13 * 13 + 13> local_eval_;
         };
+
+
+
+        class board_rank_grouping
+        {
+        public:
+            class suit_symmetry
+            {
+            public:
+                suit_symmetry(
+                    size_t flush_mask,
+                    std::array< size_t, 4> board_card_mask)
+                    : flush_mask_{ flush_mask }
+                    , board_card_mask_{ board_card_mask }
+                {}
+                size_t flush_mask()const noexcept {
+                    return flush_mask_;
+                }
+                std::array< size_t, 4> board_card_mask_vec()const noexcept
+                {
+                    return board_card_mask_;
+                }
+            private:
+                size_t flush_mask_;
+                std::array< size_t, 4> board_card_mask_;
+            };
+            
+            board_rank_grouping(
+                std::array<ranking_t, 13 * 13 + 13> const& local_eval,
+                mask_set const& no_flush_masks,
+                std::vector< suit_symmetry> const& ss)
+                : local_eval_{ local_eval }
+                , no_flush_masks_{ no_flush_masks }
+                , ss_{ ss }
+            {}
+
+            ranking_t no_flush_rank(card_id c0, card_id c1)const noexcept {
+                return local_eval_[c0 * 13 + c1];
+            }
+            std::vector< suit_symmetry> suit_symmetry_vec()const noexcept
+            {
+                return ss_;
+            }
+        private:
+            std::array<ranking_t, 13 * 13 + 13> local_eval_;
+            mask_set no_flush_masks_;
+            std::vector< suit_symmetry> ss_;
+        };
+
 
         holdem_board_decl(){
                 rank_hash_eval eval;
                 for(board_combination_iterator iter(5),end;iter!=end;++iter){
                         world_.emplace_back(eval, *iter );
                 }
+
+
+
+
+
+
+                std::unordered_map<size_t, std::vector<size_t> > rank_mask_index;
+                for (size_t idx = 0; idx != world_.size(); ++idx)
+                {
+                    const size_t rank_mask = world_[idx].rank_hash();
+                    rank_mask_index[rank_mask].push_back(idx);
+                }
+
+                for (auto const& p : rank_mask_index)
+                {
+                    auto const& rank_mask_group = p.second;
+
+                    std::vector<size_t> without_any_flush;
+                    std::vector<size_t> with_possible_flush;
+                    for (size_t idx : rank_mask_group)
+                    {
+                        if (world_[idx].flush_possible())
+                        {
+                            with_possible_flush.push_back(idx);
+                        }
+                        else
+                        {
+                            without_any_flush.push_back(idx);
+                        }
+                    }
+
+                    std::unordered_map<size_t, std::array<boost::optional<size_t>, 4> > flush_grouping;
+                    for (size_t idx : with_possible_flush)
+                    {
+                        size_t flush_mask = world_[idx].flush_mask();
+                        suit_id sid = world_[idx].flush_suit();
+                        if (flush_grouping[flush_mask].at(idx).has_value())
+                        {
+                            BOOST_THROW_EXCEPTION(std::domain_error("unexpeckjhkjh"));
+                        }
+                        flush_grouping[flush_mask].at(sid) = idx;
+                    }
+
+                    std::vector<board_rank_grouping::suit_symmetry> ss_vec;
+                    for (auto const& fg : flush_grouping)
+                    {
+                        auto any_flush_mask = world_[fg.second[0].get()].flush_mask();
+                        std::array<size_t, 4> cards = {
+                            world_[fg.second[0].get()].mask(),
+                            world_[fg.second[1].get()].mask(),
+                            world_[fg.second[2].get()].mask(),
+                            world_[fg.second[3].get()].mask()
+                        };
+                        ss_vec.emplace_back(any_flush_mask,cards);   
+                    }
+
+                    mask_set ms;
+                    for (size_t idx : without_any_flush)
+                    {
+                        ms.add(world_[idx].mask());
+                    }
+
+                    auto any_local_eval = world_[rank_mask_group[0]].local_eval_;
+
+                    grouping.emplace_back(
+                        any_local_eval,
+                        ms,
+                        ss_vec);
+                }
+
+       
+
+
+
+
+
+
 
                 // mask -> index
                 std::unordered_map<size_t, size_t> m;
@@ -330,6 +457,8 @@ struct holdem_board_decl{
                 //std::cout << "weighted_gb => " << weighted_gb << "\n"; // __CandyPrint__(cxx-print-scalar,weighted_gb)
 
         }
+
+        std::vector< board_rank_grouping> grouping;
 private:
         std::vector<layout> world_;
         std::vector<lightweight_layout_singleton> weighted_singletons_;

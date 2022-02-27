@@ -269,9 +269,10 @@ struct pass_eval_hand_instr_vec_impl{
         pass_eval_hand_instr_vec_impl(std::string const& engine)
                 : engine_{engine}
         {}
+
         virtual void transform_dispatch(computation_context* ctx, instruction_list* instr_list, computation_result* result){
 
-                static optimized_transform_context static_mem_oct;
+            optimized_transform_context& static_mem_oct = optimized_transform_context::get();
 
                 std::vector<instruction_list::iterator> to_map;
 
@@ -342,9 +343,16 @@ private:
 
 pass_eval_hand_instr_vec::pass_eval_hand_instr_vec(std::string const& engine)
         : impl_{std::make_shared<pass_eval_hand_instr_vec_impl>(engine)}
-{}
+{
+}
 void pass_eval_hand_instr_vec::transform(computation_context* ctx, instruction_list* instr_list, computation_result* result){
         impl_->transform_dispatch(ctx, instr_list, result);
+}
+
+void pass_eval_hand_instr_vec::ready_cache()
+{
+    // make sure this gets build
+    optimized_transform_context::get();
 }
 
 

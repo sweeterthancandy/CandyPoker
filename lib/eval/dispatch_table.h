@@ -6,7 +6,16 @@
 namespace ps{
 
 
-struct optimized_transform_context{
+struct optimized_transform_context : boost::noncopyable
+{
+private:
+    optimized_transform_context() = default;
+public:
+        static optimized_transform_context& get()
+        {
+            static optimized_transform_context static_mem_oct;
+            return static_mem_oct;
+        }
         flush_mask_eval fme;
         holdem_board_decl w;
 };

@@ -5,18 +5,21 @@
 #include "ps/interface/interface.h"
 #include "ps/eval/instruction.h"
 
-#include <boost/log/core.hpp>
-#include <boost/log/trivial.hpp>
-#include <boost/log/expressions.hpp>
-
 using namespace ps;
 using namespace ps::interface_;
 
-inline auto do_frontend_parse(std::string const& s)
-{
-    return frontend::parse(s);
+namespace {
+    inline auto do_frontend_parse(std::string const& s)
+    {
+        return frontend::parse(s);
+    }
 }
 
+
+
+//////////////////////////////////////////////////////////////////////////////////
+// benchmark the frontend parser
+//////////////////////////////////////////////////////////////////////////////////
 
 static void BM_FrontPlayerRangeSimple(benchmark::State& state) {
 
@@ -36,6 +39,17 @@ BENCHMARK(BM_FrontPlayerRangeSimple);
 BENCHMARK(BM_FrontPlayerRangeComplex);
 
 
+
+
+
+
+
+
+
+
+//////////////////////////////////////////////////////////////////////////////////
+// benchmark the frontend parser tree
+//////////////////////////////////////////////////////////////////////////////////
 
 static void BM_FrontTwoPlayerTreeSimple(benchmark::State& state) {
     
@@ -77,7 +91,9 @@ BENCHMARK(BM_FrontFourPlayerTreeSimple);
 
 
 
-
+//////////////////////////////////////////////////////////////////////////////////
+// benchmark evaulation preparing
+//////////////////////////////////////////////////////////////////////////////////
 
 static void BM_TwoPlayerInstructionBuilderSimple(benchmark::State& state) {
 
@@ -118,17 +134,65 @@ BENCHMARK(BM_FourPlayerInstructionBuilderSimple);
 
 
 
-
+#if 0
 static void BM_TwoPlayerPocketPairGenericFirst(benchmark::State& state) {
 
+    state.PauseTiming();
+    EvaluationObject::BuildCache();
+    state.ResumeTiming();
     for (auto _ : state)
     {
         std::vector<std::string> player_ranges{ "AA", "KK" };
-        evaluate(player_ranges);
+        EvaluationObject obj(player_ranges);
+        const auto 
     }
 }
 // Register the function as a benchmark
 BENCHMARK(BM_TwoPlayerPocketPairGenericFirst);
+#endif
+
+
+static void BM_AuxMakeCache(benchmark::State& state) {
+
+    
+}
+//BENCHMARK(BM_AuxMakeCache);
+
+
+
+
+
+static void BM_TwoPlayerPocketPairGeneric(benchmark::State& state) {
+  for (auto _ : state)
+  {     
+      state.PauseTiming();
+      EvaluationObject::BuildCache();
+      state.ResumeTiming();
+
+        std::vector<std::string> player_ranges{ "AA", "KK" };
+        EvaluationObject obj(player_ranges);
+        obj.Compute();
+  }
+}
+static void BM_ThreePlayerPocketPairGeneric(benchmark::State& state) {
+    for (auto _ : state)
+    {
+        std::vector<std::string> player_ranges{ "AA", "KK", "QQ" };
+        EvaluationObject obj(player_ranges);
+        obj.Compute();
+    }
+}
+static void BM_FourPlayerPocketPairGeneric(benchmark::State& state) {
+    for (auto _ : state)
+    {
+        std::vector<std::string> player_ranges{ "AA", "KK", "QQ", "JJ"};
+        EvaluationObject obj(player_ranges);
+        obj.Compute();
+    }
+}
+BENCHMARK(BM_TwoPlayerPocketPairGeneric);
+BENCHMARK(BM_ThreePlayerPocketPairGeneric);
+BENCHMARK(BM_FourPlayerPocketPairGeneric);
 
 
 
@@ -139,43 +203,40 @@ static void BM_TwoPlayerPocketPairGenericPrepare(benchmark::State& state) {
     for (auto _ : state)
     {
         std::vector<std::string> player_ranges{ "AA", "KK" };
-        test_prepare(player_ranges);
+        EvaluationObject obj(player_ranges);
+        obj.Prepare();
     }
 }
-// Register the function as a benchmark
-BENCHMARK(BM_TwoPlayerPocketPairGenericPrepare);
-
 static void BM_ThreePlayerPocketPairGenericPrepare(benchmark::State& state) {
     for (auto _ : state)
     {
         std::vector<std::string> player_ranges{ "AA", "KK", "QQ" };
-        test_prepare(player_ranges);
+        EvaluationObject obj(player_ranges);
+        obj.Prepare();
     }
 }
-// Register the function as a benchmark
-BENCHMARK(BM_ThreePlayerPocketPairGenericPrepare);
-
-
-
-static void BM_TwoPlayerPocketPairGeneric(benchmark::State& state) {
-  for (auto _ : state)
-  {
-        std::vector<std::string> player_ranges{ "AA", "KK" };
-        evaluate(player_ranges);
-  }
-}
-// Register the function as a benchmark
-BENCHMARK(BM_TwoPlayerPocketPairGeneric);
-
-static void BM_ThreePlayerPocketPairGeneric(benchmark::State& state) {
+static void BM_FourPlayerPocketPairGenericPrepare(benchmark::State& state) {
     for (auto _ : state)
     {
-        std::vector<std::string> player_ranges{ "AA", "KK", "QQ"};
-        evaluate(player_ranges);
+        std::vector<std::string> player_ranges{ "AA", "KK", "QQ", "JJ" };
+        EvaluationObject obj(player_ranges);
+        obj.Prepare();
     }
 }
-// Register the function as a benchmark
-BENCHMARK(BM_ThreePlayerPocketPairGeneric);
+BENCHMARK(BM_TwoPlayerPocketPairGenericPrepare);
+BENCHMARK(BM_ThreePlayerPocketPairGenericPrepare);
+BENCHMARK(BM_FourPlayerPocketPairGenericPrepare);
+
+
+
+
+
+
+
+
+
+#if 0
+
 
 static void BM_ThreePlayerPocketPairTPG(benchmark::State& state) {
     for (auto _ : state)
@@ -206,6 +267,9 @@ static void BM_ThreePlayerPocketPairAVX2(benchmark::State& state) {
 }
 // Register the function as a benchmark
 BENCHMARK(BM_ThreePlayerPocketPairAVX2);
+
+#endif
+
 
 
 BENCHMARK_MAIN();

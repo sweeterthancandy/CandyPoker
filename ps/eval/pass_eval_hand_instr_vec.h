@@ -60,6 +60,8 @@ struct pass_eval_hand_instr_vec : computation_pass{
         explicit pass_eval_hand_instr_vec(std::string const& engine = std::string{});
 
         virtual void transform(computation_context* ctx, instruction_list* instr_list, computation_result* result)override;
+
+        static void ready_cache();
 private:
         std::shared_ptr<pass_eval_hand_instr_vec_impl> impl_;
 };

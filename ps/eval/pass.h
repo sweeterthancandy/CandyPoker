@@ -100,7 +100,7 @@ struct computation_result
         explicit computation_result(computation_context const& ctx)
         {
                 proto_.resize(ctx.NumPlayers(), ctx.NumPlayers());
-                proto_.fill(0.0);
+                proto_.fill(0);
         }
         matrix_t& allocate_tag(std::string const& key){
                 auto iter = find(key);

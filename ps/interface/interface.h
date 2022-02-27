@@ -145,12 +145,50 @@ private:
 	std::vector< PlayerView> players_;
 };
 
+class EvaluationObjectImpl;
+class EvaluationObject
+{
+public:
+	EvaluationObject(std::shared_ptr< EvaluationObjectImpl> impl) :impl_{ impl } {}
+	EvaluationObject(std::vector<std::string> const& player_ranges, std::string const& engine = {})
+		: EvaluationObject{ std::vector<std::vector<std::string> >{player_ranges} , engine }
+	{}
+	EvaluationObject(std::vector<std::vector<std::string> > const& player_ranges_list, std::string const& engine = {});
 
-void test_prepare(std::vector<std::string> const& player_ranges, std::string const& engine = {});
+	EvaulationResultView Compute()const
+	{
+		auto const result = this->ComputeList();
+		PS_ASSERT(result.size() == 1, "not a single computation");
+		return result.at(0);
+	}
+	
+	std::vector<EvaulationResultView> ComputeList()const;
+	boost::optional<EvaluationObject> Prepare()const;
 
-EvaulationResultView evaluate(std::vector<std::string> const& player_ranges_list, std::string const& engine = {});
+	static void BuildCache();
+private:
+	std::shared_ptr< EvaluationObjectImpl> impl_;
+};
 
-std::vector<EvaulationResultView> evaluate_list(std::vector<std::vector<std::string> > const& player_ranges_list, std::string const& engine = {});
+inline void test_prepare(std::vector<std::string> const& player_ranges, std::string const& engine = {})
+{
+	EvaluationObject obj(player_ranges, engine);
+	obj.Prepare();
+}
+
+
+inline EvaulationResultView evaluate(std::vector<std::string> const& player_ranges, std::string const& engine = {})
+{
+	EvaluationObject obj(player_ranges, engine);
+	return obj.Compute();
+}
+
+inline std::vector<EvaulationResultView> evaluate_list(std::vector<std::vector<std::string> > const& player_ranges_list, std::string const& engine = {})
+{
+	EvaluationObject obj(player_ranges_list, engine);
+	return obj.ComputeList();
+}
+
 
 } // end namespace interface_
 } // end namespace ps

@@ -66,6 +66,53 @@ SOFTWARE.
 namespace ps{
 namespace interface_ {
 
+    void test_prepare(std::vector<std::string> const& player_ranges, std::string const& engine)
+    {
+        std::vector<std::vector<std::string> > player_ranges_list{ player_ranges };
+        if (player_ranges_list.empty())
+        {
+            return;
+        }
+        const size_t common_size = player_ranges_list[0].size();
+        computation_context comp_ctx{ common_size };
+        computation_result result{ comp_ctx };
+        size_t index = 0;
+        std::vector<std::string> tag_list;
+
+        instruction_list agg_instr_list;
+        for (auto const& player_ranges : player_ranges_list)
+        {
+            if (player_ranges.size() != common_size)
+            {
+                BOOST_THROW_EXCEPTION(std::domain_error("all players must be same size"));
+            }
+            std::vector<frontend::range> players;
+            for (auto const& s : player_ranges) {
+                players.push_back(frontend::parse(s));
+            }
+
+            std::string tag = "Tag_" + std::to_string(index);
+            ++index;
+
+            result.allocate_tag(tag);
+            tag_list.push_back(tag);
+
+            instruction_list instr_list = frontend_to_instruction_list(tag, players);
+
+            std::copy(
+                std::cbegin(instr_list),
+                std::cend(instr_list),
+                std::back_inserter(agg_instr_list));
+
+        }
+
+        computation_pass_manager mgr;
+        mgr.add_pass<pass_permutate>();
+        mgr.add_pass<pass_sort_type>();
+        mgr.add_pass<pass_collect>();
+        mgr.execute_(&comp_ctx, &agg_instr_list, &result);
+    }
+
     std::vector<EvaulationResultView> evaluate_list(std::vector<std::vector<std::string> > const& player_ranges_list, std::string const& engine)
     {
         if (player_ranges_list.empty())

@@ -145,9 +145,11 @@ private:
 	std::vector< PlayerView> players_;
 };
 
-EvaulationResultView evaluate(std::vector<std::string> const& player_ranges, std::string const& engine = {});
+void test_prepare(std::vector<std::string> const& player_ranges, std::string const& engine = {});
 
-std::vector<EvaulationResultView> evaluate_list(std::vector<std::vector<std::string> > const& player_ranges, std::string const& engine = {});
+EvaulationResultView evaluate(std::vector<std::string> const& player_ranges_list, std::string const& engine = {});
+
+std::vector<EvaulationResultView> evaluate_list(std::vector<std::vector<std::string> > const& player_ranges_list, std::string const& engine = {});
 
 } // end namespace interface_
 } // end namespace ps

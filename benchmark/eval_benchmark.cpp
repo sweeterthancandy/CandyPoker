@@ -21,22 +21,22 @@ namespace {
 // benchmark the frontend parser
 //////////////////////////////////////////////////////////////////////////////////
 
-static void BM_FrontPlayerRangeSimple(benchmark::State& state) {
+static void RangeParser_Simple(benchmark::State& state) {
 
     for (auto _ : state)
     {
         do_frontend_parse("AA");
     }
 }
-static void BM_FrontPlayerRangeComplex(benchmark::State& state) {
+static void RangeParser_Complex(benchmark::State& state) {
 
     for (auto _ : state)
     {
         do_frontend_parse("45s+,68s+,22+,ATo+,AJs+");
     }
 }
-BENCHMARK(BM_FrontPlayerRangeSimple);
-BENCHMARK(BM_FrontPlayerRangeComplex);
+BENCHMARK(RangeParser_Simple);
+BENCHMARK(RangeParser_Complex);
 
 
 
@@ -51,7 +51,7 @@ BENCHMARK(BM_FrontPlayerRangeComplex);
 // benchmark the frontend parser tree
 //////////////////////////////////////////////////////////////////////////////////
 
-static void BM_FrontTwoPlayerTreeSimple(benchmark::State& state) {
+static void TreeRange_2_Simple(benchmark::State& state) {
     
     for (auto _ : state)
     {
@@ -61,7 +61,7 @@ static void BM_FrontTwoPlayerTreeSimple(benchmark::State& state) {
     }
 }
 
-static void BM_FrontThreePlayerTreeSimple(benchmark::State& state) {
+static void TreeRange_3_Simple(benchmark::State& state) {
 
     for (auto _ : state)
     {
@@ -72,7 +72,7 @@ static void BM_FrontThreePlayerTreeSimple(benchmark::State& state) {
     }
 }
 
-static void BM_FrontFourPlayerTreeSimple(benchmark::State& state) {
+static void TreeRange_4_Simple(benchmark::State& state) {
 
     for (auto _ : state)
     {
@@ -83,9 +83,9 @@ static void BM_FrontFourPlayerTreeSimple(benchmark::State& state) {
         tree_range root({ p0,p1,p2,p3 });
     }
 }
-BENCHMARK(BM_FrontTwoPlayerTreeSimple);
-BENCHMARK(BM_FrontThreePlayerTreeSimple);
-BENCHMARK(BM_FrontFourPlayerTreeSimple);
+BENCHMARK(TreeRange_2_Simple);
+BENCHMARK(TreeRange_3_Simple);
+BENCHMARK(TreeRange_4_Simple);
 
 
 
@@ -95,7 +95,7 @@ BENCHMARK(BM_FrontFourPlayerTreeSimple);
 // benchmark evaulation preparing
 //////////////////////////////////////////////////////////////////////////////////
 
-static void BM_TwoPlayerInstructionBuilderSimple(benchmark::State& state) {
+static void BuildInstrList_2(benchmark::State& state) {
 
     for (auto _ : state)
     {
@@ -104,7 +104,7 @@ static void BM_TwoPlayerInstructionBuilderSimple(benchmark::State& state) {
         frontend_to_instruction_list("dummy", { p0, p1 });
     }
 }
-static void BM_ThreePlayerInstructionBuilderSimple(benchmark::State& state) {
+static void BuildInstrList_3(benchmark::State& state) {
 
     for (auto _ : state)
     {
@@ -114,7 +114,7 @@ static void BM_ThreePlayerInstructionBuilderSimple(benchmark::State& state) {
         frontend_to_instruction_list("dummy", { p0, p1, p2 });
     }
 }
-static void BM_FourPlayerInstructionBuilderSimple(benchmark::State& state) {
+static void BuildInstrList_4(benchmark::State& state) {
 
     for (auto _ : state)
     {
@@ -125,44 +125,20 @@ static void BM_FourPlayerInstructionBuilderSimple(benchmark::State& state) {
         frontend_to_instruction_list("dummy", { p0, p1, p2, p3 });
     }
 }
-BENCHMARK(BM_TwoPlayerInstructionBuilderSimple);
-BENCHMARK(BM_ThreePlayerInstructionBuilderSimple);
-BENCHMARK(BM_FourPlayerInstructionBuilderSimple);
+BENCHMARK(BuildInstrList_2);
+BENCHMARK(BuildInstrList_3);
+BENCHMARK(BuildInstrList_4);
 
 
 
 
 
 
-#if 0
-static void BM_TwoPlayerPocketPairGenericFirst(benchmark::State& state) {
-
-    state.PauseTiming();
-    EvaluationObject::BuildCache();
-    state.ResumeTiming();
-    for (auto _ : state)
-    {
-        std::vector<std::string> player_ranges{ "AA", "KK" };
-        EvaluationObject obj(player_ranges);
-        const auto 
-    }
-}
-// Register the function as a benchmark
-BENCHMARK(BM_TwoPlayerPocketPairGenericFirst);
-#endif
-
-
-static void BM_AuxMakeCache(benchmark::State& state) {
-
-    
-}
-//BENCHMARK(BM_AuxMakeCache);
 
 
 
 
-
-static void BM_TwoPlayerPocketPairGeneric(benchmark::State& state) {
+static void Eval_PP_2(benchmark::State& state) {
   for (auto _ : state)
   {     
       state.PauseTiming();
@@ -174,7 +150,7 @@ static void BM_TwoPlayerPocketPairGeneric(benchmark::State& state) {
         obj.Compute();
   }
 }
-static void BM_ThreePlayerPocketPairGeneric(benchmark::State& state) {
+static void Eval_PP_3(benchmark::State& state) {
     for (auto _ : state)
     {
         std::vector<std::string> player_ranges{ "AA", "KK", "QQ" };
@@ -182,7 +158,7 @@ static void BM_ThreePlayerPocketPairGeneric(benchmark::State& state) {
         obj.Compute();
     }
 }
-static void BM_FourPlayerPocketPairGeneric(benchmark::State& state) {
+static void Eval_PP_4(benchmark::State& state) {
     for (auto _ : state)
     {
         std::vector<std::string> player_ranges{ "AA", "KK", "QQ", "JJ"};
@@ -190,16 +166,16 @@ static void BM_FourPlayerPocketPairGeneric(benchmark::State& state) {
         obj.Compute();
     }
 }
-BENCHMARK(BM_TwoPlayerPocketPairGeneric);
-BENCHMARK(BM_ThreePlayerPocketPairGeneric);
-BENCHMARK(BM_FourPlayerPocketPairGeneric);
+BENCHMARK(Eval_PP_2);
+BENCHMARK(Eval_PP_3);
+BENCHMARK(Eval_PP_4);
 
 
 
 
 
 
-static void BM_TwoPlayerPocketPairGenericPrepare(benchmark::State& state) {
+static void Eval_PP_2_Prepare(benchmark::State& state) {
     for (auto _ : state)
     {
         std::vector<std::string> player_ranges{ "AA", "KK" };
@@ -207,7 +183,7 @@ static void BM_TwoPlayerPocketPairGenericPrepare(benchmark::State& state) {
         obj.Prepare();
     }
 }
-static void BM_ThreePlayerPocketPairGenericPrepare(benchmark::State& state) {
+static void Eval_PP_3_Prepare(benchmark::State& state) {
     for (auto _ : state)
     {
         std::vector<std::string> player_ranges{ "AA", "KK", "QQ" };
@@ -215,7 +191,7 @@ static void BM_ThreePlayerPocketPairGenericPrepare(benchmark::State& state) {
         obj.Prepare();
     }
 }
-static void BM_FourPlayerPocketPairGenericPrepare(benchmark::State& state) {
+static void Eval_PP_4_Prepare(benchmark::State& state) {
     for (auto _ : state)
     {
         std::vector<std::string> player_ranges{ "AA", "KK", "QQ", "JJ" };
@@ -223,9 +199,6 @@ static void BM_FourPlayerPocketPairGenericPrepare(benchmark::State& state) {
         obj.Prepare();
     }
 }
-BENCHMARK(BM_TwoPlayerPocketPairGenericPrepare);
-BENCHMARK(BM_ThreePlayerPocketPairGenericPrepare);
-BENCHMARK(BM_FourPlayerPocketPairGenericPrepare);
 
 
 
@@ -233,7 +206,8 @@ BENCHMARK(BM_FourPlayerPocketPairGenericPrepare);
 
 
 
-static void BM_TwoPlayerPocketPairGenericAfter(benchmark::State& state) {
+
+static void Eval_PP_2_After(benchmark::State& state) {
     for (auto _ : state)
     {
         state.PauseTiming(); 
@@ -244,7 +218,7 @@ static void BM_TwoPlayerPocketPairGenericAfter(benchmark::State& state) {
         prepared.Compute();
     }
 }
-static void BM_ThreePlayerPocketPairGenericAfter(benchmark::State& state) {
+static void Eval_PP_3_After(benchmark::State& state) {
     for (auto _ : state)
     {
         state.PauseTiming(); 
@@ -255,7 +229,7 @@ static void BM_ThreePlayerPocketPairGenericAfter(benchmark::State& state) {
         prepared.Compute();
     }
 }
-static void BM_FourPlayerPocketPairGenericAfter(benchmark::State& state) {
+static void Eval_PP_4_After(benchmark::State& state) {
     for (auto _ : state)
     {
         state.PauseTiming();
@@ -266,9 +240,13 @@ static void BM_FourPlayerPocketPairGenericAfter(benchmark::State& state) {
         prepared.Compute();
     }
 }
-BENCHMARK(BM_TwoPlayerPocketPairGenericAfter);
-BENCHMARK(BM_ThreePlayerPocketPairGenericAfter);
-BENCHMARK(BM_FourPlayerPocketPairGenericAfter);
+
+BENCHMARK(Eval_PP_2_Prepare);
+BENCHMARK(Eval_PP_2_After);
+BENCHMARK(Eval_PP_3_Prepare);
+BENCHMARK(Eval_PP_3_After);
+BENCHMARK(Eval_PP_4_Prepare);
+BENCHMARK(Eval_PP_4_After);
 
 
 

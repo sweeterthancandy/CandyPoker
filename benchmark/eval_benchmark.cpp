@@ -233,6 +233,49 @@ BENCHMARK(BM_FourPlayerPocketPairGenericPrepare);
 
 
 
+static void BM_TwoPlayerPocketPairGenericAfter(benchmark::State& state) {
+    for (auto _ : state)
+    {
+        state.PauseTiming(); 
+        std::vector<std::string> player_ranges{ "AA", "KK" };
+        EvaluationObject obj(player_ranges);
+        EvaluationObject prepared = obj.Prepare().get();
+        state.ResumeTiming(); 
+        prepared.Compute();
+    }
+}
+static void BM_ThreePlayerPocketPairGenericAfter(benchmark::State& state) {
+    for (auto _ : state)
+    {
+        state.PauseTiming(); 
+        std::vector<std::string> player_ranges{ "AA", "KK", "QQ" };
+        EvaluationObject obj(player_ranges);
+        EvaluationObject prepared = obj.Prepare().get();
+        state.ResumeTiming();
+        prepared.Compute();
+    }
+}
+static void BM_FourPlayerPocketPairGenericAfter(benchmark::State& state) {
+    for (auto _ : state)
+    {
+        state.PauseTiming();
+        std::vector<std::string> player_ranges{ "AA", "KK", "QQ", "JJ" };
+        EvaluationObject obj(player_ranges);
+        EvaluationObject prepared = obj.Prepare().get();
+        state.ResumeTiming();
+        prepared.Compute();
+    }
+}
+BENCHMARK(BM_TwoPlayerPocketPairGenericAfter);
+BENCHMARK(BM_ThreePlayerPocketPairGenericAfter);
+BENCHMARK(BM_FourPlayerPocketPairGenericAfter);
+
+
+
+
+
+
+
 
 
 #if 0

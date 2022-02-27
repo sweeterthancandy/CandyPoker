@@ -3,6 +3,7 @@
 #include "ps/base/frontend.h"
 #include "ps/base/tree.h"
 #include "ps/interface/interface.h"
+#include "ps/eval/instruction.h"
 
 #include <boost/log/core.hpp>
 #include <boost/log/trivial.hpp>
@@ -72,6 +73,50 @@ BENCHMARK(BM_FrontFourPlayerTreeSimple);
 
 
 
+
+
+
+
+static void BM_TwoPlayerInstructionBuilderSimple(benchmark::State& state) {
+
+    for (auto _ : state)
+    {
+        auto p0 = frontend::parse("AA");
+        auto p1 = frontend::parse("KK");
+        frontend_to_instruction_list("dummy", { p0, p1 });
+    }
+}
+static void BM_ThreePlayerInstructionBuilderSimple(benchmark::State& state) {
+
+    for (auto _ : state)
+    {
+        auto p0 = frontend::parse("AA");
+        auto p1 = frontend::parse("KK");
+        auto p2 = frontend::parse("QQ");
+        frontend_to_instruction_list("dummy", { p0, p1, p2 });
+    }
+}
+static void BM_FourPlayerInstructionBuilderSimple(benchmark::State& state) {
+
+    for (auto _ : state)
+    {
+        auto p0 = frontend::parse("AA");
+        auto p1 = frontend::parse("KK");
+        auto p2 = frontend::parse("QQ");
+        auto p3 = frontend::parse("JJ");
+        frontend_to_instruction_list("dummy", { p0, p1, p2, p3 });
+    }
+}
+BENCHMARK(BM_TwoPlayerInstructionBuilderSimple);
+BENCHMARK(BM_ThreePlayerInstructionBuilderSimple);
+BENCHMARK(BM_FourPlayerInstructionBuilderSimple);
+
+
+
+
+
+
+
 static void BM_TwoPlayerPocketPairGenericFirst(benchmark::State& state) {
 
     for (auto _ : state)
@@ -82,6 +127,8 @@ static void BM_TwoPlayerPocketPairGenericFirst(benchmark::State& state) {
 }
 // Register the function as a benchmark
 BENCHMARK(BM_TwoPlayerPocketPairGenericFirst);
+
+
 
 
 

@@ -233,7 +233,7 @@ struct holdem_board_decl{
                 , no_flush_masks_{ no_flush_masks }
                 , ss_{ ss }
             {}
-
+            mask_set const& get_no_flush_masks()const noexcept { return no_flush_masks_; }
             ranking_t no_flush_rank(card_id c0, card_id c1)const noexcept {
                 return local_eval_[c0 * 13 + c1];
             }
@@ -284,19 +284,23 @@ struct holdem_board_decl{
                         }
                     }
 
-                    std::unordered_map<size_t, std::array<boost::optional<size_t>, 4> > flush_grouping;
+                    std::unordered_map<size_t, std::vector<size_t> > flush_grouping;
                     for (size_t idx : with_possible_flush)
                     {
                         size_t flush_mask = world_[idx].flush_mask();
                         suit_id sid = world_[idx].flush_suit();
-                        if (flush_grouping[flush_mask].at(idx).has_value())
-                        {
-                            BOOST_THROW_EXCEPTION(std::domain_error("unexpeckjhkjh"));
-                        }
-                        flush_grouping[flush_mask].at(sid) = idx;
+                        flush_grouping[flush_mask].push_back(idx);
                     }
 
+#if 0
+                    for (auto const& q : flush_grouping)
+                    {
+                        std::cout << q.first << " => " << q.second.size() << "\n";
+                    }
+#endif
+
                     std::vector<board_rank_grouping::suit_symmetry> ss_vec;
+#if 0
                     for (auto const& fg : flush_grouping)
                     {
                         auto any_flush_mask = world_[fg.second[0].get()].flush_mask();
@@ -308,6 +312,7 @@ struct holdem_board_decl{
                         };
                         ss_vec.emplace_back(any_flush_mask,cards);   
                     }
+#endif
 
                     mask_set ms;
                     for (size_t idx : without_any_flush)

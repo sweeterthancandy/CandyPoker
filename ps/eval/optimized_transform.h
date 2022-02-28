@@ -123,6 +123,7 @@ struct optimized_transform : optimized_transform_base
 
                 constexpr bool enable_weight_branch{ false };
 
+#if 0
                 for(auto const& b : otc.w.weighted_aggregate_rng() ){
                         
 
@@ -130,6 +131,17 @@ struct optimized_transform : optimized_transform_base
                         shed.end_eval(&b.masks, 0ull);
                        
                         ++count;
+                }
+#endif
+                for (auto const& g : otc.w.grouping)
+                {
+                    for (size_t idx = 0; idx != rod.size(); ++idx) {
+                        auto const& hand_decl = rod[idx];
+                        ranking_t rr = g.no_flush_rank(hand_decl.r0, hand_decl.r1);
+                        shed.put(idx, rr);
+                    }
+                    shed.end_eval(&g.get_no_flush_masks(), 0ull);
+                    ++count;
                 }
                 if (WithLogging) PS_LOG(trace) << tmr.format(4, "no    flush boards took %w seconds") << " to do " << count << " boards";
                 tmr.start();

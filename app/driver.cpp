@@ -353,9 +353,8 @@ int main(int argc, char** argv){
         "1",
         "--engine",
         "generic",
-        "TT+",
-        "99+",
-        "88+",
+        "AA",
+        "KK",
         nullptr };
 #else
     static char* argv_proxy[] = {

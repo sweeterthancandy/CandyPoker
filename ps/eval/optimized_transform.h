@@ -71,8 +71,9 @@ struct optimized_transform : optimized_transform_base
 
                 if (WithLogging) PS_LOG(trace) << "Have " << subs.size() << " subs";
 
-                std::vector<ranking_t> R;
+                std::vector<ranking_t> R, R_proto;
                 R.resize(rod.size());
+                R_proto.resize(rod.size());
 
                 using weights_ty = std::vector< eval_counter_type>;
                 weights_ty weights;
@@ -138,11 +139,49 @@ struct optimized_transform : optimized_transform_base
                     for (size_t idx = 0; idx != rod.size(); ++idx) {
                         auto const& hand_decl = rod[idx];
                         ranking_t rr = g.no_flush_rank(hand_decl.r0, hand_decl.r1);
+                        R[idx] = rr;
                         shed.put(idx, rr);
                     }
                     shed.end_eval(&g.get_no_flush_masks(), 0ull);
+
+                    R_proto = R;
+
+                    for (auto f : g.suit_symmetry_vec())
+                    {
+                        for (suit_id sid = 0; sid != 4; ++sid)
+                        {
+                            R = R_proto;
+
+                            for (size_t idx = 0; idx != rod.size(); ++idx) {
+                                auto const& hand_decl = rod[idx];
+
+                                bool s0m = (hand_decl.s0 == flush_suit);
+                                bool s1m = (hand_decl.s1 == flush_suit);
+
+                                auto fm = flush_mask;
+
+                                if (s0m) {
+                                    fm |= 1ull << _.r0;
+                                }
+                                if (s1m) {
+                                    fm |= 1ull << _.r1;
+                                }
+
+
+                        }
+                    }
+
+                    
                     ++count;
                 }
+
+
+
+
+
+
+
+
                 if (WithLogging) PS_LOG(trace) << tmr.format(4, "no    flush boards took %w seconds") << " to do " << count << " boards";
                 tmr.start();
                 count = 0;

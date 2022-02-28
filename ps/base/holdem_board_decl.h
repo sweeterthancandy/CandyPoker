@@ -208,21 +208,29 @@ struct holdem_board_decl{
             {
             public:
                 suit_symmetry(
+                    size_t count,
                     size_t flush_mask,
-                    std::array< size_t, 4> board_card_mask)
-                    : flush_mask_{ flush_mask }
-                    , board_card_mask_{ board_card_mask }
+                    std::array< mask_set, 4> board_card_masks)
+                    : count_{ count }
+                    , flush_mask_ {
+                    flush_mask
+                }
+                    , board_card_masks_{ board_card_masks }
                 {}
+                size_t count()const {
+                    return count_;
+                }
                 size_t flush_mask()const noexcept {
                     return flush_mask_;
                 }
-                std::array< size_t, 4> board_card_mask_vec()const noexcept
+                std::array< mask_set, 4> board_card_masks()const noexcept
                 {
-                    return board_card_mask_;
+                    return board_card_masks_;
                 }
             private:
+                size_t count_;
                 size_t flush_mask_;
-                std::array< size_t, 4> board_card_mask_;
+                std::array< mask_set, 4> board_card_masks_;
             };
             
             board_rank_grouping(
@@ -284,36 +292,53 @@ struct holdem_board_decl{
                         }
                     }
 
-                    std::unordered_map<size_t, std::vector<size_t> > flush_grouping;
+                    std::unordered_map<size_t, std::unordered_map<suit_id,std::vector<size_t> > > flush_grouping;
                     for (size_t idx : with_possible_flush)
                     {
                         size_t flush_mask = world_[idx].flush_mask();
                         suit_id sid = world_[idx].flush_suit();
-                        flush_grouping[flush_mask].push_back(idx);
+                        flush_grouping[flush_mask][sid].push_back(idx);
                     }
 
 #if 0
-                    for (auto const& q : flush_grouping)
+                    std::cout << "BEGIN--\n";
+                    for (auto const& u : flush_grouping)
                     {
-                        std::cout << q.first << " => " << q.second.size() << "\n";
+                        for (auto const& v : u.second)
+                        {
+                            std::cout << "    " << u.first << " with " << static_cast<int>(v.first) << " => " << v.second.size() << "\n";
+                            for (size_t j : v.second)
+                            {
+                                std::cout << "         " << world_[j].mask() << "\n";
+                            }
+                            std::cout << "\n";
+                        }
                     }
 #endif
-
                     std::vector<board_rank_grouping::suit_symmetry> ss_vec;
-#if 0
-                    for (auto const& fg : flush_grouping)
+#if 1
+                    
+                    for (auto& fg : flush_grouping)
                     {
-                        auto any_flush_mask = world_[fg.second[0].get()].flush_mask();
-                        std::array<size_t, 4> cards = {
-                            world_[fg.second[0].get()].mask(),
-                            world_[fg.second[1].get()].mask(),
-                            world_[fg.second[2].get()].mask(),
-                            world_[fg.second[3].get()].mask()
-                        };
-                        ss_vec.emplace_back(any_flush_mask,cards);   
+                        auto any_flush_mask = world_[fg.second[0][0]].flush_mask();
+                        const size_t common_size = fg.second[0].size();
+
+                        std::array<mask_set, 4> mask_set_list;
+                        for(suit_id sid = 0; sid != 4; ++sid)
+                        {
+                            for (auto const& j : fg.second[sid])
+                            {
+                                mask_set_list[sid].add(world_[j].mask());
+                            }
+                        }
+
+
+                        ss_vec.emplace_back(
+                            common_size,
+                            any_flush_mask,
+                            mask_set_list);
                     }
 #endif
-
                     mask_set ms;
                     for (size_t idx : without_any_flush)
                     {

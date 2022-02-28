@@ -90,40 +90,6 @@ struct optimized_transform : optimized_transform_base
                 
                 schedular_type shed{ rod.size(), subs};
 
-                
-
-                auto apply_any_board = [&](auto const& b)noexcept{
-                        suit_id flush_suit = b.flush_suit();
-                        auto flush_mask    = b.flush_mask();
-                        
-                        
-                        for(size_t idx=0;idx!=rod.size();++idx){
-                                auto const& _ = rod[idx];
-
-                              
-
-                                ranking_t rr = b.no_flush_rank(_.r0, _.r1);
-
-                                bool s0m = ( _.s0 == flush_suit );
-                                bool s1m = ( _.s1  == flush_suit );
-                                
-                                auto fm = flush_mask;
-
-                                if( s0m ){
-                                        fm |= 1ull << _.r0;
-                                }
-                                if( s1m ){
-                                        fm |= 1ull << _.r1;
-                                }
-
-                                ranking_t sr = otc.fme(fm);
-                                ranking_t tr = std::min(sr, rr);
-
-                                shed.put(idx, tr);
-
-                        }
-
-                };
 
                 if (WithLogging) PS_LOG(trace) << tmr.format(4, "init took %w seconds");
                 tmr.start();
@@ -132,16 +98,7 @@ struct optimized_transform : optimized_transform_base
 
                 constexpr bool enable_weight_branch{ false };
 
-#if 0
-                for(auto const& b : otc.w.weighted_aggregate_rng() ){
-                        
 
-                        apply_any_board(b);
-                        shed.end_eval(&b.masks, 0ull);
-                       
-                        ++count;
-                }
-#endif
                 for (auto const& g : otc.w.grouping)
                 {
                     for (size_t idx = 0; idx != rod.size(); ++idx) {
@@ -160,6 +117,29 @@ struct optimized_transform : optimized_transform_base
                     {
                         for (suit_id sid = 0; sid != 4; ++sid)
                         {
+
+                            for (size_t idx = 0; idx != rod.size(); ++idx) {
+                                auto const& hand_decl = rod[idx];
+                                ranking_t rr = g.no_flush_rank(hand_decl.r0, hand_decl.r1);
+                                bool s0m = (hand_decl.s0 == sid);
+                                bool s1m = (hand_decl.s1 == sid);
+
+                                auto fm = f.flush_mask();
+
+                                if (s0m) {
+                                    fm |= 1ull << hand_decl.r0;
+                                }
+                                if (s1m) {
+                                    fm |= 1ull << hand_decl.r1;
+                                }
+
+                                ranking_t sr = otc.fme(fm);
+                                ranking_t tr = std::min(sr, rr);
+
+                                shed.put(idx, tr);
+                            }
+                            shed.end_eval(&f.board_card_masks()[sid], 0ull);
+#if 0
                             for (size_t board_mask : f.board_card_masks()[sid])
                             {
 
@@ -189,6 +169,7 @@ struct optimized_transform : optimized_transform_base
 
 
                             }
+#endif
                         }
                     }
                     
@@ -256,29 +237,9 @@ struct optimized_transform : optimized_transform_base
 
                 if (WithLogging) PS_LOG(trace) << tmr.format(4, "no    flush boards took %w seconds") << " to do " << count << " boards";
                 tmr.start();
-#if 0
-                count = 0;
-                for(auto const& b : otc.w.weighted_singleton_rng() ){
-                        
-                        apply_any_board(b);
 
-                        if constexpr (supports_single_mask< Schedular>{})
-                        {
-                            shed.end_eval_single(b.single_card_mask());
-                        }
-                        else
-                        {
-                            shed.end_eval(&b.masks, 0ull);
-                        }
-                        ++count;
-                }
-#endif
                 if (WithLogging) PS_LOG(trace) << tmr.format(4, "maybe flush boards took %w seconds") << " to do " << count << " boards";
 
-                //for (const auto& p : non_zero_m)
-                //{
-                //    PS_LOG(trace) << "non_zero_m : " << p.first << " => " << p.second;
-                //}
 
                 shed.regroup();
 

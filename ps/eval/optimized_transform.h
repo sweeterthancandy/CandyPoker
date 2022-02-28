@@ -74,14 +74,7 @@ struct optimized_transform : optimized_transform_base
                 std::vector<ranking_t> R;
                 R.resize(rod.size());
 
-                std::vector<ranking_t> ranking_proto;
-                ranking_proto.resize(rod.size());
-
-                std::array< std::vector<ranking_t>, 4> suit_batch;
-                suit_batch[0].resize(rod.size());
-                suit_batch[1].resize(rod.size());
-                suit_batch[2].resize(rod.size());
-                suit_batch[3].resize(rod.size());
+                
 
                 using weights_ty = std::vector< eval_counter_type>;
                 weights_ty weights;
@@ -99,13 +92,27 @@ struct optimized_transform : optimized_transform_base
                 constexpr bool enable_weight_branch{ false };
 
 
+
+
+                std::vector<ranking_t> ranking_proto;
+                ranking_proto.resize(rod.size());
+
+                std::array< std::vector<ranking_t>, 4> suit_batch;
+                suit_batch[0].resize(rod.size());
+                suit_batch[1].resize(rod.size());
+                suit_batch[2].resize(rod.size());
+                suit_batch[3].resize(rod.size());
+
+
                 for (auto const& g : otc.w.grouping)
                 {
                     for (size_t idx = 0; idx != rod.size(); ++idx) {
                         auto const& hand_decl = rod[idx];
-                        ranking_t rr = g.no_flush_rank(hand_decl.r0, hand_decl.r1);
-                        ranking_proto[idx] = rr;
-                        shed.put(idx, rr);
+                        ranking_proto[idx] = g.no_flush_rank(hand_decl.r0, hand_decl.r1);
+                    }
+
+                    for (size_t idx = 0; idx != rod.size(); ++idx) {
+                        shed.put(idx, ranking_proto[idx]);
                     }
                     shed.end_eval(&g.get_no_flush_masks(), 0ull);
 
@@ -115,6 +122,7 @@ struct optimized_transform : optimized_transform_base
 
                     for (auto const& f : g.suit_symmetry_vec())
                     {
+
                         for (suit_id sid = 0; sid != 4; ++sid)
                         {
 
@@ -139,40 +147,10 @@ struct optimized_transform : optimized_transform_base
                                 shed.put(idx, tr);
                             }
                             shed.end_eval(&f.board_card_masks()[sid], 0ull);
-#if 0
-                            for (size_t board_mask : f.board_card_masks()[sid])
-                            {
 
-                                for (size_t idx = 0; idx != rod.size(); ++idx) {
-                                    auto const& hand_decl = rod[idx];
-                                    ranking_t rr = g.no_flush_rank(hand_decl.r0, hand_decl.r1);
-                                    bool s0m = (hand_decl.s0 == sid);
-                                    bool s1m = (hand_decl.s1 == sid);
-
-                                    auto fm = f.flush_mask();
-
-                                    if (s0m) {
-                                        fm |= 1ull << hand_decl.r0;
-                                    }
-                                    if (s1m) {
-                                        fm |= 1ull << hand_decl.r1;
-                                    }
-
-                                    ranking_t sr = otc.fme(fm);
-                                    ranking_t tr = std::min(sr, rr);
-
-                                    shed.put(idx, tr);
-                                }
-                                mask_set ms;
-                                ms.add(board_mask);
-                                shed.end_eval(&ms, 0ull);
-
-
-                            }
-#endif
-                        }
+                        }   
                     }
-                    
+            
 
 
 

@@ -71,9 +71,17 @@ struct optimized_transform : optimized_transform_base
 
                 if (WithLogging) PS_LOG(trace) << "Have " << subs.size() << " subs";
 
-                std::vector<ranking_t> R, R_proto;
+                std::vector<ranking_t> R;
                 R.resize(rod.size());
-                R_proto.resize(rod.size());
+
+                std::vector<ranking_t> ranking_proto;
+                ranking_proto.resize(rod.size());
+
+                std::array< std::vector<ranking_t>, 4> suit_batch;
+                suit_batch[0].resize(rod.size());
+                suit_batch[1].resize(rod.size());
+                suit_batch[2].resize(rod.size());
+                suit_batch[3].resize(rod.size());
 
                 using weights_ty = std::vector< eval_counter_type>;
                 weights_ty weights;
@@ -139,35 +147,53 @@ struct optimized_transform : optimized_transform_base
                     for (size_t idx = 0; idx != rod.size(); ++idx) {
                         auto const& hand_decl = rod[idx];
                         ranking_t rr = g.no_flush_rank(hand_decl.r0, hand_decl.r1);
-                        R[idx] = rr;
+                        ranking_proto[idx] = rr;
                         shed.put(idx, rr);
                     }
                     shed.end_eval(&g.get_no_flush_masks(), 0ull);
 
-                    R_proto = R;
-
                     for (auto f : g.suit_symmetry_vec())
                     {
+                        const size_t fm_proto = f.flush_mask();
+
+                        // we now do 4 boards at once
+                        suit_batch[0] = ranking_proto;
+                        suit_batch[1] = ranking_proto;
+                        suit_batch[2] = ranking_proto;
+                        suit_batch[3] = ranking_proto;
+
+
+                        for (size_t idx = 0; idx != rod.size(); ++idx) {
+                            auto const& hand_decl = rod[idx];
+
+                            auto commit_flush = [&](suit_id sid, size_t flush_mask)
+                            {
+                                ranking_t sr = otc.fme(flush_mask);
+                                ranking_t tr = std::min(sr, suit_batch[sid][idx]);
+                                suit_batch[sid][idx] = tr;
+                            };
+
+                            if (hand_decl.s0 == hand_decl.s1)
+                            {
+                                auto fm = fm_proto | (1ull << hand_decl.r0) | (1ull << hand_decl.r1);
+                                commit_flush(hand_decl.s0, fm);
+                            }
+                            else
+                            {
+                                auto first_fm = fm_proto | (1ull << hand_decl.r0);
+                                auto second_fm = fm_proto | (1ull << hand_decl.r1);
+                                commit_flush(hand_decl.s0, first_fm);
+                                commit_flush(hand_decl.s1, second_fm);
+                            }
+                        }
+
                         for (suit_id sid = 0; sid != 4; ++sid)
                         {
-                            R = R_proto;
-
+                            mask_set const& suit_mask_set = f.board_card_masks()[sid];
                             for (size_t idx = 0; idx != rod.size(); ++idx) {
-                                auto const& hand_decl = rod[idx];
-
-                                bool s0m = (hand_decl.s0 == flush_suit);
-                                bool s1m = (hand_decl.s1 == flush_suit);
-
-                                auto fm = flush_mask;
-
-                                if (s0m) {
-                                    fm |= 1ull << _.r0;
-                                }
-                                if (s1m) {
-                                    fm |= 1ull << _.r1;
-                                }
-
-
+                                shed.put(idx, suit_batch[sid][idx]);
+                            }
+                            shed.end_eval(&suit_mask_set, 0ull);
                         }
                     }
 
@@ -184,6 +210,7 @@ struct optimized_transform : optimized_transform_base
 
                 if (WithLogging) PS_LOG(trace) << tmr.format(4, "no    flush boards took %w seconds") << " to do " << count << " boards";
                 tmr.start();
+#if 0
                 count = 0;
                 for(auto const& b : otc.w.weighted_singleton_rng() ){
                         
@@ -199,6 +226,7 @@ struct optimized_transform : optimized_transform_base
                         }
                         ++count;
                 }
+#endif
                 if (WithLogging) PS_LOG(trace) << tmr.format(4, "maybe flush boards took %w seconds") << " to do " << count << " boards";
 
                 //for (const auto& p : non_zero_m)

@@ -353,6 +353,20 @@ struct holdem_board_decl{
                         ss_vec);
                 }
 
+
+                std::cout << "grouping.size() => " << grouping.size() << "\n";
+                size_t total_flush = 0;
+                for (auto const& g : grouping)
+                {
+                    for (auto const& f : g.suit_symmetry_vec())
+                    {
+                        total_flush += f.board_card_masks()[0].size();
+                        total_flush += f.board_card_masks()[1].size();
+                        total_flush += f.board_card_masks()[2].size();
+                        total_flush += f.board_card_masks()[3].size();
+                    }
+                }
+                std::cout << "total_flush => " << total_flush << "\n";
        
 
 

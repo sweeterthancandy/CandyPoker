@@ -116,13 +116,63 @@ struct optimized_transform : optimized_transform_base
                     }
                     shed.end_eval(&g.get_no_flush_masks(), 0ull);
 
-
-
+                    
 
 
                     for (auto const& f : g.suit_symmetry_vec())
                     {
+#if 1
+                        const size_t fm_common = f.flush_mask();
+                        
+                        suit_batch[0] = ranking_proto;
 
+                        if (detail::popcount(fm_common) >= 5)
+                        {
+                            ranking_t sr_minimum = otc.fme(fm_common);
+                            for (auto& value : suit_batch[0])
+                            {
+                                value = std::min(value, sr_minimum);
+                            }
+                        }
+                        
+                        suit_batch[1] = suit_batch[0];
+                        suit_batch[2] = suit_batch[0];
+                        suit_batch[3] = suit_batch[0];
+
+                        for (size_t idx = 0; idx != rod.size(); ++idx) {
+                            auto const& hand_decl = rod[idx];
+
+                            auto commit_flush = [&](suit_id sid, size_t flush_mask)
+                            {
+                                ranking_t sr = otc.fme(flush_mask);
+                                suit_batch[sid][idx] = std::min(sr, suit_batch[sid][idx]);
+                            };
+
+                            if (hand_decl.s0 == hand_decl.s1)
+                            {
+                                auto fm = fm_common | (1ull << hand_decl.r0) | (1ull << hand_decl.r1);
+                                commit_flush(hand_decl.s0, fm);
+                            }
+                            else
+                            {
+                                auto first_fm = fm_common | (1ull << hand_decl.r0);
+                                auto second_fm = fm_common | (1ull << hand_decl.r1);
+                                commit_flush(hand_decl.s0, first_fm);
+                                commit_flush(hand_decl.s1, second_fm);
+                            }
+                        }
+
+                        for (suit_id sid = 0; sid != 4; ++sid)
+                        {
+                            for (size_t idx = 0; idx != rod.size(); ++idx) {
+                                shed.put(idx, suit_batch[sid][idx]);
+                            }
+                            mask_set const& suit_mask_set = f.board_card_masks()[sid];
+                            shed.end_eval(&suit_mask_set, 0ull);
+                        }
+#endif
+
+#if 0
                         for (suit_id sid = 0; sid != 4; ++sid)
                         {
 
@@ -149,6 +199,7 @@ struct optimized_transform : optimized_transform_base
                             shed.end_eval(&f.board_card_masks()[sid], 0ull);
 
                         }   
+#endif
                     }
             
 

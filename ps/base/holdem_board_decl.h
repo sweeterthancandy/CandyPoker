@@ -223,7 +223,7 @@ struct holdem_board_decl{
                 size_t flush_mask()const noexcept {
                     return flush_mask_;
                 }
-                std::array< mask_set, 4> board_card_masks()const noexcept
+                std::array< mask_set, 4> const& board_card_masks()const noexcept
                 {
                     return board_card_masks_;
                 }
@@ -320,7 +320,8 @@ struct holdem_board_decl{
                     
                     for (auto& fg : flush_grouping)
                     {
-                        auto any_flush_mask = world_[fg.second[0][0]].flush_mask();
+                        const size_t common_flush_mask = fg.first;
+                        const size_t any_index = fg.second[0][0];
                         const size_t common_size = fg.second[0].size();
 
                         std::array<mask_set, 4> mask_set_list;
@@ -335,7 +336,7 @@ struct holdem_board_decl{
 
                         ss_vec.emplace_back(
                             common_size,
-                            any_flush_mask,
+                            common_flush_mask,
                             mask_set_list);
                     }
 #endif

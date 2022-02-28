@@ -152,7 +152,7 @@ struct optimized_transform : optimized_transform_base
                     }
                     shed.end_eval(&g.get_no_flush_masks(), 0ull);
 
-                    for (auto f : g.suit_symmetry_vec())
+                    for (auto const& f : g.suit_symmetry_vec())
                     {
                         const size_t fm_proto = f.flush_mask();
 

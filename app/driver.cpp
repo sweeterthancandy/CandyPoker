@@ -344,7 +344,7 @@ static TrivialCommandDecl<PrintBoard> PrintBoardDecl{"print-board"};
 
 
 int main(int argc, char** argv){
-#if 1
+#if 0
 #define USE_PROXY 1
     static char* argv_proxy[] = {
         "dummy",

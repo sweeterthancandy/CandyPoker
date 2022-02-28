@@ -67,13 +67,14 @@ struct holdem_board_decl{
         
         struct lightweight_layout_singleton{
 
-                lightweight_layout_singleton(size_t rank_mask, suit_id flush_suit, size_t flush_mask, std::array<ranking_t, 13 * 13 + 13> local_eval)
+                lightweight_layout_singleton(size_t card_mask, suit_id flush_suit, size_t flush_mask, size_t rank_mask, std::array<ranking_t, 13 * 13 + 13> local_eval)
                         :flush_suit_(flush_suit),
                         flush_mask_(flush_mask),
-                        rank_mask_(rank_mask),
+                    card_mask_(card_mask),
+                    rank_mask_{ rank_mask },
                         local_eval_(local_eval)
                 {
-                        masks.add(rank_mask);
+                        masks.add(card_mask);
                 }
 
 
@@ -83,11 +84,12 @@ struct holdem_board_decl{
                 ranking_t          no_flush_rank(card_id c0, card_id c1)const noexcept{
                         return local_eval_[ c0 * 13 + c1 ];
                 }
-                size_t single_rank_mask()const{
-                        return rank_mask_;
+                size_t single_card_mask()const{
+                        return card_mask_;
                 }
                 suit_id flush_suit_{0};
                 size_t flush_mask_{0};
+                size_t card_mask_;
                 size_t rank_mask_;
                 std::array<ranking_t, 13 * 13 + 13> local_eval_;
                 mask_set masks;
@@ -95,12 +97,13 @@ struct holdem_board_decl{
 
         struct lightweight_layout_aggregate{
 
-                lightweight_layout_aggregate(size_t rank_mask, suit_id flush_suit, size_t flush_mask, std::array<ranking_t, 13 * 13 + 13> local_eval)
+                lightweight_layout_aggregate(size_t card_mask, suit_id flush_suit, size_t flush_mask, size_t rank_mask, std::array<ranking_t, 13 * 13 + 13> local_eval)
                         :flush_suit_(flush_suit),
                         flush_mask_(flush_mask),
+                        rank_mask_{ rank_mask },
                         local_eval_(local_eval)
                 {
-                        masks.add(rank_mask);
+                        masks.add(card_mask);
                 }
 
 
@@ -113,6 +116,7 @@ struct holdem_board_decl{
                 }
                 suit_id flush_suit_{0};
                 size_t flush_mask_{0};
+                size_t rank_mask_;
                 std::array<ranking_t, 13 * 13 + 13> local_eval_;
                 mask_set masks;
         };
@@ -184,7 +188,7 @@ struct holdem_board_decl{
 
                 template<class Type>
                 Type make_lightweight()const{
-                        return Type{mask(), flush_suit_, flush_mask_, local_eval_};
+                        return Type{mask(), flush_suit_, flush_mask_, rank_hash_, local_eval_};
                 }
         private:
                 size_t mask_;
@@ -234,10 +238,14 @@ struct holdem_board_decl{
             };
             
             board_rank_grouping(
+                size_t rank_mask,
                 std::array<ranking_t, 13 * 13 + 13> const& local_eval,
                 mask_set const& no_flush_masks,
                 std::vector< suit_symmetry> const& ss)
-                : local_eval_{ local_eval }
+                : rank_mask_{ rank_mask }
+                , local_eval_ {
+                local_eval
+            }
                 , no_flush_masks_{ no_flush_masks }
                 , ss_{ ss }
             {}
@@ -249,7 +257,11 @@ struct holdem_board_decl{
             {
                 return ss_;
             }
+            size_t rank_mask()const {
+                return rank_mask_;
+            }
         private:
+            size_t rank_mask_;
             std::array<ranking_t, 13 * 13 + 13> local_eval_;
             mask_set no_flush_masks_;
             std::vector< suit_symmetry> ss_;
@@ -349,6 +361,7 @@ struct holdem_board_decl{
                     auto any_local_eval = world_[rank_mask_group[0]].local_eval_;
 
                     grouping.emplace_back(
+                        p.first,
                         any_local_eval,
                         ms,
                         ss_vec);
@@ -404,6 +417,68 @@ struct holdem_board_decl{
                                 ++aggregates;
                         }
                 }
+
+#if 1
+
+                // card_mask, rank_mask, flush_mask
+                using flush_rep_ty = std::tuple<size_t, size_t, size_t>;
+                std::vector< flush_rep_ty> left;
+                std::vector< flush_rep_ty> right;
+                for (auto const& g : grouping)
+                {
+                    for (auto const& f : g.suit_symmetry_vec())
+                    {
+                        for (suit_id sid = 0; sid != 4; ++sid)
+                        {
+                            for (size_t board_mask : f.board_card_masks()[sid])
+                            {
+                                left.emplace_back(board_mask, g.rank_mask(), f.flush_mask());
+                            }
+                        }
+                    }
+                }
+                for (auto const& w : weighted_singletons_)
+                {
+                    right.emplace_back(w.single_card_mask(), w.rank_mask_, w.flush_mask());
+                }
+
+                boost::sort(left);
+                boost::sort(right);
+
+                if (left.size() != right.size())
+                {
+                    BOOST_THROW_EXCEPTION(std::domain_error("not same sizeses"));
+                }
+
+                bool card_mask_equal = std::equal(
+                    left.begin(),
+                    left.end(),
+                    right.begin(),
+                    [](flush_rep_ty const& l, flush_rep_ty const& r)
+                    {
+                        return std::get<0>(l) == std::get<0>(r);
+                    });
+
+                bool rank_mask_equal = std::equal(
+                    left.begin(),
+                    left.end(),
+                    right.begin(),
+                    [](flush_rep_ty const& l, flush_rep_ty const& r)
+                    {
+                        return std::tie(std::get<0>(l), std::get<1>(l)) == std::tie(std::get<0>(r), std::get<1>(r));
+                    });
+
+                bool flush_mask_equal = std::equal(
+                    left.begin(),
+                    left.end(),
+                    right.begin());
+
+                std::cout << "card_mask_equal = " << card_mask_equal << "\n";
+                std::cout << "rank_mask_equal = " << rank_mask_equal << "\n";
+                std::cout << "flush_mask_equal = " << flush_mask_equal << "\n";
+#endif
+
+                
 
 #if 0
                 for (auto const& p : suit_count)

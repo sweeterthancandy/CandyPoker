@@ -152,6 +152,53 @@ struct optimized_transform : optimized_transform_base
                     }
                     shed.end_eval(&g.get_no_flush_masks(), 0ull);
 
+
+
+
+
+                    for (auto const& f : g.suit_symmetry_vec())
+                    {
+                        for (suit_id sid = 0; sid != 4; ++sid)
+                        {
+                            for (size_t board_mask : f.board_card_masks()[sid])
+                            {
+
+                                for (size_t idx = 0; idx != rod.size(); ++idx) {
+                                    auto const& hand_decl = rod[idx];
+                                    ranking_t rr = g.no_flush_rank(hand_decl.r0, hand_decl.r1);
+                                    bool s0m = (hand_decl.s0 == sid);
+                                    bool s1m = (hand_decl.s1 == sid);
+
+                                    auto fm = f.flush_mask();
+
+                                    if (s0m) {
+                                        fm |= 1ull << hand_decl.r0;
+                                    }
+                                    if (s1m) {
+                                        fm |= 1ull << hand_decl.r1;
+                                    }
+
+                                    ranking_t sr = otc.fme(fm);
+                                    ranking_t tr = std::min(sr, rr);
+
+                                    shed.put(idx, tr);
+                                }
+                                mask_set ms;
+                                ms.add(board_mask);
+                                shed.end_eval(&ms, 0ull);
+
+
+                            }
+                        }
+                    }
+                    
+
+
+
+
+
+
+                    continue;
                     for (auto const& f : g.suit_symmetry_vec())
                     {
                         const size_t fm_proto = f.flush_mask();
@@ -161,7 +208,6 @@ struct optimized_transform : optimized_transform_base
                         suit_batch[1] = ranking_proto;
                         suit_batch[2] = ranking_proto;
                         suit_batch[3] = ranking_proto;
-
 
                         for (size_t idx = 0; idx != rod.size(); ++idx) {
                             auto const& hand_decl = rod[idx];
@@ -218,7 +264,7 @@ struct optimized_transform : optimized_transform_base
 
                         if constexpr (supports_single_mask< Schedular>{})
                         {
-                            shed.end_eval_single(b.single_rank_mask());
+                            shed.end_eval_single(b.single_card_mask());
                         }
                         else
                         {

@@ -41,6 +41,13 @@ struct mask_set{
                 return l.masks_ < r.masks_;
         }
         size_t get_union()const{ return union_; }
+
+        auto begin()const {
+            return masks_.begin();
+        }
+        auto end()const {
+            return masks_.end();
+        }
 private:
         vector_type masks_;
         size_t union_{0};

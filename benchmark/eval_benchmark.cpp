@@ -125,9 +125,22 @@ static void BuildInstrList_4(benchmark::State& state) {
         frontend_to_instruction_list("dummy", { p0, p1, p2, p3 });
     }
 }
+static void BuildInstrList_5(benchmark::State& state) {
+
+    for (auto _ : state)
+    {
+        auto p0 = do_frontend_parse("AA");
+        auto p1 = do_frontend_parse("KK");
+        auto p2 = do_frontend_parse("QQ");
+        auto p3 = do_frontend_parse("JJ");
+        auto p4 = do_frontend_parse("TT");
+        frontend_to_instruction_list("dummy", { p0, p1, p2, p3, p4 });
+    }
+}
 BENCHMARK(BuildInstrList_2);
 BENCHMARK(BuildInstrList_3);
-BENCHMARK(BuildInstrList_4);
+BENCHMARK(BuildInstrList_4)->Unit(benchmark::kSecond);
+BENCHMARK(BuildInstrList_5)->Unit(benchmark::kSecond);
 
 
 
@@ -136,7 +149,7 @@ BENCHMARK(BuildInstrList_4);
 
 
 
-#if 0
+
 
 static void Eval_PP_2(benchmark::State& state) {
   for (auto _ : state)
@@ -166,11 +179,18 @@ static void Eval_PP_4(benchmark::State& state) {
         obj.Compute();
     }
 }
-BENCHMARK(Eval_PP_2);
-BENCHMARK(Eval_PP_3);
-BENCHMARK(Eval_PP_4);
-#endif
-
+static void Eval_PP_5(benchmark::State& state) {
+    for (auto _ : state)
+    {
+        std::vector<std::string> player_ranges{ "AA", "KK", "QQ", "JJ", "TT"};
+        EvaluationObject obj(player_ranges);
+        obj.Compute();
+    }
+}
+BENCHMARK(Eval_PP_2)->Unit(benchmark::kSecond);
+BENCHMARK(Eval_PP_3)->Unit(benchmark::kSecond);
+BENCHMARK(Eval_PP_4)->Unit(benchmark::kSecond);
+BENCHMARK(Eval_PP_5)->Unit(benchmark::kSecond);
 
 
 
@@ -179,7 +199,7 @@ BENCHMARK(Eval_PP_4);
 static void Eval_PP_2_Prepare(benchmark::State& state) {
     for (auto _ : state)
     {
-        std::vector<std::string> player_ranges{ "AA", "KK+" };
+        std::vector<std::string> player_ranges{ "AA", "KK" };
         EvaluationObject obj(player_ranges);
         obj.Prepare();
     }
@@ -187,7 +207,7 @@ static void Eval_PP_2_Prepare(benchmark::State& state) {
 static void Eval_PP_3_Prepare(benchmark::State& state) {
     for (auto _ : state)
     {
-        std::vector<std::string> player_ranges{ "AA", "KK+", "QQ+" };
+        std::vector<std::string> player_ranges{ "AA", "KK", "QQ" };
         EvaluationObject obj(player_ranges);
         obj.Prepare();
     }
@@ -195,7 +215,7 @@ static void Eval_PP_3_Prepare(benchmark::State& state) {
 static void Eval_PP_4_Prepare(benchmark::State& state) {
     for (auto _ : state)
     {
-        std::vector<std::string> player_ranges{ "AA", "KK+", "QQ+", "JJ+" };
+        std::vector<std::string> player_ranges{ "AA", "KK", "QQ", "JJ" };
         EvaluationObject obj(player_ranges);
         obj.Prepare();
     }
@@ -203,25 +223,11 @@ static void Eval_PP_4_Prepare(benchmark::State& state) {
 static void Eval_PP_5_Prepare(benchmark::State& state) {
     for (auto _ : state)
     {
-        std::vector<std::string> player_ranges{ "AA", "KK+", "QQ+", "JJ+", "TT+" };
+        std::vector<std::string> player_ranges{ "AA", "KK", "QQ", "JJ", "TT"};
         EvaluationObject obj(player_ranges);
         obj.Prepare();
     }
 }
-static void Eval_PP_6_Prepare(benchmark::State& state) {
-    for (auto _ : state)
-    {
-        std::vector<std::string> player_ranges{ "AA", "KK+", "QQ+", "JJ+", "TT+", "99+" };
-        EvaluationObject obj(player_ranges);
-        obj.Prepare();
-    }
-}
-
-BENCHMARK(Eval_PP_2_Prepare);
-BENCHMARK(Eval_PP_3_Prepare);
-BENCHMARK(Eval_PP_4_Prepare);
-BENCHMARK(Eval_PP_5_Prepare);
-BENCHMARK(Eval_PP_6_Prepare);
 
 
 
@@ -233,8 +239,7 @@ static void Eval_PP_2_After(benchmark::State& state) {
     for (auto _ : state)
     {
         state.PauseTiming(); 
-        EvaluationObject::BuildCache();
-        std::vector<std::string> player_ranges{ "AA", "KK+" };
+        std::vector<std::string> player_ranges{ "AA", "KK" };
         EvaluationObject obj(player_ranges);
         EvaluationObject prepared = obj.Prepare().get();
         state.ResumeTiming(); 
@@ -245,7 +250,7 @@ static void Eval_PP_3_After(benchmark::State& state) {
     for (auto _ : state)
     {
         state.PauseTiming(); 
-        std::vector<std::string> player_ranges{ "AA+", "KK+", "QQ+" };
+        std::vector<std::string> player_ranges{ "AA", "KK", "QQ" };
         EvaluationObject obj(player_ranges);
         EvaluationObject prepared = obj.Prepare().get();
         state.ResumeTiming();
@@ -256,7 +261,7 @@ static void Eval_PP_4_After(benchmark::State& state) {
     for (auto _ : state)
     {
         state.PauseTiming();
-        std::vector<std::string> player_ranges{ "AA+", "KK+", "QQ+", "JJ+" };
+        std::vector<std::string> player_ranges{ "AA", "KK", "QQ", "JJ" };
         EvaluationObject obj(player_ranges);
         EvaluationObject prepared = obj.Prepare().get();
         state.ResumeTiming();
@@ -267,36 +272,37 @@ static void Eval_PP_5_After(benchmark::State& state) {
     for (auto _ : state)
     {
         state.PauseTiming();
-        std::vector<std::string> player_ranges{ "AA+", "KK+", "QQ+", "JJ+", "TT+" };
+        std::vector<std::string> player_ranges{ "AA", "KK", "QQ", "JJ", "TT"};
         EvaluationObject obj(player_ranges);
         EvaluationObject prepared = obj.Prepare().get();
         state.ResumeTiming();
         prepared.Compute();
     }
 }
-static void Eval_PP_6_After(benchmark::State& state) {
+
+BENCHMARK(Eval_PP_2_Prepare)->Unit(benchmark::kSecond);
+BENCHMARK(Eval_PP_2_After)->Unit(benchmark::kSecond);
+BENCHMARK(Eval_PP_3_Prepare)->Unit(benchmark::kSecond);
+BENCHMARK(Eval_PP_3_After)->Unit(benchmark::kSecond);
+BENCHMARK(Eval_PP_4_Prepare)->Unit(benchmark::kSecond);
+BENCHMARK(Eval_PP_4_After)->Unit(benchmark::kSecond);
+BENCHMARK(Eval_PP_5_Prepare)->Unit(benchmark::kSecond);
+BENCHMARK(Eval_PP_5_After)->Unit(benchmark::kSecond);
+
+
+
+
+
+
+static void Eval_PP_2_Stress(benchmark::State& state) {
     for (auto _ : state)
     {
-        state.PauseTiming();
-        std::vector<std::string> player_ranges{ "AA+", "KK+", "QQ+", "JJ+", "TT+", "99+" };
+        std::vector<std::string> player_ranges{ "22+", "33+"};
         EvaluationObject obj(player_ranges);
-        EvaluationObject prepared = obj.Prepare().get();
-        state.ResumeTiming();
-        prepared.Compute();
+        obj.Compute();
     }
 }
-
-BENCHMARK(Eval_PP_2_After);
-BENCHMARK(Eval_PP_3_After);
-BENCHMARK(Eval_PP_4_After);
-BENCHMARK(Eval_PP_5_After);
-BENCHMARK(Eval_PP_6_After);
-
-
-
-
-
-
+BENCHMARK(Eval_PP_2_Stress)->Unit(benchmark::kSecond);
 
 
 

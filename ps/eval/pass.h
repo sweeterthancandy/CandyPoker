@@ -77,18 +77,21 @@ struct instruction_map_pass : computation_pass{
         
 struct computation_context{
         explicit
-        computation_context(size_t num_players)
+        computation_context(size_t num_players, int verbose=0)
                 :num_players_(num_players)
+                ,verbose_{verbose}
         {}
         size_t NumPlayers()const{
                 return num_players_;
         }
+        int Verboseicity()const{ return verbose_; }
         friend std::ostream& operator<<(std::ostream& ostr, computation_context const& self){
                 ostr << "num_players_ = " << self.num_players_;
                 return ostr;
         }
 private:
         size_t num_players_;
+        int verbose_;
 };
 
 /*

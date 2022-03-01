@@ -157,11 +157,20 @@ class EvaluationObjectImpl;
 class EvaluationObject
 {
 public:
+	enum FlagsMask : unsigned
+	{
+		F_None = 0,
+		F_DebugInstructions = 1 << 1,
+		F_ShowInstructions = 1 << 2,
+		F_StepPercent = 1 << 3,
+	};
+	using Flags = unsigned;
+
 	EvaluationObject(std::shared_ptr< EvaluationObjectImpl> impl) :impl_{ impl } {}
-	EvaluationObject(std::vector<std::string> const& player_ranges, std::string const& engine = {}, bool debug = false)
-		: EvaluationObject{ std::vector<std::vector<std::string> >{player_ranges} , engine , debug }
+	EvaluationObject(std::vector<std::string> const& player_ranges, std::string const& engine = {}, Flags flags = F_None)
+		: EvaluationObject{ std::vector<std::vector<std::string> >{player_ranges} , engine , flags }
 	{}
-	EvaluationObject(std::vector<std::vector<std::string> > const& player_ranges_list, boost::optional<std::string> const& engine = {}, bool debug = false);
+	EvaluationObject(std::vector<std::vector<std::string> > const& player_ranges_list, boost::optional<std::string> const& engine = {}, Flags flags = F_None);
 
 	EvaulationResultView Compute()const
 	{

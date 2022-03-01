@@ -32,7 +32,8 @@ struct optimized_transform : optimized_transform_base
         {
                 boost::timer::cpu_timer tmr;
 
-                constexpr bool WithLogging = true;
+                const bool WithLogging = ( ctx->Verboseicity() > 0 );
+                const bool WithStepping = ( ctx->Verboseicity() > 1 );
 
 #ifdef DO_VAlGRIND
                 CALLGRIND_START_INSTRUMENTATION;
@@ -56,6 +57,7 @@ struct optimized_transform : optimized_transform_base
                 for(auto& _ : subs){
                         _->declare(S);
                 }
+
 
                 if(WithLogging) PS_LOG(trace) << "Have " << S.size() << " unique holdem hands";
 
@@ -100,8 +102,13 @@ struct optimized_transform : optimized_transform_base
                 suit_batch[3].resize(rod.size());
 
 
-                for (auto const& g : otc.w.grouping)
+                //for (auto const& g : otc.w.grouping)
+                
+                size_t head_pct = 0;
+                for(size_t gidx= 0; gidx != otc.w.grouping.size();++gidx)
                 {
+                    auto const& g = otc.w.grouping[gidx];
+
                     for (size_t idx = 0; idx != rod.size(); ++idx) {
                         auto const& hand_decl = rod[idx];
                         ranking_proto[idx] = g.no_flush_rank(hand_decl.r0, hand_decl.r1);
@@ -201,6 +208,16 @@ struct optimized_transform : optimized_transform_base
 
                     
                     ++count;
+                    if( WithStepping )
+                    {
+                             const size_t implied_pct = (gidx+1) * 100 / otc.w.grouping.size();
+                            if( implied_pct > head_pct)
+                            {
+                                    head_pct = implied_pct;
+                                    PS_LOG(debug) << " Done " << gidx << "/" << otc.w.grouping.size() << " [" << head_pct << "%]";
+                            }
+                    }
+                   
                 }
 
 

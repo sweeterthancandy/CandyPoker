@@ -53,7 +53,6 @@ struct instruction{
                 T_CardEval,
                 T_ClassEval,
                 T_Matrix,
-                T_ClassVec,
                 T_NOP,
         };
         explicit instruction(type t)
@@ -96,6 +95,15 @@ struct result_description
     friend std::ostream& operator<<(std::ostream& ostr, result_description const& self)
     {
         return ostr << "ResultDesc{" << matrix_to_string(self.transform()) << ", group=" << self.group() << "}";
+    }
+    static std::vector<result_description> apply_matrix(std::vector<result_description> const& desc_list, matrix_t const& m)
+    {
+        std::vector<result_description> result;
+        for (auto const& x : desc_list)
+        {
+            result.emplace_back(x.group(), x.transform() * m);
+        }
+        return result;
     }
     static std::vector<result_description> apply_perm(std::vector<result_description> const& desc_list, std::vector<int> const& perm)
     {

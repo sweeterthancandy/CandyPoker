@@ -187,7 +187,15 @@ namespace interface_ {
 
 
             computation_pass_manager mgr;
+            mgr.add_pass<pass_permutate_class>();
+            if (debug_)
+                mgr.add_pass<pass_print>();
+            mgr.add_pass<pass_class2cards>();
+            if (debug_)
+                mgr.add_pass<pass_print>();
             mgr.add_pass<pass_permutate>();
+            if (debug_)
+                mgr.add_pass<pass_print>();
             mgr.add_pass<pass_sort_type>();
             mgr.add_pass<pass_collect>();
             if (debug_)

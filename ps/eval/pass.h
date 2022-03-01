@@ -230,11 +230,20 @@ struct pass_print : computation_pass{
                 std::cout << "---------END-----------\n";
         }
 };
+struct pass_permutate_class : computation_pass{
+        virtual void transform(computation_context* ctx, instruction_list* instr_list, computation_result* result)override{
+                for(auto& instr : *instr_list){
+                        if( instr->get_type() != instruction::T_ClassEval )
+                                continue;
+                     
 
-#if 0
+                }
+        }
+};
+
 struct pass_class2cards : instruction_map_pass{
         virtual boost::optional<instruction_list> try_map_instruction(computation_context* ctx, instruction* instrr)override{
-                if( instrr->get_type() != instruction::T_ClassVec )
+                if( instrr->get_type() != instruction::T_ClassEval)
                         return boost::none;
                 auto instr = reinterpret_cast<class_eval_instruction*>(instrr);
                 auto vec = instr->get_vector();
@@ -258,14 +267,19 @@ struct pass_class2cards : instruction_map_pass{
                                 ++item(i,perm[i]);
                         }
                 }
+                
+                
                 instruction_list result;
                 for(auto const& _ : meta){
-                        result.push_back(std::make_shared<card_eval_instruction>(instr->result_desc(), _.first, _.second));
+                        std::vector<result_description> step_result_desc = result_description::apply_matrix(
+                                instr->result_desc(), 
+                                _.second);
+                        result.push_back(std::make_shared<card_eval_instruction>(step_result_desc, _.first));
                 }
                 return result;
         }
 };
-#endif
+
 
 
 struct pass_write : computation_pass{

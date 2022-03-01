@@ -178,20 +178,22 @@ struct pass_sort_type : computation_pass{
                 });
         }
 };
-struct pass_collect : computation_pass{
+template<class EvalInstruction>
+struct basic_pass_collect : computation_pass{
+        using vector_ty = typename EvalInstruction::vector_type;
         virtual void transform(computation_context* ctx, instruction_list* instr_list, computation_result* result)override{
                 using iter_type = decltype(instr_list->begin());
 
                 std::map<
-                    holdem_hand_vector,
+                    vector_ty,
                     std::vector<iter_type>
                 > vec_device;
 
                 
                 for(iter_type iter(instr_list->begin()),end(instr_list->end());iter!=end;++iter){
-                    if ((*iter)->get_type() == instruction::T_CardEval)
+                    if ((*iter)->get_type() == EvalInstruction::instruction_type)
                     {
-                        const auto ptr = reinterpret_cast<card_eval_instruction*>(&**iter);
+                        const auto ptr = reinterpret_cast<EvalInstruction*>(&**iter);
                         vec_device[ptr->get_vector()].push_back(iter);
                     }
                 }
@@ -205,7 +207,7 @@ struct pass_collect : computation_pass{
                     std::vector<result_description> agg_result_desc;
                     for (auto const& iter : p.second)
                     {
-                        const auto ptr = reinterpret_cast<card_eval_instruction*>(&**iter);
+                        const auto ptr = reinterpret_cast<EvalInstruction*>(&**iter);
                         auto const& step_result_desc = ptr->result_desc();
                         std::copy(
                             std::cbegin(step_result_desc),
@@ -214,13 +216,15 @@ struct pass_collect : computation_pass{
                         instr_list->erase(iter);
                     }
                     agg_result_desc = result_description::aggregate(agg_result_desc);
-                    auto agg_ptr = std::make_shared< card_eval_instruction>(agg_result_desc, p.first);
+                    auto agg_ptr = std::make_shared< EvalInstruction>(agg_result_desc, p.first);
                     instr_list->push_back(agg_ptr);
                 }
-               
-
         }
 };
+
+using pass_collect= basic_pass_collect<card_eval_instruction>;
+using pass_collect_class = basic_pass_collect<class_eval_instruction>;
+
 struct pass_print : computation_pass{
         virtual void transform(computation_context* ctx, instruction_list* instr_list, computation_result* result)override{
                 std::cout << "--------BEGIN----------\n";
@@ -232,11 +236,22 @@ struct pass_print : computation_pass{
 };
 struct pass_permutate_class : computation_pass{
         virtual void transform(computation_context* ctx, instruction_list* instr_list, computation_result* result)override{
-                for(auto& instr : *instr_list){
-                        if( instr->get_type() != instruction::T_ClassEval )
+                for(auto& instrr : *instr_list){
+                        if( instrr->get_type() != instruction::T_ClassEval )
                                 continue;
-                     
+                        auto instr = reinterpret_cast<class_eval_instruction*>(instrr.get());
+                        auto const& vec = instr->get_vector();
+                        auto result = vec.to_standard_form();
+                        
 
+                        if( std::get<1>(result) == vec )
+                                continue;
+
+                        auto const& perm = std::get<0>(result);
+
+                        std::vector<result_description> permed_result_desc = result_description::apply_perm(instr->result_desc(), perm);
+
+                        instrr = std::make_shared< class_eval_instruction>(permed_result_desc, std::get<1>(result));
                 }
         }
 };

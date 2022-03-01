@@ -190,6 +190,9 @@ namespace interface_ {
             mgr.add_pass<pass_permutate_class>();
             if (debug_)
                 mgr.add_pass<pass_print>();
+            mgr.add_pass<pass_collect_class>();
+            if (debug_)
+                mgr.add_pass<pass_print>();
             mgr.add_pass<pass_class2cards>();
             if (debug_)
                 mgr.add_pass<pass_print>();

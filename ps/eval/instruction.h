@@ -214,6 +214,8 @@ struct basic_eval_instruction : instruction{
         using vector_type = VectorType;
         using self_type = basic_eval_instruction;
 
+        static constexpr  instruction::type instruction_type = Type;
+
         basic_eval_instruction(std::string const& group, vector_type const& vec)
                 : instruction{Type}
                 , vec_{vec}

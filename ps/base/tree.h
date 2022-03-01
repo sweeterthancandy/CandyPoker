@@ -80,6 +80,19 @@ namespace ps{
                 std::vector<frontend::class_range> players;
 
                 std::vector<tree_hand> const& get_children()const;
+
+                bool is_class_vs_class()const
+                {
+                        bool result = true;
+                        for (auto const& p : players)
+                        {
+                                if (p.is_subset())
+                                {
+                                        result = false;
+                                }
+                        }
+                        return result;
+                }
         private:
                 mutable boost::optional<std::vector<tree_hand> > children_;
         };

@@ -255,14 +255,17 @@ instruction_list frontend_to_instruction_list(std::string const& group, std::vec
         tree_range root( players );
 
         for( auto const& c : root.children ){
-#if 0
+
                 // this means it's a class vs class evaulation
-                if( c.opt_cplayers.size() != 0 ){
-                        holdem_class_vector aux{c.opt_cplayers};
+                if( c.is_class_vs_class()  ){
+                        holdem_class_vector aux;
+                        for (auto const& p : c.players)
+                        {
+                                aux.push_back(p.get_class_id());
+                        }
                         //agg.append(*class_eval.evaluate(aux));
-                        instr_list.push_back(std::make_shared<class_eval_instruction>(aux));
+                        instr_list.push_back(std::make_shared<class_eval_instruction>(group, aux));
                 } else
-#endif
                 {
                         for( auto const& d : c.get_children() ){
                                 holdem_hand_vector aux{d.players};

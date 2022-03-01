@@ -1093,7 +1093,7 @@ namespace ps{ namespace frontend{
                 result.emplace_back(
                     std::make_shared< class_range_impl>(cid,
                         hv,
-                        true));
+                        false));
             }
             return result;
         }

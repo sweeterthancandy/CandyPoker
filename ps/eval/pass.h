@@ -236,7 +236,7 @@ struct pass_class2cards : instruction_map_pass{
         virtual boost::optional<instruction_list> try_map_instruction(computation_context* ctx, instruction* instrr)override{
                 if( instrr->get_type() != instruction::T_ClassVec )
                         return boost::none;
-                auto instr = reinterpret_cast<class_vec_instruction*>(instrr);
+                auto instr = reinterpret_cast<class_eval_instruction*>(instrr);
                 auto vec = instr->get_vector();
 
                 auto const n = vec.size();
@@ -266,6 +266,7 @@ struct pass_class2cards : instruction_map_pass{
         }
 };
 #endif
+
 
 struct pass_write : computation_pass{
         virtual void transform(computation_context* ctx, instruction_list* instr_list, computation_result* result)override{

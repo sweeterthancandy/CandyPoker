@@ -29,6 +29,7 @@ SOFTWARE.
 #ifndef PS_TREE_H
 #define PS_TREE_H
 
+#include <boost/optional.hpp>
 #include "ps/base/frontend.h"
 
 namespace ps{
@@ -77,8 +78,10 @@ namespace ps{
 
 
                 std::vector<frontend::class_range> players;
-                std::vector<tree_hand>             children;
-                std::vector<holdem_class_id>       opt_cplayers;
+
+                std::vector<tree_hand> const& get_children()const;
+        private:
+                mutable boost::optional<std::vector<tree_hand> > children_;
         };
 
         struct tree_range{

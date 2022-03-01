@@ -65,61 +65,7 @@ namespace ps{
 struct holdem_board_decl{
         enum{ Debug = false };
         
-        struct lightweight_layout_singleton{
-
-                lightweight_layout_singleton(size_t card_mask, suit_id flush_suit, size_t flush_mask, size_t rank_mask, std::array<ranking_t, 13 * 13 + 13> local_eval)
-                        :flush_suit_(flush_suit),
-                        flush_mask_(flush_mask),
-                    card_mask_(card_mask),
-                    rank_mask_{ rank_mask },
-                        local_eval_(local_eval)
-                {
-                        masks.add(card_mask);
-                }
-
-
-                suit_id            flush_suit()const noexcept{ return flush_suit_; }
-                size_t             flush_mask()const{ return flush_mask_; };
-
-                ranking_t          no_flush_rank(card_id c0, card_id c1)const noexcept{
-                        return local_eval_[ c0 * 13 + c1 ];
-                }
-                size_t single_card_mask()const{
-                        return card_mask_;
-                }
-                suit_id flush_suit_{0};
-                size_t flush_mask_{0};
-                size_t card_mask_;
-                size_t rank_mask_;
-                std::array<ranking_t, 13 * 13 + 13> local_eval_;
-                mask_set masks;
-        };
-
-        struct lightweight_layout_aggregate{
-
-                lightweight_layout_aggregate(size_t card_mask, suit_id flush_suit, size_t flush_mask, size_t rank_mask, std::array<ranking_t, 13 * 13 + 13> local_eval)
-                        :flush_suit_(flush_suit),
-                        flush_mask_(flush_mask),
-                        rank_mask_{ rank_mask },
-                        local_eval_(local_eval)
-                {
-                        masks.add(card_mask);
-                }
-
-
-                suit_id            flush_suit()const noexcept{ return flush_suit_; }
-                size_t             flush_mask()const{ return flush_mask_; };
-
-
-                ranking_t          no_flush_rank(card_id c0, card_id c1)const noexcept{
-                        return local_eval_[ c0 * 13 + c1 ];
-                }
-                suit_id flush_suit_{0};
-                size_t flush_mask_{0};
-                size_t rank_mask_;
-                std::array<ranking_t, 13 * 13 + 13> local_eval_;
-                mask_set masks;
-        };
+ 
         struct layout{
                 layout(rank_hash_eval const& eval, card_vector vec)
                         :vec_{std::move(vec)}
@@ -186,10 +132,7 @@ struct holdem_board_decl{
                         return local_eval_[ c0 * 13 + c1 ];
                 }
 
-                template<class Type>
-                Type make_lightweight()const{
-                        return Type{mask(), flush_suit_, flush_mask_, rank_hash_, local_eval_};
-                }
+
         private:
                 size_t mask_;
                 card_vector vec_;
@@ -275,10 +218,6 @@ struct holdem_board_decl{
                 }
 
 
-
-
-
-
                 std::unordered_map<size_t, std::vector<size_t> > rank_mask_index;
                 for (size_t idx = 0; idx != world_.size(); ++idx)
                 {
@@ -312,23 +251,8 @@ struct holdem_board_decl{
                         flush_grouping[flush_mask][sid].push_back(idx);
                     }
 
-#if 0
-                    std::cout << "BEGIN--\n";
-                    for (auto const& u : flush_grouping)
-                    {
-                        for (auto const& v : u.second)
-                        {
-                            std::cout << "    " << u.first << " with " << static_cast<int>(v.first) << " => " << v.second.size() << "\n";
-                            for (size_t j : v.second)
-                            {
-                                std::cout << "         " << world_[j].mask() << "\n";
-                            }
-                            std::cout << "\n";
-                        }
-                    }
-#endif
                     std::vector<board_rank_grouping::suit_symmetry> ss_vec;
-#if 1
+
                     
                     for (auto& fg : flush_grouping)
                     {
@@ -351,7 +275,7 @@ struct holdem_board_decl{
                             common_flush_mask,
                             mask_set_list);
                     }
-#endif
+
                     mask_set ms;
                     for (size_t idx : without_any_flush)
                     {
@@ -368,206 +292,11 @@ struct holdem_board_decl{
                 }
 
 
-                std::cout << "grouping.size() => " << grouping.size() << "\n";
-                size_t total_flush = 0;
-                for (auto const& g : grouping)
-                {
-                    for (auto const& f : g.suit_symmetry_vec())
-                    {
-                        total_flush += f.board_card_masks()[0].size();
-                        total_flush += f.board_card_masks()[1].size();
-                        total_flush += f.board_card_masks()[2].size();
-                        total_flush += f.board_card_masks()[3].size();
-                    }
-                }
-                std::cout << "total_flush => " << total_flush << "\n";
-       
-
-
-
-
-
-
-
-                // mask -> index
-                std::unordered_map<size_t, size_t> m;
-
-                size_t singletons{0};
-                size_t aggregates{0};
-
-                //std::unordered_map<int, size_t> suit_count;
-
-                for( auto const& l : world_ ){
-                        if( l.flush_possible() ){
-                                // singleton
-                                weighted_singletons_.emplace_back( l.make_lightweight<lightweight_layout_singleton>() );
-                               // ++suit_count[weighted_singletons_.back().flush_suit()];
-                                ++singletons;
-                        } else {
-                                // try to aggrefate
-                                auto iter = m.find( l.rank_hash() );
-                                if( iter == m.end()){
-                                        // first one
-                                        weighted_aggregates_.emplace_back( l.make_lightweight<lightweight_layout_aggregate>() );
-                                        
-                                        m[l.rank_hash()] = weighted_aggregates_.size() -1 ;
-                                } else {
-                                        weighted_aggregates_[iter->second].masks.add(l.mask());
-                                }
-                                ++aggregates;
-                        }
-                }
-
-#if 1
-
-                // card_mask, rank_mask, flush_mask
-                using flush_rep_ty = std::tuple<size_t, size_t, size_t>;
-                std::vector< flush_rep_ty> left;
-                std::vector< flush_rep_ty> right;
-                for (auto const& g : grouping)
-                {
-                    for (auto const& f : g.suit_symmetry_vec())
-                    {
-                        for (suit_id sid = 0; sid != 4; ++sid)
-                        {
-                            for (size_t board_mask : f.board_card_masks()[sid])
-                            {
-                                left.emplace_back(board_mask, g.rank_mask(), f.flush_mask());
-                            }
-                        }
-                    }
-                }
-                for (auto const& w : weighted_singletons_)
-                {
-                    right.emplace_back(w.single_card_mask(), w.rank_mask_, w.flush_mask());
-                }
-
-                boost::sort(left);
-                boost::sort(right);
-
-                if (left.size() != right.size())
-                {
-                    BOOST_THROW_EXCEPTION(std::domain_error("not same sizeses"));
-                }
-
-                bool card_mask_equal = std::equal(
-                    left.begin(),
-                    left.end(),
-                    right.begin(),
-                    [](flush_rep_ty const& l, flush_rep_ty const& r)
-                    {
-                        return std::get<0>(l) == std::get<0>(r);
-                    });
-
-                bool rank_mask_equal = std::equal(
-                    left.begin(),
-                    left.end(),
-                    right.begin(),
-                    [](flush_rep_ty const& l, flush_rep_ty const& r)
-                    {
-                        return std::tie(std::get<0>(l), std::get<1>(l)) == std::tie(std::get<0>(r), std::get<1>(r));
-                    });
-
-                bool flush_mask_equal = std::equal(
-                    left.begin(),
-                    left.end(),
-                    right.begin());
-
-                std::cout << "card_mask_equal = " << card_mask_equal << "\n";
-                std::cout << "rank_mask_equal = " << rank_mask_equal << "\n";
-                std::cout << "flush_mask_equal = " << flush_mask_equal << "\n";
-#endif
-
-                
-
-#if 0
-                for (auto const& p : suit_count)
-                {
-                    std::cout << "suit " << p.first << " => " << p.second << "\n";
-                }
-
-                std::unordered_map<int, size_t> mask_set_count;
-                for (auto const& x : weighted_aggregates_)
-                {
-                    ++mask_set_count[x.masks.size()];
-                }
-                for (auto const& p : mask_set_count)
-                {
-                    std::cout << "mask counts " << p.first << " => " << p.second << "\n";
-                }
-
-
-                std::unordered_map<int, size_t> rank_mask_count;
-                for (auto const& x : weighted_singletons_)
-                {
-                    ++rank_mask_count[x.rank_mask_];
-                }
-                std::unordered_map<int, size_t> rank_mask_count_count;
-                for (auto const& p : rank_mask_count)
-                {
-                    ++rank_mask_count_count[p.second];
-                }
-                for (auto const& p : mask_set_count)
-                {
-                    std::cout << "mask counts " << p.first << " => " << p.second << "\n";
-                }
-
-                std::map<std::array<ranking_t, 13 * 13 + 13>, size_t> uniqie_ranking_count;
-                for (auto const& x : weighted_singletons_)
-                {
-                    ++uniqie_ranking_count[x.local_eval_];
-                }
-                std::unordered_map<int, size_t> uniqie_ranking_count_count;
-                for (auto const& p : uniqie_ranking_count)
-                {
-                    ++uniqie_ranking_count_count[p.second];
-                }
-                for (auto const& p : uniqie_ranking_count_count)
-                {
-                    std::cout << "uniqe evals " << p.first << " => " << p.second << "\n";
-                }
-#endif
-
-                //PS_LOG(trace) << "singletons=" << singletons << ", aggregates=" << aggregates << " ( "<< (( aggregates * 100.0 ) / ( singletons + aggregates ));
-
-                //std::cout << "max mask size = " << boost::max_element(  weighted_, [](auto const& l, auto const& r){ return l.masks.size() < r.masks.size(); })->masks.size() << "\n";
-                //profile_memory();
-
-
-                #if 0
-                if( Debug ){
-
-                        std::map<mask_set, size_t> hist;
-                        size_t masks_sigma = 0;
-                        for(auto const& p : weighted_ ){
-                                ++hist[p.masks];
-                                ++masks_sigma;
-                        }
-                        std::cout << "hist.size() => " << hist.size() << "\n"; // __CandyPrint__(cxx-print-scalar,hist.size())
-                        std::cout << "masks_sigma => " << masks_sigma << "\n"; // __CandyPrint__(cxx-print-scalar,masks_sigma)
-
-                        // reorder them, so it's possible for branch prediction
-                        boost::sort(  weighted_, [](auto const& l, auto const& r){
-                                return l.masks.size() < r.masks.size();
-                        });
-
-                        size_t sigma = 0;
-                        for(auto const& _ : weighted_ ){
-                                sigma += _.masks.size();
-                        }
-
-                        std::cout << "world_.size() => " << world_.size() << ", "; // __CandyPrint__(cxx-print-scalar,world_.size())
-                        std::cout << "weighted_.size() => " << weighted_.size() << "\n"; // __CandyPrint__(cxx-print-scalar,weighted_.size())
-                        std::cout << "sigma => " << sigma << "\n"; // __CandyPrint__(cxx-print-scalar,sigma)
-                }
-                #endif
 
         }
         auto begin()const noexcept{ return world_.begin(); }
         auto end()const noexcept{ return world_.end(); }
 
-        auto const& weighted_aggregate_rng()const{ return weighted_aggregates_; }
-        auto const& weighted_singleton_rng()const{ return weighted_singletons_; }
 
         void profile_memory(){
                 auto world_gb    = world_.size() * sizeof(layout) * 1.0 / 1024 / 1024 / 1024;
@@ -581,8 +310,6 @@ struct holdem_board_decl{
         std::vector< board_rank_grouping> grouping;
 private:
         std::vector<layout> world_;
-        std::vector<lightweight_layout_singleton> weighted_singletons_;
-        std::vector<lightweight_layout_aggregate> weighted_aggregates_;
 };
 
 } // ps

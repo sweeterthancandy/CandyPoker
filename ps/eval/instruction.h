@@ -218,11 +218,8 @@ struct basic_eval_instruction : instruction{
                 , result_desc_{std::move(result_desc)}
         {
         }
-        holdem_hand_vector get_vector()const{
+        vector_type get_vector()const{
                 return vec_;
-        }
-        void set_vector(holdem_hand_vector const& vec){
-                vec_ = vec;
         }
         virtual std::string to_string()const override{
                 std::stringstream sstr;
@@ -258,17 +255,16 @@ instruction_list frontend_to_instruction_list(std::string const& group, std::vec
         tree_range root( players );
 
         for( auto const& c : root.children ){
-
-                #if 0
+#if 0
                 // this means it's a class vs class evaulation
                 if( c.opt_cplayers.size() != 0 ){
                         holdem_class_vector aux{c.opt_cplayers};
                         //agg.append(*class_eval.evaluate(aux));
                         instr_list.push_back(std::make_shared<class_eval_instruction>(aux));
                 } else
-                #endif
+#endif
                 {
-                        for( auto const& d : c.children ){
+                        for( auto const& d : c.get_children() ){
                                 holdem_hand_vector aux{d.players};
                                 //agg.append(*eval.evaluate(aux));
 

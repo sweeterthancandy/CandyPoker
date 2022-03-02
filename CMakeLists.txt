@@ -103,6 +103,7 @@ set(base_sources
         lib/eval/holdem_class_vector_cache.cpp
         lib/eval/pass_eval_hand_instr_vec.cpp
         lib/eval/dispatch_generic.cpp
+        lib/eval/pass.cpp
         #lib/eval/dispatch_three.cpp
         #lib/eval/dispatch_three_avx2.cpp
         #lib/eval/dispatch_four.cpp

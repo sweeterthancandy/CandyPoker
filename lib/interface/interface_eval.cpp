@@ -67,6 +67,20 @@ SOFTWARE.
 namespace ps{
 namespace interface_ {
 
+        struct time_printer : computation_pass{
+                    explicit time_printer(std::string const& str, boost::timer::cpu_timer* tmr):
+                            str_{str}, tmr_{tmr}
+                    {}
+                    virtual void transform(computation_context* ctx, instruction_list* instr_list, computation_result* result = nullptr)
+                    {
+                            PS_LOG(trace) << tmr_->format(4, str_ + " took %w seconds");
+                            tmr_->start();
+                    }
+            private:
+                    std::string str_;
+                    boost::timer::cpu_timer* tmr_;
+            };
+
     class EvaluationObjectImpl
     {
     public:
@@ -190,19 +204,7 @@ namespace interface_ {
             const bool should_debug_instrs = (flags_ & EvaluationObject::F_DebugInstructions);
 
             
-            struct time_printer : computation_pass{
-                    explicit time_printer(std::string const& str, boost::timer::cpu_timer* tmr):
-                            str_{str}, tmr_{tmr}
-                    {}
-                    virtual void transform(computation_context* ctx, instruction_list* instr_list, computation_result* result = nullptr)
-                    {
-                            PS_LOG(trace) << tmr_->format(4, str_ + " took %w seconds");
-                            tmr_->start();
-                    }
-            private:
-                    std::string str_;
-                    boost::timer::cpu_timer* tmr_;
-            };
+            
             
             boost::timer::cpu_timer shared_timer;
             

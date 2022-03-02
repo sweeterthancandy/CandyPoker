@@ -261,16 +261,28 @@ namespace ps{
 
         holdem_hand_vector holdem_hand_vector::parse(std::string const& s)
         {
+                std::string stripped;
+                for (const char c : s)
+                {
+                        switch (c)
+                        {
+                        case '\'':
+                        case ',':
+                                continue;
+                        default:
+                                stripped.push_back(c);
+                        }
+                }
 
-            if (s.size() % 4 != 0)
+            if (stripped.size() % 4 != 0)
             {
                 BOOST_THROW_EXCEPTION(std::domain_error("does not look like a card vector"));
             }
             holdem_hand_vector result;
-            for (size_t hand_offset = 0; hand_offset != s.size(); hand_offset += 4)
+            for (size_t hand_offset = 0; hand_offset != stripped.size(); hand_offset += 4)
             {
-                auto c0 = card_decl::parse(s.substr(hand_offset + 0, 2));
-                auto c1 = card_decl::parse(s.substr(hand_offset + 2, 2));
+                auto c0 = card_decl::parse(stripped.substr(hand_offset + 0, 2));
+                auto c1 = card_decl::parse(stripped.substr(hand_offset + 2, 2));
                 auto hand_id = holdem_hand_decl::make_id(c0, c1);
                 result.push_back(hand_id);
             }
@@ -647,7 +659,7 @@ namespace ps{
                         }
                         stack = std::move(next_stack);
                 }
-                return std::move(stack);
+                return stack;
         }
         std::tuple<
                 std::vector<int>,
@@ -697,7 +709,7 @@ namespace ps{
                 for( auto& m : result ){
                         ret.emplace_back( std::move(m.second), std::move(m.first));
                 }
-                return std::move(ret);
+                return ret;
         }
 
         bool holdem_class_vector::is_standard_form()const{
@@ -752,7 +764,7 @@ namespace ps{
                         vec.push_back(hand.first().id());
                         vec.push_back(hand.second().id());
                 }
-                return std::move(vec);
+                return vec;
         }
         size_t holdem_hand_vector::mask()const{
                 size_t m = 0;

@@ -185,24 +185,62 @@ namespace interface_ {
 
             }
 
+            
+            const bool should_emit_times = (flags_ & EvaluationObject::F_TimeInstructionManager);
+            const bool should_debug_instrs = (flags_ & EvaluationObject::F_DebugInstructions);
+
+            
+            struct time_printer : computation_pass{
+                    explicit time_printer(std::string const& str, boost::timer::cpu_timer* tmr):
+                            str_{str}, tmr_{tmr}
+                    {}
+                    virtual void transform(computation_context* ctx, instruction_list* instr_list, computation_result* result = nullptr)
+                    {
+                            PS_LOG(trace) << tmr_->format(4, str_ + " took %w seconds");
+                            tmr_->start();
+                    }
+            private:
+                    std::string str_;
+                    boost::timer::cpu_timer* tmr_;
+            };
+            
+            boost::timer::cpu_timer shared_timer;
+            
 
             computation_pass_manager mgr;
             mgr.add_pass<pass_permutate_class>();
-            if (flags_ & EvaluationObject::F_DebugInstructions)
+            if (should_debug_instrs)
                 mgr.add_pass<pass_print>();
+            if( should_emit_times)
+                mgr.add_pass<time_printer>("permutate_class", &shared_timer);
+
+
             mgr.add_pass<pass_collect_class>();
-            if (flags_ & EvaluationObject::F_DebugInstructions)
+            if (should_debug_instrs)
                 mgr.add_pass<pass_print>();
+            if( should_emit_times)
+                mgr.add_pass<time_printer>("pass_collect_class", &shared_timer);
+
             mgr.add_pass<pass_class2cards>();
-            if (flags_ & EvaluationObject::F_DebugInstructions)
+            if (should_debug_instrs)
                 mgr.add_pass<pass_print>();
+            if( should_emit_times)
+                mgr.add_pass<time_printer>("pass_class2cards", &shared_timer);
+
+
             mgr.add_pass<pass_permutate>();
-            if (flags_ & EvaluationObject::F_DebugInstructions)
+            if (should_debug_instrs)
                 mgr.add_pass<pass_print>();
+            if( should_emit_times)
+                mgr.add_pass<time_printer>("pass_permutate", &shared_timer);
+
+
             mgr.add_pass<pass_sort_type>();
             mgr.add_pass<pass_collect>();
             if (flags_ & ( EvaluationObject::F_DebugInstructions |  EvaluationObject::F_ShowInstructions))
                 mgr.add_pass<pass_print>();
+            if( should_emit_times)
+                mgr.add_pass<time_printer>("pass_collect", &shared_timer);
 
             mgr.execute_(comp_ctx.get(), agg_instr_list.get(), result.get());
 

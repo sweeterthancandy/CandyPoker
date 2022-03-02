@@ -163,6 +163,7 @@ public:
 		F_DebugInstructions = 1 << 1,
 		F_ShowInstructions = 1 << 2,
 		F_StepPercent = 1 << 3,
+		F_TimeInstructionManager = 1 << 4,
 	};
 	using Flags = unsigned;
 

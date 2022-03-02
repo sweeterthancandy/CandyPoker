@@ -83,6 +83,7 @@ struct MaskEval : Command{
 
                 bool debug{false};
                 bool step{false};
+                bool times{false};
                 bool help{false};
                 std::vector<std::string> players_s;
                 // way to choose a specific one
@@ -92,6 +93,7 @@ struct MaskEval : Command{
                 desc.add_options()
                         ("debug-instr"     , bpo::value(&debug)->implicit_value(true), "debug flag")
                         ("step"     , bpo::value(&step)->implicit_value(true), "step eval")
+                        ("times"     , bpo::value(&times)->implicit_value(true), "time instructions")
                         ("help"      , bpo::value(&help)->implicit_value(true), "this message")
                         ("player"    , bpo::value(&players_s), "player ranges")
                         ("engine"     , bpo::value(&engine), "choose speicifc eval mechinism")
@@ -214,7 +216,9 @@ struct MaskEval : Command{
 
                 const interface_::EvaluationObject::Flags flags = 0
                         | ( debug ? interface_::EvaluationObject::F_DebugInstructions : 0 )
-                        | ( step ? interface_::EvaluationObject::F_StepPercent : 0 );
+                        | ( step ? interface_::EvaluationObject::F_StepPercent : 0 )
+                        | ( times ? interface_::EvaluationObject::F_TimeInstructionManager: 0 )
+                        ;
                 interface_::EvaluationObject obj(players_s, engine, flags);
                 auto result_view = obj.Compute();
                 pretty_print_equity_breakdown_mat(std::cout, result_view.get_matrix(), players_s);

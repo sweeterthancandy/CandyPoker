@@ -69,6 +69,7 @@ void ClassVector_GetHandVectors(benchmark::State& state, Args&&... args) {
                 }
         }    
 }
+BENCHMARK_CAPTURE(ClassVector_GetHandVectors, AA_KK, std::string("AA,KK"))->Unit(benchmark::kMillisecond);
 BENCHMARK_CAPTURE(ClassVector_GetHandVectors, AA_KK_QQ, std::string("AA,KK,QQ"))->Unit(benchmark::kMillisecond);
 BENCHMARK_CAPTURE(ClassVector_GetHandVectors, QQ_KK_AA, std::string("QQ,KK,AA"))->Unit(benchmark::kMillisecond);
 BENCHMARK_CAPTURE(ClassVector_GetHandVectors, AA_KK_QQ_JJ, std::string("AA,KK,QQ,JJ"))->Unit(benchmark::kMillisecond);
@@ -125,21 +126,24 @@ BENCHMARK(Iterator_ThreePlayerClass)->Unit(benchmark::kMillisecond);
 
 
 
-static void Vs_ClassRangeAllHands(benchmark::State& state, size_t n) {
+static void Vs_ClassRange_First1000(benchmark::State& state, size_t n) {
 
         for (auto _ : state)
         {  
-                for(holdem_class_iterator iter(n),end;iter!=end;++iter){
+                size_t counter = 0;
+                for(holdem_class_iterator iter(n),end;iter!=end;++iter,++counter){
                         auto const& cv = *iter;
                         for( auto hv : cv.get_hand_vectors()){
                                 benchmark::DoNotOptimize(hv);
                         }
+                        if( counter == 1000 )
+                                break;
                 }
         }    
 }
-BENCHMARK_CAPTURE(Vs_ClassRangeAllHands, Two, 2)->Unit(benchmark::kMillisecond);
-BENCHMARK_CAPTURE(Vs_ClassRangeAllHands, Three, 3)->Unit(benchmark::kMillisecond);
-BENCHMARK_CAPTURE(Vs_ClassRangeAllHands, Four, 4)->Unit(benchmark::kMillisecond);
+BENCHMARK_CAPTURE(Vs_ClassRange_First1000, Two, 2)->Unit(benchmark::kMillisecond);
+BENCHMARK_CAPTURE(Vs_ClassRange_First1000, Three, 3)->Unit(benchmark::kMillisecond);
+BENCHMARK_CAPTURE(Vs_ClassRange_First1000, Four, 4)->Unit(benchmark::kMillisecond);
 
 
 BENCHMARK_MAIN();

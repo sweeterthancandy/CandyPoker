@@ -32,6 +32,7 @@ SOFTWARE.
 #include "ps/base/frontend.h"
 #include "ps/detail/cross_product.h"
 #include <iostream>
+#include <tuple>
 
 #include <boost/range/algorithm.hpp>
 
@@ -566,6 +567,56 @@ namespace ps{
         }
 
 
+        holdem_class_vector holdem_class_vector::parse(std::string const& s)
+        {
+                std::string stripped;
+                for (const char c : s)
+                {
+                        switch (c)
+                        {
+                        case '\'':
+                        case ',':
+                                continue;
+                        default:
+                                stripped.push_back(c);
+                        }
+                }
+                holdem_class_vector result;
+                for (size_t idx = 0; idx != stripped.size();)
+                {
+                        const auto p = [&]()->std::string
+                        {
+                                const auto d = stripped.size() - idx;
+                                switch (d)
+                                {
+                                case 0:
+                                case 1:
+                                        BOOST_THROW_EXCEPTION(std::domain_error("bad parse"));
+                                case 2:
+                                        if (stripped[idx] != stripped[idx + 1])
+                                        {
+                                                BOOST_THROW_EXCEPTION(std::domain_error("bad parse : " + stripped));
+                                        }
+                                        return stripped.substr(idx);
+                                default:
+                                        if (stripped[idx] == stripped[idx + 1])
+                                        {
+                                                return stripped.substr(idx,2);
+                                        }
+                                        else
+                                        {
+                                                return stripped.substr(idx,3);
+                                        }
+                                }
+                                BOOST_THROW_EXCEPTION(std::domain_error("not possible"));
+                        }();
+                                
+                        result.push_back(p);
+                        idx += p.size();
+                }
+                return result;
+        }
+
 
         std::ostream& operator<<(std::ostream& ostr, holdem_class_vector const& self){
                 return ostr << detail::to_string(self,
@@ -766,5 +817,12 @@ namespace ps{
             }
             return true;
         }
+
+
+
+
+
+
+        
 
 } // 

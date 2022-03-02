@@ -61,7 +61,7 @@ namespace ps{
                 BOOST_PP_SEQ_FOR_EACH_PRODUCT( PS_make_non_pair, (PS_rank_seq)(PS_rank_seq))
 
 
-                #if 0
+                #if 1
                 static auto _AA = pocket_pair(::ps::decl::_A);
                 static auto _KK = pocket_pair(::ps::decl::_K);
                 static auto _QQ = pocket_pair(::ps::decl::_Q);

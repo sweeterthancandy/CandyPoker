@@ -128,6 +128,10 @@ void pass_permutate::transform(computation_context* ctx, instruction_list* instr
         return result;
 }
 
+
+ 
+
+
  void pass_write::transform(computation_context* ctx, instruction_list* instr_list, computation_result* result){
                 for(auto instr : *instr_list ){
                         if( instr->get_type() != instruction::T_Matrix ){

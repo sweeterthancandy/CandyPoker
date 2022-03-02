@@ -35,6 +35,7 @@
 #include "ps/eval/holdem_class_vector_cache.h"
 
 using namespace ps;
+using namespace ps::frontend;
 
 #if 0
  std::cout << std::fixed;
@@ -87,6 +88,80 @@ using namespace ps;
 
 
 #endif
+static void HoldemHandVector_Permuate_3(benchmark::State& state) {
+
+        const auto hv = holdem_hand_vector::parse("JcTc7s7dAsKd");
+                
+        for (auto _ : state)
+        {  
+                auto p =  permutate_for_the_better(hv) ;
+                benchmark::DoNotOptimize(p);
+        }    
+}
+BENCHMARK(HoldemHandVector_Permuate_3)->Unit(benchmark::kMillisecond);
+
+static void HoldemHandVector_Permuate_4(benchmark::State& state) {
+
+        const auto hv = holdem_hand_vector::parse("JcTc7s7dAdQsAsKd");
+                
+        for (auto _ : state)
+        {  
+                auto p =  permutate_for_the_better(hv) ;
+                benchmark::DoNotOptimize(p);
+        }    
+}
+BENCHMARK(HoldemHandVector_Permuate_4)->Unit(benchmark::kMillisecond);
+
+static void HoldemHandVector_Permuate_5(benchmark::State& state) {
+
+        const auto hv = holdem_hand_vector::parse("JcTc7s7dAdQsAsKd8d9d");
+                
+        for (auto _ : state)
+        {  
+                auto p =  permutate_for_the_better(hv) ;
+                benchmark::DoNotOptimize(p);
+        }    
+}
+BENCHMARK(HoldemHandVector_Permuate_5)->Unit(benchmark::kMillisecond);
+
+                
+static void ClassVector_Permutate_3(benchmark::State& state) {
+
+        const auto cv = holdem_class_vector::parse("AA,KK,QQ");
+                
+        for (auto _ : state)
+        {  
+                for( auto hv : cv.get_hand_vectors()){
+                        benchmark::DoNotOptimize(hv);
+                }
+        }    
+}
+
+BENCHMARK(ClassVector_Permutate_3)->Unit(benchmark::kMillisecond);
+
+
+
+template <class ...Args>
+void ClassVector_GetHandVectors(benchmark::State& state, Args&&... args) {
+       
+        const auto cv = holdem_class_vector::parse(args...);
+                
+        for (auto _ : state)
+        {  
+                for( auto hv : cv.get_hand_vectors()){
+                        benchmark::DoNotOptimize(hv);
+                }
+        }    
+}
+BENCHMARK_CAPTURE(ClassVector_GetHandVectors, AA_KK_QQ, std::string("AA,KK,QQ"));
+BENCHMARK_CAPTURE(ClassVector_GetHandVectors, QQ_KK_AA, std::string("QQ,KK,AA"));
+BENCHMARK_CAPTURE(ClassVector_GetHandVectors, AA_KK_QQ_JJ, std::string("AA,KK,QQ,JJ"));
+BENCHMARK_CAPTURE(ClassVector_GetHandVectors, AA_KK_QQ_JJ_TT, std::string("AA,KK,QQ,JJ,TT"));
+
+BENCHMARK_CAPTURE(ClassVector_GetHandVectors, AKo_QJo, std::string("AKo,QJo"));
+BENCHMARK_CAPTURE(ClassVector_GetHandVectors, AKo_QJo_T9o, std::string("AKo,QJo,T9o"));
+BENCHMARK_CAPTURE(ClassVector_GetHandVectors, AKo_QJo_T9o_87o, std::string("AKo,QJo,T9o,87o"));
+BENCHMARK_CAPTURE(ClassVector_GetHandVectors, AKo_QJo_T9o_87o_65o, std::string("AKo,QJo,T9o,87o,65o"));
 
 static void Iterator_BitmaskFiveCardBoard(benchmark::State& state) {
 
@@ -119,7 +194,7 @@ static void Iterator_FiveCardBoard(benchmark::State& state) {
                 }
         }    
 }
-BENCHMARK(Iterator_FiveCardBoard)->Unit(benchmark::kSecond);
+BENCHMARK(Iterator_FiveCardBoard)->Unit(benchmark::kMillisecond);
 
 
 static void Iterator_ThreePlayerClass(benchmark::State& state) {
@@ -131,7 +206,7 @@ static void Iterator_ThreePlayerClass(benchmark::State& state) {
                 }
         }    
 }
-BENCHMARK(Iterator_ThreePlayerClass)->Unit(benchmark::kSecond);
+BENCHMARK(Iterator_ThreePlayerClass)->Unit(benchmark::kMillisecond);
 
 
 BENCHMARK_MAIN();

@@ -379,6 +379,9 @@ namespace ps{
                 holdem_class_vector(Args&&... args)
                 : std::vector<ps::holdem_class_id>{std::forward<Args>(args)...}
                 {}
+                
+                // parse("AA,KK");
+                static holdem_class_vector parse(std::string const& s);
                 friend std::ostream& operator<<(std::ostream& ostr, holdem_class_vector const& self);
                 holdem_class_decl const& decl_at(size_t i)const;
                 std::vector< holdem_hand_vector > get_hand_vectors()const;

@@ -63,6 +63,13 @@ struct MapLookupAux
 std::vector<value_ty> MapLookupAux::lookup_vec;
 std::vector<value_ty> MapLookupAux::values_to_lookup;
 
+constexpr size_t lower = 1ull << 8;
+constexpr size_t upper = 1ull << 20;
+
+
+
+
+
 static void MapLookupUnconditional(benchmark::State& state)
 {
         
@@ -78,7 +85,7 @@ static void MapLookupUnconditional(benchmark::State& state)
                 }
         }  
 }
-BENCHMARK(MapLookupUnconditional)->RangeMultiplier(2)->Range(1ull << 8, 1ull << 28);
+BENCHMARK(MapLookupUnconditional)->RangeMultiplier(2)->Range(lower, upper)->Unit(benchmark::kMillisecond);
 
 
 static void MapLookupConditionalUnlikelyLookup(benchmark::State& state)
@@ -98,7 +105,7 @@ static void MapLookupConditionalUnlikelyLookup(benchmark::State& state)
                 }
         }  
 }
-BENCHMARK(MapLookupConditionalUnlikelyLookup)->RangeMultiplier(2)->Range(1ull << 8, 1ull << 28);
+BENCHMARK(MapLookupConditionalUnlikelyLookup)->RangeMultiplier(2)->Range(lower, upper)->Unit(benchmark::kMillisecond);
 
 static void MapLookupConditionalLikelyLookup(benchmark::State& state)
 {
@@ -117,6 +124,10 @@ static void MapLookupConditionalLikelyLookup(benchmark::State& state)
                 }
         }  
 }
-BENCHMARK(MapLookupConditionalLikelyLookup)->RangeMultiplier(2)->Range(1ull << 8, 1ull << 28);
+BENCHMARK(MapLookupConditionalLikelyLookup)->RangeMultiplier(2)->Range(lower, upper)->Unit(benchmark::kMillisecond);
+
+
+
+
 
 BENCHMARK_MAIN();

@@ -16,6 +16,14 @@ static void sleep_test(benchmark::State& state)
 BENCHMARK(sleep_test);
 #endif
 
+#define BENCHMARK_BITS(F) \
+        BENCHMARK(F)->Arg( 1ull <<  8)->ArgName( "8")->Unit(benchmark::kMillisecond); \
+        BENCHMARK(F)->Arg( 1ull << 12)->ArgName("12")->Unit(benchmark::kMillisecond); \
+        BENCHMARK(F)->Arg( 1ull << 16)->ArgName("16")->Unit(benchmark::kMillisecond);  \
+        BENCHMARK(F)->Arg( 1ull << 20)->ArgName("20")->Unit(benchmark::kMillisecond); \
+        BENCHMARK(F)->Arg( 1ull << 24)->ArgName("24")->Unit(benchmark::kMillisecond); \
+        BENCHMARK(F)->Arg( 1ull << 28)->ArgName("28")->Unit(benchmark::kMillisecond); 
+
 using value_ty = size_t;
 
 struct MapLookupAux
@@ -85,8 +93,9 @@ static void MapLookupUnconditional(benchmark::State& state)
                 }
         }  
 }
-BENCHMARK(MapLookupUnconditional)->RangeMultiplier(2)->Range(lower, upper)->Unit(benchmark::kMillisecond);
 
+        
+BENCHMARK_BITS(MapLookupUnconditional);
 
 static void MapLookupConditionalUnlikelyLookup(benchmark::State& state)
 {
@@ -105,7 +114,7 @@ static void MapLookupConditionalUnlikelyLookup(benchmark::State& state)
                 }
         }  
 }
-BENCHMARK(MapLookupConditionalUnlikelyLookup)->RangeMultiplier(2)->Range(lower, upper)->Unit(benchmark::kMillisecond);
+BENCHMARK_BITS(MapLookupConditionalUnlikelyLookup);
 
 static void MapLookupConditionalLikelyLookup(benchmark::State& state)
 {
@@ -124,8 +133,7 @@ static void MapLookupConditionalLikelyLookup(benchmark::State& state)
                 }
         }  
 }
-BENCHMARK(MapLookupConditionalLikelyLookup)->RangeMultiplier(2)->Range(lower, upper)->Unit(benchmark::kMillisecond);
-
+BENCHMARK_BITS(MapLookupConditionalLikelyLookup);
 
 
 

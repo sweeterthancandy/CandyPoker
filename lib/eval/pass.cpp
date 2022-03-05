@@ -365,7 +365,7 @@ private:
                         {
                                 aux.push_back(p.get_class_id());
                         }
-#if 1
+#if 0
                         
                         //agg.append(*class_eval.evaluate(aux));
                         instr_list.push_back(std::make_shared<class_eval_instruction>(group, aux));

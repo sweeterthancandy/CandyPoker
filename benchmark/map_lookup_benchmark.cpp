@@ -19,10 +19,11 @@ BENCHMARK(sleep_test);
 #define BENCHMARK_BITS(F) \
         BENCHMARK(F)->Arg( 1ull <<  8)->ArgName( "8")->Unit(benchmark::kMillisecond); \
         BENCHMARK(F)->Arg( 1ull << 12)->ArgName("12")->Unit(benchmark::kMillisecond); \
-        BENCHMARK(F)->Arg( 1ull << 16)->ArgName("16")->Unit(benchmark::kMillisecond);  \
+        BENCHMARK(F)->Arg( 1ull << 16)->ArgName("16")->Unit(benchmark::kMillisecond); \
         BENCHMARK(F)->Arg( 1ull << 20)->ArgName("20")->Unit(benchmark::kMillisecond); \
         BENCHMARK(F)->Arg( 1ull << 24)->ArgName("24")->Unit(benchmark::kMillisecond); \
-        BENCHMARK(F)->Arg( 1ull << 28)->ArgName("28")->Unit(benchmark::kMillisecond); 
+        BENCHMARK(F)->Arg( 1ull << 28)->ArgName("28")->Unit(benchmark::kMillisecond);
+
 
 using value_ty = size_t;
 
@@ -33,7 +34,7 @@ struct MapLookupAux
 
         explicit MapLookupAux(size_t max_domain_value)
         {
-                constexpr size_t lookup_size = 1'000'00;
+                constexpr size_t lookup_size = 1'000'000;
                 constexpr value_ty max_range_value = 123546789;
 
         
@@ -71,11 +72,24 @@ struct MapLookupAux
 std::vector<value_ty> MapLookupAux::lookup_vec;
 std::vector<value_ty> MapLookupAux::values_to_lookup;
 
-constexpr size_t lower = 1ull << 8;
-constexpr size_t upper = 1ull << 20;
+static void MapLookupNoLookup(benchmark::State& state)
+{
+        
+        // should not matter
+        const size_t max_domain_value = 1ull << 10;
+        MapLookupAux aux(max_domain_value);
 
+        for (auto _ : state)
+        {  
+                for (auto key : aux.values_to_lookup)
+                {
+                        benchmark::DoNotOptimize(key);
+                }
+        }  
+}
 
-
+        
+BENCHMARK(MapLookupNoLookup)->Unit(benchmark::kMillisecond);
 
 
 static void MapLookupUnconditional(benchmark::State& state)

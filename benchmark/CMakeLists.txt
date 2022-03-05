@@ -27,3 +27,15 @@ target_link_libraries(
 target_link_libraries(iterator-benchmark ${Boost_LIBRARIES})
 target_link_libraries(iterator-benchmark ps_lib )
 target_link_libraries(iterator-benchmark benchmark::benchmark )
+
+add_executable(
+  map-lookup-benchmark
+  map_lookup_benchmark.cpp
+
+)
+target_link_libraries(
+  map-lookup-benchmark
+)
+target_link_libraries(map-lookup-benchmark ${Boost_LIBRARIES})
+target_link_libraries(map-lookup-benchmark ps_lib )
+target_link_libraries(map-lookup-benchmark benchmark::benchmark )

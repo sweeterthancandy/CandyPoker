@@ -37,6 +37,19 @@
 using namespace ps;
 using namespace ps::frontend;
 
+#if 0
+struct holdem_class_hard_from_proto
+{
+        using matrix_ty = std::tuple<holdem_class_type, 
+        void populate(holdem_class_vector const& cv, std::vector<holdem_class_id>& out, std::vector<matrix_t>& transform)
+        {
+
+        }
+private:
+        std::map<std::vector<match_ty>, std::shared_ptr<prototype> >_;
+};
+#endif
+
 
 template <class ...Args>
 static void HoldemHandVector_Permutate(benchmark::State& state, Args&&... args) {

@@ -101,6 +101,8 @@ struct optimized_transform : optimized_transform_base
                 suit_batch[2].resize(rod.size());
                 suit_batch[3].resize(rod.size());
 
+                boost::timer::cpu_timer shed_timer;
+                shed_timer.stop();
 
                 //for (auto const& g : otc.w.grouping)
                 
@@ -117,7 +119,9 @@ struct optimized_transform : optimized_transform_base
                     for (size_t idx = 0; idx != rod.size(); ++idx) {
                         shed.put(idx, ranking_proto[idx]);
                     }
+                    shed_timer.resume();
                     shed.end_eval(&g.get_no_flush_masks(), 0ull);
+                    shed_timer.stop();
 
                     
 
@@ -172,7 +176,9 @@ struct optimized_transform : optimized_transform_base
                                 shed.put(idx, suit_batch[sid][idx]);
                             }
                             mask_set const& suit_mask_set = f.board_card_masks()[sid];
+                            shed_timer.resume();
                             shed.end_eval(&suit_mask_set, 0ull);
+                            shed_timer.stop();
                         }
 #else
                         for (suit_id sid = 0; sid != 4; ++sid)
@@ -223,6 +229,8 @@ struct optimized_transform : optimized_transform_base
 
 
                 shed.regroup();
+
+                if (WithLogging) PS_LOG(trace) << shed_timer.format(4, "shed took %w seconds");
 
                 
                 for(auto& _ : subs){

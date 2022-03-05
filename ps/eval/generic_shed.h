@@ -47,10 +47,10 @@ namespace ps{
                 struct bind{
                         // this is 5% faster (in my limited testing)
                         enum{ CheckZeroWeight = true };
-                        explicit bind(size_t batch_size, std::vector<SubPtrType>& subs)
+                        explicit bind(holdem_hand_vector const& allocation, std::vector<SubPtrType>& subs)
                                 :subs_{subs}
                         {
-                                evals_.resize(batch_size);
+                                evals_.resize(allocation.size());
                         }
                         void put(size_t index, ranking_t rank)noexcept{
                                 evals_[index] = rank;

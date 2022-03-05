@@ -82,8 +82,12 @@ struct optimized_transform : optimized_transform_base
                 weights_ty weights;
                 weights.resize(subs.size());
                 
-                
-                schedular_type shed{ rod.size(), subs};
+                holdem_hand_vector hhv_tmp;
+                for(auto const& x : rod)
+                {
+                        hhv_tmp.push_back(x.hid);
+                }
+                schedular_type shed{ hhv_tmp, subs};
 
 
                 if (WithLogging) PS_LOG(trace) << tmr.format(4, "init took %w seconds");

@@ -259,34 +259,6 @@ using instruction_list = std::list<std::shared_ptr<instruction> >;
 
 
 
-inline
-instruction_list frontend_to_instruction_list(std::string const& group, std::vector<frontend::range> const& players){
-        instruction_list instr_list;
-        tree_range root( players );
-
-        for( auto const& c : root.children ){
-
-                // this means it's a class vs class evaulation
-                if( c.is_class_vs_class()  ){
-                        holdem_class_vector aux;
-                        for (auto const& p : c.players)
-                        {
-                                aux.push_back(p.get_class_id());
-                        }
-                        //agg.append(*class_eval.evaluate(aux));
-                        instr_list.push_back(std::make_shared<class_eval_instruction>(group, aux));
-                } else
-                {
-                        for( auto const& d : c.get_children() ){
-                                holdem_hand_vector aux{d.players};
-                                //agg.append(*eval.evaluate(aux));
-
-                                instr_list.push_back(std::make_shared<card_eval_instruction>(group, aux));
-                        }
-                }
-        }
-        return instr_list;
-}
 
 
 

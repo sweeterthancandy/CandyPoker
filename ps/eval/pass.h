@@ -40,6 +40,10 @@ namespace ps{
  * with loose coupling
  */
 
+
+instruction_list frontend_to_instruction_list(std::string const& group, std::vector<frontend::range> const& players);
+
+
 struct computation_context;
 struct computation_result;
 

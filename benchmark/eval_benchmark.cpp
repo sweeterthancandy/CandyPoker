@@ -3,7 +3,7 @@
 #include "ps/base/frontend.h"
 #include "ps/base/tree.h"
 #include "ps/interface/interface.h"
-#include "ps/eval/instruction.h"
+#include "ps/eval/pass.h"
 
 using namespace ps;
 using namespace ps::interface_;

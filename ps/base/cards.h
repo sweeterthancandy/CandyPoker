@@ -43,10 +43,10 @@ SOFTWARE.
 #include "ps/support/index_sequence.h"
 
 
-#define PS_ASSERT_VALID_SUIT_ID(x) PS_ASSERT( x < suit_decl::max_id, "suit_id = " << x)
-#define PS_ASSERT_VALID_RANK_ID(x) PS_ASSERT( x < rank_decl::max_id, "rank_id = " << x)
-#define PS_ASSERT_VALID_CARD_ID(x) PS_ASSERT( x < card_decl::max_id, "card_id = " << x)
-#define PS_ASSERT_VALID_HOLDEM_ID(x) PS_ASSERT( x < holdem_hand_decl::max_id, "holdem_hand_id = " << x)
+#define PS_ASSERT_VALID_SUIT_ID(x) PS_ASSERT( x < suit_decl::max_id, "suit_id = " << static_cast<int>(x))
+#define PS_ASSERT_VALID_RANK_ID(x) PS_ASSERT( x < rank_decl::max_id, "rank_id = " << static_cast<int>(x))
+#define PS_ASSERT_VALID_CARD_ID(x) PS_ASSERT( x < card_decl::max_id, "card_id = " << static_cast<int>(x))
+#define PS_ASSERT_VALID_HOLDEM_ID(x) PS_ASSERT( x < holdem_hand_decl::max_id, "holdem_hand_id = " <<  static_cast<int>(x))
 
 namespace ps{
         

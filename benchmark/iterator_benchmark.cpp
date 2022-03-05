@@ -124,7 +124,9 @@ struct holdem_class_hard_from_proto
 
                 auto const& pattern = std::get<0>(p);
 
-                std::cout << cv << " => " << pattern_to_string(pattern) << "\n";
+                //std::cout << cv << " => " << pattern_to_string(pattern) << "\n";
+
+                // mapping is cv rank to standard rank
                 auto const& mapping = std::get<1>(p);
                 auto const& inv_mapping = std::get<2>(p);
 
@@ -132,6 +134,7 @@ struct holdem_class_hard_from_proto
 
                 if (iter == prototype_map_.end())
                 {
+                        //std::cout << "MAKING\n";
 
 
                         std::vector<frontend::range> players;
@@ -205,10 +208,12 @@ struct holdem_class_hard_from_proto
                 {
                         holdem_class_decl const& decl = holdem_class_decl::get(cid);
 
+                        auto mapped_first_rank = map_rank(decl.first());
+                        auto mapped_second_rank = map_rank(decl.second());
                         pattern.emplace_back(
                                 decl.category(),
-                                map_rank(decl.first()),
-                                map_rank(decl.second()));
+                                mapped_first_rank,
+                                mapped_second_rank);
                 }
 
                 rank_mapping_ty inv_rank_mapping;
@@ -219,9 +224,9 @@ struct holdem_class_hard_from_proto
                                 inv_rank_mapping[rank_mapping[iter]] = iter;
                 }
 
-                std::cout << "rank_mapping = " << std_vector_to_string(rank_mapping) << "\n";
-                std::cout << "inv_rank_mapping = " << std_vector_to_string(inv_rank_mapping) << "\n";
-                return std::make_tuple(pattern,inv_rank_mapping,inv_rank_mapping);
+                //std::cout << "rank_mapping = " << std_vector_to_string(rank_mapping) << "\n";
+                //std::cout << "inv_rank_mapping = " << std_vector_to_string(inv_rank_mapping) << "\n";
+                return std::make_tuple(pattern,rank_mapping,inv_rank_mapping);
 
         }
 private:
@@ -244,7 +249,91 @@ static void BM_ClassHands(benchmark::State& state)
 }
 BENCHMARK(BM_ClassHands);
 
-static void BM_ClassHands_Proto(benchmark::State& state)
+
+static void BM_ClassHands_MakeProto_PP(benchmark::State& state)
+{
+        const auto cv = holdem_class_vector::parse("AA,KK,QQ");
+
+        std::vector<holdem_hand_vector> out;
+        std::vector<matrix_t> trans;
+                
+        for (auto _ : state)
+        {  
+                holdem_class_hard_from_proto proto;
+                out.clear();
+                trans.clear();
+                proto.populate(cv, out, trans);
+        }    
+}
+BENCHMARK(BM_ClassHands_MakeProto_PP);
+
+static void BM_ClassHands_FromProto_PP(benchmark::State& state)
+{
+        const auto cv = holdem_class_vector::parse("AA,KK,QQ");
+
+        std::vector<holdem_hand_vector> out;
+        std::vector<matrix_t> trans;
+
+        holdem_class_hard_from_proto proto;
+        out.clear();
+        trans.clear();
+        proto.populate(cv, out, trans);
+                
+        for (auto _ : state)
+        {  
+                out.clear();
+                trans.clear();
+                proto.populate(cv, out, trans);
+        }    
+}
+BENCHMARK(BM_ClassHands_FromProto_PP);
+
+
+
+
+
+
+static void BM_ClassHands_MakeProto_ThreeOffsuit(benchmark::State& state)
+{
+        const auto cv = holdem_class_vector::parse("AKo,QJo,T9o");
+
+        std::vector<holdem_hand_vector> out;
+        std::vector<matrix_t> trans;
+                
+        for (auto _ : state)
+        {  
+                holdem_class_hard_from_proto proto;
+                out.clear();
+                trans.clear();
+                proto.populate(cv, out, trans);
+        }    
+}
+BENCHMARK(BM_ClassHands_MakeProto_ThreeOffsuit);
+
+static void BM_ClassHands_FromProto_ThreeOffsuit(benchmark::State& state)
+{
+        const auto cv = holdem_class_vector::parse("AKo,QJo,T9o");
+
+        std::vector<holdem_hand_vector> out;
+        std::vector<matrix_t> trans;
+
+        holdem_class_hard_from_proto proto;
+        out.clear();
+        trans.clear();
+        proto.populate(cv, out, trans);
+                
+        for (auto _ : state)
+        {  
+                out.clear();
+                trans.clear();
+                proto.populate(cv, out, trans);
+        }    
+}
+BENCHMARK(BM_ClassHands_FromProto_ThreeOffsuit);
+
+
+
+static void BM_ClassHands_Proto_2PP(benchmark::State& state)
 {
         const auto cv = holdem_class_vector::parse("AA,KK");
 
@@ -272,9 +361,41 @@ static void BM_ClassHands_Proto(benchmark::State& state)
         }
 
 
-         out.clear();
+        out.clear();
         trans.clear();
         proto.populate(holdem_class_vector::parse("KK,AA"), out, trans);
+        std::cout << "-------------- second --------\n";
+         for (size_t idx=0;idx!=out.size();++idx)
+        {
+                std::cout << out[idx] << " - " << matrix_to_string(trans[idx]) << "\n";
+        }
+
+
+
+        out.clear();
+        trans.clear();
+        proto.populate(holdem_class_vector::parse("99,22"), out, trans);
+        std::cout << "-------------- second --------\n";
+         for (size_t idx=0;idx!=out.size();++idx)
+        {
+                std::cout << out[idx] << " - " << matrix_to_string(trans[idx]) << "\n";
+        }
+
+
+
+        out.clear();
+        trans.clear();
+        proto.populate(holdem_class_vector::parse("AKo,QTo,98o"), out, trans);
+        std::cout << "-------------- second --------\n";
+         for (size_t idx=0;idx!=out.size();++idx)
+        {
+                std::cout << out[idx] << " - " << matrix_to_string(trans[idx]) << "\n";
+        }
+
+
+         out.clear();
+        trans.clear();
+        proto.populate(holdem_class_vector::parse("A2o,QTo,98o"), out, trans);
         std::cout << "-------------- second --------\n";
          for (size_t idx=0;idx!=out.size();++idx)
         {
@@ -294,7 +415,7 @@ static void BM_ClassHands_Proto(benchmark::State& state)
         }
 
 }
-BENCHMARK(BM_ClassHands_Proto);
+
 
 
 #if 0

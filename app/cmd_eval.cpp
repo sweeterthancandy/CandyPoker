@@ -220,7 +220,22 @@ struct MaskEval : Command{
                         | ( times ? interface_::EvaluationObject::F_TimeInstructionManager: 0 )
                         ;
                 interface_::EvaluationObject obj(players_s, engine, flags);
-                auto result_view = obj.Compute();
+
+                boost::timer::cpu_timer tmr;
+                auto prepared = obj.Prepare();
+
+                if (step)
+                {
+                        PS_LOG(trace) << tmr.format(4, "prepare took %w seconds");
+                        tmr.start();
+                }
+
+                auto result_view = prepared->Compute();
+                if (step)
+                {
+                        PS_LOG(trace) << tmr.format(4, "compute took %w seconds");
+                        tmr.start();
+                }
                 pretty_print_equity_breakdown_mat(std::cout, result_view.get_matrix(), players_s);
 
                 return EXIT_SUCCESS;

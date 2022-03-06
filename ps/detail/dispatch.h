@@ -35,19 +35,30 @@ namespace detail{
         void dispatch_ranked_vector_mat(MatrixType& result, ArrayType const& ranked, size_t n, size_t weight = 1)noexcept{
                 auto lowest = ranked[0] ;
                 size_t count{1};
+                decltype(&result(0, 0)) ptr = nullptr;
                 for(size_t i=1;i<n;++i){
                         if( ranked[i] == lowest ){
                                 ++count;
+                                ptr = nullptr;
                         } else if( ranked[i] < lowest ){
                                 lowest = ranked[i]; 
                                 count = 1;
+                                ptr = &result(0, i);
                         }
                 }
-                for(size_t i=0;i!=n;++i){
-                        if( ranked[i] == lowest ){
-                                result(count-1, i) += weight;
+                if (ptr)
+                {
+                        *ptr += weight;
+                }
+                else
+                {
+                        for(size_t i=0;i!=n;++i){
+                                if( ranked[i] == lowest ){
+                                        result(count-1, i) += weight;
+                                }
                         }
                 }
+               
         }
 } // detail
 } // ps

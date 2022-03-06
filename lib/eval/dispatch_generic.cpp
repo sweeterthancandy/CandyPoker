@@ -164,6 +164,7 @@ private:
                                 already_committed_ = true;
                         }
                         auto ptr(){ return ptr_; }
+                        bool already_committed()const{ return already_committed_; }
                 private:
                         SubPtrType ptr_;
                         bool already_committed_{false};
@@ -178,7 +179,7 @@ private:
 
                         for (size_t idx = 0; idx != allocation.size(); ++idx)
                         {
-                                evals_proto_.emplace_back(static_cast<ranking_t>(-1),idx,allocation[idx]);
+                                evals_proto_.emplace_back(static_cast<ranking_t>(-1),idx);
                         }
 
                         evals_ = evals_proto_;
@@ -220,15 +221,17 @@ private:
                                         return std::get<0>(l) < std::get<0>(r);
                                 });
 
-                        std::unordered_set<dispatch_buffer*> seen;
-                        std::unordered_set<dispatch_buffer*> step_seen;
-
                         size_t iter = 0;
                         size_t end = evals_.size();
-                        for (;;)
+
+                        size_t commit_count = 0;
+
+                        for (;iter!=end;)
                         {
-                                double current_level = std::get<0>(evals_[iter]);
+                                const auto current_level = std::get<0>(evals_[iter]);
                                 auto const mid = iter;
+
+                                step_seen_.clear();
                                 for (;iter!=end;++iter)
                                 {
                                         if (std::get<0>(evals_[iter]) != current_level)
@@ -238,28 +241,34 @@ private:
                                         const auto index = std::get<1>(evals_[iter]);
                                         for (auto ptr : dispatch_table_[index])
                                         {
+                                                if (ptr->already_committed())
+                                                {
+                                                        continue;
+                                                }
                                                 ptr->push(std::get<1>(evals_[iter]));
-                                                step_seen.insert(ptr);
+                                                step_seen_.push_back(ptr);
                                         }
                                 }
                                 
 
-                                for (auto ptr : step_seen)
+                                for (auto ptr : step_seen_)
                                 {
+                                        if (ptr->already_committed())
+                                        {
+                                                continue;
+                                        }
+                                        ++commit_count;
                                         auto weight = generic_weight_policy{}
                                                 .calculate(ptr->ptr()->hand_mask(), *ms);
                                         ptr->commit(weight);
-                                        seen.insert(ptr);
                                 }
 
-                                if (seen.size() == memory_.size())
+                                if (commit_count == memory_.size())
                                 {
                                         break;
-                                }          
 
-                                if(false)
-                                        PS_LOG(trace) << "stride = " << ( end - iter ) << ", seen=" << seen.size()
-                                                << ", memory=" << memory_.size();
+                                }
+
                         }
 
                         for (auto& ptr : memory_)
@@ -283,11 +292,12 @@ private:
                         // nop
                 }
         private:
-                std::vector<std::tuple<ranking_t,size_t, size_t> > evals_proto_;
-                std::vector<std::tuple<ranking_t,size_t, size_t> > evals_;
+                std::vector<std::tuple<ranking_t,size_t> > evals_proto_;
+                std::vector<std::tuple<ranking_t,size_t> > evals_;
                 std::vector<SubPtrType>& subs_;
                 std::vector<std::shared_ptr<dispatch_buffer> > memory_;
                 std::vector<std::vector<dispatch_buffer*> > dispatch_table_;
+                std::vector<dispatch_buffer*> step_seen_;
         };
 };
 

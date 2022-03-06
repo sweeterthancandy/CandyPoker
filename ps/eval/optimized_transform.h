@@ -120,12 +120,10 @@ struct optimized_transform : optimized_transform_base
                         ranking_proto[idx] = g.no_flush_rank(hand_decl.r0, hand_decl.r1);
                     }
 
-                    for (size_t idx = 0; idx != rod.size(); ++idx) {
-                        shed.put(idx, ranking_proto[idx]);
-                    }
                     shed_timer.resume();
-                    shed.end_eval(&g.get_no_flush_masks(), 0ull);
+                    shed.end_eval_from_mem(ranking_proto, &g.get_no_flush_masks(), 0ull);
                     shed_timer.stop();
+
 
                     
 
@@ -176,13 +174,13 @@ struct optimized_transform : optimized_transform_base
 
                         for (suit_id sid = 0; sid != 4; ++sid)
                         {
-                            for (size_t idx = 0; idx != rod.size(); ++idx) {
-                                shed.put(idx, suit_batch[sid][idx]);
-                            }
+                           
                             mask_set const& suit_mask_set = f.board_card_masks()[sid];
+
                             shed_timer.resume();
-                            shed.end_eval(&suit_mask_set, 0ull);
+                            shed.end_eval_from_mem(suit_batch[sid], &suit_mask_set, 0ull);
                             shed_timer.stop();
+
                         }
 #else
                         for (suit_id sid = 0; sid != 4; ++sid)

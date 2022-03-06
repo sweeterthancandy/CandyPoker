@@ -50,7 +50,6 @@ namespace ps{
                         explicit bind(holdem_hand_vector const& allocation, std::vector<SubPtrType>& subs)
                                 :subs_{subs}
                         {
-                                evals_.resize(allocation.size());
                         }
                         void put(size_t index, ranking_t rank)noexcept{
                                 evals_[index] = rank;
@@ -86,6 +85,24 @@ namespace ps{
 
                         void regroup()noexcept{
                                 // nop
+                        }
+
+
+
+                        int end_eval_from_mem(std::vector<ranking_t> const& evals, mask_set const* ms, size_t single_mask)noexcept{
+                                (void)single_mask;
+                                int non_zero{ 0 };
+                                for(auto& _ : subs_){
+                                        auto weight = generic_weight_policy{}
+                                                .calculate(_->hand_mask(), *ms);
+                                        if constexpr ( CheckZeroWeight ){
+                                                if( weight == 0 )
+                                                        continue;
+                                        }
+                                        _->accept_weight(weight, evals);
+                                        ++non_zero;
+                                }
+                                return non_zero;
                         }
                 private:
                         std::vector<ranking_t> evals_;

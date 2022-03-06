@@ -87,7 +87,7 @@ struct optimized_transform : optimized_transform_base
                 };
 
 
-                if (WithLogging) PS_LOG(trace) << tmr.format(4, "init took %w seconds");
+                if (WithLogging) PS_LOG(trace) << tmr.format(4, "init took %u seconds");
                 tmr.start();
                 size_t count = 0;
 
@@ -230,7 +230,7 @@ struct optimized_transform : optimized_transform_base
 
 
 
-                if (WithLogging) PS_LOG(trace) << shed_timer.format(4, "shed took %w seconds");
+                if (WithLogging) PS_LOG(trace) << shed_timer.format(4, "shed took %u seconds");
 
                 
 

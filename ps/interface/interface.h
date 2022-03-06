@@ -35,8 +35,8 @@ SOFTWARE.
 #include <vector>
 #include <unordered_map>
 
-+// boost rational stuff
-+#pragma warning( disable : 4146 )
+// boost rational stuff
+#pragma warning( disable : 4146 )
 #include <boost/rational.hpp>
 #include <boost/optional.hpp>
 

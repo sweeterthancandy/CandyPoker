@@ -35,7 +35,7 @@ namespace detail{
         void dispatch_ranked_vector_mat(MatrixType& result, ArrayType const& ranked, size_t n, size_t weight = 1)noexcept{
                 auto lowest = ranked[0] ;
                 size_t count{1};
-                decltype(&result(0, 0)) ptr = nullptr;
+                auto ptr = &result(0, 0);
                 for(size_t i=1;i<n;++i){
                         if( ranked[i] == lowest ){
                                 ++count;

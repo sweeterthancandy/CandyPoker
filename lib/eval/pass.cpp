@@ -355,6 +355,7 @@ private:
         std::vector<holdem_hand_vector> out;
         std::vector<matrix_t> trans;
 
+        std::vector<holdem_class_vector> all_class_vs_class_vecs;
         for( auto const& c : root.children ){
 
                 // this means it's a class vs class evaulation
@@ -365,6 +366,8 @@ private:
                         {
                                 aux.push_back(p.get_class_id());
                         }
+                        all_class_vs_class_vecs.push_back(std::move(aux));
+#if 0
 #if 0
                         
                         //agg.append(*class_eval.evaluate(aux));
@@ -380,6 +383,7 @@ private:
                                 instr_list.push_back(std::make_shared<card_eval_instruction>(output_desc, out[idx]));
                         }
 #endif
+#endif
                 } else
                 {
                         for( auto const& d : c.get_children() ){
@@ -390,6 +394,48 @@ private:
                         }
                 }
         }
+
+        if (all_class_vs_class_vecs.size() > 0)
+        {
+                instruction_list class_vs_class_instr_list;
+                for (auto const& cv : all_class_vs_class_vecs)
+                {
+                        class_vs_class_instr_list.push_back(std::make_shared<class_eval_instruction>(group, cv));
+                }
+                computation_pass_manager mgr;
+                mgr.add_pass<pass_permutate_class>();
+                mgr.add_pass<pass_collect_class>();
+                //mgr.add_pass<pass_print>();
+
+                const size_t common_size = all_class_vs_class_vecs[0].size();
+                const int verboseicity = 0;
+                auto comp_ctx = std::make_shared< computation_context>(common_size, verboseicity);
+                mgr.execute_(comp_ctx.get(), &class_vs_class_instr_list, nullptr);
+                
+                for (auto const& untyped_instr : class_vs_class_instr_list)
+                {
+                        if (untyped_instr->get_type() != instruction::T_ClassEval)
+                        {
+                                BOOST_THROW_EXCEPTION(std::domain_error("unexpected"));
+                        }
+                        auto instr = reinterpret_cast<class_eval_instruction*>(untyped_instr.get());
+
+                        out.clear();
+                        trans.clear();
+                        cache.populate(instr->get_vector(), out, trans);
+
+                        for(size_t idx=0;idx!=out.size();++idx)
+                        {
+                                auto step_rd = result_description::apply_matrix(
+                                        instr->result_desc(),
+                                        trans[idx]);
+                                instr_list.push_back(std::make_shared<card_eval_instruction>(step_rd, out[idx]));
+                        }
+                }
+        }
+        
+
+
         return instr_list;
 }
 

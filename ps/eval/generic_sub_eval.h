@@ -63,13 +63,13 @@ namespace ps{
          */
         struct generic_sub_eval{
                 using iter_t = instruction_list::iterator;
+                generic_sub_eval()=default;
                 generic_sub_eval(iter_t iter, card_eval_instruction* instr)
                         :iter_{iter}, instr_{instr}
                 {
                         hv   = instr->get_vector();
                         hv_mask = hv.mask();
-                        n = hv.size();
-                        mat.resize(n, n);
+                        mat.resize(hv.size(), hv.size());
                         mat.fill(0);
                 }
                 size_t hand_mask()const noexcept{ return hv_mask; }
@@ -84,7 +84,7 @@ namespace ps{
 #else
 
                         const auto access = [&R,this](size_t idx){ return R[hv[idx]];};
-                        detail::dispatch_ranked_vector_mat_func(mat, access, n, weight);
+                        detail::dispatch_ranked_vector_mat_func(mat, access, hv.size(), weight);
 #endif
                 }
                 void finish(){
@@ -98,11 +98,9 @@ namespace ps{
         private:
                 iter_t iter_;
                 card_eval_instruction* instr_;
-                std::array<ranking_t, 9> ranked;
                 holdem_hand_vector hv;
                 size_t hv_mask;
                 matrix_t mat;
-                size_t n;
         };
 
 } // end namespace ps

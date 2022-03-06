@@ -44,6 +44,7 @@ struct optimized_transform : optimized_transform_base
 
                 std::vector<sub_ptr_type> subs;
 
+                subs.reserve(target_list.size());
                 for(auto& target : target_list){
                         auto instr = reinterpret_cast<card_eval_instruction*>((*target).get());
                         subs.push_back( factory(target, instr) );
@@ -55,7 +56,7 @@ struct optimized_transform : optimized_transform_base
                 // 
                 std::unordered_set<holdem_id> S;
                 for(auto& _ : subs){
-                        _->declare(S);
+                        _.declare(S);
                 }
 
 
@@ -81,10 +82,10 @@ struct optimized_transform : optimized_transform_base
                 auto dispatch = [&](std::vector<ranking_t> const& evals, mask_set const* ms)mutable noexcept{
                         for(auto& ptr : subs){
                                 auto weight = generic_weight_policy{}
-                                        .calculate(ptr->hand_mask(), *ms);
+                                        .calculate(ptr.hand_mask(), *ms);
                                 if( weight == 0 )
                                         continue;
-                                ptr->accept_weight(weight, evals);
+                                ptr.accept_weight(weight, evals);
                         }
                 };
 
@@ -241,7 +242,7 @@ struct optimized_transform : optimized_transform_base
 
                 
                 for(auto& ptr : subs){
-                        ptr->finish();
+                        ptr.finish();
                 }
 
 #ifdef DO_VAlGRIND

@@ -12,7 +12,7 @@ struct dispatch_generic : dispatch_table{
                 optimized_transform<
                         generic_sub_eval,
                         generic_shed,
-                        basic_sub_eval_factory,
+                        basic_sub_eval_value_factory,
                         rank_hash_eval>;
 
 

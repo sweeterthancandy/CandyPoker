@@ -70,6 +70,17 @@ struct basic_sub_eval_factory{
         };
 };
 
+struct basic_sub_eval_value_factory{
+        template<class T>
+        struct bind{
+                using sub_ptr_type = T;
+                sub_ptr_type operator()(instruction_list::iterator iter, card_eval_instruction* instr)const{
+                        return T(iter, instr);
+                }
+        };
+};
+
+
 // This is slightly faster due to memory checks
 struct raw_sub_eval_factory{
         template<class T>

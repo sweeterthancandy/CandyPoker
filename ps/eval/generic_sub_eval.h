@@ -1,6 +1,8 @@
 #ifndef LIB_EVAL_GENERIC_SUB_EVAL_H
 #define LIB_EVAL_GENERIC_SUB_EVAL_H
 
+#include <boost/container/small_vector.hpp>
+
 namespace ps{
 namespace detail{
         template<class MatrixType, class ArrayType>
@@ -67,8 +69,11 @@ namespace ps{
                 generic_sub_eval(iter_t iter, card_eval_instruction* instr)
                         :iter_{iter}, instr_{instr}
                 {
-                        hv   = instr->get_vector();
-                        hv_mask = hv.mask();
+                        for(auto hid : instr->get_vector())
+                        {
+                                hv.push_back(hid);
+                        }
+                        hv_mask = instr->get_vector().mask();
                         mat.resize(hv.size(), hv.size());
                         mat.fill(0);
                 }
@@ -98,7 +103,8 @@ namespace ps{
         private:
                 iter_t iter_;
                 card_eval_instruction* instr_;
-                holdem_hand_vector hv;
+                //holdem_hand_vector hv;
+                boost::container::small_vector<holdem_id, 5> hv;
                 size_t hv_mask;
                 matrix_t mat;
         };

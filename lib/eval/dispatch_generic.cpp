@@ -44,7 +44,7 @@ static register_disptach_table<dispatch_generic> reg_dispatch_generic;
 
 
 
-
+#if 0
 
 template<class MapType>
 inline std::string std_map_to_string(MapType const& m) {
@@ -324,6 +324,8 @@ struct dispatch_fast : dispatch_table{
         }
 };
 static register_disptach_table<dispatch_fast> reg_dispatch_fast;
+
+#endif
 
 
 } // end namespace ps

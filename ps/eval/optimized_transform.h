@@ -18,14 +18,12 @@ namespace ps{
 
 template<class Sub,
          class Schedular,
-         class Factory,
-         class Eval>
+         class Factory>
 struct optimized_transform : optimized_transform_base
 {
         using factory_type   = typename Factory::template bind<Sub>;
         using sub_ptr_type   = typename factory_type::sub_ptr_type;
         using schedular_type = typename Schedular::template bind<sub_ptr_type>;
-        using eval_type      = Eval;
 
         virtual void apply(optimized_transform_context& otc, computation_context* ctx, instruction_list* instr_list, computation_result* result,
                    std::vector<typename instruction_list::iterator> const& target_list)noexcept override

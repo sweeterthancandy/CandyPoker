@@ -12,8 +12,7 @@ struct dispatch_generic : dispatch_table{
                 optimized_transform<
                         generic_sub_eval,
                         generic_shed,
-                        basic_sub_eval_value_factory,
-                        rank_hash_eval>;
+                        basic_sub_eval_value_factory>;
 
 
         virtual bool match(dispatch_context const& dispatch_ctx)const override{

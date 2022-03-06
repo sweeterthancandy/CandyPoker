@@ -1,6 +1,40 @@
 #ifndef LIB_EVAL_GENERIC_SUB_EVAL_H
 #define LIB_EVAL_GENERIC_SUB_EVAL_H
 
+namespace ps{
+namespace detail{
+        template<class MatrixType, class ArrayType>
+        void dispatch_ranked_vector_mat_func(MatrixType& result, ArrayType const& ranked, size_t n, size_t weight = 1)noexcept{
+                auto lowest = ranked(0) ;
+                size_t count{1};
+                auto ptr = &result(0, 0);
+                for(size_t i=1;i<n;++i){
+                        if( ranked(i) == lowest ){
+                                ++count;
+                                ptr = nullptr;
+                        } else if( ranked(i) < lowest ){
+                                lowest = ranked(i); 
+                                count = 1;
+                                ptr = &result(0, i);
+                        }
+                }
+                if (ptr)
+                {
+                        *ptr += weight;
+                }
+                else
+                {
+                        for(size_t i=0;i!=n;++i){
+                                if( ranked(i) == lowest ){
+                                        result(count-1, i) += weight;
+                                }
+                        }
+                }
+               
+        }
+} // detail
+} // ps
+
 
 namespace ps{
 
@@ -50,10 +84,16 @@ namespace ps{
                 }
                 void accept_weight(size_t weight, std::vector<ranking_t> const& R)noexcept
                 {
+#if 0
                         for(size_t i=0;i!=n;++i){
                                 ranked[i] = R[allocation_[i]];
                         }
                         detail::dispatch_ranked_vector_mat(mat, ranked, n, weight);
+#else
+
+                        const auto access = [&R,this](size_t idx){ return R[allocation_[idx]];};
+                        detail::dispatch_ranked_vector_mat_func(mat, access, n, weight);
+#endif
                 }
                 void finish(){
                         *iter_ = std::make_shared<matrix_instruction>(instr_->result_desc(), mat);

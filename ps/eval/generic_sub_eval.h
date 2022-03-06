@@ -67,7 +67,6 @@ namespace ps{
                 using iter_t = instruction_list::iterator;
                 generic_sub_eval()=default;
                 generic_sub_eval(iter_t iter, card_eval_instruction* instr)
-                        :iter_{iter}, instr_{instr}
                 {
                         for(auto hid : instr->get_vector())
                         {
@@ -92,8 +91,8 @@ namespace ps{
                         detail::dispatch_ranked_vector_mat_func(mat, access, hv.size(), weight);
 #endif
                 }
-                void finish(){
-                        *iter_ = std::make_shared<matrix_instruction>(instr_->result_desc(), mat);
+                void finish(iter_t iter, card_eval_instruction* instr){
+                        *iter = std::make_shared<matrix_instruction>(instr->result_desc(), mat);
                 }
                 void declare(std::unordered_set<holdem_id>& S){
                         for(auto _ : hv){
@@ -101,8 +100,8 @@ namespace ps{
                         }
                 }
         private:
-                iter_t iter_;
-                card_eval_instruction* instr_;
+                //iter_t iter_;
+                //card_eval_instruction* instr_;
                 //holdem_hand_vector hv;
                 boost::container::small_vector<holdem_id, 5> hv;
                 size_t hv_mask;

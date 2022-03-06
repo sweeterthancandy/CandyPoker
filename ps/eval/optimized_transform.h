@@ -241,8 +241,12 @@ struct optimized_transform : optimized_transform_base
                 if (WithLogging) PS_LOG(trace) << shed_timer.format(4, "shed took %w seconds");
 
                 
-                for(auto& ptr : subs){
-                        ptr.finish();
+
+                for (size_t idx = 0; idx != target_list.size(); ++idx)
+                {
+                        auto target = target_list[idx];
+                        auto instr = reinterpret_cast<card_eval_instruction*>((*target).get());
+                        subs[idx].finish( target, instr);
                 }
 
 #ifdef DO_VAlGRIND

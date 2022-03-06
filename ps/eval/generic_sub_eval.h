@@ -73,15 +73,7 @@ namespace ps{
                         mat.fill(0);
                 }
                 size_t hand_mask()const noexcept{ return hv_mask; }
-                template<class ArrayType>
-                void accept_(mask_set const& ms, size_t n, ArrayType const& v){
-                        size_t weight = ms.count_disjoint(hv_mask);
-                        if( weight == 0 )
-                                return;
-                        for(size_t i=0;i!=n;++i){
-                                mat(n,i) += weight;
-                        }
-                }
+                
                 void accept_weight(size_t weight, std::vector<ranking_t> const& R)noexcept
                 {
 #if 0
@@ -91,7 +83,7 @@ namespace ps{
                         detail::dispatch_ranked_vector_mat(mat, ranked, n, weight);
 #else
 
-                        const auto access = [&R,this](size_t idx){ return R[allocation_[idx]];};
+                        const auto access = [&R,this](size_t idx){ return R[hv[idx]];};
                         detail::dispatch_ranked_vector_mat_func(mat, access, n, weight);
 #endif
                 }
@@ -103,17 +95,6 @@ namespace ps{
                                 S.insert(_);
                         }
                 }
-                void declare_allocation(std::unordered_set<size_t>& S){
-                        for(size_t idx=0;idx!=n;++idx){
-                                S.insert(allocation_[idx]);
-                        }
-                }
-                template<class Alloc>
-                void allocate(Alloc const& alloc){
-                        for(size_t idx=0;idx!=n;++idx){
-                                allocation_[idx] = alloc(hv[idx]);
-                        }
-                }
         private:
                 iter_t iter_;
                 card_eval_instruction* instr_;
@@ -122,7 +103,6 @@ namespace ps{
                 size_t hv_mask;
                 matrix_t mat;
                 size_t n;
-                std::array<size_t, 9> allocation_;
         };
 
 } // end namespace ps

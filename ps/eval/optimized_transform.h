@@ -62,14 +62,15 @@ struct optimized_transform : optimized_transform_base
                 if(WithLogging) PS_LOG(trace) << "Have " << S.size() << " unique holdem hands";
 
                 // this is the maximually speed up the compution, by preocompyting some stuff
-                rank_opt_device rod = rank_opt_device::create(S);
-                std::unordered_map<holdem_id, size_t> allocation_table;
-                for(size_t idx=0;idx!=rod.size();++idx){
-                        allocation_table[rod[idx].hid] = idx;
+
+                holdem_hand_vector hhv;
+                for(holdem_id hid=0;hid!=holdem_hand_decl::max_id;++hid)
+                {
+                        hhv.push_back(hid);
                 }
-                for(auto& _ : subs){
-                        _->allocate( [&](auto hid){ return allocation_table.find(hid)->second; });
-                }
+                //rank_opt_device rod = rank_opt_device::create(S);
+                rank_opt_device rod = rank_opt_device::create(hhv);
+                
 
                 if (WithLogging) PS_LOG(trace) << "Have " << subs.size() << " subs";
 
@@ -77,17 +78,20 @@ struct optimized_transform : optimized_transform_base
                 R.resize(rod.size());
 
                 
+                auto dispatch = [&](std::vector<ranking_t> const& evals, mask_set const* ms)mutable noexcept{
+                        for(auto& ptr : subs){
+                                auto weight = generic_weight_policy{}
+                                        .calculate(ptr->hand_mask(), *ms);
+                                if( weight == 0 )
+                                        continue;
+                                ptr->accept_weight(weight, evals);
+                        }
+                };
 
                 using weights_ty = std::vector< eval_counter_type>;
                 weights_ty weights;
                 weights.resize(subs.size());
-                
-                holdem_hand_vector hhv_tmp;
-                for(auto const& x : rod)
-                {
-                        hhv_tmp.push_back(x.hid);
-                }
-                schedular_type shed{ hhv_tmp, subs};
+
 
 
                 if (WithLogging) PS_LOG(trace) << tmr.format(4, "init took %w seconds");
@@ -121,7 +125,8 @@ struct optimized_transform : optimized_transform_base
                     }
 
                     shed_timer.resume();
-                    shed.end_eval_from_mem(ranking_proto, &g.get_no_flush_masks(), 0ull);
+                    //shed.end_eval_from_mem(ranking_proto, &g.get_no_flush_masks(), 0ull);
+                    dispatch(ranking_proto, &g.get_no_flush_masks());
                     shed_timer.stop();
 
 
@@ -178,7 +183,7 @@ struct optimized_transform : optimized_transform_base
                             mask_set const& suit_mask_set = f.board_card_masks()[sid];
 
                             shed_timer.resume();
-                            shed.end_eval_from_mem(suit_batch[sid], &suit_mask_set, 0ull);
+                            dispatch(suit_batch[sid], &suit_mask_set);
                             shed_timer.stop();
 
                         }
@@ -230,13 +235,13 @@ struct optimized_transform : optimized_transform_base
 
 
 
-                shed.regroup();
+
 
                 if (WithLogging) PS_LOG(trace) << shed_timer.format(4, "shed took %w seconds");
 
                 
-                for(auto& _ : subs){
-                        _->finish();
+                for(auto& ptr : subs){
+                        ptr->finish();
                 }
 
 #ifdef DO_VAlGRIND

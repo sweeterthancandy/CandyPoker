@@ -104,6 +104,7 @@ namespace ps{
                                 }
                                 return non_zero;
                         }
+
                 private:
                         std::vector<ranking_t> evals_;
                         std::vector<SubPtrType>& subs_;

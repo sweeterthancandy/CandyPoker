@@ -68,28 +68,23 @@ namespace ps{
                 generic_sub_eval()=default;
                 generic_sub_eval(iter_t iter, card_eval_instruction* instr)
                 {
-                        for(auto hid : instr->get_vector())
+                        auto const& typed_hv = instr->get_vector();
+                        hv.resize(typed_hv.size());
+                        for(size_t idx=0;idx!=typed_hv.size();++idx)
                         {
-                                hv.push_back(hid);
+                                hv[idx] = typed_hv[idx];
                         }
-                        hv_mask = instr->get_vector().mask();
-                        mat.resize(hv.size(), hv.size());
+                        hv_mask = typed_hv.mask();
+                        mat.resize(typed_hv.size(), typed_hv.size());
                         mat.fill(0);
                 }
                 size_t hand_mask()const noexcept{ return hv_mask; }
                 
                 void accept_weight(size_t weight, std::vector<ranking_t> const& R)noexcept
                 {
-#if 0
-                        for(size_t i=0;i!=n;++i){
-                                ranked[i] = R[allocation_[i]];
-                        }
-                        detail::dispatch_ranked_vector_mat(mat, ranked, n, weight);
-#else
 
                         const auto access = [&R,this](size_t idx){ return R[hv[idx]];};
                         detail::dispatch_ranked_vector_mat_func(mat, access, hv.size(), weight);
-#endif
                 }
                 void finish(iter_t iter, card_eval_instruction* instr){
                         *iter = std::make_shared<matrix_instruction>(instr->result_desc(), mat);
@@ -100,12 +95,46 @@ namespace ps{
                         }
                 }
         private:
-                //iter_t iter_;
-                //card_eval_instruction* instr_;
-                //holdem_hand_vector hv;
                 boost::container::small_vector<holdem_id, 5> hv;
                 size_t hv_mask;
                 matrix_t mat;
+        };
+
+        template<size_t Size>
+        struct sized_sub_eval{
+                using iter_t = instruction_list::iterator;
+                sized_sub_eval()=default;
+                sized_sub_eval(iter_t iter, card_eval_instruction* instr)
+                {
+                        auto const& typed_hv = instr->get_vector();
+                        for(size_t idx=0;idx!=typed_hv.size();++idx)
+                        {
+                                hv[idx] = typed_hv[idx];
+                        }
+                        hv_mask = typed_hv.mask();
+                        //mat.resize(hv.size(), hv.size());
+                        mat.fill(0);
+                }
+                size_t hand_mask()const noexcept{ return hv_mask; }
+                
+                void accept_weight(size_t weight, std::vector<ranking_t> const& R)noexcept
+                {
+
+                        const auto access = [&R,this](size_t idx){ return R[hv[idx]];};
+                        detail::dispatch_ranked_vector_mat_func(mat, access, hv.size(), weight);
+                }
+                void finish(iter_t iter, card_eval_instruction* instr){
+                        *iter = std::make_shared<matrix_instruction>(instr->result_desc(), mat);
+                }
+                void declare(std::unordered_set<holdem_id>& S){
+                        for(auto _ : hv){
+                                S.insert(_);
+                        }
+                }
+        private:
+                std::array<holdem_id, Size> hv;
+                size_t hv_mask;
+                Eigen::Matrix< unsigned long long , Size,Size> mat;
         };
 
 } // end namespace ps

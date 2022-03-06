@@ -89,11 +89,6 @@ struct optimized_transform : optimized_transform_base
                         }
                 };
 
-                using weights_ty = std::vector< eval_counter_type>;
-                weights_ty weights;
-                weights.resize(subs.size());
-
-
 
                 if (WithLogging) PS_LOG(trace) << tmr.format(4, "init took %w seconds");
                 tmr.start();

@@ -111,8 +111,6 @@ namespace ps{
                 };
         };
 
-        template<>
-        struct supports_single_mask<generic_shed> : std::true_type {};
 } // end namespace ps
 
 #endif // LIB_EVAL_GENERIC_SHED_H

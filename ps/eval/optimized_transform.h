@@ -12,8 +12,7 @@
 
 namespace ps{
 
-    template<class T>
-    struct supports_single_mask : std::false_type {};
+
 
 
 template<class Sub,

@@ -235,6 +235,8 @@ struct MaskEval : Command{
                 {
                         PS_LOG(trace) << tmr.format(4, "compute took %w seconds");
                         tmr.start();
+
+                        std::cout << matrix_to_string(result_view.get_matrix()) << "\n";
                 }
                 pretty_print_equity_breakdown_mat(std::cout, result_view.get_matrix(), players_s);
 

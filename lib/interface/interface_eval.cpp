@@ -210,7 +210,7 @@ namespace interface_ {
             
 
             computation_pass_manager mgr;
-#if 0
+#if 1
             mgr.add_pass<pass_permutate_class>();
             if (should_debug_instrs)
                 mgr.add_pass<pass_print>();

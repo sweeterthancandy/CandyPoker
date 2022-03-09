@@ -133,10 +133,10 @@ namespace ps{
                 std::stringstream sstr;
                 std::string sep;
                 sstr << "[";
-                for(size_t j=0;j!=mat.rows();++j){
+                for(size_t j=0;j!=mat.cols();++j){
                         sstr << sep << "[";
                         sep = ",";
-                        for(size_t i=0;i!=mat.cols();++i){
+                        for(size_t i=0;i!=mat.rows();++i){
                                 sstr << (i!=0?",":"") << mat(i,j);
                         }
                         sstr << "]";

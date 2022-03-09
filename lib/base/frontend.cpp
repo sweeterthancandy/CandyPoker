@@ -1087,13 +1087,19 @@ namespace ps{ namespace frontend{
 
             for (auto const& x : by_class)
             {
+                const bool is_pp = !! boost::get<pocket_pair>(&x);
+                const bool is_offsuit = !! boost::get<offsuit>(&x);
+                const bool is_suited = !! boost::get<suited>(&x);
+                
+                const bool is_subset = ! ( is_pp || is_offsuit || is_suited);
+
                 const auto cid = to_class_id(x);
                 const auto hv = to_hand_vector(x);
 
                 result.emplace_back(
                     std::make_shared< class_range_impl>(cid,
                         hv,
-                        false));
+                        is_subset));
             }
             return result;
         }

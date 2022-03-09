@@ -138,7 +138,40 @@ TEST(Eval, MultipleSims)
         }
 }
 
-TEST(Eval, ThreePlayerPerm)
+TEST(Eval, ThreePlayerCardPerm)
+{
+        struct perm_ty
+        {
+                std::vector<std::string> player_ranges;
+                size_t AA0_index;
+                size_t AA1_index;
+                size_t KK0_index;
+        };
+        std::vector<perm_ty> perm_list = {
+                perm_ty{ { "AhAd", "AcAs", "KsKd" }, 0, 1, 2 },
+                perm_ty{ { "AhAd", "KsKd", "AcAs" }, 0, 2, 1 },
+                perm_ty{ { "KsKd", "AhAd", "AcAs" }, 1, 2, 0 }
+        };
+        for (auto const& perm : perm_list)
+        {
+                auto result = evaluate(perm.player_ranges);
+
+                const auto AA0 = result.player_view(perm.AA0_index);
+                const auto AA1 = result.player_view(perm.AA1_index);
+                const auto KK0 = result.player_view(perm.KK0_index);
+
+                EXPECT_EQ( AA0.Wins(), 	27'939 ) << std_vector_to_string(perm.player_ranges);
+                EXPECT_EQ( AA0.Wins(), 	AA1.Wins() ) << std_vector_to_string(perm.player_ranges);
+                EXPECT_EQ( AA0.AnyDraws(), AA1.AnyDraws() ) << std_vector_to_string(perm.player_ranges);
+
+                EXPECT_EQ( KK0.Wins(), 278'116  ) << std_vector_to_string(perm.player_ranges);
+                EXPECT_EQ( KK0.AnyDraws(), 5'786 ) << std_vector_to_string(perm.player_ranges);
+        }
+       
+        
+}
+
+TEST(Eval, ThreePlayerClassPerm)
 {
         struct perm_ty
         {

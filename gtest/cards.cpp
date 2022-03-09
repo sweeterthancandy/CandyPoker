@@ -200,3 +200,13 @@ TEST(holdem_class_decl, class_){
         }
 }
 
+TEST(holdem_class_vector, to_standard_form)
+{
+        const auto cv = holdem_class_vector::parse("AA,AA,KK");
+        std::cout << cv << "\n";
+        const auto ret = cv.to_standard_form();
+
+        std::cout << std_vector_to_string(std::get<0>(ret)) << "\n";
+        std::cout << std::get<1>(ret) << "\n";
+}
+

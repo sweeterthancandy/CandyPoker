@@ -137,3 +137,35 @@ TEST(Eval, MultipleSims)
                 EXPECT_EQ( P1.EquityAsRational(), rational_ty(1313579,1902560));
         }
 }
+
+TEST(Eval, ThreePlayerPerm)
+{
+        struct perm_ty
+        {
+                std::vector<std::string> player_ranges;
+                size_t AA0_index;
+                size_t AA1_index;
+                size_t KK0_index;
+        };
+        std::vector<perm_ty> perm_list = {
+                perm_ty{ { "AA", "AA", "KK" }, 0, 1, 2 },
+                perm_ty{ { "AA", "KK", "AA" }, 0, 2, 1 },
+                perm_ty{ { "KK", "AA", "AA" }, 1, 2, 0 }
+        };
+        for (auto const& perm : perm_list)
+        {
+                auto result = evaluate(perm.player_ranges);
+
+                const auto AA0 = result.player_view(perm.AA0_index);
+                const auto AA1 = result.player_view(perm.AA1_index);
+                const auto KK0 = result.player_view(perm.KK0_index);
+
+                EXPECT_EQ( AA0.Wins(), 	AA1.Wins() ) << std_vector_to_string(perm.player_ranges);
+                EXPECT_EQ( AA0.AnyDraws(), AA1.AnyDraws() ) << std_vector_to_string(perm.player_ranges);
+
+                EXPECT_EQ( KK0.Wins(), 10'012'176  ) << std_vector_to_string(perm.player_ranges);
+                EXPECT_EQ( KK0.AnyDraws(), 208'296 ) << std_vector_to_string(perm.player_ranges);
+        }
+       
+        
+}

@@ -210,6 +210,7 @@ namespace interface_ {
             
 
             computation_pass_manager mgr;
+#if 0
             mgr.add_pass<pass_permutate_class>();
             if (should_debug_instrs)
                 mgr.add_pass<pass_print>();
@@ -243,6 +244,11 @@ namespace interface_ {
                 mgr.add_pass<pass_print>();
             if( should_emit_times)
                 mgr.add_pass<time_printer>("pass_collect", &shared_timer);
+#else
+            mgr.add_pass<pass_permutate_class>();
+            mgr.add_pass<pass_class2cards>();
+            mgr.add_pass<pass_permutate>();
+#endif
 
             mgr.execute_(comp_ctx.get(), agg_instr_list.get(), result.get());
 

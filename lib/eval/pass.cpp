@@ -83,6 +83,8 @@ void pass_permutate::transform(computation_context* ctx, instruction_list* instr
                 if( std::get<1>(result) == vec )
                         continue;
 
+                //PS_LOG(trace) << vec << " => " << std::get<1>(result) << " with " << std_vector_to_string(std::get<0>(result));
+
                 auto const& perm = std::get<0>(result);
 
                 std::vector<result_description> permed_result_desc = result_description::apply_perm(instr->result_desc(), perm);
@@ -97,8 +99,16 @@ void pass_permutate::transform(computation_context* ctx, instruction_list* instr
         auto instr = reinterpret_cast<class_eval_instruction*>(instrr);
         auto vec = instr->get_vector();
 
+        
+        instruction_list result;
+        //PS_LOG(trace) << "vec => " << vec;
+        for( auto hv : vec.get_hand_vectors()){
+                //PS_LOG(trace) << "  hv => " << hv;
+                result.push_back(std::make_shared<card_eval_instruction>(instr->result_desc(), hv));
+        }
+        return result;
+#if 0
         auto const n = vec.size();
-
         std::map<holdem_hand_vector, matrix_t  > meta;
 
         for( auto hv : vec.get_hand_vectors()){
@@ -126,6 +136,7 @@ void pass_permutate::transform(computation_context* ctx, instruction_list* instr
                 result.push_back(std::make_shared<card_eval_instruction>(step_result_desc, _.first));
         }
         return result;
+#endif
 }
 
 
@@ -350,7 +361,7 @@ private:
         instruction_list instr_list;
         tree_range root( players );
 
-        holdem_class_hard_from_proto cache;
+        
 
         std::vector<holdem_hand_vector> out;
         std::vector<matrix_t> trans;
@@ -366,23 +377,10 @@ private:
                         {
                                 aux.push_back(p.get_class_id());
                         }
+#if 0
                         all_class_vs_class_vecs.push_back(std::move(aux));
-#if 0
-#if 0
-                        
-                        //agg.append(*class_eval.evaluate(aux));
-                        instr_list.push_back(std::make_shared<class_eval_instruction>(group, aux));
 #else
-                        out.clear();
-                        trans.clear();
-                        cache.populate(aux, out, trans);
-
-                        for(size_t idx=0;idx!=out.size();++idx)
-                        {
-                                std::vector<result_description> output_desc{result_description(group, trans[idx])};
-                                instr_list.push_back(std::make_shared<card_eval_instruction>(output_desc, out[idx]));
-                        }
-#endif
+                        instr_list.push_back(std::make_shared<class_eval_instruction>(group, aux));
 #endif
                 } else
                 {
@@ -422,6 +420,7 @@ private:
 
                         out.clear();
                         trans.clear();
+                        holdem_class_hard_from_proto cache;
                         cache.populate(instr->get_vector(), out, trans);
 
                         for(size_t idx=0;idx!=out.size();++idx)

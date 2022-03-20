@@ -195,14 +195,16 @@ public:
 		F_WriteCsv = 1 << 5,
 		F_CacheInstructions = 1 << 6,
 
+		F_Defaults = F_None,
+
 	};
 	using Flags = unsigned;
 
 	EvaluationObject(std::shared_ptr< EvaluationObjectImpl> impl) :impl_{ impl } {}
-	EvaluationObject(std::vector<std::string> const& player_ranges, std::string const& engine = {}, Flags flags = F_None)
+	EvaluationObject(std::vector<std::string> const& player_ranges, std::string const& engine = {}, Flags flags = F_Defaults)
 		: EvaluationObject{ std::vector<std::vector<std::string> >{player_ranges} , engine , flags }
 	{}
-	EvaluationObject(std::vector<std::vector<std::string> > const& player_ranges_list, boost::optional<std::string> const& engine = {}, Flags flags = F_None);
+	EvaluationObject(std::vector<std::vector<std::string> > const& player_ranges_list, boost::optional<std::string> const& engine = {}, Flags flags = F_Defaults);
 
 	EvaulationResultView Compute()const
 	{

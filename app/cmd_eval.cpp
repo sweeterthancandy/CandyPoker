@@ -133,6 +133,8 @@ struct MaskEval : Command{
                 bool step{false};
                 bool times{false};
                 bool help{false};
+                bool emit_csv{false};
+                bool instr_cache{false};
                 std::vector<std::string> players_s;
                 // way to choose a specific one
                 std::string engine;
@@ -144,7 +146,9 @@ struct MaskEval : Command{
                         ("times"     , bpo::value(&times)->implicit_value(true), "time instructions")
                         ("help"      , bpo::value(&help)->implicit_value(true), "this message")
                         ("player"    , bpo::value(&players_s), "player ranges")
+                        ("emit-csv"    , bpo::value(&emit_csv), "output csv file for inspection of transforms")
                         ("engine"     , bpo::value(&engine), "choose speicifc eval mechinism")
+                        ("instr-cache"    , bpo::value(&instr_cache), "dev flag")
                 ;
 
                 bpo::positional_options_description pd;
@@ -167,6 +171,7 @@ struct MaskEval : Command{
 
 
                 const interface_::EvaluationObject::Flags flags = 0
+                        | ( instr_cache ? interface_::EvaluationObject::F_CacheInstructions : 0 )
                         | ( debug ? interface_::EvaluationObject::F_DebugInstructions : 0 )
                         | ( step ? interface_::EvaluationObject::F_StepPercent : 0 )
                         | ( times ? interface_::EvaluationObject::F_TimeInstructionManager: 0 )

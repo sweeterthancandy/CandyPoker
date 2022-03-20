@@ -13,11 +13,13 @@ The requirements are boost, and Eigen. Although Eigen is just used for Vector/Ma
         
         REM you first need to clone https://gitlab.com/libeigen/eigen.git to somewhere
         REM also get some version of boost 
-        git@github.com:sweeterthancandy/CandyPoker.git
+        git clone https://github.com/sweeterthancandy/CandyPoker.git
         cd CandyPoker
         mkdir deps
         cd deps
+        git clone https://gitlab.com/libeigen/eigen.git
         git clone https://github.com/google/googletest.git
+        git clone https://github.com/google/benchmark.git
         cd ..
         cmake -B build -DCMAKE_BUILD_TYPE=Release -DBoost_INCLUDE_DIR=C:\work\boost_1_77_0\boost_1_77_0
         REM open build\ps.sln and build

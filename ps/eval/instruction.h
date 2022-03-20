@@ -62,9 +62,23 @@ struct instruction{
 
         virtual std::string to_string()const=0;
         virtual std::shared_ptr<instruction> clone()const=0;
+
+        friend std::ostream& operator<<(std::ostream& ostr, type t)
+        {
+                switch (t)
+                {
+                case T_CardEval: return ostr << "T_CardEval";
+                case T_ClassEval: return ostr << "T_ClassEval";
+                case T_Matrix: return ostr << "T_Matrix";
+                case T_NOP: return ostr << "T_NOP";
+                default: return ostr << "invalid";
+                }
+        }
 private:
         type type_;
 };
+
+
 
 struct nop_instruction : instruction
 {

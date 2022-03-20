@@ -62,10 +62,83 @@ SOFTWARE.
 #include "ps/support/persistent.h"
 #include "ps/eval/holdem_class_vector_cache.h"
 
-
+#include <fstream>
 
 namespace ps{
 namespace interface_ {
+
+
+        struct write_to_csv_context
+        {
+                std::ofstream stream;
+                int output_count = 0;
+        };
+        struct write_to_csv: computation_pass{
+                    write_to_csv(std::shared_ptr<write_to_csv_context> ctx, std::string const& str)
+                            : ctx_{ctx}, str_{str}
+                    {}
+                    virtual void transform(computation_context* ctx, instruction_list* instr_list, computation_result* result = nullptr)
+                    {
+                            size_t instruction_idx = 0;
+                            for (auto const& untyped_instr : *instr_list)
+                            {
+                                    const std::string header = std::to_string(ctx_->output_count) 
+                                            + "," + str_ 
+                                            + "," + std::to_string(instruction_idx)
+                                            + "," + boost::lexical_cast<std::string>(untyped_instr->get_type());
+
+                                    auto do_emit_any_eval = [&](auto const& vec, const std::vector<result_description>& result_desc)mutable
+                                    {
+                                            for(size_t result_idx=0;result_idx!=result_desc.size();++result_idx)
+                                            {
+                                                    auto step_desc = result_desc[result_idx];
+                                                    auto m = step_desc.transform();
+                                                    auto sz = m.size();
+                                                    auto iter = m.data();
+                                                    auto end = iter + sz;
+                                                    
+                                                    ctx_->stream << header << "," << vec << "," << result_idx << "," << step_desc.group();
+                                                    for(size_t j=0;j!=m.cols();++j){
+                                                        for(size_t i=0;i!=m.rows();++i){
+                                                                ctx_->stream << "," << m(i,j);
+                                                        }
+                                                    }
+                                                    ctx_->stream << "\n";                                                    
+                                            }
+                                    };
+
+                                    if (untyped_instr->get_type() == instruction::T_ClassEval)
+                                    {
+                                            auto class_eval_instr = reinterpret_cast<class_eval_instruction const*>(untyped_instr.get());
+                                            const auto& vec = class_eval_instr->get_vector();
+                                            const auto& result_desc = class_eval_instr->result_desc();
+
+                                            do_emit_any_eval(vec,result_desc);
+                                    }
+                                    else if (untyped_instr->get_type() == instruction::T_CardEval)
+                                    {
+                                            auto card_eval_instr = reinterpret_cast<card_eval_instruction const*>(untyped_instr.get());
+
+                                            const auto& vec = card_eval_instr->get_vector();
+                                            const auto& result_desc = card_eval_instr->result_desc();
+
+                                            do_emit_any_eval(vec,result_desc);
+                                    }
+                                    else
+                                    {
+                                            ctx_->stream << header << "\n";
+                                    }
+
+                                    ++instruction_idx;
+                            }
+
+                            ++ctx_->output_count;
+                    }
+            private:
+                    std::shared_ptr<write_to_csv_context> ctx_;
+                    std::string str_;
+            };
+
 
         struct time_printer : computation_pass{
                     explicit time_printer(std::string const& str, boost::timer::cpu_timer* tmr):
@@ -207,10 +280,17 @@ namespace interface_ {
             
             
             boost::timer::cpu_timer shared_timer;
+
+            auto csv_ctx = std::make_shared<write_to_csv_context>();
+
+            const auto now = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+            std::string csv_output_name = std::string("output.") + std::to_string(now) + ".csv";
+            PS_LOG(trace) << "write csv to " << csv_output_name;
+            csv_ctx->stream.open(csv_output_name);
             
 
             computation_pass_manager mgr;
-#if 1
+#if 0
             mgr.add_pass<pass_permutate_class>();
             if (should_debug_instrs)
                 mgr.add_pass<pass_print>();
@@ -245,9 +325,19 @@ namespace interface_ {
             if( should_emit_times)
                 mgr.add_pass<time_printer>("pass_collect", &shared_timer);
 #else
-            mgr.add_pass<pass_permutate_class>();
+            mgr.add_pass<write_to_csv>(csv_ctx, "Start");
+            //mgr.add_pass<pass_permutate_class>();
+            //mgr.add_pass<write_to_csv>(csv_ctx, "pass_permutate_class");
+            mgr.add_pass<pass_collect_class>();
+            mgr.add_pass<write_to_csv>(csv_ctx, "pass_collect_class");
             mgr.add_pass<pass_class2cards>();
+            mgr.add_pass<write_to_csv>(csv_ctx, "pass_class2cards");
             mgr.add_pass<pass_permutate>();
+            mgr.add_pass<write_to_csv>(csv_ctx, "pass_permutate");
+            mgr.add_pass<pass_sort_type>();
+            mgr.add_pass<write_to_csv>(csv_ctx, "pass_sort_type");
+            mgr.add_pass<pass_collect>();
+            mgr.add_pass<write_to_csv>(csv_ctx, "pass_collect");
 #endif
 
             mgr.execute_(comp_ctx.get(), agg_instr_list.get(), result.get());
@@ -294,130 +384,7 @@ namespace interface_ {
         pass_eval_hand_instr_vec::ready_cache();
     }
 
-#if 0
 
-    void test_prepare(std::vector<std::string> const& player_ranges, std::string const& engine)
-    {
-        std::vector<std::vector<std::string> > player_ranges_list{ player_ranges };
-        if (player_ranges_list.empty())
-        {
-            return;
-        }
-        const size_t common_size = player_ranges_list[0].size();
-        computation_context comp_ctx{ common_size };
-        computation_result result{ comp_ctx };
-        size_t index = 0;
-        std::vector<std::string> tag_list;
-
-        instruction_list agg_instr_list;
-        for (auto const& player_ranges : player_ranges_list)
-        {
-            if (player_ranges.size() != common_size)
-            {
-                BOOST_THROW_EXCEPTION(std::domain_error("all players must be same size"));
-            }
-            std::vector<frontend::range> players;
-            for (auto const& s : player_ranges) {
-                players.push_back(frontend::parse(s));
-            }
-
-            std::string tag = "Tag_" + std::to_string(index);
-            ++index;
-
-            result.allocate_tag(tag);
-            tag_list.push_back(tag);
-
-            instruction_list instr_list = frontend_to_instruction_list(tag, players);
-
-            std::copy(
-                std::cbegin(instr_list),
-                std::cend(instr_list),
-                std::back_inserter(agg_instr_list));
-
-        }
-
-        computation_pass_manager mgr;
-        mgr.add_pass<pass_permutate>();
-        mgr.add_pass<pass_sort_type>();
-        mgr.add_pass<pass_collect>();
-        mgr.execute_(&comp_ctx, &agg_instr_list, &result);
-    }
-
-    std::vector<EvaulationResultView> evaluate_list(std::vector<std::vector<std::string> > const& player_ranges_list, std::string const& engine)
-    {
-        if (player_ranges_list.empty())
-        {
-            return {};
-        }
-        const size_t common_size = player_ranges_list[0].size();
-        computation_context comp_ctx{ common_size };
-        computation_result result{ comp_ctx };
-        size_t index = 0;
-        std::vector<std::string> tag_list;
-
-        instruction_list agg_instr_list;
-        for (auto const& player_ranges : player_ranges_list)
-        {
-            if (player_ranges.size() != common_size)
-            {
-                BOOST_THROW_EXCEPTION(std::domain_error("all players must be same size"));
-            }
-            std::vector<frontend::range> players;
-            for (auto const& s : player_ranges) {
-                players.push_back(frontend::range(s));
-            }
-
-            std::string tag = "Tag_" + std::to_string(index);
-            ++index;
-
-            result.allocate_tag(tag);
-            tag_list.push_back(tag);
-
-            instruction_list instr_list = frontend_to_instruction_list(tag, players);
-
-            std::copy(
-                std::cbegin(instr_list),
-                std::cend(instr_list),
-                std::back_inserter(agg_instr_list));
-            
-        }
-
-        const bool debug = false;
-
-        computation_pass_manager mgr;
-        mgr.add_pass<pass_permutate>();
-        if (debug)
-            mgr.add_pass<pass_print>();
-        mgr.add_pass<pass_sort_type>();
-        if (debug)
-            mgr.add_pass<pass_print>();
-        mgr.add_pass<pass_collect>();
-        if (debug)
-            mgr.add_pass<pass_print>();
-        mgr.add_pass<pass_eval_hand_instr_vec>(engine);
-        if (debug)
-            mgr.add_pass<pass_print>();
-        mgr.add_pass<pass_write>();
-        if (debug)
-            mgr.add_pass<pass_print>();
-        mgr.execute_(&comp_ctx, &agg_instr_list, &result);
-
-        std::vector< EvaulationResultView> result_view;
-        for (size_t idx =0; idx!= player_ranges_list.size();++idx)
-        {
-            auto const& tag = tag_list[idx];
-            auto const& player_ranges = player_ranges_list[idx];
-            result_view.push_back(EvaulationResultView{ player_ranges, result.allocate_tag(tag) });
-        }
-        return result_view;
-    }
-
-    EvaulationResultView evaluate(std::vector<std::string> const& player_ranges, std::string const& engine)
-    {
-        auto packed_result = evaluate_list({ player_ranges }, engine);
-        return packed_result[0];
-    }
-#endif
 
 } // end namespace interface_
 } // end namespace ps

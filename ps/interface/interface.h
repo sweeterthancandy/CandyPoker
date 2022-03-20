@@ -118,16 +118,20 @@ public:
 
 		const auto num_players = player_ranges.size();
 		// need to cache row sums and totals
-		std::unordered_map<size_t, rational_ty> sigma_device;
-		for (size_t i = 0; i != num_players; ++i) {
-			for (size_t j = 0; j != num_players; ++j) {
-				sigma_device[j] += result(j, i);
+		// draw index -> total count 
+		std::unordered_map<size_t, rational_ty> sum_per_draw_index;
+		for (size_t draw_index = 0; draw_index != num_players; ++draw_index) {
+			for (size_t player_index = 0; player_index != num_players; ++player_index) {
+				sum_per_draw_index[draw_index] += result(player_index, draw_index);
 			}
 		}
 		rational_ty sigma = 0;
-		for (size_t i = 0; i != num_players; ++i) {
-
-			sigma += sigma_device[i] / rational_ty(i + 1);
+		for (size_t draw_index = 0; draw_index != num_players; ++draw_index) {
+			// on the outright win index, no double counting
+			// on the 2-player draw index, double counting
+			// on the 3-player draw index, tripped counting
+			// ...
+			sigma += sum_per_draw_index[draw_index] / rational_ty(draw_index + 1);
 		}
 
 		for (size_t player_index = 0; player_index != num_players; ++player_index)
@@ -135,7 +139,7 @@ public:
 			rational_ty equity{ 0 };
 			unsigned long long any_draw{ 0 };
 			for (size_t draw_index = 0; draw_index != num_players; ++draw_index) {
-				equity += static_cast<rational_int_ty>(result(draw_index, player_index)) / rational_ty(draw_index + 1);
+				equity += static_cast<rational_int_ty>(result(player_index, draw_index)) / rational_ty(draw_index + 1);
 				if (draw_index != 0)
 				{
 					any_draw += result(player_index, draw_index);

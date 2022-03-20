@@ -89,7 +89,6 @@ namespace ps{
                         detail::dispatch_ranked_vector_mat_func(mat, access, hv.size(), weight);
                 }
                 void finish(iter_t iter, card_eval_instruction* instr){
-                        PS_LOG(debug) << "sub ressult " << mat(0,0) << " " << mat(1,0);
                         *iter = std::make_shared<matrix_instruction>(instr->result_desc(), mat);
                 }
                 void declare(std::unordered_set<holdem_id>& S){

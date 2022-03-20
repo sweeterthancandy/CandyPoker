@@ -272,6 +272,8 @@ struct pass_eval_hand_instr_vec_impl{
 
         virtual void transform_dispatch(computation_context* ctx, instruction_list* instr_list, computation_result* result){
 
+                constexpr bool WithLogging = false;
+
             optimized_transform_context& static_mem_oct = optimized_transform_context::get();
 
                 std::vector<instruction_list::iterator> to_map;
@@ -301,8 +303,8 @@ struct pass_eval_hand_instr_vec_impl{
                 auto construct = [&](auto const& decl){
                         boost::timer::cpu_timer tmr;
                         ot = decl->make();
-                        PS_LOG(trace) << "Took " << tmr.format(2, "%w seconds") << " to do make transform";
-                        PS_LOG(trace) << "Using transform " << decl->name();
+                        if(WithLogging) PS_LOG(trace) << "Took " << tmr.format(2, "%w seconds") << " to do make transform";
+                        if(WithLogging) PS_LOG(trace) << "Using transform " << decl->name();
                 };
 
                 if( engine_.size() ){
@@ -333,7 +335,7 @@ struct pass_eval_hand_instr_vec_impl{
                 } else {
                         boost::timer::cpu_timer tmr;
                         ot->apply(static_mem_oct, ctx, instr_list, result, to_map);
-                        PS_LOG(trace) << "Took " << tmr.format(2, "%w seconds") << " to do main loop";
+                        if(WithLogging) PS_LOG(trace) << "Took " << tmr.format(2, "%w seconds") << " to do main loop";
                 }
         }
 private:

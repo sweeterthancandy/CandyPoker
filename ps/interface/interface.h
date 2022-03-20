@@ -32,6 +32,7 @@ SOFTWARE.
 #include "ps/base/cards_fwd.h"
 
 #include <string>
+#include <numeric>
 #include <vector>
 #include <unordered_map>
 
@@ -71,25 +72,35 @@ public:
 	public:
 		PlayerView(
 			std::string const& range,
+			unsigned long long sigma,
 			const rational_ty& equity,
-			unsigned long long wins,
-			unsigned long long any_draw)
-			: range_{ range }, equity_{ equity }, wins_{ wins }, any_draw_{any_draw}
+			std::vector<unsigned long long> const& win_vec)
+			: range_{ range }, sigma_{sigma}, equity_{ equity }, win_vec_{win_vec}
 		{}
 		const auto& Range()const { return range_; }
 		auto Wins()const {
-			return wins_;
+			return win_vec_.at(0);
+		}
+		auto NWins(size_t draw_index)const {
+			return win_vec_.at(draw_index);
 		}
 		auto AnyDraws()const {
-			return any_draw_;
+			return std::accumulate(
+				win_vec_.begin()+1,
+				win_vec_.end(),
+				static_cast<unsigned long long>(0));
 		}
 		const auto& EquityAsRational()const { return equity_; }
 		const double EquityAsDouble()const { return boost::rational_cast<double>(equity_); }
+
+		auto const& NWinVector()const{ return win_vec_; }
+
+		unsigned long long Sigma()const{ return sigma_; }
 	private:
 		std::string range_;
+		unsigned long long sigma_;
 		rational_ty equity_;
-		unsigned long long wins_;
-		unsigned long long any_draw_;
+		std::vector<unsigned long long>  win_vec_;
 	};
 
 	EvaulationResultView(
@@ -106,14 +117,6 @@ public:
 		{
 			BOOST_THROW_EXCEPTION(std::domain_error("does not look like result matrix"));
 		}
-
-		std::stringstream debug_msg;
-		for (size_t pidx = 0; pidx != player_ranges.size(); ++pidx)
-		{
-			if( pidx != 0) debug_msg << ", ";
-			debug_msg << "WINS(" << player_ranges[pidx] << ")=" << result(pidx,0);
-		}
-		PS_LOG(debug) << debug_msg.str();
 
 
 		const auto num_players = player_ranges.size();
@@ -134,29 +137,29 @@ public:
 			sigma += sum_per_draw_index[draw_index] / rational_ty(draw_index + 1);
 		}
 
+		PS_ASSERT(sigma.denominator() == 1, "unexpected");
+
 		for (size_t player_index = 0; player_index != num_players; ++player_index)
 		{
 			rational_ty equity{ 0 };
-			unsigned long long any_draw{ 0 };
+			std::vector<unsigned long long> win_vec;
 			for (size_t draw_index = 0; draw_index != num_players; ++draw_index) {
 				equity += static_cast<rational_int_ty>(result(player_index, draw_index)) / rational_ty(draw_index + 1);
-				if (draw_index != 0)
-				{
-					any_draw += result(player_index, draw_index);
-				}
+				win_vec.push_back(result(player_index, draw_index));
 			}
 
 			// skip 0/0 issues
 			if( sigma != 0)
 				equity /= sigma;
-			const auto wins = result(player_index, 0);
-			players_.emplace_back(player_ranges[player_index], equity, wins, any_draw);
+			players_.emplace_back(
+				player_ranges[player_index],
+				static_cast<unsigned long long>(sigma.numerator()),
+				equity,
+				std::move(win_vec));
 		}
 
 	}
 	const auto& players()const { return players_; }
-	auto begin_players()const { return players_.end(); }
-	auto end_players()const { return players_.end(); }
 	const auto& player_view(size_t idx)const {
 		return players_[idx];
 	}

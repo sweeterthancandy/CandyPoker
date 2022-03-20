@@ -72,7 +72,53 @@ namespace bpo = boost::program_options;
 
 using namespace ps;
 
-namespace{
+namespace {
+
+
+void display_breakdown(std::ostream& ostr, interface_::EvaulationResultView const& view){
+
+        using namespace Pretty;
+                
+        std::vector<std::string> title;
+
+
+        title.emplace_back("range");
+        title.emplace_back("equity");
+        title.emplace_back("wins");
+        for(size_t i=0; i != view.players().size() -1;++i){
+                title.emplace_back("draw_"+ boost::lexical_cast<std::string>(i+1));
+        }
+        title.emplace_back("any draw");
+        title.emplace_back("sigma");
+                
+        std::vector< LineItem > lines;
+        lines.emplace_back(title);
+        lines.emplace_back(LineBreak);
+
+                
+        for(auto const& p : view.players())
+        {
+                std::vector<std::string> line;
+
+                line.emplace_back( p.Range());
+                line.emplace_back( str(boost::format("%.4f%%") % (p.EquityAsDouble() * 100)));
+                        
+                for(auto const& nwins : p.NWinVector())
+                {
+                        line.emplace_back(std::to_string(nwins));
+                }
+
+                line.emplace_back(std::to_string(p.AnyDraws()));
+                line.emplace_back(std::to_string(p.Sigma()));
+
+                    
+
+                lines.push_back(line);
+        }
+
+        RenderTablePretty(std::cout, lines);
+                
+}
 
 struct MaskEval : Command{
         explicit
@@ -117,102 +163,6 @@ struct MaskEval : Command{
                 }
 
 
-#if 0
-                if (breakdown)
-                {
-                    const size_t num_players = players_s.size();
-
-                    std::vector<frontend::range> players;
-                    for (auto const& s : players_s) {
-                        players.push_back(frontend::parse(s));
-                    }
-
-                    struct SubComputation
-                    {
-                        std::vector<holdem_class_id> opt_class_vec;
-                        std::vector<holdem_id> player_hand_vec;
-                        std::vector<std::string> player_hand_str;
-                    };
-                    std::vector<SubComputation> subs;
-
-                    tree_range root(players);
-                    for (auto const& c : root.children) {
-                        for (auto const& d : c.children) {
-                            std::vector<std::string> aux_as_str;
-                            for (auto const& id : d.players)
-                            {
-                                aux_as_str.push_back(holdem_hand_decl::get(id).to_string());
-                            }
-                            subs.push_back(SubComputation{
-                                c.opt_cplayers,
-                                d.players,
-                                aux_as_str });
-                        }
-                    }
-
-                    subs.push_back(SubComputation{
-                        {},
-                        {},
-                        players_s });
-                
-
-                    std::vector<std::vector<std::string>> tmp;
-                    for (auto const& x : subs)
-                    {
-                        std::cout << std_vector_to_string(x.player_hand_str) << "\n";
-                        tmp.push_back(x.player_hand_str);
-                    }
-                    auto result_list_view = interface_::evaluate_list(tmp, engine);
-
-                    std::vector<std::string> title;
-
-
-                    title.emplace_back("i"); // breakdown index
-                    title.emplace_back("p"); // player index
-                    title.emplace_back("class");
-                    title.emplace_back("hand");
-                    title.emplace_back("equity");
-
-                    using namespace Pretty;
-                    std::vector< LineItem > lines;
-                    lines.push_back(title);
-
-                    for (size_t idx = 0; idx != subs.size(); ++idx)
-                    {
-                        auto const& sub = subs[idx];
-                        auto const& result_view = result_list_view[idx];
-                        for (size_t player_index = 0; player_index != num_players; ++player_index)
-                        {
-                            auto const& player_view = result_view.player_view(player_index);
-
-                            const auto class_fmt = [&]()->std::string {
-                                if (sub.opt_class_vec.size()) {
-                                    return holdem_class_decl::get(sub.opt_class_vec.at(player_index)).to_string();
-                                }
-                                return "";
-                            }();
-
-                            const auto equity_fmt = str(boost::format("%.4f%%") % (player_view.EquityAsDouble() * 100));
-
-          
-                            lines.push_back(
-                                std::vector<std::string>{
-                                    std::to_string(idx),
-                                    std::to_string(player_index),
-                                    class_fmt,
-                                    sub.player_hand_str.at(player_index),
-                                    equity_fmt });
-                            
-                        }
-                    }
-                    RenderTablePretty(std::cout, lines);
-                }
-                else
-                {
-                    auto result_view = interface_::evaluate(players_s, engine);
-                    pretty_print_equity_breakdown_mat(std::cout, result_view.get_matrix(), players_s);
-                }
-#endif
 
                 const interface_::EvaluationObject::Flags flags = 0
                         | ( debug ? interface_::EvaluationObject::F_DebugInstructions : 0 )
@@ -239,7 +189,7 @@ struct MaskEval : Command{
 
                         std::cout << matrix_to_string(result_view.get_matrix()) << "\n";
                 }
-                pretty_print_equity_breakdown_mat(std::cout, result_view.get_matrix(), players_s);
+                display_breakdown(std::cout, result_view);
 
                 return EXIT_SUCCESS;
         }       

@@ -6,6 +6,7 @@
 namespace ps{
 
 
+
 struct dispatch_generic : dispatch_table{
         using transform_type =
                 optimized_transform<
@@ -25,20 +26,6 @@ struct dispatch_generic : dispatch_table{
         }
 };
 static register_disptach_table<dispatch_generic> reg_dispatch_generic;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

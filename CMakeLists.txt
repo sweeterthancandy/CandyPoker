@@ -34,8 +34,8 @@ include_directories(build/deps/benchmark/include)
 
 if( WIN32 )
   #find_package (Eigen3 3.3 REQUIRED NO_MODULE)
-  include_directories( C:/work/eigen )
-  include_directories( C:/work/eigen/Eigen )
+  include_directories( deps/eigen )
+  include_directories( deps/eigen/Eigen )
 
 
 

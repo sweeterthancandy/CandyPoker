@@ -88,6 +88,7 @@ void pass_permutate::transform(computation_context* ctx, instruction_list* instr
                 PS_LOG(trace) << instr->to_string();
                 PS_LOG(trace) << vec << " => " << std::get<1>(result) << " with " << std_vector_to_string(std::get<0>(result));
 
+#if 0
                 std::vector<std::tuple<int,int> > rev_perm_aux;
                 auto const& orig_perm = std::get<0>(result);
                 for(int idx=0;idx!=orig_perm.size();++idx)
@@ -101,12 +102,16 @@ void pass_permutate::transform(computation_context* ctx, instruction_list* instr
                         rev_perm.push_back(std::get<1>(t));
                 }
 
-                //auto const& perm = std::get<0>(result);
-
                 PS_LOG(trace) << "perm     => " << std_vector_to_string(orig_perm);
                 PS_LOG(trace) << "rec_perm => " << std_vector_to_string(rev_perm);
                 auto const& perm = rev_perm;
+#else
 
+                auto const& perm = std::get<0>(result);
+#endif
+
+                
+                PS_LOG(trace) << "perm     => " << std_vector_to_string(perm);
                 std::vector<result_description> permed_result_desc = result_description::apply_perm(instr->result_desc(), perm);
 
                 instrr = std::make_shared< class_eval_instruction>(permed_result_desc, std::get<1>(result));
@@ -177,7 +182,7 @@ void pass_permutate::transform(computation_context* ctx, instruction_list* instr
                         auto const& result_desc = instr->result_desc();
                         for (auto const& output_target : result_desc)
                         {
-                            result->allocate_tag(output_target.group()) += instr->result_matrix() * output_target.transform();
+                            result->allocate_tag(output_target.group()) += output_target.transform() * instr->result_matrix();
                         }      
                 }
         }

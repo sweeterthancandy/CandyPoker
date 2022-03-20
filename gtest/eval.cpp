@@ -138,6 +138,58 @@ TEST(Eval, MultipleSims)
         }
 }
 
+TEST(Eval, TwoPlayerCardPerm)
+{
+        struct perm_ty
+        {
+                std::vector<std::string> player_ranges;
+                size_t AA_index;
+                size_t KK_index;
+        };
+        std::vector<perm_ty> perm_list = {
+                perm_ty{ { "AhAd", "KsKd" }, 0, 1 },
+                perm_ty{ { "KsKd", "AhAd" }, 1, 0 }
+        };
+        for (auto const& perm : perm_list)
+        {
+                auto result = evaluate(perm.player_ranges);
+
+                const auto AA = result.player_view(perm.AA_index);
+                const auto KK = result.player_view(perm.KK_index);
+
+                EXPECT_EQ( AA.Wins(), 	1'399'204 ) << std_vector_to_string(perm.player_ranges);
+
+                EXPECT_EQ( KK.Wins(), 305'177  ) << std_vector_to_string(perm.player_ranges);
+        }   
+}
+
+TEST(Eval, TwoPlayerClassPerm)
+{
+        struct perm_ty
+        {
+                std::vector<std::string> player_ranges;
+                size_t AA_index;
+                size_t KK_index;
+        };
+        std::vector<perm_ty> perm_list = {
+                perm_ty{ { "AA", "KK" }, 0, 1 },
+                perm_ty{ { "KK", "AA" }, 1, 0 }
+        };
+        for (auto const& perm : perm_list)
+        {
+                auto result = evaluate(perm.player_ranges);
+
+                const auto AA = result.player_view(perm.AA_index);
+                const auto KK = result.player_view(perm.KK_index);
+
+                EXPECT_EQ( AA.Wins(), 	50'371'344 ) << std_vector_to_string(perm.player_ranges);
+
+                EXPECT_EQ( KK.Wins(), 10'986'372   ) << std_vector_to_string(perm.player_ranges);
+        }   
+}
+
+
+
 TEST(Eval, ThreePlayerCardPerm)
 {
         struct perm_ty

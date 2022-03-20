@@ -126,14 +126,13 @@ struct result_description
         perm_matrix.fill(0);
 
         for (size_t idx = 0; idx != perm.size(); ++idx) {
-              perm_matrix(idx, perm[idx]) = 1;
-              //perm_matrix(perm[idx],idx) = 1;
+              perm_matrix(perm[idx],idx) = 1;
         }
 
         std::vector<result_description> result;
         for (auto const& x : desc_list)
         {
-            result.emplace_back(x.group(), x.transform() * perm_matrix);
+            result.emplace_back(x.group(),  x.transform() * perm_matrix);
         }
         return result;
     }
@@ -157,7 +156,7 @@ struct result_description
         }
 
         std::vector<result_description> result;
-        for (auto const& p : sum_device)
+        for (auto& p : sum_device)
         {
             result.emplace_back(p.first, std::move(p.second.get()));
         }

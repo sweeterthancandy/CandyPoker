@@ -10,14 +10,14 @@ namespace detail{
                 auto lowest = ranked(0) ;
                 size_t count{1};
                 auto ptr = &result(0, 0);
-                for(size_t i=1;i<n;++i){
-                        if( ranked(i) == lowest ){
+                for(size_t player_index=1;player_index<n;++player_index){
+                        if( ranked(player_index) == lowest ){
                                 ++count;
                                 ptr = nullptr;
-                        } else if( ranked(i) < lowest ){
-                                lowest = ranked(i); 
+                        } else if( ranked(player_index) < lowest ){
+                                lowest = ranked(player_index); 
                                 count = 1;
-                                ptr = &result(0, i);
+                                ptr = &result(player_index, 0);
                         }
                 }
                 if (ptr)
@@ -26,9 +26,11 @@ namespace detail{
                 }
                 else
                 {
-                        for(size_t i=0;i!=n;++i){
-                                if( ranked(i) == lowest ){
-                                        result(count-1, i) += weight;
+                        const size_t draw_index = count-1;
+                        for(size_t player_index=0;player_index!=n;++player_index){
+                                if( ranked(player_index) == lowest ){
+                                        
+                                        result(player_index, draw_index) += weight;
                                 }
                         }
                 }
@@ -87,6 +89,7 @@ namespace ps{
                         detail::dispatch_ranked_vector_mat_func(mat, access, hv.size(), weight);
                 }
                 void finish(iter_t iter, card_eval_instruction* instr){
+                        PS_LOG(debug) << "sub ressult " << mat(0,0) << " " << mat(1,0);
                         *iter = std::make_shared<matrix_instruction>(instr->result_desc(), mat);
                 }
                 void declare(std::unordered_set<holdem_id>& S){

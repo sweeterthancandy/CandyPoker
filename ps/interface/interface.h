@@ -107,6 +107,15 @@ public:
 			BOOST_THROW_EXCEPTION(std::domain_error("does not look like result matrix"));
 		}
 
+		std::stringstream debug_msg;
+		for (size_t pidx = 0; pidx != player_ranges.size(); ++pidx)
+		{
+			if( pidx != 0) debug_msg << ", ";
+			debug_msg << "WINS(" << player_ranges[pidx] << ")=" << result(pidx,0);
+		}
+		PS_LOG(debug) << debug_msg.str();
+
+
 		const auto num_players = player_ranges.size();
 		// need to cache row sums and totals
 		std::unordered_map<size_t, rational_ty> sigma_device;
@@ -121,23 +130,23 @@ public:
 			sigma += sigma_device[i] / rational_ty(i + 1);
 		}
 
-		for (size_t i = 0; i != num_players; ++i)
+		for (size_t player_index = 0; player_index != num_players; ++player_index)
 		{
 			rational_ty equity{ 0 };
 			unsigned long long any_draw{ 0 };
-			for (size_t j = 0; j != num_players; ++j) {
-				equity += static_cast<rational_int_ty>(result(j, i)) / rational_ty(j + 1);
-				if (j != 0)
+			for (size_t draw_index = 0; draw_index != num_players; ++draw_index) {
+				equity += static_cast<rational_int_ty>(result(draw_index, player_index)) / rational_ty(draw_index + 1);
+				if (draw_index != 0)
 				{
-					any_draw += result(j, i);
+					any_draw += result(player_index, draw_index);
 				}
 			}
 
 			// skip 0/0 issues
 			if( sigma != 0)
 				equity /= sigma;
-			const auto wins = result(0, i);
-			players_.emplace_back(player_ranges[i], equity, wins, any_draw);
+			const auto wins = result(player_index, 0);
+			players_.emplace_back(player_ranges[player_index], equity, wins, any_draw);
 		}
 
 	}

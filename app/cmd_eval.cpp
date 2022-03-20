@@ -226,6 +226,7 @@ struct MaskEval : Command{
 
                 if (step)
                 {
+
                         PS_LOG(trace) << tmr.format(4, "prepare took %w seconds");
                         tmr.start();
                 }

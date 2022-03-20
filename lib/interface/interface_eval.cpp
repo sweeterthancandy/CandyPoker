@@ -197,6 +197,9 @@ namespace interface_ {
             mgr.add_pass<pass_write>();
             mgr.execute_(comp_ctx_.get(), agg_instr_list_.get(), result_.get());
 
+            PS_LOG(trace) << "P1(Wins) = " << result_->allocate_tag("Tag_0")(0,0);
+            PS_LOG(trace) << "P2(Wins) = " << result_->allocate_tag("Tag_0")(1,0);
+
             std::vector< EvaulationResultView> result_view;
             for (size_t idx = 0; idx != player_ranges_list_.size(); ++idx)
             {
@@ -291,11 +294,13 @@ namespace interface_ {
 
             computation_pass_manager mgr;
 #if 0
+#if 0
             mgr.add_pass<pass_permutate_class>();
             if (should_debug_instrs)
                 mgr.add_pass<pass_print>();
             if( should_emit_times)
                 mgr.add_pass<time_printer>("permutate_class", &shared_timer);
+#endif
 
 
             mgr.add_pass<pass_collect_class>();
@@ -325,19 +330,21 @@ namespace interface_ {
             if( should_emit_times)
                 mgr.add_pass<time_printer>("pass_collect", &shared_timer);
 #else
-            mgr.add_pass<write_to_csv>(csv_ctx, "Start");
-            //mgr.add_pass<pass_permutate_class>();
+            //mgr.add_pass<write_to_csv>(csv_ctx, "Start");
+            mgr.add_pass<pass_permutate_class>();
             //mgr.add_pass<write_to_csv>(csv_ctx, "pass_permutate_class");
             mgr.add_pass<pass_collect_class>();
-            mgr.add_pass<write_to_csv>(csv_ctx, "pass_collect_class");
+            //mgr.add_pass<write_to_csv>(csv_ctx, "pass_collect_class");
             mgr.add_pass<pass_class2cards>();
-            mgr.add_pass<write_to_csv>(csv_ctx, "pass_class2cards");
+            //mgr.add_pass<write_to_csv>(csv_ctx, "pass_class2cards");
             mgr.add_pass<pass_permutate>();
-            mgr.add_pass<write_to_csv>(csv_ctx, "pass_permutate");
+            //mgr.add_pass<write_to_csv>(csv_ctx, "pass_permutate");
             mgr.add_pass<pass_sort_type>();
-            mgr.add_pass<write_to_csv>(csv_ctx, "pass_sort_type");
+            //mgr.add_pass<write_to_csv>(csv_ctx, "pass_sort_type");
             mgr.add_pass<pass_collect>();
-            mgr.add_pass<write_to_csv>(csv_ctx, "pass_collect");
+            //mgr.add_pass<write_to_csv>(csv_ctx, "pass_collect");
+
+            //mgr.add_pass<pass_print>();
 #endif
 
             mgr.execute_(comp_ctx.get(), agg_instr_list.get(), result.get());

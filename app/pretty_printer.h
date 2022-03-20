@@ -651,29 +651,29 @@ namespace ps{
                 }
 
 
-                for( size_t i=0;i!=players.size();++i){
+                for( size_t player_index=0;player_index!=players.size();++player_index){
 
                         double equity = 0.0;
-                        for(size_t j=0; j != players.size(); ++j ){
-                                equity += breakdown(j,i) / ( j +1 );
+                        for(size_t draw_index=0; draw_index != players.size(); ++draw_index ){
+                                equity += breakdown(player_index, draw_index) / ( draw_index +1 );
                         }
                         equity /= sigma;
 
                         std::vector<std::string> line;
 
-                        line.emplace_back( boost::lexical_cast<std::string>(players[i]) );
+                        line.emplace_back( boost::lexical_cast<std::string>(players[player_index]) );
                         line.emplace_back( str(boost::format("%.4f%%") % (equity * 100)));
                         /*
-                                draw_equity = \sum_i=1..n win_{i}/i
+                                draw_equity = \sum_i=1..n win_{player_index}/player_index
                         */
                         unsigned long long any_draw{ 0 };
-                        for(size_t j=0; j != players.size(); ++j ){
-                                line.emplace_back( boost::lexical_cast<std::string>(breakdown(j,i)) );
-                                if( j != 0 ) any_draw += breakdown(j,i);
+                        for(size_t draw_index=0; draw_index != players.size(); ++draw_index ){
+                                line.emplace_back( boost::lexical_cast<std::string>(breakdown(player_index, draw_index)) );
+                                if( draw_index != 0 ) any_draw += breakdown(player_index, draw_index);
                         }
                         
 
-                        auto win_equity = static_cast<double>(breakdown(0, i)) / sigma;
+                        auto win_equity = static_cast<double>(breakdown(player_index, 0)) / sigma;
 
                         auto draw_sigma = (equity - win_equity);
                         line.emplace_back( str(boost::format("%.2f%%") % ( draw_sigma )));

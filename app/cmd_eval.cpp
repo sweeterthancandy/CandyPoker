@@ -89,6 +89,7 @@ void display_breakdown(std::ostream& ostr, interface_::EvaulationResultView cons
                 title.emplace_back("draw_"+ boost::lexical_cast<std::string>(i+1));
         }
         title.emplace_back("any draw");
+        title.emplace_back("any draw norm");
         title.emplace_back("sigma");
                 
         std::vector< LineItem > lines;
@@ -109,6 +110,7 @@ void display_breakdown(std::ostream& ostr, interface_::EvaulationResultView cons
                 }
 
                 line.emplace_back(std::to_string(p.AnyDraws()));
+                line.emplace_back(str(boost::format("%.2f") %(p.AnyDrawsNormalised())));
                 line.emplace_back(std::to_string(p.Sigma()));
 
                     

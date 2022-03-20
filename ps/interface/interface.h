@@ -90,6 +90,16 @@ public:
 				win_vec_.end(),
 				static_cast<unsigned long long>(0));
 		}
+		double AnyDrawsNormalised()const
+		{
+			rational_ty rat = 0;
+			for (size_t draw_index = 1; draw_index != win_vec_.size(); ++draw_index)
+			{
+				rat += rational_ty{ win_vec_[draw_index]} / (draw_index + 1);
+			}
+			return boost::rational_cast<double>(rat);
+		}
+		
 		const auto& EquityAsRational()const { return equity_; }
 		const double EquityAsDouble()const { return boost::rational_cast<double>(equity_); }
 

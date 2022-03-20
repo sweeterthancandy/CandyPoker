@@ -134,7 +134,7 @@ struct MaskEval : Command{
                 bool times{false};
                 bool help{false};
                 bool emit_csv{false};
-                bool instr_cache{false};
+                bool instr_cache{true};
                 std::vector<std::string> players_s;
                 // way to choose a specific one
                 std::string engine;

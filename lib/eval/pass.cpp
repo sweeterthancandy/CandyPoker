@@ -355,7 +355,7 @@ private:
         > prototype_map_;
 };
 
- instruction_list frontend_to_instruction_list(std::string const& group, std::vector<frontend::range> const& players){
+ instruction_list frontend_to_instruction_list(std::string const& group, std::vector<frontend::range> const& players, const bool use_perm_cache){
         instruction_list instr_list;
         tree_range root( players );
 
@@ -375,11 +375,15 @@ private:
                         {
                                 aux.push_back(p.get_class_id());
                         }
-#if 0
-                        all_class_vs_class_vecs.push_back(std::move(aux));
-#else
-                        instr_list.push_back(std::make_shared<class_eval_instruction>(group, aux));
-#endif
+
+                        if (use_perm_cache)
+                        {
+                                all_class_vs_class_vecs.push_back(std::move(aux));
+                        }
+                        else
+                        {
+                                instr_list.push_back(std::make_shared<class_eval_instruction>(group, aux));
+                        }
                 } else
                 {
                         for( auto const& d : c.get_children() ){

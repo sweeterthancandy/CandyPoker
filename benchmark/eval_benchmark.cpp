@@ -97,50 +97,110 @@ BENCHMARK(TreeRange_4_Simple);
 
 static void BuildInstrList_2(benchmark::State& state) {
 
+    auto p0 = do_frontend_parse("AA");
+    auto p1 = do_frontend_parse("KK");
     for (auto _ : state)
     {
-        auto p0 = do_frontend_parse("AA");
-        auto p1 = do_frontend_parse("KK");
-        frontend_to_instruction_list("dummy", { p0, p1 });
+        frontend_to_instruction_list("dummy", { p0, p1 }, false);
     }
 }
+
+
 static void BuildInstrList_3(benchmark::State& state) {
 
+    auto p0 = do_frontend_parse("AA");
+    auto p1 = do_frontend_parse("KK");
+    auto p2 = do_frontend_parse("QQ");
     for (auto _ : state)
     {
-        auto p0 = do_frontend_parse("AA");
-        auto p1 = do_frontend_parse("KK");
-        auto p2 = do_frontend_parse("QQ");
-        frontend_to_instruction_list("dummy", { p0, p1, p2 });
+        
+        frontend_to_instruction_list("dummy", { p0, p1, p2 }, false);
     }
 }
 static void BuildInstrList_4(benchmark::State& state) {
 
+    auto p0 = do_frontend_parse("AA");
+    auto p1 = do_frontend_parse("KK");
+    auto p2 = do_frontend_parse("QQ");
+    auto p3 = do_frontend_parse("JJ");
     for (auto _ : state)
     {
-        auto p0 = do_frontend_parse("AA");
-        auto p1 = do_frontend_parse("KK");
-        auto p2 = do_frontend_parse("QQ");
-        auto p3 = do_frontend_parse("JJ");
-        frontend_to_instruction_list("dummy", { p0, p1, p2, p3 });
+        
+        frontend_to_instruction_list("dummy", { p0, p1, p2, p3 }, false);
     }
 }
 static void BuildInstrList_5(benchmark::State& state) {
-
+    auto p0 = do_frontend_parse("AA");
+    auto p1 = do_frontend_parse("KK");
+    auto p2 = do_frontend_parse("QQ");
+    auto p3 = do_frontend_parse("JJ");
+    auto p4 = do_frontend_parse("TT");
     for (auto _ : state)
     {
-        auto p0 = do_frontend_parse("AA");
-        auto p1 = do_frontend_parse("KK");
-        auto p2 = do_frontend_parse("QQ");
-        auto p3 = do_frontend_parse("JJ");
-        auto p4 = do_frontend_parse("TT");
-        frontend_to_instruction_list("dummy", { p0, p1, p2, p3, p4 });
+        
+        frontend_to_instruction_list("dummy", { p0, p1, p2, p3, p4 }, false);
     }
 }
 BENCHMARK(BuildInstrList_2);
 BENCHMARK(BuildInstrList_3);
 BENCHMARK(BuildInstrList_4)->Unit(benchmark::kSecond);
 BENCHMARK(BuildInstrList_5)->Unit(benchmark::kSecond);
+
+
+
+static void BuildInstrListCache_2(benchmark::State& state) {
+
+    auto p0 = do_frontend_parse("AA");
+    auto p1 = do_frontend_parse("KK");
+    for (auto _ : state)
+    {
+        
+        frontend_to_instruction_list("dummy", { p0, p1 }, true);
+    }
+}
+static void BuildInstrListCache_3(benchmark::State& state) {
+
+    auto p0 = do_frontend_parse("AA");
+    auto p1 = do_frontend_parse("KK");
+    auto p2 = do_frontend_parse("QQ");
+    for (auto _ : state)
+    {
+        
+        frontend_to_instruction_list("dummy", { p0, p1, p2 }, true);
+    }
+}
+static void BuildInstrListCache_4(benchmark::State& state) {
+    auto p0 = do_frontend_parse("AA");
+    auto p1 = do_frontend_parse("KK");
+    auto p2 = do_frontend_parse("QQ");
+    auto p3 = do_frontend_parse("JJ");
+    for (auto _ : state)
+    {
+       
+        frontend_to_instruction_list("dummy", { p0, p1, p2, p3 }, true);
+    }
+}
+static void BuildInstrListCache_5(benchmark::State& state) {
+    auto p0 = do_frontend_parse("AA");
+    auto p1 = do_frontend_parse("KK");
+    auto p2 = do_frontend_parse("QQ");
+    auto p3 = do_frontend_parse("JJ");
+    auto p4 = do_frontend_parse("TT");
+    for (auto _ : state)
+    {
+       
+        frontend_to_instruction_list("dummy", { p0, p1, p2, p3, p4 }, true);
+    }
+}
+
+
+BENCHMARK(BuildInstrListCache_2);
+BENCHMARK(BuildInstrListCache_3);
+BENCHMARK(BuildInstrListCache_4)->Unit(benchmark::kSecond);
+BENCHMARK(BuildInstrListCache_5)->Unit(benchmark::kSecond);
+
+
+
 
 
 
@@ -303,6 +363,27 @@ static void Eval_PP_2_Stress(benchmark::State& state) {
     }
 }
 BENCHMARK(Eval_PP_2_Stress)->Unit(benchmark::kSecond);
+
+
+
+static void EvalPrepareStress_100_100(benchmark::State& state) {
+    for (auto _ : state)
+    {
+        std::vector<std::string> player_ranges{ "100%", "100%"};
+        EvaluationObject obj(player_ranges);
+        obj.Prepare();
+    }
+}
+BENCHMARK(EvalPrepareStress_100_100)->Unit(benchmark::kSecond);
+static void EvalPrepareStressCache_100_100(benchmark::State& state) {
+    for (auto _ : state)
+    {
+        std::vector<std::string> player_ranges{ "100%", "100%"};
+        EvaluationObject obj(player_ranges, {}, EvaluationObject::F_CacheInstructions);
+        obj.Prepare();
+    }
+}
+BENCHMARK(EvalPrepareStressCache_100_100)->Unit(benchmark::kSecond);
 
 
 

@@ -193,6 +193,8 @@ public:
 		F_StepPercent = 1 << 3,
 		F_TimeInstructionManager = 1 << 4,
 		F_WriteCsv = 1 << 5,
+		F_CacheInstructions = 1 << 6,
+
 	};
 	using Flags = unsigned;
 

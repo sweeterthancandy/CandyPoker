@@ -41,7 +41,7 @@ namespace ps{
  */
 
 
-instruction_list frontend_to_instruction_list(std::string const& group, std::vector<frontend::range> const& players);
+instruction_list frontend_to_instruction_list(std::string const& group, std::vector<frontend::range> const& players, const bool use_perm_cache = true);
 
 
 struct computation_context;

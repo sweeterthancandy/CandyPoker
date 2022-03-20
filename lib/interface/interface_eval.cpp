@@ -241,6 +241,7 @@ namespace interface_ {
             const size_t common_size = player_ranges_list_[0].size();
             const int verboseicity = (( flags_ & EvaluationObject::F_StepPercent) ? 2 : 0);
             const bool save_csv = !!( flags_ & EvaluationObject::F_WriteCsv );
+            const bool cache_instrs = !! ( flags_ & EvaluationObject::F_CacheInstructions );
             auto comp_ctx = std::make_shared< computation_context>(common_size, verboseicity);
             auto result = std::make_shared< computation_result>(*comp_ctx);
             size_t index = 0;
@@ -264,7 +265,7 @@ namespace interface_ {
                 result->allocate_tag(tag);
                 tag_list.push_back(tag);
 
-                instruction_list instr_list = frontend_to_instruction_list(tag, players);
+                instruction_list instr_list = frontend_to_instruction_list(tag, players, cache_instrs);
 
                 std::copy(
                     std::cbegin(instr_list),

@@ -197,9 +197,6 @@ namespace interface_ {
             mgr.add_pass<pass_write>();
             mgr.execute_(comp_ctx_.get(), agg_instr_list_.get(), result_.get());
 
-            PS_LOG(trace) << "P1(Wins) = " << result_->allocate_tag("Tag_0")(0,0);
-            PS_LOG(trace) << "P2(Wins) = " << result_->allocate_tag("Tag_0")(1,0);
-
             std::vector< EvaulationResultView> result_view;
             for (size_t idx = 0; idx != player_ranges_list_.size(); ++idx)
             {
@@ -243,6 +240,7 @@ namespace interface_ {
         {
             const size_t common_size = player_ranges_list_[0].size();
             const int verboseicity = (( flags_ & EvaluationObject::F_StepPercent) ? 2 : 0);
+            const bool save_csv = !!( flags_ & EvaluationObject::F_WriteCsv );
             auto comp_ctx = std::make_shared< computation_context>(common_size, verboseicity);
             auto result = std::make_shared< computation_result>(*comp_ctx);
             size_t index = 0;
@@ -286,21 +284,28 @@ namespace interface_ {
 
             auto csv_ctx = std::make_shared<write_to_csv_context>();
 
-            const auto now = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-            std::string csv_output_name = std::string("output.") + std::to_string(now) + ".csv";
-            PS_LOG(trace) << "write csv to " << csv_output_name;
-            csv_ctx->stream.open(csv_output_name);
+            if (save_csv)
+            {
+                    const auto now = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+                    std::string csv_output_name = std::string("output.") + std::to_string(now) + ".csv";
+                    PS_LOG(trace) << "write csv to " << csv_output_name;
+                    csv_ctx->stream.open(csv_output_name);
+            }
+            
             
 
             computation_pass_manager mgr;
-#if 0
-#if 0
+#if 1
+            if( save_csv )
+                mgr.add_pass<write_to_csv>(csv_ctx, "Start");
+
             mgr.add_pass<pass_permutate_class>();
             if (should_debug_instrs)
                 mgr.add_pass<pass_print>();
             if( should_emit_times)
                 mgr.add_pass<time_printer>("permutate_class", &shared_timer);
-#endif
+            if( save_csv )
+                mgr.add_pass<write_to_csv>(csv_ctx, "pass_permutate_class");
 
 
             mgr.add_pass<pass_collect_class>();
@@ -308,12 +313,16 @@ namespace interface_ {
                 mgr.add_pass<pass_print>();
             if( should_emit_times)
                 mgr.add_pass<time_printer>("pass_collect_class", &shared_timer);
+            if( save_csv )
+                mgr.add_pass<write_to_csv>(csv_ctx, "pass_collect_class");
 
             mgr.add_pass<pass_class2cards>();
             if (should_debug_instrs)
                 mgr.add_pass<pass_print>();
             if( should_emit_times)
                 mgr.add_pass<time_printer>("pass_class2cards", &shared_timer);
+            if( save_csv )
+                mgr.add_pass<write_to_csv>(csv_ctx, "pass_class2cards");
 
 
             mgr.add_pass<pass_permutate>();
@@ -321,6 +330,8 @@ namespace interface_ {
                 mgr.add_pass<pass_print>();
             if( should_emit_times)
                 mgr.add_pass<time_printer>("pass_permutate", &shared_timer);
+            if( save_csv )
+                mgr.add_pass<write_to_csv>(csv_ctx, "pass_permutate");
 
 
             mgr.add_pass<pass_sort_type>();
@@ -329,6 +340,8 @@ namespace interface_ {
                 mgr.add_pass<pass_print>();
             if( should_emit_times)
                 mgr.add_pass<time_printer>("pass_collect", &shared_timer);
+            if( save_csv )
+                mgr.add_pass<write_to_csv>(csv_ctx, "pass_collect");
 #else
             //mgr.add_pass<write_to_csv>(csv_ctx, "Start");
             mgr.add_pass<pass_permutate_class>();

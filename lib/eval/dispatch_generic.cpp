@@ -6,8 +6,6 @@
 namespace ps{
 
 
-
-
 struct dispatch_generic : dispatch_table{
         using transform_type =
                 optimized_transform<

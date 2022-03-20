@@ -387,6 +387,72 @@ BENCHMARK(EvalPrepareStressCache_100_100)->Unit(benchmark::kSecond);
 
 
 
+static void EvalPrepareStress_100_100_AA(benchmark::State& state) {
+    for (auto _ : state)
+    {
+        std::vector<std::string> player_ranges{ "100%", "100%", "AA"};
+        EvaluationObject obj(player_ranges);
+        obj.Prepare();
+    }
+}
+BENCHMARK(EvalPrepareStress_100_100_AA)->Unit(benchmark::kSecond);
+static void EvalPrepareStressCache_100_100_AA(benchmark::State& state) {
+    for (auto _ : state)
+    {
+        std::vector<std::string> player_ranges{ "100%", "100%", "AA"};
+        EvaluationObject obj(player_ranges, {}, EvaluationObject::F_CacheInstructions);
+        obj.Prepare();
+    }
+}
+BENCHMARK(EvalPrepareStressCache_100_100_AA)->Unit(benchmark::kSecond);
+
+
+
+
+
+
+static void EvalStress_100_22Plus(benchmark::State & state) {
+    for (auto _ : state)
+    {
+        std::vector<std::string> player_ranges{ "100%", "22+"};
+        EvaluationObject obj(player_ranges);
+        obj.Compute();
+    }
+}
+BENCHMARK(EvalStress_100_22Plus)->Unit(benchmark::kSecond);
+
+static void EvalStressCache_100_22Plus(benchmark::State & state) {
+    for (auto _ : state)
+    {
+        std::vector<std::string> player_ranges{ "100%", "22+"};
+        EvaluationObject obj(player_ranges, {}, EvaluationObject::F_CacheInstructions);
+        obj.Compute();
+    }
+}
+BENCHMARK(EvalStressCache_100_22Plus)->Unit(benchmark::kSecond);
+
+
+static void EvalStress_100_22Plus_A2oPlus(benchmark::State & state) {
+    for (auto _ : state)
+    {
+        std::vector<std::string> player_ranges{ "100%", "22+", "A2o+"};
+        EvaluationObject obj(player_ranges);
+        obj.Compute();
+    }
+}
+BENCHMARK(EvalStress_100_22Plus_A2oPlus)->Unit(benchmark::kSecond);
+
+static void EvalStressCache_100_22Plus_A2oPlus(benchmark::State & state) {
+    for (auto _ : state)
+    {
+        std::vector<std::string> player_ranges{ "100%", "22+", "A2o+"};
+        EvaluationObject obj(player_ranges, {}, EvaluationObject::F_CacheInstructions);
+        obj.Compute();
+    }
+}
+BENCHMARK(EvalStressCache_100_22Plus_A2oPlus)->Unit(benchmark::kSecond);
+
+
 #if 0
 
 

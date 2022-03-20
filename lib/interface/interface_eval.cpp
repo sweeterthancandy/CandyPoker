@@ -241,7 +241,7 @@ namespace interface_ {
             const size_t common_size = player_ranges_list_[0].size();
             const int verboseicity = (( flags_ & EvaluationObject::F_StepPercent) ? 2 : 0);
             const bool save_csv = !!( flags_ & EvaluationObject::F_WriteCsv );
-            const bool cache_instrs = !! ( flags_ & EvaluationObject::F_CacheInstructions );
+            const bool cache_instrs = ( flags_ & EvaluationObject::F_CacheInstructions );
             auto comp_ctx = std::make_shared< computation_context>(common_size, verboseicity);
             auto result = std::make_shared< computation_result>(*comp_ctx);
             size_t index = 0;
@@ -265,7 +265,7 @@ namespace interface_ {
                 result->allocate_tag(tag);
                 tag_list.push_back(tag);
 
-                instruction_list instr_list = frontend_to_instruction_list(tag, players, cache_instrs);
+                instruction_list instr_list = frontend_to_instruction_list(tag, players, false);
 
                 std::copy(
                     std::cbegin(instr_list),
@@ -317,32 +317,45 @@ namespace interface_ {
             if( save_csv )
                 mgr.add_pass<write_to_csv>(csv_ctx, "pass_collect_class");
 
-            mgr.add_pass<pass_class2cards>();
-            if (should_debug_instrs)
-                mgr.add_pass<pass_print>();
-            if( should_emit_times)
-                mgr.add_pass<time_printer>("pass_class2cards", &shared_timer);
-            if( save_csv )
-                mgr.add_pass<write_to_csv>(csv_ctx, "pass_class2cards");
+            if( cache_instrs )
+            {
+                    mgr.add_pass<pass_class2normalisedcards>();
+                    if (should_debug_instrs)
+                        mgr.add_pass<pass_print>();
+                    if( should_emit_times)
+                        mgr.add_pass<time_printer>("pass_class2normalisedcards", &shared_timer);
+                    if( save_csv )
+                        mgr.add_pass<write_to_csv>(csv_ctx, "pass_class2normalisedcards");
+            }
+            else
+            {
+                    mgr.add_pass<pass_class2cards>();
+                    if (should_debug_instrs)
+                        mgr.add_pass<pass_print>();
+                    if( should_emit_times)
+                        mgr.add_pass<time_printer>("pass_class2cards", &shared_timer);
+                    if( save_csv )
+                        mgr.add_pass<write_to_csv>(csv_ctx, "pass_class2cards");
 
 
-            mgr.add_pass<pass_permutate>();
-            if (should_debug_instrs)
-                mgr.add_pass<pass_print>();
-            if( should_emit_times)
-                mgr.add_pass<time_printer>("pass_permutate", &shared_timer);
-            if( save_csv )
-                mgr.add_pass<write_to_csv>(csv_ctx, "pass_permutate");
+                    mgr.add_pass<pass_permutate>();
+                    if (should_debug_instrs)
+                        mgr.add_pass<pass_print>();
+                    if( should_emit_times)
+                        mgr.add_pass<time_printer>("pass_permutate", &shared_timer);
+                    if( save_csv )
+                        mgr.add_pass<write_to_csv>(csv_ctx, "pass_permutate");
 
 
-            mgr.add_pass<pass_sort_type>();
-            mgr.add_pass<pass_collect>();
-            if (flags_ & ( EvaluationObject::F_DebugInstructions |  EvaluationObject::F_ShowInstructions))
-                mgr.add_pass<pass_print>();
-            if( should_emit_times)
-                mgr.add_pass<time_printer>("pass_collect", &shared_timer);
-            if( save_csv )
-                mgr.add_pass<write_to_csv>(csv_ctx, "pass_collect");
+                    mgr.add_pass<pass_sort_type>();
+                    mgr.add_pass<pass_collect>();
+                    if (flags_ & ( EvaluationObject::F_DebugInstructions |  EvaluationObject::F_ShowInstructions))
+                        mgr.add_pass<pass_print>();
+                    if( should_emit_times)
+                        mgr.add_pass<time_printer>("pass_collect", &shared_timer);
+                    if( save_csv )
+                        mgr.add_pass<write_to_csv>(csv_ctx, "pass_collect");
+            }
 #else
             //mgr.add_pass<write_to_csv>(csv_ctx, "Start");
             mgr.add_pass<pass_permutate_class>();

@@ -138,6 +138,8 @@ void pass_permutate::transform(computation_context* ctx, instruction_list* instr
 }
 
 
+
+
  
 
 
@@ -355,6 +357,55 @@ private:
         > prototype_map_;
 };
 
+
+void pass_class2normalisedcards::transform(computation_context* ctx, instruction_list* instr_list, computation_result* result){
+
+        static holdem_class_hard_from_proto cache;
+
+        std::vector<holdem_hand_vector> out;
+        std::vector<matrix_t> trans;
+
+        instruction_list mapped_instructions;
+        std::vector<instruction_list::iterator> to_delete;
+
+        for(auto iter = instr_list->begin(),end = instr_list->end();iter!=end;++iter)
+        {
+                auto const& instrr = *iter;
+                if( instrr->get_type() != instruction::T_ClassEval )
+                        continue;
+                auto mem = instrr;
+                auto instr = reinterpret_cast<class_eval_instruction*>(instrr.get());
+               
+                out.clear();
+                trans.clear();
+
+                cache.populate(instr->get_vector(), out, trans);
+
+                for(size_t idx=0;idx!=out.size();++idx)
+                {
+                        auto step_rd = result_description::apply_matrix(
+                                instr->result_desc(),
+                                trans[idx]);
+                        mapped_instructions.push_back(std::make_shared<card_eval_instruction>(step_rd, out[idx]));
+                }
+                to_delete.push_back(iter);
+
+        }
+
+        for (auto const& x : to_delete)
+        {
+                instr_list->erase(x);
+        }
+        std::copy(
+                std::cbegin(mapped_instructions),
+                std::cend(mapped_instructions),
+                std::back_inserter(*instr_list)
+        );
+
+        
+ }
+
+
  instruction_list frontend_to_instruction_list(std::string const& group, std::vector<frontend::range> const& players, const bool use_perm_cache){
         instruction_list instr_list;
         tree_range root( players );
@@ -397,6 +448,7 @@ private:
 
         if (all_class_vs_class_vecs.size() > 0)
         {
+                holdem_class_hard_from_proto cache;
                 instruction_list class_vs_class_instr_list;
                 for (auto const& cv : all_class_vs_class_vecs)
                 {
@@ -422,7 +474,7 @@ private:
 
                         out.clear();
                         trans.clear();
-                        holdem_class_hard_from_proto cache;
+                        
                         cache.populate(instr->get_vector(), out, trans);
 
                         for(size_t idx=0;idx!=out.size();++idx)

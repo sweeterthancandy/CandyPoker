@@ -188,7 +188,10 @@ struct pass_permutate_class : computation_pass{
 struct pass_class2cards : instruction_map_pass{
         virtual boost::optional<instruction_list> try_map_instruction(computation_context* ctx, instruction* instrr)override;
 };
-
+// the same as pass_class2cards, but will use an expensive cache to map class vectors directly to normalized card vectors
+struct pass_class2normalisedcards : computation_pass{
+        virtual void transform(computation_context* ctx, instruction_list* instr_list, computation_result* result)override;
+};
 
 
 struct pass_write : computation_pass{

@@ -15,7 +15,8 @@ The integration tests are created by just finding examples which i assume to be 
 // Demonstrate some basic assertions.
 TEST(Eval, AA_vs_KK) {
         std::vector<std::string> player_ranges{ "AA", "KK" };
-        auto result = evaluate(player_ranges);
+        const EvaluationObject eval(player_ranges);
+	const auto result = eval.Compute();
 
         const auto P0 = result.player_view(0);
         const auto P1 = result.player_view(1);
@@ -34,7 +35,8 @@ TEST(Eval, AA_vs_KK) {
 
 TEST(Eval, KK_vs_AA) {
         std::vector<std::string> player_ranges{  "KK", "AA" };
-        auto result = evaluate(player_ranges);
+        const EvaluationObject eval(player_ranges);
+	const auto result = eval.Compute();
 
         const auto P0 = result.player_view(1);
         const auto P1 = result.player_view(0);
@@ -54,7 +56,8 @@ TEST(Eval, KK_vs_AA) {
 
 TEST(Eval, AAo_vs_22_vs_87s) {
         std::vector<std::string> player_ranges{ "AKo", "22", "87s" };
-        auto result = evaluate(player_ranges);
+        const EvaluationObject eval(player_ranges);
+	const auto result = eval.Compute();
 
         const auto P0 = result.player_view(0);
         const auto P1 = result.player_view(1);
@@ -82,7 +85,8 @@ TEST(Eval, AAo_vs_22_vs_87s) {
 
 TEST(Eval, TwoPlayerRange) {
         std::vector<std::string> player_ranges{ "AKs,AQs,AKo", "AA,KK,QQ" };
-        auto result = evaluate(player_ranges);
+        const EvaluationObject eval(player_ranges);
+	const auto result = eval.Compute();
 
         const auto P0 = result.player_view(0);
         const auto P1 = result.player_view(1);
@@ -152,7 +156,8 @@ TEST(Eval, TwoPlayerCardPerm)
         };
         for (auto const& perm : perm_list)
         {
-                auto result = evaluate(perm.player_ranges);
+                const EvaluationObject eval(perm.player_ranges);
+	        const auto result = eval.Compute();
 
                 const auto AA = result.player_view(perm.AA_index);
                 const auto KK = result.player_view(perm.KK_index);
@@ -177,7 +182,8 @@ TEST(Eval, TwoPlayerClassPerm)
         };
         for (auto const& perm : perm_list)
         {
-                auto result = evaluate(perm.player_ranges);
+                const EvaluationObject eval(perm.player_ranges);
+	        const auto result = eval.Compute();
 
                 const auto AA = result.player_view(perm.AA_index);
                 const auto KK = result.player_view(perm.KK_index);
@@ -206,7 +212,8 @@ TEST(Eval, ThreePlayerCardPerm)
         };
         for (auto const& perm : perm_list)
         {
-                auto result = evaluate(perm.player_ranges);
+                const EvaluationObject eval(perm.player_ranges);
+	        const auto result = eval.Compute();
 
                 const auto AA0 = result.player_view(perm.AA0_index);
                 const auto AA1 = result.player_view(perm.AA1_index);
@@ -239,7 +246,8 @@ TEST(Eval, ThreePlayerClassPerm)
         };
         for (auto const& perm : perm_list)
         {
-                auto result = evaluate(perm.player_ranges);
+                const EvaluationObject eval(perm.player_ranges);
+	        const auto result = eval.Compute();
 
                 const auto AA0 = result.player_view(perm.AA0_index);
                 const auto AA1 = result.player_view(perm.AA1_index);
@@ -251,6 +259,37 @@ TEST(Eval, ThreePlayerClassPerm)
                 EXPECT_EQ( KK0.Wins(), 10'012'176  ) << std_vector_to_string(perm.player_ranges);
                 EXPECT_EQ( KK0.AnyDraws(), 208'296 ) << std_vector_to_string(perm.player_ranges);
         }
-       
-        
+
+}
+
+TEST(Eval, ThreePlayerClassPermInstrCache)
+{
+        struct perm_ty
+        {
+                std::vector<std::string> player_ranges;
+                size_t AA0_index;
+                size_t AA1_index;
+                size_t KK0_index;
+        };
+        std::vector<perm_ty> perm_list = {
+                perm_ty{ { "AA", "AA", "KK" }, 0, 1, 2 },
+                perm_ty{ { "AA", "KK", "AA" }, 0, 2, 1 },
+                perm_ty{ { "KK", "AA", "AA" }, 1, 2, 0 }
+        };
+        for (auto const& perm : perm_list)
+        {
+                const EvaluationObject eval(perm.player_ranges, {}, EvaluationObject::F_CacheInstructions);
+	        const auto result = eval.Compute();
+
+                const auto AA0 = result.player_view(perm.AA0_index);
+                const auto AA1 = result.player_view(perm.AA1_index);
+                const auto KK0 = result.player_view(perm.KK0_index);
+
+                EXPECT_EQ( AA0.Wins(), 	AA1.Wins() ) << std_vector_to_string(perm.player_ranges);
+                EXPECT_EQ( AA0.AnyDraws(), AA1.AnyDraws() ) << std_vector_to_string(perm.player_ranges);
+
+                EXPECT_EQ( KK0.Wins(), 10'012'176  ) << std_vector_to_string(perm.player_ranges);
+                EXPECT_EQ( KK0.AnyDraws(), 208'296 ) << std_vector_to_string(perm.player_ranges);
+        }
+
 }
